@@ -17,7 +17,7 @@ const Sidebar = () => {
         blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles, startResizing, handleReset, handleChange, handleTitleChange,
         saveDossier, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
-        reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt
+        reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData
     } = context;
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
@@ -67,6 +67,12 @@ const Sidebar = () => {
             <div className="flex-1 overflow-y-auto p-4" style={{ zoom: uiZoom }}>
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
+                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
+                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
+                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
+                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" tout en bas avec votre fichier .json.</p>
+                        </div>
+
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
                             <button onClick={saveDossier} className="w-full bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold mb-3 shadow">💾 Sauvegarder le dossier actuel</button>

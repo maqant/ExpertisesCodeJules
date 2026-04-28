@@ -296,10 +296,31 @@ export const ExpertiseProvider = ({ children }) => {
           cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
           const data = JSON.parse(cleanedText);
           
+          if (data.dossiers && Array.isArray(data.dossiers)) {
+              setSavedDossiers(prev => {
+                  const merged = [...prev];
+                  data.dossiers.forEach(d => {
+                      if (!merged.find(existing => existing.id === d.id)) merged.push(d);
+                  });
+                  return merged;
+              });
+          }
+          if (data.franchises && Array.isArray(data.franchises)) {
+              setFranchises(prev => Array.from(new Set([...prev, ...data.franchises])));
+          }
           if (data.formData) setFormData(prev => ({ ...prev, ...data.formData }));
           if (data.experts && Array.isArray(data.experts)) {
               const newExperts = data.experts.filter(e => e.nom && e.nom.trim() !== "");
-              setExpertsList(prev => { const merged = [...prev]; newExperts.forEach(ne => { if (!merged.find(pe => pe.nom.toLowerCase() === ne.nom.toLowerCase())) merged.push(ne); }); return merged; });
+              setExpertsList(prev => { 
+                  const merged = [...prev]; 
+                  newExperts.forEach(ne => { 
+                      const keyNe = normalizeExpertKey(ne.nom);
+                      if (!merged.find(pe => normalizeExpertKey(pe.nom) === keyNe)) {
+                          merged.push(ne); 
+                      }
+                  }); 
+                  return merged; 
+              });
           }
           if (data.occupants && Array.isArray(data.occupants)) setOccupants(prev => [...prev, ...data.occupants.filter(o => o.nom).map(o => ({...o, id: Date.now() + Math.random()}))]);
           if (data.expenses && Array.isArray(data.expenses)) setExpenses(prev => [...prev, ...data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: Date.now() + Math.random()}))]);
@@ -337,12 +358,29 @@ Règles IMPÉRATIVES :
 
 Voici le format JSON :
 {
+"dossiers": [],
+"franchises": [],
 "formData": { "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", "adresse": "", "cause": "" },
 "experts": [ { "nom": "NOM", "tel": "04XX XX XX" } ],
 "occupants": [ { "etage": "", "statut": "Locataire", "nom": "", "tel": "", "email": "", "rc": "Non", "rcPolice": "", "secAssurance": "Non", "secType": "", "secPolice": "", "secCie": "" } ],
 "expenses": [ { "prestataire": "", "type": "", "ref": "", "desc": "", "compteDe": "", "montant": "", "typeMontant": "HTVA" } ]
 }`;
       navigator.clipboard.writeText(promptText).then(() => alert("✅ Prompt copié !")).catch(err => alert("Erreur copie."));
+  };
+
+  const exportGlobalData = () => {
+      const data = {
+          dossiers: savedDossiers,
+          experts: expertsList,
+          franchises: franchises
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Expertise_Sauvegarde_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
   };
 
   const contextValue = {
@@ -363,7 +401,7 @@ Voici le format JSON :
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
-      handlePasteImport, copyPrompt
+      handlePasteImport, copyPrompt, exportGlobalData
   };
 
   return (
