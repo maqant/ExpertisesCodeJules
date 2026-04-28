@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-100 overflow-hidden font-sans;
+  }
+}
+
+.a4-page { 
+    width: 210mm; 
+    min-height: 297mm; 
+    height: auto; 
+    background: white; 
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+    position: relative; 
+    overflow: visible; 
+    padding-bottom: 20mm; 
+    flex-shrink: 0; 
+    font-family: Arial, Helvetica, sans-serif;
+}
+.builder-grid { 
+    background-image: 
+        linear-gradient(to right, #e2e8f0 1px, transparent 1px), 
+        linear-gradient(to bottom, #e2e8f0 1px, transparent 1px); 
+    background-size: 10px 10px, 10px 10px; 
+}
+
+/* Lignes de coupe visuelles pour le mode édition */
+.page-break {
+    position: absolute; left: 0; right: 0; border-bottom: 2px dashed rgba(239, 68, 68, 0.4); z-index: 0; pointer-events: none;
+}
+.page-break::after {
+    content: '✂️ Ligne de coupe page approximative'; position: absolute; right: 10px; bottom: 2px; font-size: 10px; color: rgba(239, 68, 68, 0.6);
+}
+
+.draggable-block { 
+    position: absolute; 
+    border: 1px dashed transparent; 
+    padding: 12px; 
+    transition: border 0.2s, background-color 0.2s; 
+    resize: both; 
+    overflow: auto; 
+    min-width: 150px; 
+    min-height: 40px; 
+}
+.draggable-block:hover { border: 1px dashed #94a3b8; background-color: rgba(248, 250, 252, 0.9); box-shadow: inset -6px -6px 0px -4px #cbd5e1; }
+
+/* BOUTONS ET BARRE D'OUTILS */
+.block-controls { opacity: 0; transition: opacity 0.2s; z-index: 50; }
+.draggable-block:hover .block-controls { opacity: 1; }
+
+.drag-handle { width: 22px; height: 22px; background-color: #475569; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 4px; cursor: move; user-select: none; transition: background 0.2s; }
+.drag-handle:hover { background-color: #334155; }
+
+.fit-button { height: 22px; padding: 0 8px; background-color: #4f46e5; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; cursor: pointer; user-select: none; font-weight: bold; border: none; transition: background 0.2s;}
+.fit-button:hover { background-color: #4338ca; }
+.fit-button.is-fit { background-color: #059669; }
+.fit-button.is-fit:hover { background-color: #047857; }
+
+::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+.input-field { width: 100%; background-color: #1e293b; border: 1px solid #475569; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: white; margin-bottom: 0.5rem; }
+.input-field:focus { outline: none; border-color: #6366f1; }
+input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+
+label { display: block; font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.1rem; }
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: 1px solid #94a3b8; border-radius: 2px; }
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: '▶'; display: inline-block; width: 1.2em; font-size: 0.7rem; transition: transform 0.2s; color: #818cf8; }
+details[open] > summary::before { transform: rotate(90deg); }
+
+.resizer { cursor: col-resize; transition: background-color 0.2s; }
+.resizer:hover, .resizer.active { background-color: #6366f1; }
+
+/* Styles pour le drag and drop manuel */
+.sortable-ghost { opacity: 0.4; }
+
+/* =========================================
+   IMPRESSION NATIVE (Gère les sauts de page)
+   ========================================= */
+@media print {
+    @page { size: A4 portrait; margin: 15mm; }
+    body { background: white !important; margin: 0 !important; padding: 0 !important; overflow: auto !important; }
+    
+    #sidebar, .resizer, .page-break, .block-controls { display: none !important; }
+    #workspace-container { width: 100% !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    
+    .a4-page { 
+        width: 100% !important; 
+        min-height: 0 !important; 
+        box-shadow: none !important; 
+        padding: 0 !important; 
+        background: white !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .builder-grid { background-image: none !important; }
+
+    .draggable-block {
+        position: relative !important;
+        transform: none !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-bottom: 6mm !important;
+        page-break-inside: avoid;
+    }
+
+    #block-frais { page-break-inside: auto !important; }
+    table { page-break-inside: auto; width: 100%; border-collapse: collapse; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    th, td { border: 1px solid #94a3b8 !important; }
+}
