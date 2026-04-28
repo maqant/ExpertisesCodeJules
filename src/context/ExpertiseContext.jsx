@@ -33,29 +33,7 @@ const initialStyles = {
   divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
 };
 
-const BUILTIN_EXPERTS = [
-  { "nom": "HENRY", "tel": "0496/93.36.89" }, { "nom": "LANGE", "tel": "0475/82.83.88" }, { "nom": "MARICHAL", "tel": "0475/73.60.02" }, 
-  { "nom": "LEONI", "tel": "0484/22.25.81" }, { "nom": "SAIL Marc", "tel": "0485/84.76.55" }, { "nom": "HOUBAR Paul", "tel": "0475/69.29.42" }, 
-  { "nom": "HAAS", "tel": "0495/66.26.70" }, { "nom": "THIRY", "tel": "0485/78.93.84" }, { "nom": "THIRIONET Christophe", "tel": "0496/045075" }, 
-  { "nom": "JARDON Stéphane", "tel": "0484/16.52.61" }, { "nom": "VITELLO Bruno", "tel": "0478/43.10.66" }, { "nom": "HAUSEUX Stéphane", "tel": "0494/66.04.68" }, 
-  { "nom": "BREVERS Christian", "tel": "0477/39.59.51" }, { "nom": "DEBERG Pierre-Yves", "tel": "0497/36.19.63" }, { "nom": "CORNEROTTE Nicolas", "tel": "0476/63.87.90" }, 
-  { "nom": "MARCON Rudi", "tel": "0475/905.990" }, { "nom": "BALTACI Alper", "tel": "0475/820.017" }, { "nom": "HEUSCHLING Denis", "tel": "0497/42.26.74" }, 
-  { "nom": "LACROIX Christophe", "tel": "0476/78.90.20" }, { "nom": "RONSSE Vincent", "tel": "0498/38.74.88" }, { "nom": "BERTRAND David", "tel": "+32478977699" }, 
-  { "nom": "SOMERS Gaetan", "tel": "+32479471039" }, { "nom": "GILLET Xavier", "tel": "0492/47.19.77" }, { "nom": "LOURTIE Frédéric", "tel": "0498/63.12.30" }, 
-  { "nom": "TROKAY", "tel": "0486056438" }, { "nom": "DEDOBBELEER", "tel": "0479/706401" }, { "nom": "VAN BOCKSTAELE", "tel": "0495/52.91.15" }, 
-  { "nom": "LIENARD Alexandre", "tel": "0473/96.31.18" }, { "nom": "GILLEBERT Francis", "tel": "0483/584616" }, { "nom": "MAES Geert", "tel": "0477/232343" }, 
-  { "nom": "DE JAMBLINNE Maximilien", "tel": "0472/611475" }, { "nom": "FRANCOIS-NAVEZ Hugues", "tel": "0477/72.87.14" }, { "nom": "BECKER", "tel": "0479/29.16.01" }, 
-  { "nom": "SIMAR Renaud", "tel": "0479/87.02.90" }, { "nom": "MAIRLOT Caroline", "tel": "" }, { "nom": "BRAHAM Catherine", "tel": "" }, 
-  { "nom": "DIDESSE Olivier", "tel": "0473/87.71.27" }, { "nom": "BERNARD Pierre-Alain", "tel": "0496/27.18.98" }, { "nom": "FLEURY", "tel": "0478/349.693" }, 
-  { "nom": "HANSON", "tel": "0475765032" }, { "nom": "ESCH Yves", "tel": "0477/94.21.48" }, { "nom": "NEMETH", "tel": "0476 28 90 04" }, 
-  { "nom": "MARTIN Loris", "tel": "0495 25 16 87" }, { "nom": "TORMO José", "tel": "0476/45.78.00" }, { "nom": "COMBLEN Jean-Philippe", "tel": "0494/11.88.57" }, 
-  { "nom": "DUHOUX Hugues", "tel": "0476/59.08.17" }, { "nom": "BOSSAERT Patrick", "tel": "0475/83.19.09" }, { "nom": "SOMERS Gaétan", "tel": "0479/47.10.39" }, 
-  { "nom": "DODEMONT Damien", "tel": "0497/46.29.21" }, { "nom": "LEONARD Jean", "tel": "" }, { "nom": "DE SAINT HUBERT Michel", "tel": "0473/46.14.62" }, 
-  { "nom": "BEX Nicolas", "tel": "0473/33.15.16" }, { "nom": "LIBERT Serge", "tel": "0486/513144" }, { "nom": "DE BOIS Thierry", "tel": "0477/13.13.11" }, 
-  { "nom": "NOLDEN", "tel": "0496/37.85.29" }, { "nom": "CHAIDRON William", "tel": "0499/94.85.88" }, { "nom": "CORMAN Jean", "tel": "0475/324034" }, 
-  { "nom": "DE MARCHIN", "tel": "0479/98.49.86" }, { "nom": "NELIS Julien", "tel": "0472781500" }, { "nom": "DORTU Stéphane", "tel": "0496131064" }, 
-  { "nom": "DION Laurent", "tel": "0476618468" }, { "nom": "GABER", "tel": "0494 53 50 48" }
-];
+
 
 const BUILTIN_FRANCHISES = [
   "Avril 2026 - 333,39 €", "Mars 2026 - 333,01 €", "Février 2026 - 331,21 €", "Janvier 2026 - 329,77 €", "Décembre 2025 - 329,55 €", 
@@ -145,7 +123,7 @@ export const ExpertiseProvider = ({ children }) => {
 
       const mergedExpertsMap = new Map();
 
-      [...parsedExperts, ...BUILTIN_EXPERTS].forEach((exp) => {
+      parsedExperts.forEach((exp) => {
           const key = normalizeExpertKey(exp.nom) || normalizeExpertKey(exp.tel);
           if (!key) return;
           mergedExpertsMap.set(key, {
