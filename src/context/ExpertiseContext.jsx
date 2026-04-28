@@ -19,7 +19,7 @@ const initialTitles = {
   cause: "Cause du sinistre",
   orga: "Organisation du bâtiment",
   frais: "Tableau récapitulatif des frais et devis",
-  photos: "Planches photographiques",
+  photos: "Photos",
   divers: "Divers & Remarques"
 };
 
