@@ -312,25 +312,38 @@ export const ExpertiseProvider = ({ children }) => {
           const dbKey = `pdf_${Date.now()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
-          setAttachedFiles(prev => ({
-              ...prev,
-              [expenseId]: { name: file.name, pages, dbKey }
-          }));
+          const fileObj = { name: file.name, pages, dbKey };
+          setAttachedFiles(prev => {
+              const current = prev[expenseId] || [];
+              return { ...prev, [expenseId]: [...current, fileObj] };
+          });
       } catch (err) {
           alert("Erreur lors de la lecture du PDF : " + err.message);
       }
   };
 
-  const handleRemoveFile = async (docId) => {
-      const fileInfo = attachedFiles[docId];
-      if (fileInfo && fileInfo.dbKey) {
-          await localforage.removeItem(fileInfo.dbKey);
+  const handleRemoveFile = async (docId, dbKeyToRemove) => {
+      if (dbKeyToRemove) {
+          await localforage.removeItem(dbKeyToRemove);
+          setAttachedFiles(prev => {
+              const current = prev[docId] || [];
+              const updated = current.filter(f => f.dbKey !== dbKeyToRemove);
+              if (updated.length === 0) {
+                  const next = { ...prev };
+                  delete next[docId];
+                  return next;
+              }
+              return { ...prev, [docId]: updated };
+          });
+      } else {
+          const files = attachedFiles[docId] || [];
+          for (const f of files) await localforage.removeItem(f.dbKey);
+          setAttachedFiles(prev => {
+              const next = { ...prev };
+              delete next[docId];
+              return next;
+          });
       }
-      setAttachedFiles(prev => {
-          const next = { ...prev };
-          delete next[docId];
-          return next;
-      });
   };
 
   const handleAttachPhoto = async (occupantId, file) => {
@@ -368,22 +381,28 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const getPaginationInfo = (docId) => {
+  const getPaginationInfo = (docId, forcedLabel = '') => {
       let currentPage = 2; // Page de garde = 1 page
       let annexeIndex = 1;
       
-      const checkDoc = (id, pagesOverride = null) => {
+      const checkDoc = (id, label = '', pagesOverride = null) => {
           let pages = 0;
           if (pagesOverride !== null) {
               pages = pagesOverride;
+          } else if (attachedFiles[id] && Array.isArray(attachedFiles[id])) {
+              pages = attachedFiles[id].reduce((sum, f) => sum + f.pages, 0);
           } else if (attachedFiles[id]) {
-              pages = attachedFiles[id].pages;
+              // Backward compatibility
+              pages = attachedFiles[id].pages || 0;
           }
           
           if (docId === id) {
               if (pages === 0) return null;
               const endPage = currentPage + pages - 1;
-              const text = pages === 1 ? `(Annexe ${annexeIndex} - Page ${currentPage})` : `(Annexe ${annexeIndex} - Pages ${currentPage} à ${endPage})`;
+              const pagesText = pages === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
+              // Use forcedLabel if provided (useful for dynamic stuff), otherwise use the block's label
+              const finalLabel = forcedLabel || label;
+              const text = finalLabel ? `${finalLabel} (Annexe ${annexeIndex} - ${pagesText})` : `(Annexe ${annexeIndex} - ${pagesText})`;
               return { text, annexeIndex, startPage: currentPage, endPage };
           }
           if (pages > 0) {
@@ -394,15 +413,15 @@ export const ExpertiseProvider = ({ children }) => {
       };
 
       let res;
-      res = checkDoc('doc_mail_expertise'); if (res) return res;
-      res = checkDoc('doc_mail_declaration'); if (res) return res;
-      res = checkDoc('doc_rapport_cause'); if (res) return res;
+      res = checkDoc('doc_mail_expertise', 'Mails de fixation et confirmation'); if (res) return res;
+      res = checkDoc('doc_mail_declaration', 'Mail de déclaration'); if (res) return res;
+      res = checkDoc('doc_rapport_cause', 'Rapport de recherche'); if (res) return res;
       
       for (const occ of occupants) {
           const pList = attachedPhotos[occ.id];
           if (pList && pList.length > 0) {
              const pPages = Math.ceil(pList.length / 2);
-             res = checkDoc('doc_photos_occ_' + occ.id, pPages); if (res) return res;
+             res = checkDoc('doc_photos_occ_' + occ.id, `Photos de ${occ.nom}`, pPages); if (res) return res;
           }
       }
       
@@ -410,8 +429,8 @@ export const ExpertiseProvider = ({ children }) => {
           res = checkDoc(exp.id); if (res) return res;
       }
       
-      res = checkDoc('doc_cond_part'); if (res) return res;
-      res = checkDoc('doc_cond_gen'); if (res) return res;
+      res = checkDoc('doc_cond_part', 'Conditions particulières'); if (res) return res;
+      res = checkDoc('doc_cond_gen', 'Conditions générales'); if (res) return res;
       
       return null;
   };
@@ -431,9 +450,18 @@ export const ExpertiseProvider = ({ children }) => {
               }
           };
 
-          if (attachedFiles['doc_mail_expertise']) await appendPdf(attachedFiles['doc_mail_expertise'].dbKey);
-          if (attachedFiles['doc_mail_declaration']) await appendPdf(attachedFiles['doc_mail_declaration'].dbKey);
-          if (attachedFiles['doc_rapport_cause']) await appendPdf(attachedFiles['doc_rapport_cause'].dbKey);
+          const appendPdfFiles = async (id) => {
+              let files = attachedFiles[id];
+              if (!files) return;
+              if (!Array.isArray(files)) files = [files]; // Backward compatibility
+              for (const f of files) {
+                  await appendPdf(f.dbKey);
+              }
+          };
+
+          await appendPdfFiles('doc_mail_expertise');
+          await appendPdfFiles('doc_mail_declaration');
+          await appendPdfFiles('doc_rapport_cause');
 
           for (const occ of occupants) {
               const pList = attachedPhotos[occ.id];
@@ -474,11 +502,11 @@ export const ExpertiseProvider = ({ children }) => {
           }
           
           for (const exp of expenses) {
-              if (attachedFiles[exp.id]) await appendPdf(attachedFiles[exp.id].dbKey);
+              await appendPdfFiles(exp.id);
           }
           
-          if (attachedFiles['doc_cond_part']) await appendPdf(attachedFiles['doc_cond_part'].dbKey);
-          if (attachedFiles['doc_cond_gen']) await appendPdf(attachedFiles['doc_cond_gen'].dbKey);
+          await appendPdfFiles('doc_cond_part');
+          await appendPdfFiles('doc_cond_gen');
 
           const pages = mergedPdf.getPages();
           if (pages.length === 0) {

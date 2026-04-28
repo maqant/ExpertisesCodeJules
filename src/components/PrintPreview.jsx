@@ -29,7 +29,6 @@ const PrintPreview = () => {
                 <div key="titre" className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.titre.fontSize}px`, color: styles.titre.color, fontFamily: styles.titre.fontFamily, textAlign: styles.titre.textAlign }}>
                     <div className={`${styles.titre.border ? 'border-2 border-current p-4 rounded' : ''} bg-white`}>
                         <p className="font-bold uppercase break-words">Expertise du {formData.dateExp ? new Date(formData.dateExp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + (formData.heureExp ? ` à ${formData.heureExp.replace(':', 'h')}` : '') : '...'} {formData.refPechard ? `- ${formData.refPechard}` : ''} {formData.nomResidence ? `- ${formData.nomResidence}` : ''}</p>
-                        {getPaginationInfo('doc_mail_expertise') && <p className="text-[0.8em] text-slate-500 italic mt-1 text-center" style={{ fontSize: `${styles.titre.fontSize * 0.7}px` }}>{getPaginationInfo('doc_mail_expertise').text}</p>}
                     </div>
                 </div>
             );
@@ -41,6 +40,7 @@ const PrintPreview = () => {
                         <p className="break-words"><strong>Franchise applicable :</strong> {formData.franchise}</p>
                         <p className="break-words"><strong>Pertes indirectes :</strong> {formData.pertesIndirectes}</p>
                         <p className="break-words"><strong>Expert :</strong> {formData.bureau ? formData.bureau + ' - ' : ''}{formData.expertInfos}</p>
+                        {getPaginationInfo('doc_mail_expertise') && <p className="break-words text-[0.85em] text-slate-500 italic mt-1">{getPaginationInfo('doc_mail_expertise').text}</p>}
                         {formData.isContradictoire && (
                             <div className="ml-4 mt-2 border-l-2 border-slate-800 pl-3">
                                 <p className="italic underline mb-1 break-words">Expertise contradictoire avec :</p>

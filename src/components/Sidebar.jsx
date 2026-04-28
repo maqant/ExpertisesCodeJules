@@ -22,20 +22,25 @@ const Sidebar = () => {
     } = context;
 
     const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
-        const file = attachedFiles[docId];
-        if (file) {
-            return (
-                <span className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 ml-auto shrink-0 border border-indigo-500/30 font-normal" title={file.name}>
-                    📎 {file.pages}p {getPaginationInfo(docId) ? `(${getPaginationInfo(docId).text})` : ''}
-                    <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
-                </span>
-            );
-        }
+        let files = attachedFiles[docId] || [];
+        if (!Array.isArray(files)) files = [files];
+
         return (
-            <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer ml-auto shrink-0 flex items-center" title={title}>
-                📎 <span className="sr-only">Upload</span>
-                <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleAttachFile(docId, e.target.files[0])} />
-            </label>
+            <div className="flex items-center gap-1 ml-auto shrink-0 flex-wrap justify-end">
+                {files.map(file => {
+                    if (!file.name) return null;
+                    return (
+                        <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
+                            📎 {file.pages}p
+                            <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
+                        </span>
+                    );
+                })}
+                <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer flex items-center" title={title}>
+                    📎 <span className="sr-only">Upload</span>
+                    <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(docId, f))} />
+                </label>
+            </div>
         );
     };
 
@@ -281,7 +286,11 @@ const Sidebar = () => {
                                     <div key={exp.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } setDraggedExpIndex(index); e.dataTransfer.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (draggedExpIndex === null || draggedExpIndex === index) return; const newExps = [...expenses]; const item = newExps.splice(draggedExpIndex, 1)[0]; newExps.splice(index, 0, item); setExpenses(newExps); setDraggedExpIndex(null); }} onDragEnd={() => setDraggedExpIndex(null)} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''} ${draggedExpIndex === index ? 'opacity-50 border-indigo-400' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeExpense(exp.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
                                         {!isExp ? (
-                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span>{attachedFiles[exp.id] && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1" title={attachedFiles[exp.id].name}>📎 {attachedFiles[exp.id].pages}p</span>}</div>
+                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
+                                                <span className="text-slate-500 cursor-grab">⠿</span>
+                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span>
+                                                {(attachedFiles[exp.id] || []).length > 0 && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>}
+                                            </div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
                                                 <div><label>Prestataire</label><input type="text" autoFocus value={exp.prestataire} onChange={e=>updateExpense(exp.id, 'prestataire', e.target.value)} className="input-field mb-0" /></div>
@@ -292,20 +301,24 @@ const Sidebar = () => {
                                                 <div><label>Type Montant</label><select value={exp.typeMontant} onChange={e=>updateExpense(exp.id, 'typeMontant', e.target.value)} className="input-field mb-0"><option>HTVA</option><option>Forfait</option><option>TVAC</option></select></div>
                                                 
                                                 <div className="col-span-2 border-t border-slate-700 mt-2 pt-2">
-                                                    <label className="text-indigo-300 font-bold mb-2 block">📄 Justificatif (PDF)</label>
-                                                    {attachedFiles[exp.id] ? (
-                                                        <div className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-600">
-                                                            <div className="text-[10px] truncate max-w-[150px]" title={attachedFiles[exp.id].name}>
-                                                                <span className="font-bold text-white block truncate">{attachedFiles[exp.id].name}</span>
-                                                                <span className="text-slate-400">{attachedFiles[exp.id].pages} page(s) {getPaginationInfo(exp.id) ? `• ${getPaginationInfo(exp.id).text}` : ''}</span>
-                                                            </div>
-                                                            <button onClick={() => handleRemoveFile(exp.id)} className="text-[10px] text-red-400 hover:underline">Supprimer</button>
-                                                        </div>
-                                                    ) : (
-                                                        <label className="flex items-center justify-center w-full p-2 border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded bg-slate-800/50 cursor-pointer transition-colors text-[10px] text-slate-400 hover:text-indigo-300">
-                                                            <span>📎 Joindre un fichier PDF</span>
-                                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleAttachFile(exp.id, e.target.files[0])} />
+                                                    <div className="flex justify-between items-center">
+                                                        <label className="text-indigo-300 font-bold block">📄 Justificatif (PDF)</label>
+                                                        <label className="text-[10px] text-slate-400 hover:text-indigo-300 cursor-pointer">+ Ajouter
+                                                            <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(exp.id, f))} />
                                                         </label>
+                                                    </div>
+                                                    {(attachedFiles[exp.id] || []).length > 0 && (
+                                                        <div className="mt-2 space-y-1">
+                                                            {(attachedFiles[exp.id] || []).map(f => (
+                                                                <div key={f.dbKey} className="flex justify-between items-center bg-slate-800 p-1.5 rounded border border-slate-600">
+                                                                    <div className="text-[10px] truncate max-w-[150px]" title={f.name}>
+                                                                        <span className="font-bold text-white block truncate">{f.name}</span>
+                                                                        <span className="text-slate-400">{f.pages} page(s)</span>
+                                                                    </div>
+                                                                    <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
 
