@@ -1,4 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import localforage from 'localforage';
 
 export const ExpertiseContext = createContext();
 
@@ -7,7 +9,7 @@ const initialFormData = {
   adresse: '', franchise: '', pertesIndirectes: '', expertInfos: '', bureau: '',
   dateSinistre: '', dateDeclaration: '', declarant: '', 
   isContradictoire: false, cieContradictoire: '', bureauContradictoire: '', expertContradictoire: '', compteDeContradictoire: '',
-  nomCie: '', nomContrat: '', numPolice: '', numSinistreCie: '',
+  nomCie: '', nomContrat: '', numPolice: '', numSinistreCie: '', numConditionsGenerales: '',
   cause: "", divers: ""
 };
 
@@ -17,12 +19,13 @@ const initialTitles = {
   cause: "Cause du sinistre",
   orga: "Organisation du bâtiment",
   frais: "Tableau récapitulatif des frais et devis",
+  photos: "Planches photographiques",
   divers: "Divers & Remarques"
 };
 
-const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, divers: true };
-const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'divers'];
-const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', divers: '100%' };
+const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, photos: true, divers: true };
+const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'photos', 'divers'];
+const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', photos: '100%', divers: '100%' };
 const initialStyles = {
   titre: { border: true, fontSize: 16, color: '#0f172a', fontFamily: 'Arial', textAlign: 'center' },
   coord: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
@@ -30,6 +33,7 @@ const initialStyles = {
   cause: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   orga: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   frais: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
+  photos: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
 };
 
@@ -93,6 +97,9 @@ export const ExpertiseProvider = ({ children }) => {
   const [references, setReferences] = useState([]);
   const [occupants, setOccupants] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState({});
+  const [attachedPhotos, setAttachedPhotos] = useState({});
+  const [isMerging, setIsMerging] = useState(false);
 
   // Blocs et Styles
   const [blocksVisible, setBlocksVisible] = useState(initialVisibility);
@@ -156,6 +163,7 @@ export const ExpertiseProvider = ({ children }) => {
       setFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
       setStyles(initialStyles); setShowSubtotals(false); setOrgaAdvancedMode(false); setFitBlocks({}); setPastedJson('');
+      setAttachedFiles({}); setAttachedPhotos({});
   };
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -194,7 +202,7 @@ export const ExpertiseProvider = ({ children }) => {
       if (!name) return;
       const newDossier = {
           id: Date.now(), name, date: new Date().toLocaleString('fr-FR'),
-          data: { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, orgaAdvancedMode, fitBlocks }
+          data: { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, orgaAdvancedMode, fitBlocks, attachedFiles, attachedPhotos }
       };
       const updated = [newDossier, ...savedDossiers];
       setSavedDossiers(updated); localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
@@ -211,6 +219,8 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.blockWidths) setBlockWidths(d.blockWidths); if(d.customBlocks) setCustomBlocks(d.customBlocks); 
       if(d.showSubtotals !== undefined) setShowSubtotals(d.showSubtotals); if(d.orgaAdvancedMode !== undefined) setOrgaAdvancedMode(d.orgaAdvancedMode);
       if(d.fitBlocks) setFitBlocks(d.fitBlocks);
+      if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
+      if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
       setActiveTab('builder');
   };
 
@@ -288,6 +298,218 @@ export const ExpertiseProvider = ({ children }) => {
           return (isNaN(valA) ? 0 : valA) - (isNaN(valB) ? 0 : valB);
       });
       setExpenses(sorted);
+  };
+
+  const handleAttachFile = async (expenseId, file) => {
+      if (!file) return;
+      if (file.type !== 'application/pdf') return alert("Seuls les fichiers PDF sont acceptés pour le moment.");
+      
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const pages = pdfDoc.getPageCount();
+          
+          const dbKey = `pdf_${Date.now()}_${file.name}`;
+          await localforage.setItem(dbKey, arrayBuffer);
+          
+          setAttachedFiles(prev => ({
+              ...prev,
+              [expenseId]: { name: file.name, pages, dbKey }
+          }));
+      } catch (err) {
+          alert("Erreur lors de la lecture du PDF : " + err.message);
+      }
+  };
+
+  const handleRemoveFile = async (docId) => {
+      const fileInfo = attachedFiles[docId];
+      if (fileInfo && fileInfo.dbKey) {
+          await localforage.removeItem(fileInfo.dbKey);
+      }
+      setAttachedFiles(prev => {
+          const next = { ...prev };
+          delete next[docId];
+          return next;
+      });
+  };
+
+  const handleAttachPhoto = async (occupantId, file) => {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) return alert("Seuls les images (JPG, PNG) sont acceptées.");
+      
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          const dbKey = `img_${Date.now()}_${file.name}`;
+          await localforage.setItem(dbKey, arrayBuffer);
+          
+          const blob = new Blob([arrayBuffer], { type: file.type });
+          const dataUrl = URL.createObjectURL(blob);
+
+          setAttachedPhotos(prev => {
+              const current = prev[occupantId] || [];
+              return { ...prev, [occupantId]: [...current, { name: file.name, dbKey, dataUrl }] };
+          });
+      } catch (err) {
+          alert("Erreur lors de l'ajout de la photo : " + err.message);
+      }
+  };
+
+  const handleRemovePhoto = async (occupantId, dbKey) => {
+      await localforage.removeItem(dbKey);
+      setAttachedPhotos(prev => {
+          const current = prev[occupantId] || [];
+          const updated = current.filter(p => p.dbKey !== dbKey);
+          if (updated.length === 0) {
+              const next = { ...prev };
+              delete next[occupantId];
+              return next;
+          }
+          return { ...prev, [occupantId]: updated };
+      });
+  };
+
+  const getPaginationInfo = (docId) => {
+      let currentPage = 2; // Page de garde = 1 page
+      let annexeIndex = 1;
+      
+      const checkDoc = (id, pagesOverride = null) => {
+          let pages = 0;
+          if (pagesOverride !== null) {
+              pages = pagesOverride;
+          } else if (attachedFiles[id]) {
+              pages = attachedFiles[id].pages;
+          }
+          
+          if (docId === id) {
+              if (pages === 0) return null;
+              const endPage = currentPage + pages - 1;
+              const text = pages === 1 ? `(Annexe ${annexeIndex} - Page ${currentPage})` : `(Annexe ${annexeIndex} - Pages ${currentPage} à ${endPage})`;
+              return { text, annexeIndex, startPage: currentPage, endPage };
+          }
+          if (pages > 0) {
+              currentPage += pages;
+              annexeIndex++;
+          }
+          return null;
+      };
+
+      let res;
+      res = checkDoc('doc_mail_expertise'); if (res) return res;
+      res = checkDoc('doc_mail_declaration'); if (res) return res;
+      res = checkDoc('doc_rapport_cause'); if (res) return res;
+      
+      for (const occ of occupants) {
+          const pList = attachedPhotos[occ.id];
+          if (pList && pList.length > 0) {
+             const pPages = Math.ceil(pList.length / 2);
+             res = checkDoc('doc_photos_occ_' + occ.id, pPages); if (res) return res;
+          }
+      }
+      
+      for (const exp of expenses) {
+          res = checkDoc(exp.id); if (res) return res;
+      }
+      
+      res = checkDoc('doc_cond_part'); if (res) return res;
+      res = checkDoc('doc_cond_gen'); if (res) return res;
+      
+      return null;
+  };
+
+  const downloadMergedPDF = async () => {
+      setIsMerging(true);
+      try {
+          const mergedPdf = await PDFDocument.create();
+          const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+          
+          const appendPdf = async (dbKey) => {
+              const pdfBytes = await localforage.getItem(dbKey);
+              if (pdfBytes) {
+                  const pdf = await PDFDocument.load(pdfBytes);
+                  const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                  copiedPages.forEach((page) => mergedPdf.addPage(page));
+              }
+          };
+
+          if (attachedFiles['doc_mail_expertise']) await appendPdf(attachedFiles['doc_mail_expertise'].dbKey);
+          if (attachedFiles['doc_mail_declaration']) await appendPdf(attachedFiles['doc_mail_declaration'].dbKey);
+          if (attachedFiles['doc_rapport_cause']) await appendPdf(attachedFiles['doc_rapport_cause'].dbKey);
+
+          for (const occ of occupants) {
+              const pList = attachedPhotos[occ.id];
+              if (pList && pList.length > 0) {
+                  for (let i = 0; i < pList.length; i += 2) {
+                      const page = mergedPdf.addPage();
+                      const { width, height } = page.getSize();
+                      page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
+                      
+                      const drawImage = async (imgInfo, yOffset) => {
+                          try {
+                              const imgBytes = await localforage.getItem(imgInfo.dbKey);
+                              if (!imgBytes) return;
+                              let image;
+                              if (imgInfo.name.toLowerCase().endsWith('.png')) {
+                                  image = await mergedPdf.embedPng(imgBytes);
+                              } else {
+                                  image = await mergedPdf.embedJpg(imgBytes);
+                              }
+                              const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
+                              page.drawImage(image, {
+                                  x: (width - imgDims.width) / 2,
+                                  y: yOffset - imgDims.height,
+                                  width: imgDims.width,
+                                  height: imgDims.height,
+                              });
+                          } catch (e) {
+                              console.error("Erreur image:", e);
+                          }
+                      };
+                      
+                      await drawImage(pList[i], height - 80);
+                      if (i + 1 < pList.length) {
+                          await drawImage(pList[i + 1], height / 2 - 20);
+                      }
+                  }
+              }
+          }
+          
+          for (const exp of expenses) {
+              if (attachedFiles[exp.id]) await appendPdf(attachedFiles[exp.id].dbKey);
+          }
+          
+          if (attachedFiles['doc_cond_part']) await appendPdf(attachedFiles['doc_cond_part'].dbKey);
+          if (attachedFiles['doc_cond_gen']) await appendPdf(attachedFiles['doc_cond_gen'].dbKey);
+
+          const pages = mergedPdf.getPages();
+          if (pages.length === 0) {
+              setIsMerging(false);
+              return alert("Aucune annexe à fusionner.");
+          }
+
+          let pageNum = 2; 
+          for (const page of pages) {
+              const { width, height } = page.getSize();
+              page.drawText(`Page ${pageNum}`, {
+                  x: width - 60,
+                  y: 20,
+                  size: 10,
+                  color: rgb(0.3, 0.3, 0.3)
+              });
+              pageNum++;
+          }
+
+          const mergedPdfBytes = await mergedPdf.save();
+          const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Annexes_${formData.nomResidence || 'Expertise'}.pdf`;
+          a.click();
+          URL.revokeObjectURL(url);
+      } catch (err) {
+          alert("Erreur lors de la fusion : " + err.message);
+      }
+      setIsMerging(false);
   };
 
   const processJsonData = (rawText) => {
@@ -396,6 +618,7 @@ Voici le format JSON :
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
       occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
+      attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, getPaginationInfo, downloadMergedPDF,
       startResizing, stopResizing, resize, handleReset, handleChange,
       handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, loadDossier,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,

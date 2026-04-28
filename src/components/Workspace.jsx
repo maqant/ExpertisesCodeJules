@@ -9,7 +9,7 @@ const Workspace = () => {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, styles, setStyles,
         fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode,
-        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth
+        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
 
     const totalFrais = expenses.reduce((acc, curr) => {
@@ -31,7 +31,7 @@ const Workspace = () => {
         return (
             <div className="block-controls absolute top-1 right-1 z-50 print:hidden opacity-0 group-hover:opacity-100 transition-opacity">
                 {!isOpen ? (
-                    <button 
+                    <button
                         onMouseDown={(e) => { e.preventDefault(); setIsOpen(true); }}
                         className="bg-slate-800 text-white w-6 h-6 flex items-center justify-center rounded shadow border border-slate-600 hover:bg-indigo-600 transition-colors"
                         title="Ouvrir les outils"
@@ -44,15 +44,15 @@ const Workspace = () => {
                             <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest pl-1">Outils</span>
                             <button onMouseDown={(e) => { e.preventDefault(); setIsOpen(false); }} className="text-slate-300 hover:text-red-400 hover:bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center leading-none" title="Fermer">✕</button>
                         </div>
-                        
+
                         {!disableText && (
                             <div className="flex items-center space-x-1" title="Style appliqué au texte SÉLECTIONNÉ">
                                 <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold'); }} className="px-1.5 py-1 hover:bg-slate-600 font-bold rounded">B</button>
                                 <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic'); }} className="px-1.5 py-1 hover:bg-slate-600 italic rounded">I</button>
                                 <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('underline'); }} className="px-1.5 py-1 hover:bg-slate-600 underline rounded">U</button>
-                                <button onMouseDown={(e) => { 
+                                <button onMouseDown={(e) => {
                                     e.preventDefault(); const sel = window.getSelection();
-                                    if(sel.rangeCount > 0 && sel.toString().length > 0) {
+                                    if (sel.rangeCount > 0 && sel.toString().length > 0) {
                                         const range = sel.getRangeAt(0); const span = document.createElement('span');
                                         span.style.border = '1px solid currentColor'; span.style.padding = '1px 3px'; span.style.borderRadius = '3px';
                                         span.appendChild(range.extractContents()); range.insertNode(span);
@@ -74,9 +74,9 @@ const Workspace = () => {
                                     <input type="number" value={styles[id]?.fontSize || 12} onChange={(e) => handleStyleChange(id, 'fontSize', parseInt(e.target.value) || 12)} className="w-10 bg-slate-700 text-white px-1 py-0.5 rounded text-[10px] outline-none text-center border border-slate-600" min="8" max="32" />
                                 </React.Fragment>
                             )}
-                            <button onMouseDown={(e) => { 
-                                e.preventDefault(); 
-                                if (id.startsWith('custom_')) { setCustomBlocks(customBlocks.filter(b => b.id !== id)); } 
+                            <button onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (id.startsWith('custom_')) { setCustomBlocks(customBlocks.filter(b => b.id !== id)); }
                                 else { context.setBlocksVisible(p => ({ ...p, [id]: false })); }
                             }} className="px-1 text-red-400 hover:text-red-300">🗑️</button>
                         </div>
@@ -119,11 +119,12 @@ const Workspace = () => {
             if (key === 'titre') return (
                 <BlockContainer key="titre" id="titre">
                     <p className="font-bold uppercase break-words">Expertise du {formData.dateExp ? new Date(formData.dateExp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + (formData.heureExp ? ` à ${formData.heureExp.replace(':', 'h')}` : '') : '...'} {formData.refPechard ? `- ${formData.refPechard}` : ''} {formData.nomResidence ? `- ${formData.nomResidence}` : ''}</p>
+                    {getPaginationInfo('doc_mail_expertise') && <p className="text-[0.8em] text-slate-500 italic mt-1" style={{ fontSize: `${styles.titre.fontSize * 0.7}px` }}>{getPaginationInfo('doc_mail_expertise').text}</p>}
                 </BlockContainer>
             );
             if (key === 'coord') return (
                 <BlockContainer key="coord" id="coord">
-                    {blockTitles.coord && <p className="font-bold underline mb-2" style={{fontSize: `${styles.coord.fontSize + 2}px`}}>{blockTitles.coord}</p>}
+                    {blockTitles.coord && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.coord.fontSize + 2}px` }}>{blockTitles.coord}</p>}
                     <p className="break-words"><strong>Adresse :</strong> {formData.adresse}</p>
                     <p className="break-words"><strong>Franchise applicable :</strong> {formData.franchise}</p>
                     <p className="break-words"><strong>Pertes indirectes :</strong> {formData.pertesIndirectes}</p>
@@ -140,24 +141,25 @@ const Workspace = () => {
             );
             if (key === 'infos') return (
                 <BlockContainer key="infos" id="infos">
-                    {blockTitles.infos && <p className="font-bold underline mb-2" style={{fontSize: `${styles.infos.fontSize + 2}px`}}>{blockTitles.infos}</p>}
-                    <p className="break-words font-bold mb-1">Sinistre du {formData.dateSinistre ? new Date(formData.dateSinistre).toLocaleDateString('fr-FR') : '...'}, déclaré au Bureau Pechard le {formData.dateDeclaration ? new Date(formData.dateDeclaration).toLocaleDateString('fr-FR') : '...'} par {formData.declarant || '...'}</p>
+                    {blockTitles.infos && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.infos.fontSize + 2}px` }}>{blockTitles.infos}</p>}
+                    <p className="break-words font-bold mb-1">Sinistre du {formData.dateSinistre ? new Date(formData.dateSinistre).toLocaleDateString('fr-FR') : '...'}, déclaré au Bureau Pechard le {formData.dateDeclaration ? new Date(formData.dateDeclaration).toLocaleDateString('fr-FR') : '...'} par {formData.declarant || '...'} {getPaginationInfo('doc_mail_declaration') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_mail_declaration').text}</span>}</p>
                     <p className="break-words"><strong>Compagnie :</strong> {formData.nomCie}</p>
-                    <p className="break-words"><strong>Contrat :</strong> {formData.nomContrat}</p>
+                    <p className="break-words"><strong>Contrat :</strong> {formData.nomContrat} {getPaginationInfo('doc_cond_part') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_cond_part').text}</span>}</p>
                     <p className="break-words"><strong>N° Police :</strong> {formData.numPolice}</p>
+                    {formData.numConditionsGenerales && <p className="break-words"><strong>N° Cond. Générales :</strong> {formData.numConditionsGenerales} {getPaginationInfo('doc_cond_gen') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_cond_gen').text}</span>}</p>}
                     <p className="break-words"><strong>N° Sinistre Cie :</strong> {formData.numSinistreCie}</p>
                     {references.length > 0 && <div>{references.map(r => <p key={r.id} className="break-words"><strong>{r.nom} {r.nom ? ':' : ''}</strong> {r.ref}</p>)}</div>}
                 </BlockContainer>
             );
             if (key === 'cause') return (
                 <BlockContainer key="cause" id="cause">
-                    {blockTitles.cause && <p className="font-bold underline mb-1" style={{fontSize: `${styles.cause.fontSize + 2}px`}}>{blockTitles.cause}</p>}
-                    <p className="whitespace-pre-wrap break-words">{formData.cause}</p>
+                    {blockTitles.cause && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.cause.fontSize + 2}px` }}>{blockTitles.cause}</p>}
+                    <p className="whitespace-pre-wrap break-words">{formData.cause} {getPaginationInfo('doc_rapport_cause') && <span className="block text-[0.8em] text-slate-500 italic font-normal mt-1">{getPaginationInfo('doc_rapport_cause').text}</span>}</p>
                 </BlockContainer>
             );
             if (key === 'orga') return (
                 <BlockContainer key="orga" id="orga">
-                    {blockTitles.orga && <p className="font-bold underline mb-2" style={{fontSize: `${styles.orga.fontSize + 2}px`}}>{blockTitles.orga}</p>}
+                    {blockTitles.orga && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.orga.fontSize + 2}px` }}>{blockTitles.orga}</p>}
                     <ul className="list-none space-y-2">
                         {occupants.map(o => (
                             <li key={o.id} className="leading-snug break-inside-avoid">
@@ -182,11 +184,16 @@ const Workspace = () => {
             );
             if (key === 'frais') return (
                 <BlockContainer key="frais" id="frais">
-                    {blockTitles.frais && <p className="font-bold underline mb-2 break-inside-avoid" style={{fontSize: `${styles.frais.fontSize + 2}px`}}>{blockTitles.frais}</p>}
-                    <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed" style={{fontSize: `${styles.frais.fontSize}px`}}>
+                    {blockTitles.frais && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize + 2}px` }}>{blockTitles.frais}</p>}
+                    <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed" style={{ fontSize: `${styles.frais.fontSize}px` }}>
                         <thead className="bg-slate-100"><tr><th className="border border-slate-400 p-2 w-12">#</th><th className="border border-slate-400 p-2 w-1/5">Prestataire</th><th className="border border-slate-400 p-2 w-1/6">Type/Réf</th><th className="border border-slate-400 p-2">Description</th><th className="border border-slate-400 p-2 w-1/5">Compte de</th><th className="border border-slate-400 p-2 w-24 text-right">Montant</th></tr></thead>
                         <tbody>
-                            {expenses.map((exp, index) => <tr key={exp.id} className="break-inside-avoid"><td className="border border-slate-400 p-2 text-center">{index + 1}</td><td className="border border-slate-400 p-2 break-words">{exp.prestataire}</td><td className="border border-slate-400 p-2 break-words">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td><td className="border border-slate-400 p-2 break-words">{exp.desc}</td><td className="border border-slate-400 p-2 break-words">{exp.compteDe}</td><td className="border border-slate-400 p-2 text-right font-bold whitespace-nowrap">{exp.montant ? `${exp.montant} € (${exp.typeMontant})` : ''}</td></tr>)}
+                            {expenses.map((exp, index) => {
+                                const pagInfo = getPaginationInfo(exp.id);
+                                return (
+                                    <tr key={exp.id} className="break-inside-avoid"><td className="border border-slate-400 p-2 text-center">{index + 1}</td><td className="border border-slate-400 p-2 break-words">{exp.prestataire}</td><td className="border border-slate-400 p-2 break-words">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td><td className="border border-slate-400 p-2 break-words">{exp.desc} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td><td className="border border-slate-400 p-2 break-words">{exp.compteDe}</td><td className="border border-slate-400 p-2 text-right font-bold whitespace-nowrap">{exp.montant ? `${exp.montant} € (${exp.typeMontant})` : ''}</td></tr>
+                                );
+                            })}
                             {expenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-2 text-right uppercase text-[0.9em]">Total</td><td className="border border-slate-400 p-2 text-right whitespace-nowrap">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
                             {expenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais encodé</td></tr>}
                         </tbody>
@@ -201,15 +208,37 @@ const Workspace = () => {
                     )}
                 </BlockContainer>
             );
+            if (key === 'photos') {
+                const occupantsWithPhotos = occupants.filter(o => context.attachedPhotos && context.attachedPhotos[o.id] && context.attachedPhotos[o.id].length > 0);
+                return (
+                    <BlockContainer key="photos" id="photos">
+                        {blockTitles.photos && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.photos?.fontSize || 12}px` }}>{blockTitles.photos}</p>}
+                        {occupantsWithPhotos.length > 0 ? (
+                            <ul className="list-disc pl-5">
+                                {occupantsWithPhotos.map(occ => {
+                                    const pagInfo = getPaginationInfo('doc_photos_occ_' + occ.id);
+                                    return (
+                                        <li key={occ.id} className="mb-1" style={{fontSize: `${styles.photos?.fontSize || 12}px`}}>
+                                            Photos de {occ.nom} {pagInfo && <span className="text-[0.8em] text-slate-500 italic ml-1">{pagInfo.text}</span>}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="italic opacity-50" style={{fontSize: `${styles.photos?.fontSize || 12}px`}}>Aucune photo rattachée au rapport.</p>
+                        )}
+                    </BlockContainer>
+                );
+            }
             if (key === 'divers') return (
                 <BlockContainer key="divers" id="divers">
-                    {blockTitles.divers && <p className="font-bold underline mb-1" style={{fontSize: `${styles.divers.fontSize + 2}px`}}>{blockTitles.divers}</p>}
+                    {blockTitles.divers && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.divers.fontSize + 2}px` }}>{blockTitles.divers}</p>}
                     <p className="whitespace-pre-wrap break-words">{formData.divers}</p>
                 </BlockContainer>
             );
             if (key.startsWith('custom_')) {
                 const block = customBlocks.find(b => b.id === key);
-                if(block) return (
+                if (block) return (
                     <BlockContainer key={block.id} id={block.id}>
                         <p className="whitespace-pre-wrap break-words">{block.text}</p>
                     </BlockContainer>

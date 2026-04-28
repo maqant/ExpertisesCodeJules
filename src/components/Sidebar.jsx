@@ -17,8 +17,27 @@ const Sidebar = () => {
         blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles, startResizing, handleReset, handleChange, handleTitleChange,
         saveDossier, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
-        reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData
+        reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
+        attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, downloadMergedPDF, getPaginationInfo
     } = context;
+
+    const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
+        const file = attachedFiles[docId];
+        if (file) {
+            return (
+                <span className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 ml-auto shrink-0 border border-indigo-500/30 font-normal" title={file.name}>
+                    📎 {file.pages}p {getPaginationInfo(docId) ? `(${getPaginationInfo(docId).text})` : ''}
+                    <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
+                </span>
+            );
+        }
+        return (
+            <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer ml-auto shrink-0 flex items-center" title={title}>
+                📎 <span className="sr-only">Upload</span>
+                <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleAttachFile(docId, e.target.files[0])} />
+            </label>
+        );
+    };
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
     const [editingExpert, setEditingExpert] = useState(null);
@@ -139,7 +158,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
-                                <div className="flex gap-2"><div className="flex-1"><label>Date de l'expertise</label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="flex gap-2"><div className="flex-1"><label>Réf Péchard</label><input type="text" name="refPechard" value={formData.refPechard} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Résidence</label><input type="text" name="nomResidence" value={formData.nomResidence} onChange={handleChange} className="input-field" /></div></div>
                             </div>
                         </details>
@@ -184,14 +203,14 @@ const Sidebar = () => {
                             <div className="p-3 space-y-2">
                                 <div className="flex gap-2">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
-                                    <div className="flex-1"><label>Date déclaration</label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
+                                    <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
                                 </div>
                                 <div className="mb-2">
                                     <label>Déclaré par (Nom)</label><input type="text" name="declarant" value={formData.declarant} onChange={handleChange} placeholder="Ex: Mme. X" className="input-field mb-0" />
                                 </div>
 
-                                <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2"><div className="flex-1"><label>N° Police</label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label className="flex items-center w-full">Nom Contrat <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2"><div className="flex-1"><label>N° Police</label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
                                     {references.map((r) => (
@@ -205,7 +224,10 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
-                            <div className="p-3"><textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea></div>
+                            <div className="p-3">
+                                <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
+                                <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
+                            </div>
                         </details>
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
@@ -259,7 +281,7 @@ const Sidebar = () => {
                                     <div key={exp.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } setDraggedExpIndex(index); e.dataTransfer.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (draggedExpIndex === null || draggedExpIndex === index) return; const newExps = [...expenses]; const item = newExps.splice(draggedExpIndex, 1)[0]; newExps.splice(index, 0, item); setExpenses(newExps); setDraggedExpIndex(null); }} onDragEnd={() => setDraggedExpIndex(null)} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''} ${draggedExpIndex === index ? 'opacity-50 border-indigo-400' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeExpense(exp.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
                                         {!isExp ? (
-                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span></div>
+                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span>{attachedFiles[exp.id] && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1" title={attachedFiles[exp.id].name}>📎 {attachedFiles[exp.id].pages}p</span>}</div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
                                                 <div><label>Prestataire</label><input type="text" autoFocus value={exp.prestataire} onChange={e=>updateExpense(exp.id, 'prestataire', e.target.value)} className="input-field mb-0" /></div>
@@ -268,6 +290,25 @@ const Sidebar = () => {
                                                 <div className="col-span-2"><label>Pour le compte de</label><input type="text" value={exp.compteDe} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} placeholder="Choisissez..." className="input-field mb-0 border-indigo-500" list="occupants-global-list" /></div>
                                                 <div><label>Montant (€)</label><input type="text" value={exp.montant} onChange={e=>updateExpense(exp.id, 'montant', e.target.value)} placeholder="350.00" className="input-field mb-0 font-bold" /></div>
                                                 <div><label>Type Montant</label><select value={exp.typeMontant} onChange={e=>updateExpense(exp.id, 'typeMontant', e.target.value)} className="input-field mb-0"><option>HTVA</option><option>Forfait</option><option>TVAC</option></select></div>
+                                                
+                                                <div className="col-span-2 border-t border-slate-700 mt-2 pt-2">
+                                                    <label className="text-indigo-300 font-bold mb-2 block">📄 Justificatif (PDF)</label>
+                                                    {attachedFiles[exp.id] ? (
+                                                        <div className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-600">
+                                                            <div className="text-[10px] truncate max-w-[150px]" title={attachedFiles[exp.id].name}>
+                                                                <span className="font-bold text-white block truncate">{attachedFiles[exp.id].name}</span>
+                                                                <span className="text-slate-400">{attachedFiles[exp.id].pages} page(s) {getPaginationInfo(exp.id) ? `• ${getPaginationInfo(exp.id).text}` : ''}</span>
+                                                            </div>
+                                                            <button onClick={() => handleRemoveFile(exp.id)} className="text-[10px] text-red-400 hover:underline">Supprimer</button>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="flex items-center justify-center w-full p-2 border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded bg-slate-800/50 cursor-pointer transition-colors text-[10px] text-slate-400 hover:text-indigo-300">
+                                                            <span>📎 Joindre un fichier PDF</span>
+                                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleAttachFile(exp.id, e.target.files[0])} />
+                                                        </label>
+                                                    )}
+                                                </div>
+
                                                 <div className="col-span-2 flex justify-end mt-1"><button onClick={() => setExpandedExpId(null)} className="text-[10px] text-slate-400 hover:text-white underline">Réduire</button></div>
                                             </div>
                                         )}
@@ -279,14 +320,47 @@ const Sidebar = () => {
                         </details>
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
-                            <AccordionHeader id="divers" num="7" />
+                            <AccordionHeader id="photos" num="7" />
+                            <div className="p-3 space-y-4">
+                                {occupants.length === 0 ? (
+                                    <p className="text-[10px] text-slate-400 italic">Ajoutez d'abord des intervenants dans la section "Organisation du bâtiment".</p>
+                                ) : (
+                                    occupants.map(occ => (
+                                        <div key={occ.id} className="bg-slate-900 border border-slate-700 p-3 rounded">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h4 className="text-white text-xs font-bold">{occ.nom || 'Inconnu'}</h4>
+                                                <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-colors shadow flex items-center gap-1">
+                                                    <span>+ Photos</span>
+                                                    <input type="file" accept="image/png, image/jpeg" multiple className="hidden" onChange={(e) => { Array.from(e.target.files).forEach(f => handleAttachPhoto(occ.id, f)) }} />
+                                                </label>
+                                            </div>
+                                            {(attachedPhotos[occ.id] || []).length > 0 ? (
+                                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                                    {attachedPhotos[occ.id].map(photo => (
+                                                        <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-slate-600 aspect-video bg-black flex items-center justify-center">
+                                                            <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
+                                                            <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-slate-500 italic mt-1">Aucune photo attachée.</p>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </details>
+
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
+                            <AccordionHeader id="divers" num="8" />
                             <div className="p-3"><textarea name="divers" value={formData.divers} onChange={handleChange} rows="3" className="input-field resize-none m-0"></textarea></div>
                         </details>
                         
                         <div className="bg-slate-900 border border-slate-600 rounded p-3 mt-4">
                             <h3 className="text-xs font-bold text-white mb-2 uppercase">🧱 Gestion des blocs affichés</h3>
                             <div className="flex flex-wrap gap-2 mb-3 text-[10px]">
-                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'divers'].map(key => (
+                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'photos', 'divers'].map(key => (
                                     <label key={key} className={`px-2 py-1 rounded cursor-pointer border ${blocksVisible[key] ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-600 text-slate-400'}`}><input type="checkbox" className="hidden" checked={!!blocksVisible[key]} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />{key.toUpperCase()}</label>
                                 ))}
                             </div>
@@ -303,7 +377,8 @@ const Sidebar = () => {
                 )}
             </div>
             <div className="p-4 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
-                <button onClick={generatePDF} className="w-full bg-indigo-600 hover:bg-indigo-500 py-2 rounded font-bold text-white transition-colors">🖨️ Imprimer le rapport / PDF</button>
+                <button onClick={generatePDF} className="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded font-bold text-white transition-colors text-xs border border-slate-600">1. 🖨️ Imprimer la Page de Garde</button>
+                <button onClick={downloadMergedPDF} disabled={isMerging || Object.keys(attachedFiles).length === 0} className={`w-full py-2 rounded font-bold text-white transition-colors text-xs shadow-lg ${Object.keys(attachedFiles).length === 0 ? 'bg-indigo-900/50 text-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'}`}>2. {isMerging ? 'Fusion en cours...' : '📦 Télécharger les Annexes'}</button>
             </div>
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
