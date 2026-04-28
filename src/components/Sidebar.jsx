@@ -67,11 +67,7 @@ const Sidebar = () => {
             <div className="flex-1 overflow-y-auto p-4" style={{ zoom: uiZoom }}>
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
-                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
-                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
-                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
-                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" tout en bas avec votre fichier .json.</p>
-                        </div>
+
 
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
@@ -130,6 +126,12 @@ const Sidebar = () => {
                                 <button onClick={handlePasteImport} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-1.5 rounded text-xs font-bold shadow">📥 2. Importer Texte</button>
                                 <label className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow text-center cursor-pointer">📂 Importer Fichier<input type="file" accept=".json" onChange={handleJsonImport} className="hidden" /></label>
                             </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
+                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
+                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
+                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" au-dessus avec votre fichier .json.</p>
                         </div>
                     </div>
                 ) : (
