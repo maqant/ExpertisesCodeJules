@@ -21,12 +21,13 @@ const initialTitles = {
   orga: "Parties",
   frais: "Réclamations",
   photos: "Photos",
-  divers: "Divers & Remarques"
+  divers: "Divers & Remarques",
+  annexes_libres: "Annexes Libres"
 };
 
-const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, frais_liste: true, photos: true, divers: true };
-const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers'];
-const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', frais_liste: '100%', photos: '100%', divers: '100%' };
+const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, frais_liste: true, photos: true, divers: true, annexes_libres: true };
+const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres'];
+const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', frais_liste: '100%', photos: '100%', divers: '100%', annexes_libres: '100%' };
 const initialStyles = {
   titre: { border: true, fontSize: 16, color: '#0f172a', fontFamily: 'Arial', textAlign: 'center' },
   coord: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
@@ -36,7 +37,8 @@ const initialStyles = {
   frais: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   frais_liste: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   photos: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
-  divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
+  divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
+  annexes_libres: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
 };
 
 
@@ -101,6 +103,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [expenses, setExpenses] = useState([]);
   const [attachedFiles, setAttachedFiles] = useState({});
   const [attachedPhotos, setAttachedPhotos] = useState({});
+  const [attachedFreeAnnexes, setAttachedFreeAnnexes] = useState([]);
   const [isMerging, setIsMerging] = useState(false);
 
   // Blocs et Styles
@@ -228,8 +231,9 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
+      // Fusion de states globaux
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
       const newId = Date.now();
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos };
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
       const updated = [newDossier, ...savedDossiers];
@@ -265,6 +269,7 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.fitBlocks) setFitBlocks(d.fitBlocks);
       if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
+      if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
@@ -281,7 +286,7 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const getSortedBlocks = () => {
-      const BUILTIN_IDS = new Set(['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers']);
+      const BUILTIN_IDS = new Set(['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres']);
       const currentCustomIds = customBlocks.map(c => c.id);
       const allIds = [...blockOrder];
       currentCustomIds.forEach(id => {
@@ -474,6 +479,38 @@ export const ExpertiseProvider = ({ children }) => {
           }
           return { ...prev, [occupantId]: updated };
       });
+  };
+
+  const handleAttachFreeAnnex = async (file) => {
+      if (!file) return;
+      const isPdf = file.type === 'application/pdf';
+      const isImage = file.type.startsWith('image/');
+      if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');
+
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          const dbKey = `free_${isPdf ? 'pdf' : 'img'}_${Date.now()}_${file.name}`;
+          await localforage.setItem(dbKey, arrayBuffer);
+
+          let pages = 1;
+          if (isPdf) {
+              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              pages = pdfDoc.getPageCount();
+          }
+          
+          setAttachedFreeAnnexes(prev => [...prev, { id: Date.now().toString(), name: file.name, customName: file.name, desc: '', dbKey, isPdf, pages }]);
+      } catch (err) {
+          alert('Erreur lors de la lecture du fichier : ' + err.message);
+      }
+  };
+
+  const handleRemoveFreeAnnex = async (id, dbKeyToRemove) => {
+      if (dbKeyToRemove) await localforage.removeItem(dbKeyToRemove);
+      setAttachedFreeAnnexes(prev => prev.filter(f => f.id !== id));
+  };
+
+  const handleUpdateFreeAnnex = (id, field, value) => {
+      setAttachedFreeAnnexes(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
   const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
@@ -992,7 +1029,12 @@ Voici le format JSON :
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
       occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
-      attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
+      attachedFiles, handleAttachFile, handleRemoveFile,
+      attachedPhotos, setAttachedPhotos,
+      handleAttachPhoto, handleRemovePhoto,
+      attachedFreeAnnexes, setAttachedFreeAnnexes,
+      handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
+      isMerging,
       getPaginationInfo, downloadSelectedPDF, downloadDossierPDF, getAnnexList,
       hideAnnexIndex, setHideAnnexIndex,
       printSelection, setPrintSelection,
