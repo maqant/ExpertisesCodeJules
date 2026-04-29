@@ -100,6 +100,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [blockTitles, setBlockTitles] = useState(initialTitles);
   const [references, setReferences] = useState([]);
   const [occupants, setOccupants] = useState([]);
+  const [occupantBlocks, setOccupantBlocks] = useState([{ id: 'default', prefix: '' }]);
   const [expenses, setExpenses] = useState([]);
   const [attachedFiles, setAttachedFiles] = useState({});
   const [attachedPhotos, setAttachedPhotos] = useState({});
@@ -232,7 +233,7 @@ export const ExpertiseProvider = ({ children }) => {
       if (!name) return;
       
       // Fusion de states globaux
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
+      const dossierData = { formData, blockTitles, references, occupants, occupantBlocks, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
       const newId = Date.now();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
@@ -270,6 +271,7 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
       if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
+      if(d.occupantBlocks) setOccupantBlocks(d.occupantBlocks); else setOccupantBlocks([{ id: 'default', prefix: '' }]);
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
@@ -1027,7 +1029,9 @@ Voici le format JSON :
       showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
       showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, setPrestatairesList, handleAddPrestataire,
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
-      occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible,
+      occupants, setOccupants, occupantBlocks, setOccupantBlocks,
+      addOccupantBlock, removeOccupantBlock, updateOccupantBlock,
+      expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
       attachedFiles, handleAttachFile, handleRemoveFile,
       attachedPhotos, setAttachedPhotos,
