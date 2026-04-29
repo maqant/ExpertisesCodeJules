@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
+import html2canvas from 'html2canvas';
 
 export const ExpertiseContext = createContext();
 
@@ -23,9 +24,9 @@ const initialTitles = {
   divers: "Divers & Remarques"
 };
 
-const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, photos: true, divers: true };
-const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'photos', 'divers'];
-const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', photos: '100%', divers: '100%' };
+const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, frais_liste: true, photos: true, divers: true };
+const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers'];
+const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', frais_liste: '100%', photos: '100%', divers: '100%' };
 const initialStyles = {
   titre: { border: true, fontSize: 16, color: '#0f172a', fontFamily: 'Arial', textAlign: 'center' },
   coord: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
@@ -33,6 +34,7 @@ const initialStyles = {
   cause: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   orga: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   frais: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
+  frais_liste: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   photos: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
 };
@@ -74,6 +76,9 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
+  const [hideAnnexIndex, setHideAnnexIndex] = useState(false);
+  const [printSelection, setPrintSelection] = useState(null); // null = tout inclus, Set<string> = sélection
+  const [coverPageCount, setCoverPageCount] = useState(1); // nb de pages de la page de garde (pour indexation correcte)
   const [expandedOccId, setExpandedOccId] = useState(null);
   const [expandedExpId, setExpandedExpId] = useState(null);
 
@@ -238,8 +243,23 @@ export const ExpertiseProvider = ({ children }) => {
       const d = dossier.data;
       if(d.formData) setFormData(d.formData); if(d.blockTitles) setBlockTitles(d.blockTitles);
       if(d.references) setReferences(d.references); if(d.occupants) setOccupants(d.occupants); 
-      if(d.expenses) setExpenses(d.expenses); if(d.blocksVisible) setBlocksVisible(d.blocksVisible); 
-      if(d.styles) setStyles(d.styles); if(d.blockOrder) setBlockOrder(d.blockOrder); 
+      if(d.expenses) setExpenses(d.expenses);
+      if(d.blocksVisible) {
+          const vis = { ...d.blocksVisible };
+          // Migration: frais_liste absent des vieux dossiers
+          if (!('frais_liste' in vis)) vis.frais_liste = true;
+          setBlocksVisible(vis);
+      }
+      if(d.styles) setStyles(d.styles);
+      if(d.blockOrder) {
+          // Migration v1.5: insérer frais_liste après frais si absent du blockOrder sauvegardé
+          let order = d.blockOrder;
+          if (!order.includes('frais_liste') && order.includes('frais')) {
+              const idx = order.indexOf('frais');
+              order = [...order.slice(0, idx + 1), 'frais_liste', ...order.slice(idx + 1)];
+          }
+          setBlockOrder(order);
+      }
       if(d.blockWidths) setBlockWidths(d.blockWidths); if(d.customBlocks) setCustomBlocks(d.customBlocks); 
       if(d.showSubtotals !== undefined) setShowSubtotals(d.showSubtotals);
       if(d.fitBlocks) setFitBlocks(d.fitBlocks);
@@ -261,12 +281,17 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const getSortedBlocks = () => {
+      const BUILTIN_IDS = new Set(['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers']);
       const currentCustomIds = customBlocks.map(c => c.id);
       const allIds = [...blockOrder];
       currentCustomIds.forEach(id => {
           if (!allIds.includes(id)) allIds.push(id);
       });
-      return allIds.filter(id => blocksVisible[id] || currentCustomIds.includes(id));
+      // Les blocs builtin sans entrée dans blocksVisible (migration) sont visibles par défaut
+      return allIds.filter(id => {
+          if (BUILTIN_IDS.has(id)) return blocksVisible[id] !== false;
+          return blocksVisible[id] || currentCustomIds.includes(id);
+      });
   };
 
   const addRef = () => setReferences([...references, { id: Date.now(), nom: '', ref: '' }]);
@@ -408,22 +433,32 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleAttachPhoto = async (occupantId, file) => {
       if (!file) return;
-      if (!file.type.startsWith('image/')) return alert("Seuls les images (JPG, PNG) sont acceptées.");
-      
+      const isPdf = file.type === 'application/pdf';
+      const isImage = file.type.startsWith('image/');
+      if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');
+
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const dbKey = `img_${Date.now()}_${file.name}`;
+          const dbKey = `${isPdf ? 'pdf' : 'img'}_${Date.now()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
-          
-          const blob = new Blob([arrayBuffer], { type: file.type });
-          const dataUrl = URL.createObjectURL(blob);
 
-          setAttachedPhotos(prev => {
-              const current = prev[occupantId] || [];
-              return { ...prev, [occupantId]: [...current, { name: file.name, dbKey, dataUrl }] };
-          });
+          if (isPdf) {
+              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const pages = pdfDoc.getPageCount();
+              setAttachedPhotos(prev => {
+                  const current = prev[occupantId] || [];
+                  return { ...prev, [occupantId]: [...current, { name: file.name, dbKey, isPdf: true, pages }] };
+              });
+          } else {
+              const blob = new Blob([arrayBuffer], { type: file.type });
+              const dataUrl = URL.createObjectURL(blob);
+              setAttachedPhotos(prev => {
+                  const current = prev[occupantId] || [];
+                  return { ...prev, [occupantId]: [...current, { name: file.name, dbKey, dataUrl, isPdf: false }] };
+              });
+          }
       } catch (err) {
-          alert("Erreur lors de l'ajout de la photo : " + err.message);
+          alert("Erreur lors de l'ajout du fichier : " + err.message);
       }
   };
 
@@ -441,34 +476,49 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const getPaginationInfo = (docId, forcedLabel = '') => {
-      let currentPage = 2; // Page de garde = 1 page
+  const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
+      if (hideAnnexIndex) return null;
+
+      // sel: null = tout inclus, Set<string> = clés incluses
+      const sel = selOverride !== undefined ? selOverride : printSelection;
+
+      const isFileIncluded = (id, dbKey) => {
+          if (!sel) return true;
+          return sel.has(`${id}::${dbKey}`);
+      };
+      const isPhotoGroupIncluded = (id) => {
+          if (!sel) return true;
+          return sel.has(id);
+      };
+      const getIncludedPages = (id) => {
+          let files = attachedFiles[id];
+          if (!files) return 0;
+          if (!Array.isArray(files)) files = [files];
+          return files.filter(f => isFileIncluded(id, f.dbKey)).reduce((s, f) => s + (f.pages || 0), 0);
+      };
+      const getPhotoPages = (occ) => {
+          if (!isPhotoGroupIncluded('doc_photos_occ_' + occ.id)) return 0;
+          const pList = attachedPhotos[occ.id];
+          if (!pList || pList.length === 0) return 0;
+          const imgs = pList.filter(p => !p.isPdf);
+          const pdfs = pList.filter(p => p.isPdf);
+          return Math.ceil(imgs.length / 2) + pdfs.reduce((s, p) => s + (p.pages || 0), 0);
+      };
+
+      let currentPage = coverPageCount + 1; // 1ère annexe démarre après les pages de la page de garde
       let annexeIndex = 1;
-      
+
       const checkDoc = (id, label = '', pagesOverride = null) => {
-          let pages = 0;
-          if (pagesOverride !== null) {
-              pages = pagesOverride;
-          } else if (attachedFiles[id] && Array.isArray(attachedFiles[id])) {
-              pages = attachedFiles[id].reduce((sum, f) => sum + f.pages, 0);
-          } else if (attachedFiles[id]) {
-              // Backward compatibility
-              pages = attachedFiles[id].pages || 0;
-          }
-          
+          const pages = pagesOverride !== null ? pagesOverride : getIncludedPages(id);
           if (docId === id) {
               if (pages === 0) return null;
               const endPage = currentPage + pages - 1;
               const pagesText = pages === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
-              // Use forcedLabel if provided (useful for dynamic stuff), otherwise use the block's label
               const finalLabel = forcedLabel || label;
               const text = finalLabel ? `${finalLabel} (Annexe ${annexeIndex} - ${pagesText})` : `(Annexe ${annexeIndex} - ${pagesText})`;
               return { text, annexeIndex, startPage: currentPage, endPage };
           }
-          if (pages > 0) {
-              currentPage += pages;
-              annexeIndex++;
-          }
+          if (pages > 0) { currentPage += pages; annexeIndex++; }
           return null;
       };
 
@@ -476,31 +526,65 @@ export const ExpertiseProvider = ({ children }) => {
       res = checkDoc('doc_mail_expertise', 'Mails de fixation et confirmation'); if (res) return res;
       res = checkDoc('doc_mail_declaration', 'Mail de déclaration'); if (res) return res;
       res = checkDoc('doc_rapport_cause', 'Rapport de recherche'); if (res) return res;
-      
+
       for (const occ of occupants) {
-          const pList = attachedPhotos[occ.id];
-          if (pList && pList.length > 0) {
-             const pPages = Math.ceil(pList.length / 2);
-             res = checkDoc('doc_photos_occ_' + occ.id, `Photos de ${occ.nom}`, pPages); if (res) return res;
+          const pp = getPhotoPages(occ);
+          if (pp > 0) {
+              if (docId === 'doc_photos_occ_' + occ.id) {
+                  const endPage = currentPage + pp - 1;
+                  const pagesText = pp === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
+                  const label = forcedLabel || `Photos de ${occ.nom}`;
+                  return { text: `${label} (Annexe ${annexeIndex} - ${pagesText})`, annexeIndex, startPage: currentPage, endPage };
+              }
+              currentPage += pp; annexeIndex++;
           }
       }
-      
+
       for (const exp of expenses) {
           res = checkDoc(exp.id); if (res) return res;
       }
-      
+
       res = checkDoc('doc_cond_part', 'Conditions particulières'); if (res) return res;
       res = checkDoc('doc_cond_gen', 'Conditions générales'); if (res) return res;
-      
+
       return null;
   };
 
-  const downloadMergedPDF = async () => {
+  // Retourne la liste ordonnée de toutes les annexes disponibles pour la modale
+  const getAnnexList = () => {
+      const list = [];
+      const addEntry = (id, label, files) => {
+          if (!files) return;
+          const arr = Array.isArray(files) ? files : [files];
+          arr.forEach(f => list.push({ id, label, file: f }));
+      };
+      addEntry('doc_mail_expertise', 'Mails de fixation et confirmation', attachedFiles['doc_mail_expertise']);
+      addEntry('doc_mail_declaration', 'Mail de déclaration', attachedFiles['doc_mail_declaration']);
+      addEntry('doc_rapport_cause', 'Rapport de recherche', attachedFiles['doc_rapport_cause']);
+      for (const occ of occupants) {
+          const pList = attachedPhotos[occ.id];
+          if (pList && pList.length > 0) {
+              const imgCount = pList.filter(p => !p.isPdf).length;
+              const pdfItems = pList.filter(p => p.isPdf);
+              const totalPages = Math.ceil(imgCount / 2) + pdfItems.reduce((s, p) => s + (p.pages || 0), 0);
+              list.push({ id: 'doc_photos_occ_' + occ.id, label: `Photos/docs de ${occ.nom || 'Inconnu'}`, isPhotos: true, occupantId: occ.id, count: pList.length, totalPages });
+          }
+      }
+      for (const exp of expenses) {
+          addEntry(exp.id, `${exp.prestataire || 'Frais'} — ${exp.desc || ''}`, attachedFiles[exp.id]);
+      }
+      addEntry('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
+      addEntry('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
+      return list;
+  };
+
+  const downloadSelectedPDF = async (selectedKeys) => {
+      // selectedKeys: Set of "id::dbKey" strings (or "id" for photos groups)
       setIsMerging(true);
       try {
           const mergedPdf = await PDFDocument.create();
           const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
-          
+
           const appendPdf = async (dbKey) => {
               const pdfBytes = await localforage.getItem(dbKey);
               if (pdfBytes) {
@@ -513,9 +597,10 @@ export const ExpertiseProvider = ({ children }) => {
           const appendPdfFiles = async (id) => {
               let files = attachedFiles[id];
               if (!files) return;
-              if (!Array.isArray(files)) files = [files]; // Backward compatibility
+              if (!Array.isArray(files)) files = [files];
               for (const f of files) {
-                  await appendPdf(f.dbKey);
+                  const key = `${id}::${f.dbKey}`;
+                  if (selectedKeys.has(key)) await appendPdf(f.dbKey);
               }
           };
 
@@ -524,83 +609,243 @@ export const ExpertiseProvider = ({ children }) => {
           await appendPdfFiles('doc_rapport_cause');
 
           for (const occ of occupants) {
+              const photoGroupKey = 'doc_photos_occ_' + occ.id;
+              if (!selectedKeys.has(photoGroupKey)) continue;
               const pList = attachedPhotos[occ.id];
               if (pList && pList.length > 0) {
-                  for (let i = 0; i < pList.length; i += 2) {
-                      const page = mergedPdf.addPage();
-                      const { width, height } = page.getSize();
-                      page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
-                      
-                      const drawImage = async (imgInfo, yOffset) => {
-                          try {
-                              const imgBytes = await localforage.getItem(imgInfo.dbKey);
-                              if (!imgBytes) return;
-                              let image;
-                              if (imgInfo.name.toLowerCase().endsWith('.png')) {
-                                  image = await mergedPdf.embedPng(imgBytes);
-                              } else {
-                                  image = await mergedPdf.embedJpg(imgBytes);
-                              }
-                              const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
-                              page.drawImage(image, {
-                                  x: (width - imgDims.width) / 2,
-                                  y: yOffset - imgDims.height,
-                                  width: imgDims.width,
-                                  height: imgDims.height,
-                              });
-                          } catch (e) {
-                              console.error("Erreur image:", e);
-                          }
-                      };
-                      
-                      await drawImage(pList[i], height - 80);
-                      if (i + 1 < pList.length) {
-                          await drawImage(pList[i + 1], height / 2 - 20);
+                  // Images en grille 2 par page
+                  const imgs = pList.filter(p => !p.isPdf);
+                  const pdfs = pList.filter(p => p.isPdf);
+                  if (imgs.length > 0) {
+                      for (let i = 0; i < imgs.length; i += 2) {
+                          const page = mergedPdf.addPage();
+                          const { width, height } = page.getSize();
+                          page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
+                          const drawImage = async (imgInfo, yOffset) => {
+                              try {
+                                  const imgBytes = await localforage.getItem(imgInfo.dbKey);
+                                  if (!imgBytes) return;
+                                  let image;
+                                  if (imgInfo.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(imgBytes);
+                                  else image = await mergedPdf.embedJpg(imgBytes);
+                                  const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
+                                  page.drawImage(image, { x: (width - imgDims.width) / 2, y: yOffset - imgDims.height, width: imgDims.width, height: imgDims.height });
+                              } catch (e) { console.error('Erreur image:', e); }
+                          };
+                          await drawImage(imgs[i], height - 80);
+                          if (i + 1 < imgs.length) await drawImage(imgs[i + 1], height / 2 - 20);
                       }
+                  }
+                  // PDFs annexes à la suite
+                  for (const pdfItem of pdfs) {
+                      await appendPdf(pdfItem.dbKey);
                   }
               }
           }
-          
+
           for (const exp of expenses) {
               await appendPdfFiles(exp.id);
           }
-          
+
           await appendPdfFiles('doc_cond_part');
           await appendPdfFiles('doc_cond_gen');
 
           const pages = mergedPdf.getPages();
-          if (pages.length === 0) {
-              setIsMerging(false);
-              return alert("Aucune annexe à fusionner.");
-          }
+          if (pages.length === 0) { setIsMerging(false); return alert('Aucune annexe sélectionnée.'); }
 
-          let pageNum = 2; 
+          let pageNum = 2;
           for (const page of pages) {
               const { width, height } = page.getSize();
-              page.drawText(`Page ${pageNum}`, {
-                  x: width - 60,
-                  y: 20,
-                  size: 10,
-                  color: rgb(0.3, 0.3, 0.3)
-              });
+              page.drawText(`Page ${pageNum}`, { x: width - 60, y: 20, size: 10, color: rgb(0.3, 0.3, 0.3) });
               pageNum++;
           }
 
           const mergedPdfBytes = await mergedPdf.save();
           const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
+          const a = document.createElement('a');
           a.href = url;
           a.download = `Annexes_${formData.nomResidence || 'Expertise'}.pdf`;
           a.click();
           URL.revokeObjectURL(url);
       } catch (err) {
-          alert("Erreur lors de la fusion : " + err.message);
+          alert('Erreur lors de la fusion : ' + err.message);
       }
       setIsMerging(false);
   };
 
+  // Capture la page de garde HTML + annexes → UN seul PDF
+  const downloadDossierPDF = async (selectedKeys) => {
+      setIsMerging(true);
+      try {
+          const el = document.getElementById('a4-page');
+          if (!el) throw new Error('Élément A4 introuvable.');
+
+          // 1. Préparer l'élément : retirer ombre + min-h
+          const prevShadow = el.style.boxShadow;
+          const prevMinH   = el.style.minHeight;
+          el.style.boxShadow = 'none';
+          el.style.minHeight = '0';
+          await new Promise(r => requestAnimationFrame(r));
+
+          // Constantes PDF
+          const A4W = 595.28, A4H = 841.89;
+
+          // Helper de capture html2canvas (réutilisé pour les 2 passes)
+          const captureEl = () => html2canvas(el, {
+              scale: 2,
+              useCORS: true,
+              allowTaint: true,
+              backgroundColor: '#ffffff',
+              logging: false,
+              scrollX: 0,
+              scrollY: -window.scrollY,
+              ignoreElements: (node) => {
+                  if (!node.classList) return false;
+                  return node.classList.contains('block-controls') ||
+                         node.classList.contains('print:hidden') ||
+                         node.getAttribute?.('data-html2canvas-ignore') === 'true';
+              }
+          });
+
+          // --- PASSE 1 : capture avec coverPageCount = 1 (valeur actuelle) ---
+          // → mesure la hauteur réelle du canvas pour déterminer le nb de pages de la page de garde
+          const canvas1 = await captureEl();
+          const pxPerPt   = canvas1.width / A4W;
+          const slicePixH = A4H * pxPerPt;
+          const significantH = slicePixH * 0.02;
+          const actualCoverPages = Math.max(1, Math.ceil(canvas1.height / slicePixH));
+
+          // --- PASSE 2 (si nécessaire) : mettre à jour les index dans le HTML et re-capturer ---
+          let canvas = canvas1;
+          if (actualCoverPages > 1) {
+              setCoverPageCount(actualCoverPages);
+              // Attendre que React re-render avec les numéros de pages corrigés
+              await new Promise(r => setTimeout(r, 200));
+              await new Promise(r => requestAnimationFrame(r));
+              canvas = await captureEl();
+          }
+
+          el.style.boxShadow = prevShadow;
+          el.style.minHeight = prevMinH;
+
+          // Helper: dataURL → Uint8Array sans fetch
+          const dataUrlToBytes = (dataUrl) => {
+              const base64 = dataUrl.split(',')[1];
+              const binStr = atob(base64);
+              const bytes = new Uint8Array(binStr.length);
+              for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+              return bytes;
+          };
+
+          // Split en pages A4
+          const mergedPdf = await PDFDocument.create();
+          const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+          const pageCount = Math.ceil(canvas.height / slicePixH);
+
+
+          for (let i = 0; i < pageCount; i++) {
+              const startY = Math.round(i * slicePixH);
+              const endY   = Math.min(Math.round((i + 1) * slicePixH), canvas.height);
+              const h = endY - startY;
+              if (h < significantH) continue; // ignorer les tranches quasi-vides (fin de min-h)
+
+              const sliceCanvas = document.createElement('canvas');
+              sliceCanvas.width  = canvas.width;
+              sliceCanvas.height = h;
+              const ctx = sliceCanvas.getContext('2d');
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+              ctx.drawImage(canvas, 0, startY, canvas.width, h, 0, 0, canvas.width, h);
+
+              const jpgBytes = dataUrlToBytes(sliceCanvas.toDataURL('image/jpeg', 0.92));
+              const img  = await mergedPdf.embedJpg(jpgBytes);
+              const drawnH = h / pxPerPt; // hauteur en points PDF
+              const page = mergedPdf.addPage([A4W, A4H]);
+              page.drawImage(img, { x: 0, y: A4H - drawnH, width: A4W, height: drawnH });
+          }
+
+          // 3. Append annexes
+          const appendPdf = async (dbKey) => {
+              const pdfBytes = await localforage.getItem(dbKey);
+              if (!pdfBytes) return;
+              const pdf = await PDFDocument.load(pdfBytes);
+              const copied = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+              copied.forEach(p => mergedPdf.addPage(p));
+          };
+          const appendPdfFiles = async (id) => {
+              let files = attachedFiles[id];
+              if (!files) return;
+              if (!Array.isArray(files)) files = [files];
+              for (const f of files) {
+                  if (!selectedKeys || selectedKeys.has(`${id}::${f.dbKey}`)) await appendPdf(f.dbKey);
+              }
+          };
+
+          await appendPdfFiles('doc_mail_expertise');
+          await appendPdfFiles('doc_mail_declaration');
+          await appendPdfFiles('doc_rapport_cause');
+
+          for (const occ of occupants) {
+              const photoGroupKey = 'doc_photos_occ_' + occ.id;
+              if (selectedKeys && !selectedKeys.has(photoGroupKey)) continue;
+              const pList = attachedPhotos[occ.id];
+              if (pList && pList.length > 0) {
+                  const imgs = pList.filter(p => !p.isPdf);
+                  const pdfs = pList.filter(p => p.isPdf);
+                  if (imgs.length > 0) {
+                      for (let i = 0; i < imgs.length; i += 2) {
+                          const page = mergedPdf.addPage();
+                          const { width, height } = page.getSize();
+                          page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
+                          const drawImg = async (imgInfo, yOff) => {
+                              try {
+                                  const imgBytes = await localforage.getItem(imgInfo.dbKey);
+                                  if (!imgBytes) return;
+                                  const img = imgInfo.name.toLowerCase().endsWith('.png') ? await mergedPdf.embedPng(imgBytes) : await mergedPdf.embedJpg(imgBytes);
+                                  const d = img.scaleToFit(width - 100, (height - 150) / 2);
+                                  page.drawImage(img, { x: (width - d.width) / 2, y: yOff - d.height, width: d.width, height: d.height });
+                              } catch (e) { console.error(e); }
+                          };
+                          await drawImg(imgs[i], height - 80);
+                          if (i + 1 < imgs.length) await drawImg(imgs[i + 1], height / 2 - 20);
+                      }
+                  }
+                  for (const p of pdfs) await appendPdf(p.dbKey);
+              }
+          }
+
+          for (const exp of expenses) await appendPdfFiles(exp.id);
+          await appendPdfFiles('doc_cond_part');
+          await appendPdfFiles('doc_cond_gen');
+
+          // 4. Numérotation globale
+          const allPages = mergedPdf.getPages();
+          let pageNum = 1;
+          for (const page of allPages) {
+              const { width, height } = page.getSize();
+              page.drawText(`Page ${pageNum}`, { x: width - 60, y: 20, size: 10, color: rgb(0.3, 0.3, 0.3) });
+              pageNum++;
+          }
+
+          const bytes = await mergedPdf.save();
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Dossier_${formData.nomResidence || formData.refPechard || 'Expertise'}.pdf`;
+          a.click();
+          URL.revokeObjectURL(url);
+      } catch (err) {
+          alert('Erreur lors de la génération : ' + err.message);
+      }
+      setIsMerging(false);
+      setCoverPageCount(1); // Réinitialiser pour la vue normale
+  };
+
+
   const processJsonData = (rawText) => {
+
       try {
           let cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
           cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
@@ -711,7 +956,11 @@ Voici le format JSON :
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
       occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
-      attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, getPaginationInfo, downloadMergedPDF,
+      attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
+      getPaginationInfo, downloadSelectedPDF, downloadDossierPDF, getAnnexList,
+      hideAnnexIndex, setHideAnnexIndex,
+      printSelection, setPrintSelection,
+      coverPageCount, setCoverPageCount,
       startResizing, stopResizing, resize, handleReset, handleChange,
       handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,

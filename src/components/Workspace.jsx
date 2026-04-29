@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -59,11 +59,6 @@ const BlockToolbar = ({ id, disableText = false }) => {
                             else { setBlocksVisible(p => ({ ...p, [id]: false })); }
                         }} className="px-1 text-red-400 hover:text-red-300">🗑️</button>
                     </div>
-                    <div className="border-t border-slate-600 pt-1.5 mt-1 flex gap-1">
-                        <button onMouseDown={(e) => { e.preventDefault(); toggleBlockWidth(id); }} className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px]">
-                            {blockWidths[id] === '50%' ? 'Passer à 100%' : 'Passer à 50%'}
-                        </button>
-                    </div>
                 </div>
             )}
         </div>
@@ -80,17 +75,77 @@ const BlockHeaderControls = ({ id }) => {
     );
 };
 
-const BlockContainer = ({ id, children }) => {
-    const { blockWidths, styles } = useContext(ExpertiseContext);
-    const isHalf = blockWidths[id] === '50%';
+// Lignes de coupure de page (dashed indicators, ignorées par html2canvas)
+const PageBreakLines = () => {
+    const [lineYPositions, setLineYPositions] = useState([]);
+    useEffect(() => {
+        const update = () => {
+            const el = document.getElementById('a4-page');
+            if (!el) return;
+            const heightMm = el.scrollHeight * 25.4 / 96;
+            const count = Math.max(0, Math.ceil(heightMm / 297) - 1); // on ne trace pas de ligne après la dernière page
+            setLineYPositions(Array.from({ length: count }, (_, i) => 297 * (i + 1)));
+        };
+        update();
+        const el = document.getElementById('a4-page');
+        if (!el) return;
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
     return (
-        <div id={`block-${id}`} className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full mb-4'}`}>
+        <>
+            {lineYPositions.map((yMm, i) => (
+                <div
+                    key={i}
+                    data-html2canvas-ignore="true"
+                    className="page-break-indicator absolute left-0 right-0 pointer-events-none z-40 print:hidden"
+                    style={{ top: `${yMm}mm` }}
+                >
+                    <div className="border-t-2 border-dashed border-blue-400/80 relative">
+                        <span className="absolute left-0 -top-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-br shadow whitespace-nowrap">
+                            ✂ Fin page {i + 1}
+                        </span>
+                        <span className="absolute right-0 -top-4 bg-blue-400/80 text-white text-[9px] px-2 py-0.5 rounded-bl whitespace-nowrap">
+                            Début page {i + 2} ↓
+                        </span>
+                    </div>
+                </div>
+            ))}
+        </>
+    );
+};
+
+const BlockContainer = ({ id, children }) => {
+    const { blockWidths, styles, setStyles } = useContext(ExpertiseContext);
+    const isHalf = blockWidths[id] === '50%';
+    const marginMm = styles[id]?.marginBottom || 0;
+    const adjustMargin = (delta) => {
+        setStyles(p => ({ ...p, [id]: { ...p[id], marginBottom: Math.max(0, (p[id]?.marginBottom || 0) + delta) } }));
+    };
+    return (
+        <div
+            id={`block-${id}`}
+            className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full'}`}
+            style={{ marginBottom: marginMm > 0 ? `${marginMm}mm` : '1rem' }}
+        >
             <BlockHeaderControls id={id} />
             <BlockToolbar id={id} />
             <div style={{ fontSize: `${styles[id]?.fontSize || 12}px`, color: styles[id]?.color || '#000', fontFamily: styles[id]?.fontFamily || 'Arial', textAlign: styles[id]?.textAlign || 'left' }}>
                 <div className={`pt-6 ${styles[id]?.border ? 'border-2 border-current p-3 rounded' : ''} outline-none focus:ring-2 focus:ring-indigo-300`} contentEditable suppressContentEditableWarning>
                     {children}
                 </div>
+            </div>
+            {/* Contrôle de marge inférieure — pousse les blocs du dessous */}
+            <div
+                className="block-controls absolute -bottom-3.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity print:hidden z-50 flex items-center gap-1 bg-slate-800/95 border border-slate-600 rounded-full px-2 py-0.5 shadow-lg"
+                data-html2canvas-ignore="true"
+            >
+                <button onMouseDown={(e) => { e.preventDefault(); adjustMargin(-5); }} className="text-slate-300 hover:text-red-400 font-bold text-sm leading-none w-4 text-center">−</button>
+                <span className="text-[9px] text-slate-300 font-mono min-w-[30px] text-center">
+                    {marginMm > 0 ? `↕ ${marginMm}mm` : '↕'}
+                </span>
+                <button onMouseDown={(e) => { e.preventDefault(); adjustMargin(+5); }} className="text-slate-300 hover:text-green-400 font-bold text-sm leading-none w-4 text-center">+</button>
             </div>
         </div>
     );
@@ -102,7 +157,7 @@ const Workspace = () => {
 
     const {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
-        customBlocks, setCustomBlocks, blockWidths, styles, setStyles,
+        customBlocks, setCustomBlocks, blockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
         fitBlocks, setFitBlocks, showSubtotals,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
@@ -229,48 +284,51 @@ const Workspace = () => {
                             {mainExpenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais couvert encodé</td></tr>}
                         </tbody>
                     </table>
-                    {showSubtotals && Object.keys(dettesParPersonne).length > 0 && (
-                        <div className="mt-4 pt-3 border-t border-slate-300 text-slate-700 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize}px` }}>
-                            <p className="font-bold mb-2">Liste devis/facture/demande de forfait reçus, non-couverts et non-pertinents inclus :</p>
-                            <div className="space-y-4">
-                                {Object.entries(dettesParPersonne).map(([personne, data]) => {
-                                    const matchOcc = occupants.find(o => fmtOccName(o) === personne);
-                                    const isExpertClient = matchOcc?.contreExpert;
-                                    return (
-                                        <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
-                                            <div className="flex justify-between items-baseline mb-1">
-                                                <h4 className="font-bold underline">{personne} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
-                                                <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
-                                                    {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
-                                                    {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
-                                                    {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
-                                                </div>
-                                            </div>
-                                            <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
-                                                {data.lignes.map((l, i) => {
-                                                    const isExcluded = isExpenseExcludedFromMain(l);
-                                                    const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
-                                                    const occForLine = findOccByCompteDe(l.compteDe);
-                                                    const lineIsExpertClient = occForLine?.contreExpert;
-                                                    return (
-                                                        <li key={i}>
-                                                            {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
-                                                            {isExcluded && pagInfo && <span className="text-[0.8em] text-slate-500 ml-1 italic">{pagInfo.text}</span>}
-                                                            {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture{l.noteCouverture ? ` : ${l.noteCouverture}` : ''}]</span>}
-                                                            {l.avisCouverture === 'Autre' && l.noteCouverture && <span className="ml-1 italic text-orange-600 text-[0.85em]">Observation : {l.noteCouverture}</span>}
-                                                            {lineIsExpertClient && <span className="ml-1 not-italic font-bold text-green-700 text-[0.85em]">Pas repris dans notre réclamation : copropriétaire est assisté par un expert-client</span>}
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </BlockContainer>
             );
+            if (key === 'frais_liste') return showSubtotals && Object.keys(dettesParPersonne).length > 0 ? (
+                <BlockContainer key="frais_liste" id="frais_liste">
+                    <div className="text-slate-700" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px` }}>
+                        <p className="font-bold mb-2">Liste devis/facture/demande de forfait reçus, non-couverts et non-pertinents inclus :</p>
+                        <div className="space-y-4">
+                            {Object.entries(dettesParPersonne).map(([personne, data]) => {
+                                const matchOcc = occupants.find(o => fmtOccName(o) === personne);
+                                const isExpertClient = matchOcc?.contreExpert;
+                                return (
+                                    <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <h4 className="font-bold underline">{personne} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                            <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
+                                                {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
+                                                {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
+                                                {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                            </div>
+                                        </div>
+                                        <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
+                                            {data.lignes.map((l, i) => {
+                                                const isExcluded = isExpenseExcludedFromMain(l);
+                                                const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
+                                                const occForLine = findOccByCompteDe(l.compteDe);
+                                                const lineIsExpertClient = occForLine?.contreExpert;
+                                                return (
+                                                    <li key={i}>
+                                                        {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
+                                                        {isExcluded && pagInfo && <span className="text-[0.8em] text-slate-500 ml-1 italic">{pagInfo.text}</span>}
+                                                        {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture{l.noteCouverture ? ` : ${l.noteCouverture}` : ''}]</span>}
+                                                        {l.avisCouverture === 'Autre' && l.noteCouverture && <span className="ml-1 italic text-orange-600 text-[0.85em]">Observation : {l.noteCouverture}</span>}
+                                                        {lineIsExpertClient && <span className="ml-1 not-italic font-bold text-green-700 text-[0.85em]">Pas repris dans notre réclamation : copropriétaire est assisté par un expert-client</span>}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </BlockContainer>
+            ) : null;
+
             if (key === 'photos') {
                 const occupantsWithPhotos = occupants.filter(o => context.attachedPhotos && context.attachedPhotos[o.id] && context.attachedPhotos[o.id].length > 0);
                 return (
@@ -307,14 +365,33 @@ const Workspace = () => {
                     </BlockContainer>
                 );
             }
+            if (key.startsWith('spacer_')) {
+                const heightMm = styles[key]?.spacerHeight || 20;
+                return (
+                    <div key={key} id={`block-${key}`} className="relative group w-full print:hidden" style={{ height: `${heightMm}mm` }} data-html2canvas-ignore="true">
+                        <div className="block-controls absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                            <div className="bg-white/90 border-2 border-dashed border-slate-400 rounded-lg px-3 py-1.5 flex items-center gap-3 text-xs text-slate-600 shadow">
+                                <button onMouseDown={(e) => { e.preventDefault(); setStyles(p => ({ ...p, [key]: { ...p[key], spacerHeight: Math.max(5, (p[key]?.spacerHeight || 20) - 5) } })); }} className="hover:bg-slate-200 w-6 h-6 rounded font-bold text-base flex items-center justify-center">−</button>
+                                <span className="font-mono text-slate-700 font-bold">{heightMm}mm</span>
+                                <button onMouseDown={(e) => { e.preventDefault(); setStyles(p => ({ ...p, [key]: { ...p[key], spacerHeight: (p[key]?.spacerHeight || 20) + 5 } })); }} className="hover:bg-slate-200 w-6 h-6 rounded font-bold text-base flex items-center justify-center">+</button>
+                                <span className="text-slate-400 text-[10px]">↕ espaceur</span>
+                                <button onMouseDown={(e) => { e.preventDefault(); setBlockOrder(p => p.filter(k => k !== key)); setBlocksVisible(p => { const n = {...p}; delete n[key]; return n; }); }} className="text-red-400 hover:text-red-600 ml-1">✕</button>
+                            </div>
+                        </div>
+                        <div className="absolute inset-0 border-t border-b border-dashed border-slate-300/60 pointer-events-none" />
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[9px] text-slate-300 font-mono opacity-0 group-hover:opacity-100">{heightMm}mm</div>
+                    </div>
+                );
+            }
             return null;
         });
     };
 
     return (
         <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 print:py-0 print:block">
-            <div id="a4-page" className="bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
+            <div id="a4-page" className="relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
                 {renderBlocksInOrder()}
+                <PageBreakLines />
             </div>
             {/* Styles supplémentaires pour l'impression */}
             <style>{`

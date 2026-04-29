@@ -1,5 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import AnnexModal from './AnnexModal';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile } = useContext(ExpertiseContext);
@@ -51,11 +52,15 @@ const Sidebar = () => {
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
-        attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, downloadMergedPDF, getPaginationInfo
+        attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
+        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, downloadDossierPDF
     } = context;
 
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
+    const [showAnnexModal, setShowAnnexModal] = useState(false);
+    const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
+    const [showPrintMenu, setShowPrintMenu] = useState(false);
     const [editingExpert, setEditingExpert] = useState(null);
     const [addFranchiseForm, setAddFranchiseForm] = useState({ moisAnnee: '', montant: '' });
     const draggedOccRef = useRef(null);
@@ -388,21 +393,29 @@ const Sidebar = () => {
                                             <div className="flex justify-between items-center mb-2">
                                                 <h4 className="text-white text-xs font-bold">{occ.nom || 'Inconnu'}</h4>
                                                 <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-colors shadow flex items-center gap-1">
-                                                    <span>+ Photos</span>
-                                                    <input type="file" accept="image/png, image/jpeg" multiple className="hidden" onChange={(e) => { Array.from(e.target.files).forEach(f => handleAttachPhoto(occ.id, f)) }} />
+                                                    <span>+ Fichiers</span>
+                                                    <input type="file" accept="image/png, image/jpeg, application/pdf" multiple className="hidden" onChange={(e) => { Array.from(e.target.files).forEach(f => handleAttachPhoto(occ.id, f)) }} />
                                                 </label>
                                             </div>
                                             {(attachedPhotos[occ.id] || []).length > 0 ? (
                                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                                     {attachedPhotos[occ.id].map(photo => (
-                                                        <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-slate-600 aspect-video bg-black flex items-center justify-center">
-                                                            <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
+                                                        <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-slate-600 aspect-video bg-slate-800 flex items-center justify-center">
+                                                            {photo.isPdf ? (
+                                                                <div className="flex flex-col items-center justify-center text-center p-2">
+                                                                    <span className="text-2xl">📄</span>
+                                                                    <span className="text-[9px] text-slate-300 truncate max-w-full mt-1">{photo.name}</span>
+                                                                    <span className="text-[8px] text-slate-500">{photo.pages}p</span>
+                                                                </div>
+                                                            ) : (
+                                                                <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
+                                                            )}
                                                             <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-[10px] text-slate-500 italic mt-1">Aucune photo attachée.</p>
+                                                <p className="text-[10px] text-slate-500 italic mt-1">Aucun fichier attaché.</p>
                                             )}
                                         </div>
                                     ))
@@ -418,8 +431,8 @@ const Sidebar = () => {
                         <div className="bg-slate-900 border border-slate-600 rounded p-3 mt-4">
                             <h3 className="text-xs font-bold text-white mb-2 uppercase">🧱 Gestion des blocs affichés</h3>
                             <div className="flex flex-wrap gap-2 mb-3 text-[10px]">
-                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'photos', 'divers'].map(key => (
-                                    <label key={key} className={`px-2 py-1 rounded cursor-pointer border ${blocksVisible[key] ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-600 text-slate-400'}`}><input type="checkbox" className="hidden" checked={!!blocksVisible[key]} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />{key.toUpperCase()}</label>
+                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers'].map(key => (
+                                    <label key={key} className={`px-2 py-1 rounded cursor-pointer border ${blocksVisible[key] === false ? 'bg-slate-800 border-slate-600 text-slate-400' : 'bg-indigo-600 border-indigo-500 text-white'}`}><input type="checkbox" className="hidden" checked={blocksVisible[key] !== false} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />{key === 'frais_liste' ? 'LISTE' : key.toUpperCase()}</label>
                                 ))}
                             </div>
                             <button onClick={() => { 
@@ -430,13 +443,48 @@ const Sidebar = () => {
                                 setBlockOrder(prev => [...prev, newId]);
                                 setBlockWidths(prev => ({ ...prev, [newId]: '100%' })); 
                             }} className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 py-1.5 rounded text-xs font-bold">+ Ajouter un bloc "Texte libre"</button>
+                            <button onClick={() => {
+                                const newId = 'spacer_' + Date.now();
+                                setStyles(prev => ({ ...prev, [newId]: { spacerHeight: 20 } }));
+                                setBlocksVisible(prev => ({ ...prev, [newId]: true }));
+                                setBlockOrder(prev => [...prev, newId]);
+                                setBlockWidths(prev => ({ ...prev, [newId]: '100%' }));
+                            }} className="w-full bg-slate-700/60 hover:bg-slate-600 border border-slate-500/60 border-dashed py-1.5 rounded text-xs font-bold text-slate-300">↕ Ajouter un espaceur</button>
                         </div>
                     </div>
                 )}
             </div>
+            {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             <div className="p-4 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
-                <button onClick={generatePDF} className="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded font-bold text-white transition-colors text-xs border border-slate-600">1. 🖨️ Imprimer la Page de Garde</button>
-                <button onClick={downloadMergedPDF} disabled={isMerging || Object.keys(attachedFiles).length === 0} className={`w-full py-2 rounded font-bold text-white transition-colors text-xs shadow-lg ${Object.keys(attachedFiles).length === 0 ? 'bg-indigo-900/50 text-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'}`}>2. {isMerging ? 'Fusion en cours...' : '📦 Télécharger les Annexes'}</button>
+                <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
+                    <input type="checkbox" checked={hideAnnexIndex} onChange={e => setHideAnnexIndex(e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
+                    <span>Cacher l'index des annexes</span>
+                </label>
+                <div className="relative">
+                    <button
+                        onClick={() => setShowPrintMenu(p => !p)}
+                        disabled={isMerging}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
+                    >
+                        {isMerging ? '⏳ Génération...' : '🖨️ Imprimer'} <span className="text-xs">▾</span>
+                    </button>
+                    {showPrintMenu && !isMerging && (
+                        <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
+                            <button onClick={() => { setShowPrintMenu(false); generatePDF(); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                                <span>🖨️</span><span><strong>Page de garde</strong><br/><span className="text-slate-400">Impression navigateur (mise en page HTML)</span></span>
+                            </button>
+                            <button onClick={() => { setShowPrintMenu(false); downloadDossierPDF(null); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                                <span>📄</span><span><strong>Tout le dossier</strong><br/><span className="text-slate-400">Page de garde + toutes les annexes (1 PDF)</span></span>
+                            </button>
+                            <button onClick={() => { setShowPrintMenu(false); setAnnexModalMode('page+annexes'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                                <span>📦</span><span><strong>Page de garde + annexes au choix</strong><br/><span className="text-slate-400">Sélection, index dynamiques, 1 PDF</span></span>
+                            </button>
+                            <button onClick={() => { setShowPrintMenu(false); setAnnexModalMode('annexes-only'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 flex items-center gap-2">
+                                <span>📋</span><span><strong>Annexes seules</strong><br/><span className="text-slate-400">Sans page de garde</span></span>
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
