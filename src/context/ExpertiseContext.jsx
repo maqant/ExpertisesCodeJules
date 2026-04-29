@@ -21,13 +21,12 @@ const initialTitles = {
   orga: "Parties",
   frais: "Réclamations",
   photos: "Photos",
-  divers: "Divers & Remarques",
-  annexes_libres: "Annexes Libres"
+  divers: "Divers & Remarques"
 };
 
-const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, frais_liste: true, photos: true, divers: true, annexes_libres: true };
-const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres'];
-const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', frais_liste: '100%', photos: '100%', divers: '100%', annexes_libres: '100%' };
+const initialVisibility = { titre: true, coord: true, infos: true, cause: true, orga: true, frais: true, frais_liste: true, photos: true, divers: true };
+const initialBlockOrder = ['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers'];
+const initialBlockWidths = { titre: '100%', coord: '100%', infos: '100%', cause: '100%', orga: '100%', frais: '100%', frais_liste: '100%', photos: '100%', divers: '100%' };
 const initialStyles = {
   titre: { border: true, fontSize: 16, color: '#0f172a', fontFamily: 'Arial', textAlign: 'center' },
   coord: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
@@ -37,8 +36,7 @@ const initialStyles = {
   frais: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   frais_liste: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
   photos: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
-  divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' },
-  annexes_libres: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
+  divers: { border: false, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }
 };
 
 
@@ -100,11 +98,9 @@ export const ExpertiseProvider = ({ children }) => {
   const [blockTitles, setBlockTitles] = useState(initialTitles);
   const [references, setReferences] = useState([]);
   const [occupants, setOccupants] = useState([]);
-  const [occupantBlocks, setOccupantBlocks] = useState([{ id: 'default', prefix: '' }]);
   const [expenses, setExpenses] = useState([]);
   const [attachedFiles, setAttachedFiles] = useState({});
   const [attachedPhotos, setAttachedPhotos] = useState({});
-  const [attachedFreeAnnexes, setAttachedFreeAnnexes] = useState([]);
   const [isMerging, setIsMerging] = useState(false);
 
   // Blocs et Styles
@@ -232,8 +228,7 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
-      // Fusion de states globaux
-      const dossierData = { formData, blockTitles, references, occupants, occupantBlocks, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos };
       const newId = Date.now();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
@@ -251,13 +246,11 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.expenses) setExpenses(d.expenses);
       if(d.blocksVisible) {
           const vis = { ...d.blocksVisible };
-          // Migration: frais_liste absent des vieux dossiers
           if (!('frais_liste' in vis)) vis.frais_liste = true;
           setBlocksVisible(vis);
       }
       if(d.styles) setStyles(d.styles);
       if(d.blockOrder) {
-          // Migration v1.5: insérer frais_liste après frais si absent du blockOrder sauvegardé
           let order = d.blockOrder;
           if (!order.includes('frais_liste') && order.includes('frais')) {
               const idx = order.indexOf('frais');
@@ -270,8 +263,6 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.fitBlocks) setFitBlocks(d.fitBlocks);
       if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
-      if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
-      if(d.occupantBlocks) setOccupantBlocks(d.occupantBlocks); else setOccupantBlocks([{ id: 'default', prefix: '' }]);
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
@@ -288,13 +279,12 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const getSortedBlocks = () => {
-      const BUILTIN_IDS = new Set(['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres']);
+      const BUILTIN_IDS = new Set(['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers']);
       const currentCustomIds = customBlocks.map(c => c.id);
       const allIds = [...blockOrder];
       currentCustomIds.forEach(id => {
           if (!allIds.includes(id)) allIds.push(id);
       });
-      // Les blocs builtin sans entrée dans blocksVisible (migration) sont visibles par défaut
       return allIds.filter(id => {
           if (BUILTIN_IDS.has(id)) return blocksVisible[id] !== false;
           return blocksVisible[id] || currentCustomIds.includes(id);
@@ -307,7 +297,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   const addOcc = () => {
       const newId = Date.now();
-      setOccupants([...occupants, { id: newId, nom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '', showDetails: false, contreExpert: false, nomContreExpert: '', hasContact: false, contactNom: '', contactTel: '', iban: '' }]);
+      setOccupants([...occupants, { id: newId, nom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' }]);
       setExpandedOccId(newId);
   };
   const updateOcc = (id, field, value) => {
@@ -884,11 +874,8 @@ export const ExpertiseProvider = ({ children }) => {
 
 
   const processJsonData = (rawText) => {
-
       try {
           let cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-          // Nettoyage de secours : supprime les antislashs invalides avant JSON.parse
-          cleanedText = cleanedText.replace(/\\(?=[^"\\/bfnrtu])/g, '');
           cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
           const data = JSON.parse(cleanedText);
           
@@ -924,41 +911,10 @@ export const ExpertiseProvider = ({ children }) => {
                   return merged; 
               });
           }
-          let addedOcc = 0, updatedOcc = 0, addedExp = 0, ignoredExp = 0;
-
-          if (data.occupants && Array.isArray(data.occupants)) {
-              setOccupants(prev => {
-                  const merged = [...prev];
-                  data.occupants.filter(o => o.nom).forEach(o => {
-                      const existingIdx = merged.findIndex(ex => ex.etage === o.etage && ex.nom === o.nom);
-                      if (existingIdx !== -1) {
-                          merged[existingIdx] = { ...merged[existingIdx], ...o, id: merged[existingIdx].id };
-                          updatedOcc++;
-                      } else {
-                          merged.push({...o, id: Date.now() + Math.random()});
-                          addedOcc++;
-                      }
-                  });
-                  return merged;
-              });
-          }
-          if (data.expenses && Array.isArray(data.expenses)) {
-              setExpenses(prev => {
-                  const merged = [...prev];
-                  data.expenses.filter(ex => ex.prestataire || ex.montant).forEach(ex => {
-                      const existing = merged.find(m => m.prestataire === ex.prestataire && m.montant === ex.montant && m.ref === ex.ref);
-                      if (!existing) {
-                          merged.push({...ex, id: Date.now() + Math.random()});
-                          addedExp++;
-                      } else {
-                          ignoredExp++;
-                      }
-                  });
-                  return merged;
-              });
-          }
+          if (data.occupants && Array.isArray(data.occupants)) setOccupants(prev => [...prev, ...data.occupants.filter(o => o.nom).map(o => ({...o, id: Date.now() + Math.random()}))]);
+          if (data.expenses && Array.isArray(data.expenses)) setExpenses(prev => [...prev, ...data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: Date.now() + Math.random()}))]);
           
-          alert(`✅ Import terminé !\n- Occupants : ${addedOcc} ajoutés, ${updatedOcc} mis à jour\n- Frais : ${addedExp} ajoutés, ${ignoredExp} doublons ignorés`); 
+          alert("✅ Données IA importées avec succès !"); 
           setPastedJson('');
           setActiveTab('builder');
       } catch (error) { 
@@ -987,9 +943,7 @@ Règles IMPÉRATIVES :
 2. Si introuvable, laisse "". N'invente JAMAIS.
 3. Montants au format texte avec virgule (ex: "350,00").
 4. "statut" DOIT être : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", ou "Syndic / Autre".
-5. "typeMontant" DOIT être : "HTVA" si c'est un devis, "TVAC" si c'est une facture, ou "Forfait". Ignore toujours les sous-totaux, ne prends que les montants finaux.
-6. INTERDICTION FORMELLE d'utiliser "..." ou de résumer. Tu DOIS extraire CHAQUE occupant et CHAQUE ligne de frais, même s'il y en a 200, ainsi que chaque info qui pourrait potentiellement remplir le tableau.
-7. Ajoute à la fin du JSON une clé "_metadata" avec le comptage des occupants et des frais extraits pour vérifier l'exhaustivité.
+5. "typeMontant" DOIT être : "HTVA", "TVAC", ou "Forfait".
 
 Voici le format JSON :
 {
@@ -998,8 +952,7 @@ Voici le format JSON :
 "formData": { "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", "adresse": "", "cause": "" },
 "experts": [ { "nom": "NOM", "tel": "04XX XX XX" } ],
 "occupants": [ { "etage": "", "statut": "Locataire", "nom": "", "tel": "", "email": "", "rc": "Non", "rcPolice": "", "secAssurance": "Non", "secType": "", "secPolice": "", "secCie": "" } ],
-"expenses": [ { "prestataire": "", "type": "", "ref": "", "desc": "", "compteDe": "", "montant": "", "typeMontant": "HTVA" } ],
-"_metadata": { "countOccupants": 0, "countExpenses": 0 }
+"expenses": [ { "prestataire": "", "type": "", "ref": "", "desc": "", "compteDe": "", "montant": "", "typeMontant": "HTVA" } ]
 }`;
       navigator.clipboard.writeText(promptText).then(() => alert("✅ Prompt copié !")).catch(err => alert("Erreur copie."));
   };
@@ -1029,15 +982,12 @@ Voici le format JSON :
       showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
       showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, setPrestatairesList, handleAddPrestataire,
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
-      occupants, setOccupants, occupantBlocks, setOccupantBlocks,
-      addOccupantBlock, removeOccupantBlock, updateOccupantBlock,
+      occupants, setOccupants,
       expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
       attachedFiles, handleAttachFile, handleRemoveFile,
       attachedPhotos, setAttachedPhotos,
       handleAttachPhoto, handleRemovePhoto,
-      attachedFreeAnnexes, setAttachedFreeAnnexes,
-      handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
       isMerging,
       getPaginationInfo, downloadSelectedPDF, downloadDossierPDF, getAnnexList,
       hideAnnexIndex, setHideAnnexIndex,
