@@ -158,7 +158,7 @@ const Workspace = () => {
     const {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
-        fitBlocks, setFitBlocks, showSubtotals,
+        fitBlocks, setFitBlocks, showSubtotals, attachedPhotos, attachedFiles, attachedFreeAnnexes,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
 
@@ -286,51 +286,56 @@ const Workspace = () => {
                     </table>
                 </BlockContainer>
             );
-            if (key === 'frais_liste') return showSubtotals && Object.keys(dettesParPersonne).length > 0 ? (
-                <BlockContainer key="frais_liste" id="frais_liste">
-                    <div className="text-slate-700" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px` }}>
-                        <p className="font-bold mb-2">Liste devis/facture/demande de forfait reçus, non-couverts et non-pertinents inclus :</p>
-                        <div className="space-y-4">
-                            {Object.entries(dettesParPersonne).map(([personne, data]) => {
-                                const matchOcc = occupants.find(o => fmtOccName(o) === personne);
-                                const isExpertClient = matchOcc?.contreExpert;
-                                return (
-                                    <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
-                                        <div className="flex justify-between items-baseline mb-1">
-                                            <h4 className="font-bold underline">{personne} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
-                                            <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
-                                                {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
-                                                {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
-                                                {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+            if (key === 'frais_liste') {
+                if (showSubtotals && Object.keys(dettesParPersonne).length > 0) {
+                    return (
+                        <BlockContainer key="frais_liste" id="frais_liste">
+                            <div className="text-slate-700" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px` }}>
+                                <p className="font-bold mb-2">Liste devis/facture/demande de forfait reçus, non-couverts et non-pertinents inclus :</p>
+                                <div className="space-y-4">
+                                    {Object.entries(dettesParPersonne).map(([personne, data]) => {
+                                        const matchOcc = occupants.find(o => fmtOccName(o) === personne);
+                                        const isExpertClient = matchOcc?.contreExpert;
+                                        return (
+                                            <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <h4 className="font-bold underline">{personne} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                                    <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
+                                                        {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                                    </div>
+                                                </div>
+                                                <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
+                                                    {data.lignes.map((l, i) => {
+                                                        const isExcluded = isExpenseExcludedFromMain(l);
+                                                        const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
+                                                        const occForLine = findOccByCompteDe(l.compteDe);
+                                                        const lineIsExpertClient = occForLine?.contreExpert;
+                                                        return (
+                                                            <li key={i}>
+                                                                {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
+                                                                {isExcluded && pagInfo && <span className="text-[0.8em] text-slate-500 ml-1 italic">{pagInfo.text}</span>}
+                                                                {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture{l.noteCouverture ? ` : ${l.noteCouverture}` : ''}]</span>}
+                                                                {l.avisCouverture === 'Autre' && l.noteCouverture && <span className="ml-1 italic text-orange-600 text-[0.85em]">Observation : {l.noteCouverture}</span>}
+                                                                {lineIsExpertClient && <span className="ml-1 not-italic font-bold text-green-700 text-[0.85em]">Pas repris dans notre réclamation : copropriétaire est assisté par un expert-client</span>}
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
                                             </div>
-                                        </div>
-                                        <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
-                                            {data.lignes.map((l, i) => {
-                                                const isExcluded = isExpenseExcludedFromMain(l);
-                                                const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
-                                                const occForLine = findOccByCompteDe(l.compteDe);
-                                                const lineIsExpertClient = occForLine?.contreExpert;
-                                                return (
-                                                    <li key={i}>
-                                                        {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
-                                                        {isExcluded && pagInfo && <span className="text-[0.8em] text-slate-500 ml-1 italic">{pagInfo.text}</span>}
-                                                        {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture{l.noteCouverture ? ` : ${l.noteCouverture}` : ''}]</span>}
-                                                        {l.avisCouverture === 'Autre' && l.noteCouverture && <span className="ml-1 italic text-orange-600 text-[0.85em]">Observation : {l.noteCouverture}</span>}
-                                                        {lineIsExpertClient && <span className="ml-1 not-italic font-bold text-green-700 text-[0.85em]">Pas repris dans notre réclamation : copropriétaire est assisté par un expert-client</span>}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                </BlockContainer>
-            ) : null;
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        </BlockContainer>
+                    );
+                }
+                return null;
+            }
 
             if (key === 'photos') {
-                const occupantsWithPhotos = occupants.filter(o => context.attachedPhotos && context.attachedPhotos[o.id] && context.attachedPhotos[o.id].length > 0);
+                const occupantsWithPhotos = occupants.filter(o => attachedPhotos && attachedPhotos[o.id] && attachedPhotos[o.id].length > 0);
                 return (
                     <BlockContainer key="photos" id="photos">
                         {blockTitles.photos && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.photos?.fontSize || 12}px` }}>{blockTitles.photos}</p>}
@@ -351,6 +356,21 @@ const Workspace = () => {
                     </BlockContainer>
                 );
             }
+            if (key === 'annexes_libres') return (
+                <BlockContainer key="annexes_libres" id="annexes_libres">
+                    <p className="font-bold underline mb-2" style={{ fontSize: `${styles.annexes_libres?.fontSize + 2 || 14}px` }}>{blockTitles.annexes_libres || "Annexes supplémentaires"}</p>
+                    <div className="space-y-4">
+                        {attachedFreeAnnexes.map(file => (
+                            <div key={file.id} className="break-inside-avoid">
+                                <p className="font-bold text-[1.1em]">{file.customName || file.name}</p>
+                                {file.desc && <p className="italic text-[0.9em] mb-1">{file.desc}</p>}
+                                <p className="text-[0.85em] text-slate-500 italic">Voir annexe n°{getPaginationInfo(file.id, file.customName || file.name)?.num} (Page {getPaginationInfo(file.id, file.customName || file.name)?.startPage})</p>
+                            </div>
+                        ))}
+                        {attachedFreeAnnexes.length === 0 && <p className="italic text-[0.9em]">Aucune annexe supplémentaire.</p>}
+                    </div>
+                </BlockContainer>
+            );
             if (key === 'divers') return (
                 <BlockContainer key="divers" id="divers">
                     {blockTitles.divers && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.divers.fontSize + 2}px` }}>{blockTitles.divers}</p>}

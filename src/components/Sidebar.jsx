@@ -2,6 +2,29 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import AnnexModal from './AnnexModal';
 
+const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
+    const [isOver, setIsOver] = useState(false);
+    return (
+        <div 
+            onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
+            onDragLeave={() => setIsOver(false)}
+            onDrop={(e) => { e.preventDefault(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
+            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'}`}
+            title="Glisser-déposer vos fichiers ici"
+            onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = accept;
+                input.onchange = (e) => onFiles(Array.from(e.target.files));
+                input.click();
+            }}
+        >
+            <span className={`text-[10px] font-bold ${isOver ? 'text-indigo-300' : 'text-slate-500'}`}>{label}</span>
+        </div>
+    );
+};
+
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
@@ -18,10 +41,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
                     </span>
                 );
             })}
-            <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer flex items-center" title={title}>
-                📎 <span className="sr-only">Upload</span>
-                <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(docId, f))} />
-            </label>
+            <DropZone onFiles={(files) => files.forEach(f => handleAttachFile(docId, f))} accept=".pdf" />
         </div>
     );
 };
@@ -52,8 +72,9 @@ const Sidebar = () => {
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
-        attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
-        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, downloadDossierPDF
+        attachedFiles, attachedPhotos, attachedFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
+        handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
+        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF
     } = context;
 
 
@@ -163,7 +184,7 @@ const Sidebar = () => {
                             
                             <div className="flex gap-2">
                                 <button onClick={handlePasteImport} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-1.5 rounded text-xs font-bold shadow">📥 2. Importer Texte</button>
-                                <label className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow text-center cursor-pointer">📂 Importer Fichier<input type="file" accept=".json" onChange={handleJsonImport} className="hidden" /></label>
+                                <DropZone onFiles={(files) => handleJsonImport({ target: { files } })} label="📂" accept=".json" />
                             </div>
                         </div>
 
@@ -353,9 +374,7 @@ const Sidebar = () => {
                                                     )}
                                                     <div className="flex justify-between items-center border-t border-slate-700 pt-2">
                                                         <label className="text-indigo-300 font-bold block">📄 Justificatif (PDF)</label>
-                                                        <label className="text-[10px] text-slate-400 hover:text-indigo-300 cursor-pointer">+ Ajouter
-                                                            <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(exp.id, f))} />
-                                                        </label>
+                                                        <DropZone onFiles={(files) => files.forEach(f => handleAttachFile(exp.id, f))} accept=".pdf" />
                                                     </div>
                                                     {(attachedFiles[exp.id] || []).length > 0 && (
                                                         <div className="mt-2 space-y-1">
@@ -392,10 +411,7 @@ const Sidebar = () => {
                                         <div key={occ.id} className="bg-slate-900 border border-slate-700 p-3 rounded">
                                             <div className="flex justify-between items-center mb-2">
                                                 <h4 className="text-white text-xs font-bold">{occ.nom || 'Inconnu'}</h4>
-                                                <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-colors shadow flex items-center gap-1">
-                                                    <span>+ Fichiers</span>
-                                                    <input type="file" accept="image/png, image/jpeg, application/pdf" multiple className="hidden" onChange={(e) => { Array.from(e.target.files).forEach(f => handleAttachPhoto(occ.id, f)) }} />
-                                                </label>
+                                                <DropZone onFiles={(files) => files.forEach(f => handleAttachPhoto(occ.id, f))} label="📸" accept="image/*,application/pdf" />
                                             </div>
                                             {(attachedPhotos[occ.id] || []).length > 0 ? (
                                                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -427,11 +443,34 @@ const Sidebar = () => {
                             <AccordionHeader id="divers" num="8" />
                             <div className="p-3"><textarea name="divers" value={formData.divers} onChange={handleChange} rows="3" className="input-field resize-none m-0"></textarea></div>
                         </details>
+
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
+                            <AccordionHeader id="annexes_libres" num="9" />
+                            <div className="p-3 space-y-3">
+                                <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700 mb-2">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">📂 Glisser vos fichiers ici</span>
+                                    <DropZone onFiles={(files) => files.forEach(f => handleAttachFreeAnnex(f))} label="➕" />
+                                </div>
+                                <div className="space-y-2">
+                                    {attachedFreeAnnexes.map(file => (
+                                        <div key={file.id} className="bg-slate-900 border border-slate-700 p-2 rounded relative group">
+                                            <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="absolute top-1 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-lg">{file.isPdf ? '📄' : '🖼️'}</span>
+                                                <input type="text" value={file.customName} onChange={(e) => handleUpdateFreeAnnex(file.id, 'customName', e.target.value)} className="bg-transparent border-b border-slate-700 text-xs text-white focus:border-indigo-500 outline-none flex-1" placeholder="Nom du fichier..." />
+                                            </div>
+                                            <textarea value={file.desc} onChange={(e) => handleUpdateFreeAnnex(file.id, 'desc', e.target.value)} className="w-full bg-slate-800 text-[10px] text-slate-300 p-1 rounded border border-slate-700 mt-1 resize-none h-10" placeholder="Description courte (facultatif)..." />
+                                        </div>
+                                    ))}
+                                    {attachedFreeAnnexes.length === 0 && <p className="text-[10px] text-slate-500 italic text-center">Aucune annexe libre.</p>}
+                                </div>
+                            </div>
+                        </details>
                         
                         <div className="bg-slate-900 border border-slate-600 rounded p-3 mt-4">
                             <h3 className="text-xs font-bold text-white mb-2 uppercase">🧱 Gestion des blocs affichés</h3>
                             <div className="flex flex-wrap gap-2 mb-3 text-[10px]">
-                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers'].map(key => (
+                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres'].map(key => (
                                     <label key={key} className={`px-2 py-1 rounded cursor-pointer border ${blocksVisible[key] === false ? 'bg-slate-800 border-slate-600 text-slate-400' : 'bg-indigo-600 border-indigo-500 text-white'}`}><input type="checkbox" className="hidden" checked={blocksVisible[key] !== false} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />{key === 'frais_liste' ? 'LISTE' : key.toUpperCase()}</label>
                                 ))}
                             </div>
@@ -456,6 +495,10 @@ const Sidebar = () => {
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             <div className="p-4 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-800 p-2 rounded border border-slate-700">
+                    <span>Nb pages rapport principal :</span>
+                    <input type="number" min="1" value={coverPageCount} onChange={(e) => setCoverPageCount(parseInt(e.target.value) || 1)} className="w-12 bg-slate-900 border border-slate-600 rounded px-1 text-center text-white font-bold" />
+                </div>
                 <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
                     <input type="checkbox" checked={hideAnnexIndex} onChange={e => setHideAnnexIndex(e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
                     <span>Cacher l'index des annexes</span>

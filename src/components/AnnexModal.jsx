@@ -14,6 +14,7 @@ const AnnexModal = ({ mode, onClose }) => {
         const set = new Set();
         annexList.forEach(entry => {
             if (entry.isPhotos) set.add(entry.id);
+            else if (entry.isFree) set.add(`free::${entry.id}`);
             else set.add(`${entry.id}::${entry.file.dbKey}`);
         });
         return set;
@@ -66,13 +67,13 @@ const AnnexModal = ({ mode, onClose }) => {
             title: '📦 Page de garde + annexes au choix',
             sub: 'Les index se mettent à jour en temps réel. Un seul PDF sera généré.',
             hint: '⚡ Index de la page de garde mis à jour dynamiquement selon votre sélection.',
-            btn: isMerging ? '⏳ Génération...' : '📥 Générer le PDF complet',
+            btn: isMerging ? '⏳ Impression...' : '📥 Imprimer le dossier complet',
         },
         'annexes-only': {
             title: '📋 Annexes seules',
             sub: 'Sélectionnez les annexes à télécharger (sans page de garde).',
             hint: null,
-            btn: isMerging ? '⏳ Fusion...' : '📦 Télécharger les annexes',
+            btn: isMerging ? '⏳ Impression...' : '📦 Imprimer les annexes',
         },
     };
     const t = titles[mode] || titles['annexes-only'];
@@ -111,7 +112,7 @@ const AnnexModal = ({ mode, onClose }) => {
                         <p className="text-slate-500 italic text-sm text-center py-8">Aucune annexe attachée au dossier.</p>
                     )}
                     {annexList.map((entry, i) => {
-                        const key = entry.isPhotos ? entry.id : `${entry.id}::${entry.file.dbKey}`;
+                        const key = entry.isPhotos ? entry.id : (entry.isFree ? `free::${entry.id}` : `${entry.id}::${entry.file.dbKey}`);
                         const isChecked = selected.has(key);
                         return (
                             <label key={key + i} className={`flex items-start gap-3 p-2.5 rounded-lg cursor-pointer border transition-all ${isChecked ? 'bg-indigo-900/30 border-indigo-500/40' : 'bg-slate-800/40 border-slate-700/40 opacity-50'}`}>
