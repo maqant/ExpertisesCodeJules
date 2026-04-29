@@ -848,6 +848,8 @@ export const ExpertiseProvider = ({ children }) => {
 
       try {
           let cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          // Nettoyage de secours : supprime les antislashs invalides avant JSON.parse
+          cleanedText = cleanedText.replace(/\\(?=[^"\\/bfnrtu])/g, '');
           cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
           const data = JSON.parse(cleanedText);
           
@@ -883,10 +885,41 @@ export const ExpertiseProvider = ({ children }) => {
                   return merged; 
               });
           }
-          if (data.occupants && Array.isArray(data.occupants)) setOccupants(prev => [...prev, ...data.occupants.filter(o => o.nom).map(o => ({...o, id: Date.now() + Math.random()}))]);
-          if (data.expenses && Array.isArray(data.expenses)) setExpenses(prev => [...prev, ...data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: Date.now() + Math.random()}))]);
+          let addedOcc = 0, updatedOcc = 0, addedExp = 0, ignoredExp = 0;
+
+          if (data.occupants && Array.isArray(data.occupants)) {
+              setOccupants(prev => {
+                  const merged = [...prev];
+                  data.occupants.filter(o => o.nom).forEach(o => {
+                      const existingIdx = merged.findIndex(ex => ex.etage === o.etage && ex.nom === o.nom);
+                      if (existingIdx !== -1) {
+                          merged[existingIdx] = { ...merged[existingIdx], ...o, id: merged[existingIdx].id };
+                          updatedOcc++;
+                      } else {
+                          merged.push({...o, id: Date.now() + Math.random()});
+                          addedOcc++;
+                      }
+                  });
+                  return merged;
+              });
+          }
+          if (data.expenses && Array.isArray(data.expenses)) {
+              setExpenses(prev => {
+                  const merged = [...prev];
+                  data.expenses.filter(ex => ex.prestataire || ex.montant).forEach(ex => {
+                      const existing = merged.find(m => m.prestataire === ex.prestataire && m.montant === ex.montant && m.ref === ex.ref);
+                      if (!existing) {
+                          merged.push({...ex, id: Date.now() + Math.random()});
+                          addedExp++;
+                      } else {
+                          ignoredExp++;
+                      }
+                  });
+                  return merged;
+              });
+          }
           
-          alert("✅ Données IA importées avec succès !"); 
+          alert(`✅ Import terminé !\n- Occupants : ${addedOcc} ajoutés, ${updatedOcc} mis à jour\n- Frais : ${addedExp} ajoutés, ${ignoredExp} doublons ignorés`); 
           setPastedJson('');
           setActiveTab('builder');
       } catch (error) { 
@@ -915,7 +948,9 @@ Règles IMPÉRATIVES :
 2. Si introuvable, laisse "". N'invente JAMAIS.
 3. Montants au format texte avec virgule (ex: "350,00").
 4. "statut" DOIT être : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", ou "Syndic / Autre".
-5. "typeMontant" DOIT être : "HTVA", "TVAC", ou "Forfait".
+5. "typeMontant" DOIT être : "HTVA" si c'est un devis, "TVAC" si c'est une facture, ou "Forfait". Ignore toujours les sous-totaux, ne prends que les montants finaux.
+6. INTERDICTION FORMELLE d'utiliser "..." ou de résumer. Tu DOIS extraire CHAQUE occupant et CHAQUE ligne de frais, même s'il y en a 200, ainsi que chaque info qui pourrait potentiellement remplir le tableau.
+7. Ajoute à la fin du JSON une clé "_metadata" avec le comptage des occupants et des frais extraits pour vérifier l'exhaustivité.
 
 Voici le format JSON :
 {
@@ -924,7 +959,8 @@ Voici le format JSON :
 "formData": { "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", "adresse": "", "cause": "" },
 "experts": [ { "nom": "NOM", "tel": "04XX XX XX" } ],
 "occupants": [ { "etage": "", "statut": "Locataire", "nom": "", "tel": "", "email": "", "rc": "Non", "rcPolice": "", "secAssurance": "Non", "secType": "", "secPolice": "", "secCie": "" } ],
-"expenses": [ { "prestataire": "", "type": "", "ref": "", "desc": "", "compteDe": "", "montant": "", "typeMontant": "HTVA" } ]
+"expenses": [ { "prestataire": "", "type": "", "ref": "", "desc": "", "compteDe": "", "montant": "", "typeMontant": "HTVA" } ],
+"_metadata": { "countOccupants": 0, "countExpenses": 0 }
 }`;
       navigator.clipboard.writeText(promptText).then(() => alert("✅ Prompt copié !")).catch(err => alert("Erreur copie."));
   };
