@@ -1,5 +1,39 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+
+const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
+    const { attachedFiles, handleRemoveFile, handleAttachFile } = useContext(ExpertiseContext);
+    let files = attachedFiles[docId] || [];
+    if (!Array.isArray(files)) files = [files];
+
+    return (
+        <div className="flex items-center gap-1 ml-auto shrink-0 flex-wrap justify-end">
+            {files.map(file => {
+                if (!file.name) return null;
+                return (
+                    <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
+                        📎 {file.pages}p
+                        <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
+                    </span>
+                );
+            })}
+            <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer flex items-center" title={title}>
+                📎 <span className="sr-only">Upload</span>
+                <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(docId, f))} />
+            </label>
+        </div>
+    );
+};
+
+const AccordionHeader = ({ id, num }) => {
+    const { blockTitles, handleTitleChange } = useContext(ExpertiseContext);
+    return (
+        <summary className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t">
+            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2">{num}.</span>
+            <input type="text" value={blockTitles[id]} onChange={(e) => handleTitleChange(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" />
+        </summary>
+    );
+};
 
 const Sidebar = () => {
     const context = useContext(ExpertiseContext);
@@ -7,46 +41,25 @@ const Sidebar = () => {
 
     const {
         activeTab, setActiveTab, sidebarWidth, isResizing, uiZoom, pastedJson, setPastedJson,
-        draggedOccIndex, setDraggedOccIndex, draggedExpIndex, setDraggedExpIndex,
-        showSubtotals, setShowSubtotals, orgaAdvancedMode, setOrgaAdvancedMode,
+        showSubtotals, setShowSubtotals, currentDossierId,
         expandedOccId, setExpandedOccId, expandedExpId, setExpandedExpId,
         savedDossiers, dossierSearch, setDossierSearch, expertsList, setExpertsList, franchises, setFranchises,
         showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
-        showFranchiseDropdown, setShowFranchiseDropdown, formData, setFormData, blockTitles, setBlockTitles,
-        references, occupants, expenses, blocksVisible, setBlocksVisible, customBlocks, setCustomBlocks,
+        showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, handleAddPrestataire, formData, setFormData, blockTitles, setBlockTitles,
+        references, occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible, customBlocks, setCustomBlocks,
         blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles, startResizing, handleReset, handleChange, handleTitleChange,
-        saveDossier, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
+        saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
         attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, downloadMergedPDF, getPaginationInfo
     } = context;
 
-    const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
-        let files = attachedFiles[docId] || [];
-        if (!Array.isArray(files)) files = [files];
-
-        return (
-            <div className="flex items-center gap-1 ml-auto shrink-0 flex-wrap justify-end">
-                {files.map(file => {
-                    if (!file.name) return null;
-                    return (
-                        <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
-                            📎 {file.pages}p
-                            <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
-                        </span>
-                    );
-                })}
-                <label className="text-[10px] text-slate-500 hover:text-indigo-400 cursor-pointer flex items-center" title={title}>
-                    📎 <span className="sr-only">Upload</span>
-                    <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(docId, f))} />
-                </label>
-            </div>
-        );
-    };
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
     const [editingExpert, setEditingExpert] = useState(null);
     const [addFranchiseForm, setAddFranchiseForm] = useState({ moisAnnee: '', montant: '' });
+    const draggedOccRef = useRef(null);
+    const draggedExpRef = useRef(null);
 
     const handleAddExpert = () => {
         const nom = addExpertForm.nom.trim(); const tel = addExpertForm.tel.trim();
@@ -67,12 +80,6 @@ const Sidebar = () => {
     const filteredExpertsContradictoire = sortedExperts.filter(exp => (exp.nom || '').toLowerCase().startsWith((formData.expertContradictoire||'').split(' - ')[0].toLowerCase()));
     const filteredFranchises = [...franchises].filter(f => (f || '').toLowerCase().includes((formData.franchise || '').toLowerCase()));
 
-    const AccordionHeader = ({ id, num }) => (
-        <summary className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t">
-            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2">{num}.</span>
-            <input type="text" value={blockTitles[id]} onChange={(e) => handleTitleChange(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" />
-        </summary>
-    );
 
     return (
         <>
@@ -84,7 +91,7 @@ const Sidebar = () => {
                 </div>
                 <div className="flex space-x-2 bg-slate-800 p-1 rounded-lg">
                     <button className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} onClick={() => setActiveTab('settings')}>Paramètres & IA</button>
+                    <button className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
                 </div>
             </div>
 
@@ -95,7 +102,10 @@ const Sidebar = () => {
 
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
-                            <button onClick={saveDossier} className="w-full bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold mb-3 shadow">💾 Sauvegarder le dossier actuel</button>
+                            <div className="flex gap-2 mb-3">
+                                <button onClick={saveDossier} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow">💾 Sauvegarder</button>
+                                {currentDossierId && <button onClick={saveDossierAs} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded text-xs font-bold shadow">📁 Copier</button>}
+                            </div>
                             {savedDossiers.length > 0 && <input type="text" placeholder="🔍 Rechercher..." value={dossierSearch} onChange={(e) => setDossierSearch(e.target.value)} className="input-field mb-3 w-full" />}
                             <div className="border-t border-slate-700 pt-3 max-h-48 overflow-y-auto pr-1">
                                 {savedDossiers.length === 0 ? <p className="text-[10px] text-slate-400 italic text-center">Aucun dossier.</p> : 
@@ -214,8 +224,9 @@ const Sidebar = () => {
                                     <label>Déclaré par (Nom)</label><input type="text" name="declarant" value={formData.declarant} onChange={handleChange} placeholder="Ex: Mme. X" className="input-field mb-0" />
                                 </div>
 
-                                <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label className="flex items-center w-full">Nom Contrat <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2"><div className="flex-1"><label>N° Police</label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
+                                <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
                                     {references.map((r) => (
@@ -240,31 +251,55 @@ const Sidebar = () => {
                             <div className="p-3 space-y-2">
                                 <div className="flex justify-between items-center mb-2">
                                     <button onClick={sortOccupantsByFloor} className="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-[10px] text-indigo-300 border border-slate-600 transition-colors">🔄 Trier par étage</button>
-                                    <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px] bg-slate-800 p-1.5 rounded border border-slate-700"><input type="checkbox" checked={orgaAdvancedMode} onChange={(e) => setOrgaAdvancedMode(e.target.checked)} className="w-3 h-3 rounded bg-slate-700" /><span>Mode complet (Assurances)</span></label>
                                 </div>
                                 {occupants.map((o, index) => {
                                     const isExp = expandedOccId === o.id;
                                     return (
-                                    <div key={o.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } setDraggedOccIndex(index); e.dataTransfer.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (draggedOccIndex === null || draggedOccIndex === index) return; const newOccs = [...occupants]; const item = newOccs.splice(draggedOccIndex, 1)[0]; newOccs.splice(index, 0, item); setOccupants(newOccs); setDraggedOccIndex(null); }} onDragEnd={() => setDraggedOccIndex(null)} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''} ${draggedOccIndex === index ? 'opacity-50 border-indigo-400' : ''}`} >
+                                    <div key={o.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } draggedOccRef.current = index; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const src = draggedOccRef.current; if (src === null || src === index) return; const newOccs = [...occupants]; const item = newOccs.splice(src, 1)[0]; newOccs.splice(index, 0, item); setOccupants(newOccs); draggedOccRef.current = null; }} onDragEnd={() => { draggedOccRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeOcc(o.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
+                                        {isExp && <button onClick={(e) => { e.stopPropagation(); setExpandedOccId(null); }} className="absolute top-1 right-8 text-indigo-300 text-[10px] z-10 hover:text-white">▲ Réduire</button>}
                                         {!isExp ? (
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedOccId(o.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{o.etage || 'Étage'}</span> - {o.statut} : {o.nom || 'Nouvelle personne'}</span></div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
                                                 <div><label>Étage / Unité</label><input type="text" autoFocus value={o.etage} onChange={e=>updateOcc(o.id, 'etage', e.target.value)} className="input-field mb-0" /></div>
-                                                <div><label>Statut</label><select value={o.statut} onChange={e=>updateOcc(o.id, 'statut', e.target.value)} className="input-field mb-0"><option>Locataire</option><option>Propriétaire occupant</option><option>Propriétaire non occupant</option><option>Syndic / Autre</option></select></div>
+                                                <div><label>Statut</label><select value={o.statut} onChange={e=>updateOcc(o.id, 'statut', e.target.value)} className="input-field mb-0"><option>Locataire</option><option>Propriétaire occupant</option><option>Propriétaire non occupant</option><option>Autre</option></select></div>
                                                 <div className="col-span-2"><label>Nom & Prénom</label><input type="text" value={o.nom} onChange={e=>updateOcc(o.id, 'nom', e.target.value)} className="input-field mb-0" /></div>
                                                 <div className="col-span-2"><label>Téléphone</label><input type="text" value={o.tel} onChange={e=>updateOcc(o.id, 'tel', e.target.value)} className="input-field mb-0" /></div>
-                                                {orgaAdvancedMode && (
+                                                <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-slate-700">
+                                                    <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px]">
+                                                        <input type="checkbox" checked={o.showDetails} onChange={(e) => updateOcc(o.id, 'showDetails', e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
+                                                        <span>Mode avancé</span>
+                                                    </label>
+                                                    <label className="flex items-center space-x-2 cursor-pointer text-cyan-300 text-[10px]">
+                                                        <input type="checkbox" checked={o.hasContact || false} onChange={(e) => updateOcc(o.id, 'hasContact', e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
+                                                        <span>Contact/Représentant ?</span>
+                                                    </label>
+                                                    <label className="flex items-center space-x-2 cursor-pointer text-orange-300 text-[10px]" title="Frais exclus de la réclamation">
+                                                        <input type="checkbox" checked={o.contreExpert} onChange={(e) => updateOcc(o.id, 'contreExpert', e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
+                                                        <span>Expert-client ?</span>
+                                                    </label>
+                                                </div>
+                                                {(o.hasContact || o.contreExpert) && (
+                                                    <div className="col-span-2 flex flex-wrap gap-2 mt-1">
+                                                        {o.hasContact && <>
+                                                            <div className="flex-1 min-w-[100px]"><label className="text-cyan-300 text-[10px]">Nom contact</label><input type="text" value={o.contactNom || ''} onChange={(e) => updateOcc(o.id, 'contactNom', e.target.value)} placeholder="Nom..." className="input-field mb-0 py-0.5 text-[10px] bg-slate-800 border-cyan-400/50 text-cyan-100" /></div>
+                                                            <div className="flex-1 min-w-[100px]"><label className="text-cyan-300 text-[10px]">Tél contact</label><input type="text" value={o.contactTel || ''} onChange={(e) => updateOcc(o.id, 'contactTel', e.target.value)} placeholder="04XX..." className="input-field mb-0 py-0.5 text-[10px] bg-slate-800 border-cyan-400/50 text-cyan-100" /></div>
+                                                        </>}
+                                                        {o.contreExpert && <div className="flex-1 min-w-[100px]"><label className="text-orange-300 text-[10px]">Nom expert-client</label><input type="text" value={o.nomContreExpert || ''} onChange={(e) => updateOcc(o.id, 'nomContreExpert', e.target.value)} placeholder="Galtier..." className="input-field mb-0 py-0.5 text-[10px] bg-slate-800 border-orange-400/50 text-orange-100" /></div>}
+                                                    </div>
+                                                )}
+                                                {o.showDetails && (
                                                     <div className="col-span-2 border-t border-slate-700 mt-2 pt-2">
                                                         <div className="mb-2 w-1/2 pr-1"><label>E-mail</label><input type="email" value={o.email} onChange={e=>updateOcc(o.id, 'email', e.target.value)} className="input-field mb-0" /></div>
+                                                        <div className="mb-2 w-1/2 pr-1"><label>IBAN (Comptabilité)</label><input type="text" value={o.iban || ''} onChange={e=>updateOcc(o.id, 'iban', e.target.value)} placeholder="BE..." className="input-field mb-0 border-indigo-500" /></div>
                                                         <label className="text-indigo-300 font-bold mb-2">RC Familiale</label>
                                                         <div className="grid grid-cols-2 gap-2 mb-2"><div><label>Assuré ?</label><select value={o.rc} onChange={e=>updateOcc(o.id, 'rc', e.target.value)} className="input-field mb-0"><option>Non</option><option>Oui</option></select></div>{o.rc === 'Oui' && <div><label>N° Police RC</label><input type="text" value={o.rcPolice} onChange={e=>updateOcc(o.id, 'rcPolice', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}</div>
                                                         <label className="text-indigo-300 font-bold mb-2">Seconde Assurance</label>
                                                         <div className="grid grid-cols-2 gap-2"><div><label>Autre assurance ?</label><select value={o.secAssurance} onChange={e=>updateOcc(o.id, 'secAssurance', e.target.value)} className="input-field mb-0"><option>Non</option><option>Oui</option></select></div>{o.secAssurance === 'Oui' && <div><label>Type</label><input type="text" value={o.secType} onChange={e=>updateOcc(o.id, 'secType', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}{o.secAssurance === 'Oui' && <div><label>Compagnie (2e ass.)</label><input type="text" value={o.secCie} onChange={e=>updateOcc(o.id, 'secCie', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}{o.secAssurance === 'Oui' && <div><label>N° Police (2e ass.)</label><input type="text" value={o.secPolice} onChange={e=>updateOcc(o.id, 'secPolice', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}</div>
                                                     </div>
                                                 )}
-                                                <div className="col-span-2 flex justify-end mt-1"><button onClick={() => setExpandedOccId(null)} className="text-[10px] text-slate-400 hover:text-white underline">Réduire</button></div>
+
                                             </div>
                                         )}
                                     </div>
@@ -277,14 +312,15 @@ const Sidebar = () => {
                             <AccordionHeader id="frais" num="6" />
                             <div className="p-3 space-y-2">
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
-                                    <label className="flex items-center space-x-2 cursor-pointer text-white text-xs font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Sous-totaux</span></label>
+                                    <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>
                                 </div>
                                 {expenses.map((exp, index) => {
                                     const isExp = expandedExpId === exp.id;
                                     return (
-                                    <div key={exp.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } setDraggedExpIndex(index); e.dataTransfer.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (draggedExpIndex === null || draggedExpIndex === index) return; const newExps = [...expenses]; const item = newExps.splice(draggedExpIndex, 1)[0]; newExps.splice(index, 0, item); setExpenses(newExps); setDraggedExpIndex(null); }} onDragEnd={() => setDraggedExpIndex(null)} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''} ${draggedExpIndex === index ? 'opacity-50 border-indigo-400' : ''}`} >
+                                    <div key={exp.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } draggedExpRef.current = index; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const src = draggedExpRef.current; if (src === null || src === index) return; const newExps = [...expenses]; const item = newExps.splice(src, 1)[0]; newExps.splice(index, 0, item); setExpenses(newExps); draggedExpRef.current = null; }} onDragEnd={() => { draggedExpRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeExpense(exp.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
+                                        {isExp && <button onClick={(e) => { e.stopPropagation(); setExpandedExpId(null); }} className="absolute top-1 right-8 text-indigo-300 text-[10px] z-10 hover:text-white">▲ Réduire</button>}
                                         {!isExp ? (
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
                                                 <span className="text-slate-500 cursor-grab">⠿</span>
@@ -293,15 +329,24 @@ const Sidebar = () => {
                                             </div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
-                                                <div><label>Prestataire</label><input type="text" autoFocus value={exp.prestataire} onChange={e=>updateExpense(exp.id, 'prestataire', e.target.value)} className="input-field mb-0" /></div>
-                                                <div><label>Type / Réf</label><div className="flex gap-1"><input type="text" value={exp.type} onChange={e=>updateExpense(exp.id, 'type', e.target.value)} placeholder="Devis" className="input-field mb-0 w-1/2" /><input type="text" value={exp.ref} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} placeholder="Réf" className="input-field mb-0 w-1/2" /></div></div>
-                                                <div className="col-span-2"><label>Description courte</label><input type="text" value={exp.desc} onChange={e=>updateExpense(exp.id, 'desc', e.target.value)} className="input-field mb-0" /></div>
-                                                <div className="col-span-2"><label>Pour le compte de</label><input type="text" value={exp.compteDe} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} placeholder="Choisissez..." className="input-field mb-0 border-indigo-500" list="occupants-global-list" /></div>
-                                                <div><label>Montant (€)</label><input type="text" value={exp.montant} onChange={e=>updateExpense(exp.id, 'montant', e.target.value)} placeholder="350.00" className="input-field mb-0 font-bold" /></div>
+                                                <div><label>Montant (€)</label><input type="text" autoFocus value={exp.montant} onChange={e=>updateExpense(exp.id, 'montant', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="350.00" className="input-field mb-0 font-bold" /></div>
                                                 <div><label>Type Montant</label><select value={exp.typeMontant} onChange={e=>updateExpense(exp.id, 'typeMontant', e.target.value)} className="input-field mb-0"><option>HTVA</option><option>Forfait</option><option>TVAC</option></select></div>
+                                                <div className="col-span-2"><label>Description courte</label><input type="text" value={exp.desc} onChange={e=>updateExpense(exp.id, 'desc', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} className="input-field mb-0" /></div>
+                                                <div className="col-span-2"><label>Pour le compte de</label><input type="text" value={exp.compteDe} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Choisissez..." className="input-field mb-0 border-indigo-500" list="occupants-global-list" /></div>
+                                                {exp.typeMontant !== 'Forfait' && <>
+                                                    <div><label>Type</label><select value={exp.type || 'Devis'} onChange={e=>updateExpense(exp.id, 'type', e.target.value)} className="input-field mb-0"><option>Devis</option><option>Facture</option></select></div>
+                                                    <div><label>Réf</label><input type="text" value={exp.ref} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Réf" className="input-field mb-0" /></div>
+                                                    <div className="col-span-2"><label>Prestataire</label><input type="text" value={exp.prestataire} onChange={e=>updateExpense(exp.id, 'prestataire', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} list="prestataires-list" className="input-field mb-0" /></div>
+                                                </>}
                                                 
                                                 <div className="col-span-2 border-t border-slate-700 mt-2 pt-2">
-                                                    <div className="flex justify-between items-center">
+                                                    {showSubtotals && (
+                                                        <div className="grid grid-cols-[120px_auto] gap-2 items-start mb-2">
+                                                            <div><label className="text-orange-300">Couverture</label><select value={exp.avisCouverture || 'Oui'} onChange={e=>updateExpense(exp.id, 'avisCouverture', e.target.value)} className="input-field mb-0 bg-slate-800 border-orange-400/50 text-orange-200"><option value="Oui">Oui</option><option value="Non">Non</option><option value="Autre">Autre</option></select></div>
+                                                            {exp.avisCouverture !== 'Oui' && <div><label className="text-orange-300">Raison / Observation</label><input type="text" value={exp.noteCouverture || ''} onChange={e=>updateExpense(exp.id, 'noteCouverture', e.target.value)} placeholder={exp.avisCouverture === 'Non' ? "pourquoi ?" : "Ex: Vétusté..."} className="input-field mb-0 border-orange-400/50 bg-slate-800 text-orange-100" /></div>}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between items-center border-t border-slate-700 pt-2">
                                                         <label className="text-indigo-300 font-bold block">📄 Justificatif (PDF)</label>
                                                         <label className="text-[10px] text-slate-400 hover:text-indigo-300 cursor-pointer">+ Ajouter
                                                             <input type="file" accept=".pdf" className="hidden" multiple onChange={(e) => Array.from(e.target.files).forEach(f => handleAttachFile(exp.id, f))} />
@@ -322,13 +367,13 @@ const Sidebar = () => {
                                                     )}
                                                 </div>
 
-                                                <div className="col-span-2 flex justify-end mt-1"><button onClick={() => setExpandedExpId(null)} className="text-[10px] text-slate-400 hover:text-white underline">Réduire</button></div>
                                             </div>
                                         )}
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => <option key={o.id} value={o.nom} />)}<option value="La copropriété" /></datalist>
+                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => <option key={o.id} value={o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom} />)}</datalist>
+                                <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
                             </div>
                         </details>
 

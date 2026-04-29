@@ -17,8 +17,8 @@ const initialTitles = {
   coord: "Données d'expertise",
   infos: "Informations générales & références diverses",
   cause: "Cause du sinistre",
-  orga: "Organisation du bâtiment",
-  frais: "Tableau récapitulatif des frais et devis",
+  orga: "Parties",
+  frais: "Réclamations",
   photos: "Photos",
   divers: "Divers & Remarques"
 };
@@ -72,17 +72,13 @@ export const ExpertiseProvider = ({ children }) => {
   const [fitBlocks, setFitBlocks] = useState({});
   const [pastedJson, setPastedJson] = useState("");
 
-  // Drag and Drop manuel (Listes Sidebar)
-  const [draggedOccIndex, setDraggedOccIndex] = useState(null);
-  const [draggedExpIndex, setDraggedExpIndex] = useState(null);
-
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
-  const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(false);
   const [expandedOccId, setExpandedOccId] = useState(null);
   const [expandedExpId, setExpandedExpId] = useState(null);
 
   // Données globales
+  const [currentDossierId, setCurrentDossierId] = useState(null);
   const [savedDossiers, setSavedDossiers] = useState([]);
   const [dossierSearch, setDossierSearch] = useState('');
   const [expertsList, setExpertsList] = useState([]);
@@ -90,6 +86,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [showExpertDropdown, setShowExpertDropdown] = useState(false);
   const [showExpertDropdownContradictoire, setShowExpertDropdownContradictoire] = useState(false);
   const [showFranchiseDropdown, setShowFranchiseDropdown] = useState(false); 
+  const [prestatairesList, setPrestatairesList] = useState([]);
 
   // Formulaire
   const [formData, setFormData] = useState(initialFormData);
@@ -124,6 +121,8 @@ export const ExpertiseProvider = ({ children }) => {
       const savedExperts = localStorage.getItem('expertise_experts_v2');
       const savedFranchises = localStorage.getItem('expertise_franchises_v2');
       const storedDossiers = localStorage.getItem('expertise_dossiers_v1');
+      const savedPrestataires = localStorage.getItem('expertise_prestataires_v1');
+      if (savedPrestataires) setPrestatairesList(JSON.parse(savedPrestataires));
 
       const parsedExperts = savedExperts ? JSON.parse(savedExperts) : [];
       const parsedFranchises = savedFranchises ? JSON.parse(savedFranchises) : [];
@@ -162,8 +161,8 @@ export const ExpertiseProvider = ({ children }) => {
       if(!window.confirm("⚠️ Voulez-vous réinitialiser tout le document ? Les données non sauvegardées seront perdues.")) return;
       setFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
-      setStyles(initialStyles); setShowSubtotals(false); setOrgaAdvancedMode(false); setFitBlocks({}); setPastedJson('');
-      setAttachedFiles({}); setAttachedPhotos({});
+      setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
+      setAttachedFiles({}); setAttachedPhotos({}); setCurrentDossierId(null);
   };
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -198,15 +197,40 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const saveDossier = () => {
-      const name = window.prompt("Nom de ce dossier (ex: Nom, Ref) ?", formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`);
-      if (!name) return;
-      const newDossier = {
-          id: Date.now(), name, date: new Date().toLocaleString('fr-FR'),
-          data: { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, orgaAdvancedMode, fitBlocks, attachedFiles, attachedPhotos }
-      };
-      const updated = [newDossier, ...savedDossiers];
+      let name = formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`;
+      if (!currentDossierId) {
+          name = window.prompt("Nom de ce dossier (ex: Nom, Ref) ?", name);
+          if (!name) return;
+      }
+      
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos };
+      
+      let updated;
+      if (currentDossierId) {
+          updated = savedDossiers.map(d => d.id === currentDossierId ? { ...d, date: new Date().toLocaleString('fr-FR'), data: dossierData } : d);
+      } else {
+          const newId = Date.now();
+          const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
+          updated = [newDossier, ...savedDossiers];
+          setCurrentDossierId(newId);
+      }
+      
       setSavedDossiers(updated); localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
       alert("✅ Dossier sauvegardé !");
+  };
+
+  const saveDossierAs = () => {
+      const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
+      if (!name) return;
+      
+      const newId = Date.now();
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos };
+      const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
+      
+      const updated = [newDossier, ...savedDossiers];
+      setSavedDossiers(updated); localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+      setCurrentDossierId(newId);
+      alert("✅ Copie du dossier sauvegardée !");
   };
 
   const loadDossier = (dossier) => {
@@ -217,10 +241,11 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.expenses) setExpenses(d.expenses); if(d.blocksVisible) setBlocksVisible(d.blocksVisible); 
       if(d.styles) setStyles(d.styles); if(d.blockOrder) setBlockOrder(d.blockOrder); 
       if(d.blockWidths) setBlockWidths(d.blockWidths); if(d.customBlocks) setCustomBlocks(d.customBlocks); 
-      if(d.showSubtotals !== undefined) setShowSubtotals(d.showSubtotals); if(d.orgaAdvancedMode !== undefined) setOrgaAdvancedMode(d.orgaAdvancedMode);
+      if(d.showSubtotals !== undefined) setShowSubtotals(d.showSubtotals);
       if(d.fitBlocks) setFitBlocks(d.fitBlocks);
       if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
+      setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
 
@@ -250,26 +275,61 @@ export const ExpertiseProvider = ({ children }) => {
 
   const addOcc = () => {
       const newId = Date.now();
-      setOccupants([...occupants, { id: newId, nom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' }]);
+      setOccupants([...occupants, { id: newId, nom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '', showDetails: false, contreExpert: false, nomContreExpert: '', hasContact: false, contactNom: '', contactTel: '', iban: '' }]);
       setExpandedOccId(newId);
   };
   const updateOcc = (id, field, value) => {
+      const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
       setOccupants(prev => {
           const oldOcc = prev.find(o => o.id === id);
           const next = prev.map(o => o.id === id ? { ...o, [field]: value } : o);
-          if (field === 'nom' && oldOcc && oldOcc.nom !== value) {
-              setExpenses(e => e.map(exp => exp.compteDe === oldOcc.nom ? { ...exp, compteDe: value } : exp));
+          if (oldOcc) {
+              const oldNameFormatted = fmtOccName(oldOcc);
+              const nextOcc = next.find(o => o.id === id);
+              const newNameFormatted = fmtOccName(nextOcc);
+              if ((field === 'nom' || field === 'etage') && oldNameFormatted !== newNameFormatted && oldNameFormatted !== '') {
+                  setExpenses(e => e.map(exp => exp.compteDe === oldNameFormatted ? { ...exp, compteDe: newNameFormatted } : exp));
+              }
           }
+          return next;
+      });
+  };
+
+  const handleAddPrestataire = (name) => {
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      setPrestatairesList(prev => {
+          if (prev.includes(trimmed)) return prev;
+          const next = [...prev, trimmed].sort((a, b) => a.localeCompare(b));
+          localStorage.setItem('expertise_prestataires_v1', JSON.stringify(next));
           return next;
       });
   };
   const removeOcc = (id) => setOccupants(occupants.filter(o => o.id !== id));
 
+  const parseFloor = (str) => {
+      if (!str) return -999;
+      const lower = str.toLowerCase();
+      if (lower.startsWith('rez') || lower === 'rdc') return 0;
+      if (lower.startsWith('sous-sol') || lower.startsWith('cave')) return -1;
+      const match = lower.match(/-?\d+/);
+      if (match) return parseInt(match[0], 10);
+      return -998;
+  };
+
   const sortOccupantsByFloor = () => {
-      const statusOrder = { "Propriétaire occupant": 1, "Propriétaire non occupant": 2, "Syndic / Autre": 3, "Locataire": 4 };
+      const statusOrder = { "Propriétaire occupant": 1, "Propriétaire non occupant": 2, "Autre": 3, "Locataire": 4 };
       const sorted = [...occupants].sort((a, b) => {
           const etageA = (a.etage || '').trim();
           const etageB = (b.etage || '').trim();
+          
+          const floorA = parseFloor(etageA);
+          const floorB = parseFloor(etageB);
+          
+          if (floorA !== floorB) {
+              return floorB - floorA; // Descending
+          }
+          
           if (etageA !== etageB) return etageA.localeCompare(etageB, undefined, { numeric: true, sensitivity: 'base' });
           const rankA = statusOrder[a.statut] || 99;
           const rankB = statusOrder[b.statut] || 99;
@@ -280,7 +340,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   const addExpense = () => {
       const newId = Date.now();
-      setExpenses([...expenses, { id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', typeMontant: 'HTVA' }]);
+      setExpenses([...expenses, { id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' }]);
       setExpandedExpId(newId);
   };
   const updateExpense = (id, field, value) => setExpenses(expenses.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
@@ -556,11 +616,17 @@ export const ExpertiseProvider = ({ children }) => {
               });
           }
           if (data.franchises && Array.isArray(data.franchises)) {
-              setFranchises(prev => Array.from(new Set([...prev, ...data.franchises])));
+              const safeFranchises = data.franchises.map(f => typeof f === 'object' && f !== null ? Object.values(f).join(' - ') : String(f));
+              setFranchises(prev => Array.from(new Set([...prev, ...safeFranchises])));
           }
           if (data.formData) setFormData(prev => ({ ...prev, ...data.formData }));
           if (data.experts && Array.isArray(data.experts)) {
-              const newExperts = data.experts.filter(e => e.nom && e.nom.trim() !== "");
+              const newExperts = data.experts.map(e => {
+                  if (typeof e === 'string') return { nom: e, tel: '' };
+                  let safeNom = typeof e.nom === 'object' && e.nom !== null ? Object.values(e.nom).join(' ') : String(e.nom || '');
+                  let safeTel = typeof e.tel === 'object' && e.tel !== null ? Object.values(e.tel).join(' ') : String(e.tel || '');
+                  return { ...e, nom: safeNom, tel: safeTel };
+              }).filter(e => e.nom && e.nom.trim() !== "");
               setExpertsList(prev => { 
                   const merged = [...prev]; 
                   newExperts.forEach(ne => { 
@@ -636,19 +702,18 @@ Voici le format JSON :
   const contextValue = {
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
-      draggedOccIndex, setDraggedOccIndex, draggedExpIndex, setDraggedExpIndex,
-      showSubtotals, setShowSubtotals, orgaAdvancedMode, setOrgaAdvancedMode,
+      showSubtotals, setShowSubtotals, currentDossierId, setCurrentDossierId,
       expandedOccId, setExpandedOccId, expandedExpId, setExpandedExpId,
       savedDossiers, setSavedDossiers, dossierSearch, setDossierSearch,
       expertsList, setExpertsList, franchises, setFranchises,
       showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
-      showFranchiseDropdown, setShowFranchiseDropdown,
+      showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, setPrestatairesList, handleAddPrestataire,
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
       occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
       attachedFiles, attachedPhotos, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto, getPaginationInfo, downloadMergedPDF,
       startResizing, stopResizing, resize, handleReset, handleChange,
-      handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, loadDossier,
+      handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
