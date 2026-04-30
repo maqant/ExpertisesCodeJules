@@ -75,6 +75,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [uiZoom, setUiZoom] = useState(1);
   const [fitBlocks, setFitBlocks] = useState({});
   const [pastedJson, setPastedJson] = useState("");
+  const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(false);
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -204,6 +205,22 @@ export const ExpertiseProvider = ({ children }) => {
       }));
   };
 
+  const handleNewDossier = () => {
+      if (!window.confirm("Créer un nouveau dossier ? Les données non sauvegardées seront perdues.")) return;
+      const name = window.prompt("Nom du nouveau dossier ?");
+      if (!name) return;
+      
+      handleReset();
+      
+      const newId = Date.now();
+      const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: initialFormData, blockTitles: initialTitles } };
+      const updated = [newDossier, ...savedDossiers];
+      
+      setSavedDossiers(updated);
+      localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+      setCurrentDossierId(newId);
+  };
+
   const saveDossier = () => {
       let name = formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`;
       if (!currentDossierId) {
@@ -313,11 +330,14 @@ export const ExpertiseProvider = ({ children }) => {
 
   const addOcc = () => {
       const newId = Date.now();
-      setOccupants([...occupants, { id: newId, nom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' }]);
+      setOccupants([...occupants, { id: newId, nom: '', prenom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' }]);
       setExpandedOccId(newId);
   };
   const updateOcc = (id, field, value) => {
-      const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
+      const fmtOccName = (o) => {
+          const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+          return fullName ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName) : '';
+      };
       setOccupants(prev => {
           const oldOcc = prev.find(o => o.id === id);
           const next = prev.map(o => o.id === id ? { ...o, [field]: value } : o);
@@ -910,7 +930,7 @@ export const ExpertiseProvider = ({ children }) => {
                           if (i + 1 < imgs.length) await drawImg(imgs[i + 1], height / 2 - 20);
                       }
                   }
-                  for (const p of pdfs) await appendPdf(p.dbKey);
+                  for (const p of pdfs) await appendDoc(p);
               }
           }
 
@@ -1051,6 +1071,7 @@ Voici le format JSON :
   const contextValue = {
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
+      orgaAdvancedMode, setOrgaAdvancedMode,
       showSubtotals, setShowSubtotals, currentDossierId, setCurrentDossierId,
       expandedOccId, setExpandedOccId, expandedExpId, setExpandedExpId,
       savedDossiers, setSavedDossiers, dossierSearch, setDossierSearch,
@@ -1071,7 +1092,7 @@ Voici le format JSON :
       hideAnnexIndex, setHideAnnexIndex,
       printSelection, setPrintSelection,
       coverPageCount, setCoverPageCount,
-      startResizing, stopResizing, resize, handleReset, handleChange,
+      startResizing, stopResizing, resize, handleReset, handleChange, handleNewDossier,
       handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,

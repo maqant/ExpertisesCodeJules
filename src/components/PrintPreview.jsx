@@ -16,11 +16,44 @@ const PrintPreview = () => {
         return acc + (isNaN(val) ? 0 : val);
     }, 0);
 
-    const sousTotaux = expenses.reduce((acc, curr) => {
-        const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-        if (!isNaN(val) && curr.compteDe && curr.compteDe.trim() !== '') { acc[curr.compteDe] = (acc[curr.compteDe] || 0) + val; }
+    const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
+
+    const dettesParPersonne = expenses.reduce((acc, exp) => {
+        const p = exp.compteDe || 'Non attribué';
+        if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
+        const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
+        const safeVal = isNaN(val) ? 0 : val;
+        if (exp.typeMontant === 'HTVA') acc[p].HTVA += safeVal;
+        else if (exp.typeMontant === 'TVAC') acc[p].TVAC += safeVal;
+        else if (exp.typeMontant === 'Forfait') acc[p].Forfait += safeVal;
+        acc[p].lignes.push(exp);
         return acc;
     }, {});
+
+    const formatShortCompteDe = (compteDeStr) => {
+        if (!compteDeStr || typeof compteDeStr !== 'string') return '';
+        
+        // Isoler le nom complet (sans l'étage s'il est préfixé)
+        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
+        
+        // Chercher l'occupant en comparant avec "Nom Prénom"
+        const occupant = occupants.find(o => {
+            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+            return fullName === namePart || (o.nom && namePart.includes(o.nom));
+        });
+        
+        if (occupant) {
+            // On a trouvé la personne : on ne garde STRICTEMENT que son nom de famille (o.nom)
+            const nomAffiche = occupant.nom || namePart.split(' ')[0];
+            if (occupant.etage && occupant.etage.trim() !== '') {
+                return `${nomAffiche} (${occupant.etage.trim()})`;
+            }
+            return nomAffiche;
+        }
+        
+        // Fallback (ex: "COMMUNS")
+        return namePart.split(' ')[0];
+    };
 
     const renderBlocksInOrder = () => {
         const orderedKeys = getSortedBlocks();
@@ -84,7 +117,7 @@ const PrintPreview = () => {
                                     <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o.statut === 'Locataire' ? 'ml-12 text-slate-700' : ''}`}>
                                         <strong className="break-words">{o.etage || '-'}</strong>
                                         <span className="text-slate-800 break-words">- {o.statut}</span>
-                                        <span className="break-words">: <strong>{o.nom || '___'}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
+                                        <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
                                     </div>
                                     {orgaAdvancedMode && (o.rc === 'Oui' || o.secAssurance === 'Oui') && (
                                         <div className={`ml-[280px] ${o.statut === 'Locataire' ? 'pl-12' : ''}`}>
@@ -105,30 +138,97 @@ const PrintPreview = () => {
                 <div key="frais" className="mb-6 relative z-10" style={{ fontSize: `${styles.frais.fontSize}px`, color: styles.frais.color, fontFamily: styles.frais.fontFamily, textAlign: styles.frais.textAlign }}>
                     <div className={`${styles.frais.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
                         {blockTitles.frais && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize + 2}px` }}>{blockTitles.frais}</p>}
-                        <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed" style={{ fontSize: `${styles.frais.fontSize}px` }}>
-                            <thead className="bg-slate-100"><tr><th className="border border-slate-400 p-2 w-12">#</th><th className="border border-slate-400 p-2 w-1/5">Prestataire</th><th className="border border-slate-400 p-2 w-1/6">Type/Réf</th><th className="border border-slate-400 p-2">Description</th><th className="border border-slate-400 p-2 w-1/5">Compte de</th><th className="border border-slate-400 p-2 w-24 text-right">Montant</th></tr></thead>
+                        <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed border border-slate-400" style={{ fontSize: `${styles.frais.fontSize}px` }}>
+                            <thead className="bg-slate-100">
+                                <tr>
+                                    <th className="border border-slate-400 p-1 w-8 text-center">#</th>
+                                    <th className="border border-slate-400 p-1 w-[15%]">Prestataire</th>
+                                    <th className="border border-slate-400 p-1 w-[12%]">Type/Réf</th>
+                                    <th className="border border-slate-400 p-1">Description</th>
+                                    <th className="border border-slate-400 p-1 w-[18%]">Compte de</th>
+                                    <th className="border border-slate-400 p-1 w-[105px] text-right">Montant</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {expenses.map((exp, index) => {
                                     const pagInfo = getPaginationInfo(exp.id);
                                     return (
-                                        <tr key={exp.id} className="break-inside-avoid"><td className="border border-slate-400 p-2 text-center">{index + 1}</td><td className="border border-slate-400 p-2 break-words">{exp.prestataire}</td><td className="border border-slate-400 p-2 break-words">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td><td className="border border-slate-400 p-2 break-words">{exp.desc} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td><td className="border border-slate-400 p-2 break-words">{exp.compteDe}</td><td className="border border-slate-400 p-2 text-right font-bold whitespace-nowrap">{exp.montant ? `${exp.montant} € (${exp.typeMontant})` : ''}</td></tr>
+                                        <tr key={exp.id} className="break-inside-avoid">
+                                            <td className="border border-slate-400 p-1 text-center align-top">{index + 1}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top">{exp.prestataire}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top text-[0.9em]">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top">{exp.desc} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top">{formatShortCompteDe(exp.compteDe)}</td>
+                                            <td className="border border-slate-400 p-1 text-right font-bold align-top leading-tight">
+                                                {exp.montant ? (
+                                                    <>
+                                                        <div className="whitespace-nowrap">{exp.montant} €</div>
+                                                        <div className="text-[0.75em] font-normal opacity-80 uppercase">{exp.typeMontant}</div>
+                                                    </>
+                                                ) : ''}
+                                            </td>
+                                        </tr>
                                     );
                                 })}
-                                {expenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-2 text-right uppercase text-[0.9em]">Total</td><td className="border border-slate-400 p-2 text-right whitespace-nowrap">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
+                                {expenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-1.5 text-right uppercase text-[0.85em] tracking-tight">TOTAL DE LA RÉCLAMATION</td><td className="border border-slate-400 p-1.5 text-right whitespace-nowrap text-indigo-900 align-top">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
                                 {expenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais encodé</td></tr>}
                             </tbody>
                         </table>
-                        {showSubtotals && Object.keys(sousTotaux).length > 0 && (
+                        {showSubtotals && Object.keys(dettesParPersonne).length > 0 && (
                             <div className="mt-4 pt-3 border-t border-slate-300 text-slate-700 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize}px` }}>
                                 <p className="font-bold mb-2">Décompte par partie impliquée (HTVA) :</p>
                                 <ul className="list-none m-0 p-0 space-y-1">
-                                    {Object.entries(sousTotaux).map(([personne, total]) => <li key={personne} className="flex justify-between w-2/3"><span>- {personne}</span><span className="font-bold">{total.toFixed(2).replace('.', ',')} €</span></li>)}
+                                    {Object.entries(dettesParPersonne).map(([personne, data]) => (
+                                        <li key={personne} className="flex justify-between w-2/3">
+                                            <span>- {formatShortCompteDe(personne)}</span>
+                                            <span className="font-bold">{data.HTVA.toFixed(2).replace('.', ',')} €</span>
+                                        </li>
+                                    ))}
                                 </ul>
                             </div>
                         )}
                     </div>
                 </div>
             );
+            if (key === 'frais_liste') {
+                if (showSubtotals && Object.keys(dettesParPersonne).length > 0) {
+                    return (
+                        <div key="frais_liste" className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px`, color: styles.frais_liste?.color || '#000', fontFamily: styles.frais_liste?.fontFamily || 'Arial', textAlign: 'left' }}>
+                            <div className={`${styles.frais_liste?.border ? 'border-2 border-current p-3 rounded' : ''} bg-white text-slate-700`}>
+                                <p className="font-bold mb-0">Détail des justificatifs par partie</p>
+                                <p className="text-[0.85em] text-slate-500 italic mb-2">Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.</p>
+                                <div className="space-y-4">
+                                    {Object.entries(dettesParPersonne).map(([personne, data]) => {
+                                        const matchOcc = occupants.find(o => fmtOccName(o) === personne);
+                                        const isExpertClient = matchOcc?.contreExpert;
+                                        return (
+                                            <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <h4 className="font-bold underline">{formatShortCompteDe(personne)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                                    <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
+                                                        {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                                    </div>
+                                                </div>
+                                                <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
+                                                    {data.lignes.map((l, i) => (
+                                                        <li key={i}>
+                                                            {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
+                                                            {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture]</span>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            }
             if (key === 'photos') {
                 const occupantsWithPhotos = occupants.filter(o => context.attachedPhotos && context.attachedPhotos[o.id] && context.attachedPhotos[o.id].length > 0);
                 return (

@@ -1,6 +1,7 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import AnnexModal from './AnnexModal';
+import packageInfo from '../../package.json';
 
 const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
     const [isOver, setIsOver] = useState(false);
@@ -62,13 +63,14 @@ const Sidebar = () => {
 
     const {
         activeTab, setActiveTab, sidebarWidth, isResizing, uiZoom, pastedJson, setPastedJson,
+        orgaAdvancedMode, setOrgaAdvancedMode,
         showSubtotals, setShowSubtotals, currentDossierId,
         expandedOccId, setExpandedOccId, expandedExpId, setExpandedExpId,
         savedDossiers, dossierSearch, setDossierSearch, expertsList, setExpertsList, franchises, setFranchises,
         showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
         showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, handleAddPrestataire, formData, setFormData, blockTitles, setBlockTitles,
         references, occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible, customBlocks, setCustomBlocks,
-        blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles, startResizing, handleReset, handleChange, handleTitleChange,
+        blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles, startResizing, handleReset, handleChange, handleTitleChange, handleNewDossier,
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
@@ -107,17 +109,36 @@ const Sidebar = () => {
     const filteredFranchises = [...franchises].filter(f => (f || '').toLowerCase().includes((formData.franchise || '').toLowerCase()));
 
 
+    const activeDossier = savedDossiers.find(d => d.id === currentDossierId);
+    const activeName = activeDossier ? activeDossier.name : 'Nouveau (Non sauvegardé)';
+
     return (
         <>
         <div id="sidebar" style={{ width: `${sidebarWidth}px` }} className="bg-slate-900 text-slate-200 flex flex-col shadow-xl z-10 shrink-0 h-screen overflow-hidden">
-            <div className="p-4 border-b border-slate-700">
-                <div className="flex justify-between items-center mb-3">
-                    <h1 className="text-xl font-bold text-white leading-tight">Page de garde<br/><span className="text-sm font-normal text-indigo-400">Expertise Incendie</span></h1>
-                    <button onClick={handleReset} className="bg-slate-800 text-red-400 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold border border-slate-700 transition-colors">🔄 Reset</button>
+            <div className="p-3 border-b border-slate-700 bg-slate-800">
+                <div className="flex justify-between items-center mb-1">
+                    <div>
+                        <h1 className="text-[11px] font-bold text-white leading-tight uppercase tracking-wider">Page de garde</h1>
+                        <div className="flex items-center gap-1 mt-0.5 text-[9px]">
+                            <span className="text-slate-500">Dossier :</span>
+                            <span className="text-indigo-300 font-bold truncate max-w-[100px]">{activeName}</span>
+                        </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            ➕ New
+                        </button>
+                        <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                            💾 Save
+                        </button>
+                        <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                            🔄 Reset
+                        </button>
+                    </div>
                 </div>
-                <div className="flex space-x-2 bg-slate-800 p-1 rounded-lg">
-                    <button className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
+                <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg mt-2 border border-slate-700">
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
                 </div>
             </div>
 
@@ -137,9 +158,25 @@ const Sidebar = () => {
                                 {savedDossiers.length === 0 ? <p className="text-[10px] text-slate-400 italic text-center">Aucun dossier.</p> : 
                                     <ul className="space-y-2">
                                         {savedDossiers.filter(d => (d.name || '').toLowerCase().includes(dossierSearch.toLowerCase())).map(d => (
-                                            <li key={d.id} className="bg-slate-900 p-2 rounded border border-slate-600 flex flex-col gap-1">
-                                                <div className="flex justify-between text-xs text-white"><span className="font-bold truncate">{d.name}</span><span className="text-[9px] text-slate-400">{d.date}</span></div>
-                                                <div className="flex justify-end gap-2 mt-1"><button onClick={() => deleteDossier(d.id)} className="text-[10px] text-red-400 hover:underline">Supprimer</button><button onClick={() => loadDossier(d)} className="text-[10px] bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-white font-bold">📂 Charger</button></div>
+                                            <li 
+                                                key={d.id} 
+                                                onClick={() => loadDossier(d)}
+                                                className="group flex justify-between items-center bg-slate-900 hover:bg-slate-800 p-1.5 rounded border border-slate-600 transition-colors cursor-pointer"
+                                            >
+                                                <div className="flex flex-col min-w-0 mr-2">
+                                                    <span className="font-bold text-xs text-white truncate">{d.name}</span>
+                                                    <span className="text-[9px] text-slate-400">{d.date}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); // Empêche de charger le dossier quand on clique sur la poubelle
+                                                        deleteDossier(d.id); 
+                                                    }} 
+                                                    className="text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded transition-colors opacity-40 group-hover:opacity-100 flex-shrink-0" 
+                                                    title="Supprimer"
+                                                >
+                                                    🗑️
+                                                </button>
                                             </li>
                                         ))}
                                     </ul>
@@ -199,7 +236,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
-                                <div className="flex gap-2"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="flex gap-2"><div className="flex-1"><label>Réf Péchard</label><input type="text" name="refPechard" value={formData.refPechard} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Résidence</label><input type="text" name="nomResidence" value={formData.nomResidence} onChange={handleChange} className="input-field" /></div></div>
                             </div>
                         </details>
@@ -242,7 +279,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
                             <div className="p-3 space-y-2">
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
                                     <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
                                 </div>
@@ -251,7 +288,7 @@ const Sidebar = () => {
                                 </div>
 
                                 <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
+                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
@@ -275,7 +312,14 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="orga" num="5" />
                             <div className="p-3 space-y-2">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="flex justify-between items-center mb-2 bg-slate-800 p-2 rounded border border-slate-700">
+                                    <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold">
+                                        <input type="checkbox" checked={orgaAdvancedMode} onChange={(e) => {
+                                            setOrgaAdvancedMode(e.target.checked);
+                                            setOccupants(occupants.map(o => ({ ...o, showDetails: e.target.checked })));
+                                        }} className="w-4 h-4 rounded border-slate-600 bg-slate-700" />
+                                        <span>Mode avancé</span>
+                                    </label>
                                     <button onClick={sortOccupantsByFloor} className="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-[10px] text-indigo-300 border border-slate-600 transition-colors">🔄 Trier par étage</button>
                                 </div>
                                 {occupants.map((o, index) => {
@@ -285,12 +329,13 @@ const Sidebar = () => {
                                         <button onClick={(e) => { e.stopPropagation(); removeOcc(o.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
                                         {isExp && <button onClick={(e) => { e.stopPropagation(); setExpandedOccId(null); }} className="absolute top-1 right-8 text-indigo-300 text-[10px] z-10 hover:text-white">▲ Réduire</button>}
                                         {!isExp ? (
-                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedOccId(o.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{o.etage || 'Étage'}</span> - {o.statut} : {o.nom || 'Nouvelle personne'}</span></div>
+                                            <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedOccId(o.id)}><span className="text-slate-500 cursor-grab">⠿</span><span className="flex-1 truncate"><span className="font-bold text-white">{o.etage || 'Étage'}</span> - {o.statut} : {o.nom || 'NOM'} {o.prenom || ''}</span></div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
                                                 <div><label>Étage / Unité</label><input type="text" autoFocus value={o.etage} onChange={e=>updateOcc(o.id, 'etage', e.target.value)} className="input-field mb-0" /></div>
                                                 <div><label>Statut</label><select value={o.statut} onChange={e=>updateOcc(o.id, 'statut', e.target.value)} className="input-field mb-0"><option>Locataire</option><option>Propriétaire occupant</option><option>Propriétaire non occupant</option><option>Autre</option></select></div>
-                                                <div className="col-span-2"><label>Nom & Prénom</label><input type="text" value={o.nom} onChange={e=>updateOcc(o.id, 'nom', e.target.value)} className="input-field mb-0" /></div>
+                                                <div><label>Nom de famille</label><input type="text" value={o.nom} onChange={e=>updateOcc(o.id, 'nom', e.target.value.toUpperCase())} placeholder="BIRON" className="input-field mb-0 font-bold" /></div>
+                                                <div><label>Prénom</label><input type="text" value={o.prenom || ''} onChange={e=>updateOcc(o.id, 'prenom', e.target.value)} placeholder="Jean" className="input-field mb-0" /></div>
                                                 <div className="col-span-2"><label>Téléphone</label><input type="text" value={o.tel} onChange={e=>updateOcc(o.id, 'tel', e.target.value)} className="input-field mb-0" /></div>
                                                 <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-slate-700">
                                                     <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px]">
@@ -396,7 +441,7 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => <option key={o.id} value={o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom} />)}</datalist>
+                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => { const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim(); return <option key={o.id} value={o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName} />; })}</datalist>
                                 <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
                             </div>
                         </details>
@@ -511,6 +556,15 @@ const Sidebar = () => {
                     >
                         {isMerging ? '⏳ Génération...' : '🖨️ Imprimer'} <span className="text-xs">▾</span>
                     </button>
+                    <div className="flex justify-between items-center mt-2 px-1 border-t border-slate-700/50 pt-2">
+                        <a 
+                            href="mailto:maquetantoine@gmail.com?subject=%5BExpertise%20App%5D%20Signalement%20de%20bug%20%2F%20Suggestion" 
+                            className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                            🪲 Bug / Suggestion
+                        </a>
+                        <span className="text-[10px] text-slate-600 font-mono font-bold select-none cursor-default" title="Version actuelle">v{packageInfo.version}</span>
+                    </div>
                     {showPrintMenu && !isMerging && (
                         <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
                             <button onClick={() => { setShowPrintMenu(false); generatePDF(); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">

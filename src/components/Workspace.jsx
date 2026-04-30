@@ -157,8 +157,8 @@ const Workspace = () => {
 
     const {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
-        customBlocks, setCustomBlocks, blockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
-        fitBlocks, setFitBlocks, showSubtotals, attachedPhotos, attachedFiles, attachedFreeAnnexes,
+        customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
+        fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
 
@@ -195,6 +195,31 @@ const Workspace = () => {
     }, {});
 
 
+
+    const formatShortCompteDe = (compteDeStr) => {
+        if (!compteDeStr || typeof compteDeStr !== 'string') return '';
+        
+        // Isoler le nom complet (sans l'étage s'il est préfixé)
+        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
+        
+        // Chercher l'occupant en comparant avec "Nom Prénom"
+        const occupant = occupants.find(o => {
+            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+            return fullName === namePart || (o.nom && namePart.includes(o.nom));
+        });
+        
+        if (occupant) {
+            // On a trouvé la personne : on ne garde STRICTEMENT que son nom de famille (o.nom)
+            const nomAffiche = occupant.nom || namePart.split(' ')[0];
+            if (occupant.etage && occupant.etage.trim() !== '') {
+                return `${nomAffiche} (${occupant.etage.trim()})`;
+            }
+            return nomAffiche;
+        }
+        
+        // Fallback (ex: "COMMUNS")
+        return namePart.split(' ')[0];
+    };
 
     const renderBlocksInOrder = () => {
         const orderedKeys = getSortedBlocks();
@@ -249,7 +274,7 @@ const Workspace = () => {
                                 <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o.statut === 'Locataire' ? 'ml-12 text-slate-700' : ''}`}>
                                     <strong className="break-words">{o.etage || '-'}</strong>
                                     <span className="text-slate-800 break-words">- {o.statut}</span>
-                                    <span className="break-words">: <strong>{o.nom || '___'}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {o.showDetails && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
+                                    <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {o.showDetails && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
                                 </div>
                                 {(o.contreExpert || o.hasContact || o.showDetails) && (
                                     <div className={`${o.statut === 'Locataire' ? 'ml-12' : ''}`} style={{marginLeft: o.statut !== 'Locataire' ? '272px' : undefined, paddingLeft: o.statut === 'Locataire' ? '272px' : undefined}}>
@@ -271,16 +296,39 @@ const Workspace = () => {
             if (key === 'frais') return (
                 <BlockContainer key="frais" id="frais">
                     {blockTitles.frais && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize + 2}px` }}>{blockTitles.frais}</p>}
-                    <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed" style={{ fontSize: `${styles.frais.fontSize}px` }}>
-                        <thead className="bg-slate-100"><tr><th className="border border-slate-400 p-2 w-12">#</th><th className="border border-slate-400 p-2 w-1/5">Prestataire</th><th className="border border-slate-400 p-2 w-1/6">Type/Réf</th><th className="border border-slate-400 p-2">Description</th><th className="border border-slate-400 p-2 w-1/5">Compte de</th><th className="border border-slate-400 p-2 w-24 text-right">Montant</th></tr></thead>
+                    <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed border border-slate-400" style={{ fontSize: `${styles.frais.fontSize}px` }}>
+                        <thead className="bg-slate-100">
+                            <tr>
+                                <th className="border border-slate-400 p-1 w-8 text-center">#</th>
+                                <th className="border border-slate-400 p-1 w-[15%]">Prestataire</th>
+                                <th className="border border-slate-400 p-1 w-[12%]">Type/Réf</th>
+                                <th className="border border-slate-400 p-1">Description</th>
+                                <th className="border border-slate-400 p-1 w-[18%]">Compte de</th>
+                                <th className="border border-slate-400 p-1 w-[105px] text-right">Montant</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {mainExpenses.map((exp, index) => {
                                 const pagInfo = getPaginationInfo(exp.id);
                                 return (
-                                    <tr key={exp.id} className="break-inside-avoid"><td className="border border-slate-400 p-2 text-center">{index + 1}</td><td className="border border-slate-400 p-2 break-words">{exp.prestataire}</td><td className="border border-slate-400 p-2 break-words">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td><td className="border border-slate-400 p-2 break-words">{exp.desc} {exp.avisCouverture === 'Autre' && exp.noteCouverture && <span className="block text-[0.8em] text-orange-600 mt-0.5 italic">Observation : {exp.noteCouverture}</span>} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td><td className="border border-slate-400 p-2 break-words">{exp.compteDe}</td><td className="border border-slate-400 p-2 text-right font-bold whitespace-nowrap">{exp.montant ? `${exp.montant} € (${exp.typeMontant})` : ''}</td></tr>
+                                    <tr key={exp.id} className="break-inside-avoid">
+                                        <td className="border border-slate-400 p-1 text-center align-top">{index + 1}</td>
+                                        <td className="border border-slate-400 p-1 break-words align-top">{exp.prestataire}</td>
+                                        <td className="border border-slate-400 p-1 break-words align-top text-[0.9em]">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td>
+                                        <td className="border border-slate-400 p-1 break-words align-top">{exp.desc} {exp.avisCouverture === 'Autre' && exp.noteCouverture && <span className="block text-[0.8em] text-orange-600 mt-0.5 italic">Observation : {exp.noteCouverture}</span>} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td>
+                                        <td className="border border-slate-400 p-1 break-words align-top">{formatShortCompteDe(exp.compteDe)}</td>
+                                        <td className="border border-slate-400 p-1 text-right font-bold align-top leading-tight">
+                                            {exp.montant ? (
+                                                <>
+                                                    <div className="whitespace-nowrap">{exp.montant} €</div>
+                                                    <div className="text-[0.75em] font-normal opacity-80 uppercase">{exp.typeMontant}</div>
+                                                </>
+                                            ) : ''}
+                                        </td>
+                                    </tr>
                                 );
                             })}
-                            {mainExpenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-2 text-right uppercase text-[0.9em]">Total de la réclamation</td><td className="border border-slate-400 p-2 text-right whitespace-nowrap">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
+                            {mainExpenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-1.5 text-right uppercase text-[0.85em] tracking-tight">TOTAL DE LA RÉCLAMATION</td><td className="border border-slate-400 p-1.5 text-right whitespace-nowrap text-indigo-900 align-top">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
                             {mainExpenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais couvert encodé</td></tr>}
                         </tbody>
                     </table>
@@ -291,7 +339,8 @@ const Workspace = () => {
                     return (
                         <BlockContainer key="frais_liste" id="frais_liste">
                             <div className="text-slate-700" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px` }}>
-                                <p className="font-bold mb-2">Liste devis/facture/demande de forfait reçus, non-couverts et non-pertinents inclus :</p>
+                                <p className="font-bold mb-0">Détail des justificatifs par partie</p>
+                                <p className="text-[0.85em] text-slate-500 italic mb-2">Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.</p>
                                 <div className="space-y-4">
                                     {Object.entries(dettesParPersonne).map(([personne, data]) => {
                                         const matchOcc = occupants.find(o => fmtOccName(o) === personne);
@@ -299,7 +348,7 @@ const Workspace = () => {
                                         return (
                                             <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
                                                 <div className="flex justify-between items-baseline mb-1">
-                                                    <h4 className="font-bold underline">{personne} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                                    <h4 className="font-bold underline">{formatShortCompteDe(personne)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
                                                     <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
                                                         {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
                                                         {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
