@@ -520,7 +520,7 @@ const Sidebar = () => {
                                 ))}
                             </div>
                             <button onClick={() => { 
-                                const newId = `custom_${Date.now()}`; 
+                                const newId = `custom_${crypto.randomUUID()}`;
                                 setCustomBlocks([...customBlocks, { id: newId, text: 'Nouveau texte libre...' }]); 
                                 setStyles(prev => ({ ...prev, [newId]: { border: true, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }})); 
                                 setBlocksVisible(prev => ({ ...prev, [newId]: true })); 
@@ -528,7 +528,7 @@ const Sidebar = () => {
                                 setBlockWidths(prev => ({ ...prev, [newId]: '100%' })); 
                             }} className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 py-1.5 rounded text-xs font-bold">+ Ajouter un bloc "Texte libre"</button>
                             <button onClick={() => {
-                                const newId = 'spacer_' + Date.now();
+                                const newId = 'spacer_' + crypto.randomUUID();
                                 setStyles(prev => ({ ...prev, [newId]: { spacerHeight: 20 } }));
                                 setBlocksVisible(prev => ({ ...prev, [newId]: true }));
                                 setBlockOrder(prev => [...prev, newId]);
