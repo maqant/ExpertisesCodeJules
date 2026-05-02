@@ -152,7 +152,7 @@ const TerrainView = () => {
                             <div className="flex-1">
                                 <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe)}</span></h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic mb-2">{exp.desc || 'Aucune description'}</p>
-                                <div className="text-sm bg-slate-100 p-2 rounded inline-block">
+                                <div className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded inline-block">
                                     Réclamé : <span className="font-bold text-lg">{exp.montantReclame || exp.montant || '0.00'} €</span>
                                 </div>
                             </div>

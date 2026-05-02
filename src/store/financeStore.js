@@ -132,7 +132,7 @@ export const useFinanceStore = create((set, get) => ({
   getTotalPVE: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.montantValide).replace(',', '.')) || 0;
+      const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.')) || 0;
       return sum + val;
     }, 0);
     return total;
@@ -141,7 +141,7 @@ export const useFinanceStore = create((set, get) => ({
   getTotalReclame: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.montantReclame).replace(',', '.')) || 0;
+      const val = parseFloat(String(exp.montantReclame || exp.montant || "0").replace(',', '.')) || 0;
       return sum + val;
     }, 0);
     return total;

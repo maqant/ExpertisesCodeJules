@@ -34,8 +34,7 @@ const PrintPVE = ({ onBack }) => {
 
         {/* En-tête */}
         <div className="border-b-2 border-slate-800 pb-4 mb-8">
-          <h1 className="text-3xl font-bold text-center uppercase tracking-wider mb-2">Procès-Verbal d'Expertise</h1>
-          <h2 className="text-xl text-center text-slate-600">Fixation contradictoire des dommages</h2>
+          <h1 className="text-3xl font-bold text-center uppercase tracking-wider mb-2">RÉSUMÉ DE RÉPARTITION FINANCIÈRE</h1>
         </div>
 
         {/* Informations Dossier */}
