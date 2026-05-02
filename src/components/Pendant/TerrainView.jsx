@@ -50,7 +50,8 @@ const TerrainView = () => {
     setEditModalExp(exp);
     setEditData({
       montantValide: exp.montantValide || exp.montantReclame || exp.montant || "",
-      motifRefus: exp.motifRefus || ""
+      motifRefus: exp.motifRefus || "",
+      compteDe: exp.compteDe || ""
     });
   };
 
@@ -59,6 +60,7 @@ const TerrainView = () => {
       store.updateExpense(editModalExp.id, {
         montantValide: editData.montantValide,
         motifRefus: editData.motifRefus,
+        compteDe: editData.compteDe,
         isProcessed: true
       });
     }
@@ -72,9 +74,6 @@ const TerrainView = () => {
 
   const submitRefus = () => {
     if (refusModalExp) {
-      if (refusText.trim() === "") {
-        return alert("Un motif est obligatoire pour refuser un frais.");
-      }
       store.updateExpense(refusModalExp.id, {
         montantValide: "0",
         motifRefus: refusText,
@@ -200,8 +199,26 @@ const TerrainView = () => {
                 {expenses.filter(e => e.isProcessed).map(exp => {
                 const files = attachedFiles[exp.id] || [];
                 const hasFiles = files.length > 0;
+
+                const valReclame = parseFloat(String(exp.montantReclame || exp.montant || '0').replace(',', '.'));
+                const valAccorde = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || '0').replace(',', '.'));
+
+                let bgColor = "bg-emerald-50 dark:bg-emerald-900/10";
+                let borderColor = "border-emerald-500";
+                let textColor = "text-emerald-600";
+
+                if (valAccorde === 0) {
+                    bgColor = "bg-red-50 dark:bg-red-900/10";
+                    borderColor = "border-red-500";
+                    textColor = "text-red-600";
+                } else if (valAccorde < valReclame) {
+                    bgColor = "bg-orange-50 dark:bg-orange-900/10";
+                    borderColor = "border-orange-500";
+                    textColor = "text-orange-600";
+                }
+
                 return (
-                    <div key={exp.id} className="bg-emerald-50 dark:bg-slate-800 p-4 rounded-xl shadow border-l-4 border-emerald-500 flex flex-col md:flex-row justify-between items-center gap-4 opacity-80 hover:opacity-100 transition-opacity">
+                    <div key={exp.id} className={`${bgColor} dark:bg-slate-800 p-4 rounded-xl shadow border-l-4 ${borderColor} flex flex-col md:flex-row justify-between items-center gap-4 opacity-90 hover:opacity-100 transition-opacity`}>
                         <div className="flex items-center gap-4 flex-1">
                             {hasFiles && (
                             <button
@@ -222,8 +239,8 @@ const TerrainView = () => {
                         </div>
 
                         <div className="flex flex-col items-end shrink-0">
-                            <span className="text-lg font-bold text-emerald-600 mb-1">Accordé : {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €</span>
-                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded hover:bg-slate-300">Corriger</button>
+                            <span className={`text-lg font-bold ${textColor} mb-1`}>Accordé : {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €</span>
+                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-1 rounded hover:bg-slate-300 dark:hover:bg-slate-600">Corriger</button>
                         </div>
                     </div>
                 );
@@ -240,7 +257,7 @@ const TerrainView = () => {
           <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96 shadow-2xl">
             <h3 className="text-lg font-bold mb-4 text-red-600">Refuser le frais ({refusModalExp.prestataire})</h3>
             <div className="mb-6">
-              <label className="block text-sm font-bold mb-1">Motif OBLIGATOIRE du refus</label>
+              <label className="block text-sm font-bold mb-1">Motif du refus (Optionnel)</label>
               <textarea
                 className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 h-24"
                 value={refusText}
@@ -259,25 +276,38 @@ const TerrainView = () => {
       {/* Modal Edition */}
       {editModalExp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96 shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96 shadow-2xl" onKeyDown={e => e.key === 'Enter' && submitEdit()}>
             <h3 className="text-lg font-bold mb-4">Modifier la ligne ({editModalExp.prestataire})</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-bold mb-1">Bénéficiaire (Compte de)</label>
+              <select
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                value={editData.compteDe}
+                onChange={e => setEditData({...editData, compteDe: e.target.value})}
+              >
+                <option value="">Non attribué</option>
+                {occupants.filter(o => o.nom).map(o => (
+                  <option key={o.id} value={o.id}>{o.nom} {o.prenom}</option>
+                ))}
+              </select>
+            </div>
             <div className="mb-4">
               <label className="block text-sm font-bold mb-1">Montant Retenu (PVE) en €</label>
               <input
-                type="number"
+                type="number" autoFocus
                 className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 font-bold text-emerald-600"
                 value={editData.montantValide}
                 onChange={e => setEditData({...editData, montantValide: e.target.value})}
               />
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-bold mb-1">Motif de la modification / refus</label>
-              <textarea
-                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 h-24"
+              <label className="block text-sm font-bold mb-1">Motif de la modification (Optionnel)</label>
+              <input type="text"
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
                 value={editData.motifRefus}
                 onChange={e => setEditData({...editData, motifRefus: e.target.value})}
                 placeholder="Ex: Vétusté peinture, Hors garantie..."
-              ></textarea>
+              />
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditModalExp(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
@@ -290,10 +320,10 @@ const TerrainView = () => {
       {/* Modal Spontané */}
       {showSpontaneModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96 shadow-2xl" onKeyDown={e => e.key === 'Enter' && addSpontane()}>
             <h3 className="text-lg font-bold mb-4">Ajouter un frais spontané</h3>
             <input
-              type="text" placeholder="Prestataire / Type de frais"
+              type="text" autoFocus placeholder="Prestataire / Type de frais"
               className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-3"
               value={spontaneData.prestataire} onChange={e => setSpontaneData({...spontaneData, prestataire: e.target.value})}
             />
@@ -304,7 +334,7 @@ const TerrainView = () => {
             />
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowSpontaneModal(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
-              <button onClick={addSpontane} className="px-4 py-2 bg-indigo-600 text-white rounded">Ajouter</button>
+              <button onClick={addSpontane} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Ajouter</button>
             </div>
           </div>
         </div>

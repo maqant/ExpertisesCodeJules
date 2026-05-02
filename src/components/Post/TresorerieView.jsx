@@ -8,27 +8,32 @@ const TresorerieView = () => {
   const occupants = store.pii.occupants;
   const expenses = store.metier.expenses.filter(e => e.isProcessed); // On ne montre que les frais validés
 
-  const getOccName = (occ) => {
-    if (!occ) return 'Non attribué';
-    const nomAffiche = occ.nom || '';
-    if (occ.etage && occ.etage.trim() !== '') {
-        return `${nomAffiche} (${occ.etage.trim()})`;
-    }
-    return nomAffiche;
+  const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
+
+  const findOccByCompteDe = (compteDe) => {
+    if (!compteDe) return null;
+    return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
   };
 
-  // Regrouper par occupant
+  const getCompteDeName = (compteDe) => {
+    const matchedOcc = findOccByCompteDe(compteDe);
+    if (matchedOcc) return fmtOccName(matchedOcc);
+    if (compteDe && compteDe.trim() !== '') return compteDe;
+    return 'Non attribué';
+  };
+
+  // Regrouper par occupant (avec résolution nom/ID)
   const expensesByOcc = expenses.reduce((acc, exp) => {
-    const pId = exp.compteDe || 'unassigned';
-    if (!acc[pId]) acc[pId] = [];
-    acc[pId].push(exp);
+    const pName = getCompteDeName(exp.compteDe);
+    if (!acc[pName]) acc[pName] = [];
+    acc[pName].push(exp);
     return acc;
   }, {});
 
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white p-4 overflow-y-auto w-full relative">
       <div className="flex justify-between items-center mb-6 border-b-2 border-slate-300 dark:border-slate-700 pb-4">
-        <h1 className="text-2xl font-bold">Dashboard Trésorerie (Post)</h1>
+        <h1 className="text-2xl font-bold">Suivi des Règlements (Répartition)</h1>
         <button
           className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
           onClick={() => setShowWizard(true)}
@@ -41,12 +46,9 @@ const TresorerieView = () => {
         <div className="text-center text-slate-500 italic py-12">Aucun frais validé n'est prêt pour la trésorerie. Validez des frais dans la vue "Terrain" d'abord.</div>
       ) : (
         <div className="space-y-8">
-          {Object.entries(expensesByOcc).map(([occId, occExpenses]) => {
-            const occupant = occupants.find(o => o.id === occId);
-            const occName = occId === 'unassigned' ? 'Frais non attribués' : getOccName(occupant);
-
+          {Object.entries(expensesByOcc).map(([occName, occExpenses]) => {
             return (
-              <div key={occId} className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+              <div key={occName} className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
                 <div className="bg-slate-50 dark:bg-slate-700 p-4 border-b border-slate-200 dark:border-slate-600">
                   <h2 className="text-xl font-bold flex items-center gap-2">👤 {occName}</h2>
                 </div>

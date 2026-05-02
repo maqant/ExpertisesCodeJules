@@ -60,7 +60,8 @@ const PaymentWizardModal = ({ onClose }) => {
       setSelectedExpId("");
       setAllocationAmount("");
 
-      // Si c'est soldé, on passe à l'étape finale
+      // On ne passe plus automatiquement à l'étape 3 pour permettre la saisie partielle.
+      // Mais si c'est vraiment 0, c'est mieux visuellement
       if (Math.abs(newSolde) < 0.01) {
           setStep(3);
       }
@@ -131,8 +132,14 @@ const PaymentWizardModal = ({ onClose }) => {
                 <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4">
 
                     <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 flex justify-between items-center mb-6">
-                        <span className="font-bold text-indigo-800 dark:text-indigo-300">Solde à distribuer :</span>
-                        <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{Math.max(0, soldeRestant).toFixed(2)} €</span>
+                        <div>
+                            <span className="font-bold text-indigo-800 dark:text-indigo-300 block">Solde à distribuer :</span>
+                            <span className="text-xs text-indigo-600/70 dark:text-indigo-400/70">Vous pouvez fermer la fenêtre avec un solde restant.</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400 block">{Math.max(0, soldeRestant).toFixed(2)} €</span>
+                            <button onClick={handleFinaliser} className="mt-1 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded shadow">Enregistrer & Fermer</button>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-6">

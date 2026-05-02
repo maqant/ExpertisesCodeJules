@@ -31,7 +31,7 @@ function App() {
             className={`px-4 py-1 rounded font-bold transition-colors ${viewMode === 'tresorerie' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}
             onClick={() => setViewMode('tresorerie')}
           >
-            💰 Trésorerie (Post)
+            💰 Répartition (Post)
           </button>
         </div>
 
