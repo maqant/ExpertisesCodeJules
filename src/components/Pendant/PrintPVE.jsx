@@ -24,11 +24,26 @@ const PrintPVE = ({ onBack }) => {
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
     if (!exp.isProcessed) return acc;
     const name = getCompteDeName(exp.compteDe);
-    if (!acc[name]) acc[name] = 0;
+    if (!acc[name]) acc[name] = { HTVA: 0, TVAC: 0, Forfait: 0 };
     const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
-    acc[name] += (isNaN(val) ? 0 : val);
+    const safeVal = isNaN(val) ? 0 : val;
+    const typeM = exp.typeMontant || 'HTVA';
+    if (acc[name][typeM] !== undefined) {
+       acc[name][typeM] += safeVal;
+    }
     return acc;
   }, {});
+
+  const totalGlobalPVE = expenses.reduce((acc, exp) => {
+    if (!exp.isProcessed) return acc;
+    const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
+    const safeVal = isNaN(val) ? 0 : val;
+    const typeM = exp.typeMontant || 'HTVA';
+    if (acc[typeM] !== undefined) {
+       acc[typeM] += safeVal;
+    }
+    return acc;
+  }, { HTVA: 0, TVAC: 0, Forfait: 0 });
 
   return (
     <div className="flex flex-col h-full bg-slate-200 overflow-y-auto print:overflow-visible w-full p-8 print:p-0 items-center">
@@ -94,8 +109,15 @@ const PrintPVE = ({ onBack }) => {
             </tbody>
             <tfoot>
               <tr className="bg-slate-200 font-bold text-base">
-                <td className="border p-3 text-right" colSpan="3">TOTAL DE L'INDEMNITÉ FIXÉE :</td>
-                <td className="border p-3 text-right text-emerald-700">{totalPVE.toFixed(2)} €</td>
+                <td className="border p-3 text-right align-top" colSpan="3">TOTAL DE L'INDEMNITÉ FIXÉE :</td>
+                <td className="border p-3 text-right text-emerald-700">
+                    <div className="flex flex-col gap-1 items-end">
+                        {totalGlobalPVE.HTVA > 0 && <span>{totalGlobalPVE.HTVA.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">HTVA</span></span>}
+                        {totalGlobalPVE.TVAC > 0 && <span>{totalGlobalPVE.TVAC.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">TVAC</span></span>}
+                        {totalGlobalPVE.Forfait > 0 && <span>{totalGlobalPVE.Forfait.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">Forfait</span></span>}
+                        {totalGlobalPVE.HTVA === 0 && totalGlobalPVE.TVAC === 0 && totalGlobalPVE.Forfait === 0 && <span>0.00 €</span>}
+                    </div>
+                </td>
                 <td className="border p-3"></td>
               </tr>
             </tfoot>
@@ -108,10 +130,14 @@ const PrintPVE = ({ onBack }) => {
               <h3 className="text-base font-bold mb-2 uppercase text-slate-700">Récapitulatif par bénéficiaire</h3>
               <div className="border border-slate-300 p-4 rounded bg-slate-50 text-sm">
                   <ul className="list-none space-y-1">
-                      {Object.entries(recapParBeneficiaire).map(([name, total]) => (
-                          <li key={name} className="flex justify-between max-w-sm">
+                      {Object.entries(recapParBeneficiaire).map(([name, totals]) => (
+                          <li key={name} className="flex justify-between max-w-xl items-center border-b border-slate-200 py-1 last:border-0">
                             <span className="font-bold">{name}</span>
-                            <span>{total.toFixed(2)} € (HTVA)</span>
+                            <span className="text-right flex gap-3">
+                                {totals.HTVA > 0 && <span>{totals.HTVA.toFixed(2)} € HTVA</span>}
+                                {totals.TVAC > 0 && <span>{totals.TVAC.toFixed(2)} € TVAC</span>}
+                                {totals.Forfait > 0 && <span>{totals.Forfait.toFixed(2)} € Forfait</span>}
+                            </span>
                           </li>
                       ))}
                   </ul>
