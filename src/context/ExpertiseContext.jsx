@@ -1,3 +1,4 @@
+import { useFinanceStore } from "../store/financeStore";
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
@@ -66,6 +67,8 @@ value
   .toLowerCase();
 
 export const ExpertiseProvider = ({ children }) => {
+  const financeStore = useFinanceStore();
+
   const [activeTab, setActiveTab] = useState('builder');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
@@ -97,11 +100,20 @@ export const ExpertiseProvider = ({ children }) => {
   const [prestatairesList, setPrestatairesList] = useState([]);
 
   // Formulaire
-  const [formData, setFormData] = useState(initialFormData);
+  const formData = financeStore.metier.formData;
+  const setFormData = (data) => {
+    if (typeof data === 'function') {
+      financeStore.updateFormData(data(formData));
+    } else {
+      financeStore.updateFormData(data);
+    }
+  };
   const [blockTitles, setBlockTitles] = useState(initialTitles);
   const [references, setReferences] = useState([]);
-  const [occupants, setOccupants] = useState([]);
-  const [expenses, setExpenses] = useState([]);
+  const occupants = financeStore.pii.occupants;
+  const setOccupants = financeStore.setOccupants;
+  const expenses = financeStore.metier.expenses;
+  const setExpenses = financeStore.setExpenses;
   const [attachedFiles, setAttachedFiles] = useState({});
   const [attachedPhotos, setAttachedPhotos] = useState({});
   const [attachedFreeAnnexes, setAttachedFreeAnnexes] = useState([]);
@@ -174,7 +186,7 @@ export const ExpertiseProvider = ({ children }) => {
       setAttachedFiles({}); setAttachedPhotos({}); setCurrentDossierId(null);
   };
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const handleChange = (e) => financeStore.updateFormData({ [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const handleTitleChange = (id, val) => setBlockTitles({ ...blockTitles, [id]: val });
   const handleStyleChange = (id, prop, val) => setStyles(prev => ({ ...prev, [id]: { ...prev[id], [prop]: val } }));
 
@@ -212,7 +224,7 @@ export const ExpertiseProvider = ({ children }) => {
       
       handleReset();
       
-      const newId = Date.now();
+      const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: initialFormData, blockTitles: initialTitles } };
       const updated = [newDossier, ...savedDossiers];
       
@@ -234,7 +246,7 @@ export const ExpertiseProvider = ({ children }) => {
       if (currentDossierId) {
           updated = savedDossiers.map(d => d.id === currentDossierId ? { ...d, date: new Date().toLocaleString('fr-FR'), data: dossierData } : d);
       } else {
-          const newId = Date.now();
+          const newId = crypto.randomUUID();
           const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
           updated = [newDossier, ...savedDossiers];
           setCurrentDossierId(newId);
@@ -249,7 +261,7 @@ export const ExpertiseProvider = ({ children }) => {
       if (!name) return;
       
       const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
-      const newId = Date.now();
+      const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
       const updated = [newDossier, ...savedDossiers];
@@ -324,33 +336,17 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const addRef = () => setReferences([...references, { id: Date.now(), nom: '', ref: '' }]);
+  const addRef = () => setReferences([...references, { id: crypto.randomUUID(), nom: '', ref: '' }]);
   const updateRef = (id, field, value) => setReferences(references.map(r => r.id === id ? { ...r, [field]: value } : r));
   const removeRef = (id) => setReferences(references.filter(r => r.id !== id));
 
   const addOcc = () => {
-      const newId = Date.now();
-      setOccupants([...occupants, { id: newId, nom: '', prenom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' }]);
+      const newId = crypto.randomUUID();
+      financeStore.addOccupant({ id: newId, nom: '', prenom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' });
       setExpandedOccId(newId);
   };
   const updateOcc = (id, field, value) => {
-      const fmtOccName = (o) => {
-          const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-          return fullName ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName) : '';
-      };
-      setOccupants(prev => {
-          const oldOcc = prev.find(o => o.id === id);
-          const next = prev.map(o => o.id === id ? { ...o, [field]: value } : o);
-          if (oldOcc) {
-              const oldNameFormatted = fmtOccName(oldOcc);
-              const nextOcc = next.find(o => o.id === id);
-              const newNameFormatted = fmtOccName(nextOcc);
-              if ((field === 'nom' || field === 'etage') && oldNameFormatted !== newNameFormatted && oldNameFormatted !== '') {
-                  setExpenses(e => e.map(exp => exp.compteDe === oldNameFormatted ? { ...exp, compteDe: newNameFormatted } : exp));
-              }
-          }
-          return next;
-      });
+      financeStore.updateOccupant(id, { [field]: value });
   };
 
   const handleAddPrestataire = (name) => {
@@ -363,7 +359,7 @@ export const ExpertiseProvider = ({ children }) => {
           return next;
       });
   };
-  const removeOcc = (id) => setOccupants(occupants.filter(o => o.id !== id));
+  const removeOcc = (id) => financeStore.removeOccupant(id);
 
   const parseFloor = (str) => {
       if (!str) return -999;
@@ -397,25 +393,32 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const addExpense = () => {
-      const newId = Date.now();
-      setExpenses([...expenses, { id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' }]);
+      const newId = crypto.randomUUID();
+      financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
       setExpandedExpId(newId);
   };
-  const updateExpense = (id, field, value) => setExpenses(expenses.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
-  const removeExpense = (id) => setExpenses(expenses.filter(exp => exp.id !== id));
+  const updateExpense = (id, field, value) => {
+      let updates = { [field]: value };
+      if (field === 'montant') {
+         updates.montantReclame = value;
+         updates.montantValide = value;
+      }
+      financeStore.updateExpense(id, updates);
+  };
+  const removeExpense = (id) => financeStore.removeExpense(id);
 
   const reorganizeExpenses = () => {
       const occOrder = {};
-      occupants.forEach((o, index) => { if (o.nom && o.nom.trim() !== '') occOrder[o.nom.trim()] = index; });
+      occupants.forEach((o, index) => { occOrder[o.id] = index; });
       const sorted = [...expenses].sort((a, b) => {
-          const rankA = occOrder.hasOwnProperty((a.compteDe || '').trim()) ? occOrder[(a.compteDe || '').trim()] : -1;
-          const rankB = occOrder.hasOwnProperty((b.compteDe || '').trim()) ? occOrder[(b.compteDe || '').trim()] : -1;
+          const rankA = occOrder.hasOwnProperty(a.compteDe) ? occOrder[a.compteDe] : -1;
+          const rankB = occOrder.hasOwnProperty(b.compteDe) ? occOrder[b.compteDe] : -1;
           if (rankA !== rankB) return rankA - rankB; 
-          const valA = parseFloat((a.montant || '0').toString().replace(',', '.'));
-          const valB = parseFloat((b.montant || '0').toString().replace(',', '.'));
+          const valA = parseFloat((a.montantReclame || a.montant || '0').toString().replace(',', '.'));
+          const valB = parseFloat((b.montantReclame || b.montant || '0').toString().replace(',', '.'));
           return (isNaN(valA) ? 0 : valA) - (isNaN(valB) ? 0 : valB);
       });
-      setExpenses(sorted);
+      financeStore.setExpenses(sorted);
   };
 
   const handleAttachFile = async (expenseId, file) => {
@@ -427,7 +430,7 @@ export const ExpertiseProvider = ({ children }) => {
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const pages = pdfDoc.getPageCount();
           
-          const dbKey = `pdf_${Date.now()}_${file.name}`;
+          const dbKey = `pdf_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
           const fileObj = { name: file.name, pages, dbKey };
@@ -472,7 +475,7 @@ export const ExpertiseProvider = ({ children }) => {
 
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const dbKey = `${isPdf ? 'pdf' : 'img'}_${Date.now()}_${file.name}`;
+          const dbKey = `${isPdf ? 'pdf' : 'img'}_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
 
           if (isPdf) {
@@ -517,7 +520,7 @@ export const ExpertiseProvider = ({ children }) => {
 
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const dbKey = `free_${isPdf ? 'pdf' : 'img'}_${Date.now()}_${file.name}`;
+          const dbKey = `free_${isPdf ? 'pdf' : 'img'}_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
 
           let pages = 1;
@@ -526,7 +529,7 @@ export const ExpertiseProvider = ({ children }) => {
               pages = pdfDoc.getPageCount();
           }
           
-          setAttachedFreeAnnexes(prev => [...prev, { id: Date.now().toString(), name: file.name, customName: file.name, desc: '', dbKey, isPdf, pages }]);
+          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: file.name, customName: file.name, desc: '', dbKey, isPdf, pages }]);
       } catch (err) {
           alert('Erreur lors de la lecture du fichier : ' + err.message);
       }
@@ -539,6 +542,24 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleUpdateFreeAnnex = (id, field, value) => {
       setAttachedFreeAnnexes(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
+  };
+
+  const handleOpenFile = async (dbKey, isPdf = true) => {
+      try {
+          const fileBytes = await localforage.getItem(dbKey);
+          if (!fileBytes) return alert("Fichier introuvable dans la base locale.");
+
+          const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+          const blob = new Blob([fileBytes], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+
+          // Libération de la mémoire si ce n'est pas utilisé après
+          // setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (err) {
+          console.error("Erreur d'ouverture du fichier", err);
+          alert("Erreur lors de l'ouverture : " + err.message);
+      }
   };
 
   const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
@@ -821,11 +842,23 @@ export const ExpertiseProvider = ({ children }) => {
           // --- PASSE 2 (si nécessaire) : mettre à jour les index dans le HTML et re-capturer ---
           let canvas = canvas1;
           if (actualCoverPages !== coverPageCount) {
-              setCoverPageCount(actualCoverPages);
-              // Attendre que React re-render avec les numéros de pages corrigés
-              await new Promise(r => setTimeout(r, 250));
-              await new Promise(r => requestAnimationFrame(r));
-              canvas = await captureEl();
+              // Modification synchrone du DOM pour éviter le setTimeout
+              const annexIndexEls = document.querySelectorAll('.annex-index-page-num');
+              if (annexIndexEls && annexIndexEls.length > 0) {
+                  // Mettre à jour l'état React pour la suite
+                  setCoverPageCount(actualCoverPages);
+
+                  // Mais forcer la mise à jour du DOM *maintenant* pour html2canvas
+                  let currentAnnexPage = actualCoverPages + 1;
+                  annexIndexEls.forEach(el => {
+                      el.textContent = currentAnnexPage;
+                      const pagesCount = parseInt(el.getAttribute('data-pages') || '1', 10);
+                      currentAnnexPage += pagesCount;
+                  });
+
+                  await new Promise(r => requestAnimationFrame(r));
+                  canvas = await captureEl();
+              }
           }
 
           el.style.boxShadow = prevShadow;
@@ -1007,8 +1040,14 @@ export const ExpertiseProvider = ({ children }) => {
                   return merged; 
               });
           }
-          if (data.occupants && Array.isArray(data.occupants)) setOccupants(prev => [...prev, ...data.occupants.filter(o => o.nom).map(o => ({...o, id: Date.now() + Math.random()}))]);
-          if (data.expenses && Array.isArray(data.expenses)) setExpenses(prev => [...prev, ...data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: Date.now() + Math.random()}))]);
+          if (data.occupants && Array.isArray(data.occupants)) {
+             const newOccupants = data.occupants.filter(o => o.nom).map(o => ({...o, id: crypto.randomUUID()}));
+             financeStore.setOccupants([...occupants, ...newOccupants]);
+          }
+          if (data.expenses && Array.isArray(data.expenses)) {
+             const newExpenses = data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}));
+             financeStore.setExpenses([...expenses, ...newExpenses]);
+          }
           
           alert("✅ Données IA importées avec succès !"); 
           setPastedJson('');
@@ -1097,7 +1136,7 @@ Voici le format JSON :
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
-      handlePasteImport, copyPrompt, exportGlobalData
+      handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile
   };
 
   return (

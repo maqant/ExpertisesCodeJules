@@ -27,7 +27,7 @@ const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
 };
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
-    const { attachedFiles, handleRemoveFile, handleAttachFile } = useContext(ExpertiseContext);
+    const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
 
@@ -38,6 +38,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
                 return (
                     <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
                         📎 {file.pages}p
+                        <button onClick={(e) => { e.preventDefault(); handleOpenFile(file.dbKey, true); }} className="text-blue-400 hover:text-blue-300 ml-0.5 mr-0.5" title="Ouvrir le document">👁️</button>
                         <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
                     </span>
                 );
@@ -395,7 +396,7 @@ const Sidebar = () => {
                                         {!isExp ? (
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
                                                 <span className="text-slate-500 cursor-grab">⠿</span>
-                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span>
+                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${(()=>{ const o = occupants.find(occ=>occ.id===exp.compteDe); if(o) { const fn = `${o.nom||''} ${o.prenom||''}`.trim(); return o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fn}` : fn; } return exp.compteDe; })()})` : ''}</span>
                                                 {(attachedFiles[exp.id] || []).length > 0 && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>}
                                             </div>
                                         ) : (
@@ -403,7 +404,17 @@ const Sidebar = () => {
                                                 <div><label>Montant (€)</label><input type="text" autoFocus value={exp.montant} onChange={e=>updateExpense(exp.id, 'montant', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="350.00" className="input-field mb-0 font-bold" /></div>
                                                 <div><label>Type Montant</label><select value={exp.typeMontant} onChange={e=>updateExpense(exp.id, 'typeMontant', e.target.value)} className="input-field mb-0"><option>HTVA</option><option>Forfait</option><option>TVAC</option></select></div>
                                                 <div className="col-span-2"><label>Description courte</label><input type="text" value={exp.desc} onChange={e=>updateExpense(exp.id, 'desc', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} className="input-field mb-0" /></div>
-                                                <div className="col-span-2"><label>Pour le compte de</label><input type="text" value={exp.compteDe} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Choisissez..." className="input-field mb-0 border-indigo-500" list="occupants-global-list" /></div>
+                                                <div className="col-span-2">
+                                                    <label>Pour le compte de</label>
+                                                    <select value={exp.compteDe || ''} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} className="input-field mb-0 border-indigo-500">
+                                                        <option value="">Choisissez...</option>
+                                                        {occupants.filter(o => o.nom).map(o => {
+                                                            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                                                            const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                                                            return <option key={o.id} value={o.id}>{displayName}</option>;
+                                                        })}
+                                                    </select>
+                                                </div>
                                                 {exp.typeMontant !== 'Forfait' && <>
                                                     <div><label>Type</label><select value={exp.type || 'Devis'} onChange={e=>updateExpense(exp.id, 'type', e.target.value)} className="input-field mb-0"><option>Devis</option><option>Facture</option></select></div>
                                                     <div><label>Réf</label><input type="text" value={exp.ref} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Réf" className="input-field mb-0" /></div>
@@ -429,7 +440,10 @@ const Sidebar = () => {
                                                                         <span className="font-bold text-white block truncate">{f.name}</span>
                                                                         <span className="text-slate-400">{f.pages} page(s)</span>
                                                                     </div>
-                                                                    <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(f.dbKey, true); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir le fichier">👁️</button>
+                                                                        <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -441,7 +455,6 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => { const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim(); return <option key={o.id} value={o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName} />; })}</datalist>
                                 <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
                             </div>
                         </details>
@@ -471,7 +484,10 @@ const Sidebar = () => {
                                                             ) : (
                                                                 <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
                                                             )}
-                                                            <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                                                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(photo.dbKey, photo.isPdf); }} className="bg-blue-500 hover:bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Ouvrir">👁️</button>
+                                                                <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -499,7 +515,10 @@ const Sidebar = () => {
                                 <div className="space-y-2">
                                     {attachedFreeAnnexes.map(file => (
                                         <div key={file.id} className="bg-slate-900 border border-slate-700 p-2 rounded relative group">
-                                            <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="absolute top-1 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button>
+                                            <div className="absolute top-1 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(file.dbKey, file.isPdf); }} className="text-blue-400 hover:text-blue-300 text-xs" title="Ouvrir">👁️</button>
+                                                <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="text-red-500 text-xs" title="Supprimer">✕</button>
+                                            </div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-lg">{file.isPdf ? '📄' : '🖼️'}</span>
                                                 <input type="text" value={file.customName} onChange={(e) => handleUpdateFreeAnnex(file.id, 'customName', e.target.value)} className="bg-transparent border-b border-slate-700 text-xs text-white focus:border-indigo-500 outline-none flex-1" placeholder="Nom du fichier..." />
@@ -520,7 +539,7 @@ const Sidebar = () => {
                                 ))}
                             </div>
                             <button onClick={() => { 
-                                const newId = `custom_${Date.now()}`; 
+                                const newId = `custom_${crypto.randomUUID()}`;
                                 setCustomBlocks([...customBlocks, { id: newId, text: 'Nouveau texte libre...' }]); 
                                 setStyles(prev => ({ ...prev, [newId]: { border: true, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }})); 
                                 setBlocksVisible(prev => ({ ...prev, [newId]: true })); 
@@ -528,7 +547,7 @@ const Sidebar = () => {
                                 setBlockWidths(prev => ({ ...prev, [newId]: '100%' })); 
                             }} className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 py-1.5 rounded text-xs font-bold">+ Ajouter un bloc "Texte libre"</button>
                             <button onClick={() => {
-                                const newId = 'spacer_' + Date.now();
+                                const newId = 'spacer_' + crypto.randomUUID();
                                 setStyles(prev => ({ ...prev, [newId]: { spacerHeight: 20 } }));
                                 setBlocksVisible(prev => ({ ...prev, [newId]: true }));
                                 setBlockOrder(prev => [...prev, newId]);
