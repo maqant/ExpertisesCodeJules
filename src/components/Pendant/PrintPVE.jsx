@@ -21,8 +21,17 @@ const PrintPVE = ({ onBack }) => {
     return compteDe;
   };
 
+  const recapParBeneficiaire = expenses.reduce((acc, exp) => {
+    if (!exp.isProcessed) return acc;
+    const name = getCompteDeName(exp.compteDe);
+    if (!acc[name]) acc[name] = 0;
+    const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
+    acc[name] += (isNaN(val) ? 0 : val);
+    return acc;
+  }, {});
+
   return (
-    <div className="flex flex-col h-full bg-slate-200 overflow-y-auto w-full p-8 items-center">
+    <div className="flex flex-col h-full bg-slate-200 overflow-y-auto print:overflow-visible w-full p-8 print:p-0 items-center">
       <div className="w-full max-w-4xl flex justify-between mb-4 print:hidden">
         <button onClick={onBack} className="bg-slate-700 text-white px-4 py-2 rounded">Retour</button>
         <button onClick={() => window.print()} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold shadow">
@@ -30,7 +39,7 @@ const PrintPVE = ({ onBack }) => {
         </button>
       </div>
 
-      <div className="bg-white w-full max-w-4xl p-12 shadow-xl print:shadow-none min-h-[1056px] text-slate-800" id="print-pve-container">
+      <div className="bg-white w-full max-w-4xl p-12 shadow-xl print:shadow-none min-h-[297mm] h-auto text-slate-800 print:w-full print:max-w-none" id="print-pve-container">
 
         {/* En-tête */}
         <div className="border-b-2 border-slate-800 pb-4 mb-8">
@@ -92,6 +101,23 @@ const PrintPVE = ({ onBack }) => {
             </tfoot>
           </table>
         </div>
+
+        {/* Récapitulatif par Bénéficiaire */}
+        {Object.keys(recapParBeneficiaire).length > 0 && (
+          <div className="mb-8 break-inside-avoid">
+              <h3 className="text-base font-bold mb-2 uppercase text-slate-700">Récapitulatif par bénéficiaire</h3>
+              <div className="border border-slate-300 p-4 rounded bg-slate-50 text-sm">
+                  <ul className="list-none space-y-1">
+                      {Object.entries(recapParBeneficiaire).map(([name, total]) => (
+                          <li key={name} className="flex justify-between max-w-sm">
+                            <span className="font-bold">{name}</span>
+                            <span>{total.toFixed(2)} € (HTVA)</span>
+                          </li>
+                      ))}
+                  </ul>
+              </div>
+          </div>
+        )}
 
         {/* Bloc IBANs */}
         <div className="mb-8 break-inside-avoid">

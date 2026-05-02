@@ -43,6 +43,9 @@ const TerrainView = () => {
     });
   };
 
+  const [refusModalExp, setRefusModalExp] = useState(null);
+  const [refusText, setRefusText] = useState("");
+
   const openEditModal = (exp) => {
     setEditModalExp(exp);
     setEditData({
@@ -60,6 +63,26 @@ const TerrainView = () => {
       });
     }
     setEditModalExp(null);
+  };
+
+  const openRefusModal = (exp) => {
+    setRefusModalExp(exp);
+    setRefusText(exp.motifRefus || "");
+  };
+
+  const submitRefus = () => {
+    if (refusModalExp) {
+      if (refusText.trim() === "") {
+        return alert("Un motif est obligatoire pour refuser un frais.");
+      }
+      store.updateExpense(refusModalExp.id, {
+        montantValide: "0",
+        motifRefus: refusText,
+        isProcessed: true
+      });
+    }
+    setRefusModalExp(null);
+    setRefusText("");
   };
 
   const addSpontane = () => {
@@ -159,8 +182,9 @@ const TerrainView = () => {
                         </div>
 
                         <div className="flex w-full gap-2 mt-2">
-                            <button disabled={isPVEClosed} onClick={() => handleValid100(exp)} className="flex-1 bg-emerald-100 text-emerald-700 py-2 rounded font-bold hover:bg-emerald-200 disabled:opacity-50 flex justify-center items-center gap-2">✅ Valider (100%)</button>
-                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold hover:bg-orange-200 disabled:opacity-50 flex justify-center items-center gap-2">✏️ Modifier</button>
+                            <button disabled={isPVEClosed} onClick={() => handleValid100(exp)} className="flex-1 bg-emerald-100 text-emerald-700 py-2 rounded font-bold hover:bg-emerald-200 disabled:opacity-50 flex justify-center items-center gap-1">✅ Valider</button>
+                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold hover:bg-orange-200 disabled:opacity-50 flex justify-center items-center gap-1">✏️ Modifier</button>
+                            <button disabled={isPVEClosed} onClick={() => openRefusModal(exp)} className="flex-1 bg-red-100 text-red-700 py-2 rounded font-bold hover:bg-red-200 disabled:opacity-50 flex justify-center items-center gap-1">❌ Refuser</button>
                         </div>
                     </div>
                 );
@@ -209,6 +233,28 @@ const TerrainView = () => {
         </div>
 
       </div>
+
+      {/* Modal Refus */}
+      {refusModalExp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-96 shadow-2xl">
+            <h3 className="text-lg font-bold mb-4 text-red-600">Refuser le frais ({refusModalExp.prestataire})</h3>
+            <div className="mb-6">
+              <label className="block text-sm font-bold mb-1">Motif OBLIGATOIRE du refus</label>
+              <textarea
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 h-24"
+                value={refusText}
+                onChange={e => setRefusText(e.target.value)}
+                placeholder="Ex: Doublon, Non couvert..."
+              ></textarea>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRefusModalExp(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
+              <button onClick={submitRefus} className="px-4 py-2 bg-red-600 text-white rounded font-bold">Confirmer Refus</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Edition */}
       {editModalExp && (
