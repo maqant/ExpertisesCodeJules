@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExpertiseProvider } from './context/ExpertiseContext';
+import TresorerieView from "./components/Post/TresorerieView";
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
 import TerrainView from './components/Pendant/TerrainView';
@@ -11,30 +12,38 @@ function App() {
   return (
     <ExpertiseProvider>
       <div className="flex flex-col h-screen w-full bg-slate-200">
+
+
         <div className="bg-slate-900 text-white p-2 flex justify-center gap-4 z-50 shadow-md">
           <button
             className={`px-4 py-1 rounded font-bold transition-colors ${viewMode === 'bureau' ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-slate-600'}`}
             onClick={() => setViewMode('bureau')}
           >
-            🏢 Mode Bureau (Pré)
+            🏢 Bureau (Pré)
           </button>
           <button
             className={`px-4 py-1 rounded font-bold transition-colors ${viewMode === 'terrain' ? 'bg-emerald-600' : 'bg-slate-700 hover:bg-slate-600'}`}
             onClick={() => setViewMode('terrain')}
           >
-            📱 Mode Terrain (Pendant)
+            📱 Terrain (Pendant)
+          </button>
+          <button
+            className={`px-4 py-1 rounded font-bold transition-colors ${viewMode === 'tresorerie' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+            onClick={() => setViewMode('tresorerie')}
+          >
+            💰 Trésorerie (Post)
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {viewMode === 'bureau' ? (
+          {viewMode === 'bureau' && (
             <>
               <Sidebar />
               <Workspace />
             </>
-          ) : (
-            <TerrainView />
           )}
+          {viewMode === 'terrain' && <TerrainView />}
+          {viewMode === 'tresorerie' && <TresorerieView />}
         </div>
       </div>
     </ExpertiseProvider>
