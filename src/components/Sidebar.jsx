@@ -27,7 +27,7 @@ const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
 };
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
-    const { attachedFiles, handleRemoveFile, handleAttachFile } = useContext(ExpertiseContext);
+    const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
 
@@ -38,6 +38,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
                 return (
                     <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
                         📎 {file.pages}p
+                        <button onClick={(e) => { e.preventDefault(); handleOpenFile(file.dbKey, true); }} className="text-blue-400 hover:text-blue-300 ml-0.5 mr-0.5" title="Ouvrir le document">👁️</button>
                         <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
                     </span>
                 );
@@ -439,7 +440,10 @@ const Sidebar = () => {
                                                                         <span className="font-bold text-white block truncate">{f.name}</span>
                                                                         <span className="text-slate-400">{f.pages} page(s)</span>
                                                                     </div>
-                                                                    <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(f.dbKey, true); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir le fichier">👁️</button>
+                                                                        <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -480,7 +484,10 @@ const Sidebar = () => {
                                                             ) : (
                                                                 <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
                                                             )}
-                                                            <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                                                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(photo.dbKey, photo.isPdf); }} className="bg-blue-500 hover:bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Ouvrir">👁️</button>
+                                                                <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -508,7 +515,10 @@ const Sidebar = () => {
                                 <div className="space-y-2">
                                     {attachedFreeAnnexes.map(file => (
                                         <div key={file.id} className="bg-slate-900 border border-slate-700 p-2 rounded relative group">
-                                            <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="absolute top-1 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button>
+                                            <div className="absolute top-1 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(file.dbKey, file.isPdf); }} className="text-blue-400 hover:text-blue-300 text-xs" title="Ouvrir">👁️</button>
+                                                <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="text-red-500 text-xs" title="Supprimer">✕</button>
+                                            </div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-lg">{file.isPdf ? '📄' : '🖼️'}</span>
                                                 <input type="text" value={file.customName} onChange={(e) => handleUpdateFreeAnnex(file.id, 'customName', e.target.value)} className="bg-transparent border-b border-slate-700 text-xs text-white focus:border-indigo-500 outline-none flex-1" placeholder="Nom du fichier..." />

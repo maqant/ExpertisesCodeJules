@@ -93,20 +93,15 @@ export const useFinanceStore = create((set, get) => ({
         const updated = { ...e, ...expenseData };
 
         // Phase 2.3.2 : Calcul automatique si on modifie des données de facturation (et que l'expertise n'est pas close)
-        if (!state.metier.isPVEClosed) {
+        // Ne pas écraser si l'utilisateur a explicitement fourni montantValide (modification manuelle en mode Terrain)
+        if (!state.metier.isPVEClosed && expenseData.montantValide === undefined) {
           const reclame = parseFloat(String(updated.montantReclame || "0").replace(',', '.')) || 0;
           let vetuste = parseFloat(updated.pourcentageVetuste) || 0;
 
-          if (updated.motifRefus && updated.motifRefus.trim() !== "") {
-            // Si refus total
-            updated.montantValide = "0";
-            updated.pourcentageVetuste = 100; // Logique métier: refus = 100% de vétusté ou invalide
-          } else {
-            // Calcul mathématique avec vétusté
-            const valide = reclame * (1 - (vetuste / 100));
-            // On s'assure d'arrondir correctement pour la finance
-            updated.montantValide = valide.toFixed(2).replace('.', ',');
-          }
+          // Calcul mathématique avec vétusté
+          const valide = reclame * (1 - (vetuste / 100));
+          // On s'assure d'arrondir correctement pour la finance
+          updated.montantValide = valide.toFixed(2).replace('.', ',');
         }
         return updated;
       }
