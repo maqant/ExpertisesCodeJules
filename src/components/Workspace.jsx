@@ -166,7 +166,14 @@ const Workspace = () => {
 
     const findOccByCompteDe = (compteDe) => {
         if (!compteDe) return null;
-        return occupants.find(o => fmtOccName(o) === compteDe);
+        return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
+    };
+
+    const getCompteDeName = (compteDe) => {
+        const matchedOcc = findOccByCompteDe(compteDe);
+        if (matchedOcc) return fmtOccName(matchedOcc);
+        if (compteDe && compteDe.trim() !== '') return compteDe;
+        return 'Non attribué';
     };
 
     const isExpenseExcludedFromMain = (exp) => {
@@ -184,7 +191,7 @@ const Workspace = () => {
     }, 0);
 
     const dettesParPersonne = expenses.reduce((acc, exp) => {
-        const pName = exp.compteDe && exp.compteDe.trim() !== '' ? exp.compteDe : 'Non attribué';
+        const pName = getCompteDeName(exp.compteDe);
         if (!acc[pName]) acc[pName] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
         acc[pName].lignes.push(exp);
         const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
@@ -199,25 +206,18 @@ const Workspace = () => {
     const formatShortCompteDe = (compteDeStr) => {
         if (!compteDeStr || typeof compteDeStr !== 'string') return '';
         
-        // Isoler le nom complet (sans l'étage s'il est préfixé)
-        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
-        
-        // Chercher l'occupant en comparant avec "Nom Prénom"
-        const occupant = occupants.find(o => {
-            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-            return fullName === namePart || (o.nom && namePart.includes(o.nom));
-        });
+        const occupant = findOccByCompteDe(compteDeStr);
         
         if (occupant) {
-            // On a trouvé la personne : on ne garde STRICTEMENT que son nom de famille (o.nom)
-            const nomAffiche = occupant.nom || namePart.split(' ')[0];
+            const nomAffiche = occupant.nom || '';
             if (occupant.etage && occupant.etage.trim() !== '') {
                 return `${nomAffiche} (${occupant.etage.trim()})`;
             }
             return nomAffiche;
         }
         
-        // Fallback (ex: "COMMUNS")
+        // Fallback
+        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
         return namePart.split(' ')[0];
     };
 

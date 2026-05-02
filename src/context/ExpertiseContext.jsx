@@ -346,23 +346,7 @@ export const ExpertiseProvider = ({ children }) => {
       setExpandedOccId(newId);
   };
   const updateOcc = (id, field, value) => {
-      const fmtOccName = (o) => {
-          const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-          return fullName ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName) : '';
-      };
-
-      const oldOcc = occupants.find(o => o.id === id);
       financeStore.updateOccupant(id, { [field]: value });
-
-      if (oldOcc) {
-          const newOcc = { ...oldOcc, [field]: value };
-          const oldNameFormatted = fmtOccName(oldOcc);
-          const newNameFormatted = fmtOccName(newOcc);
-          if ((field === 'nom' || field === 'etage') && oldNameFormatted !== newNameFormatted && oldNameFormatted !== '') {
-             const updatedExpenses = expenses.map(exp => exp.compteDe === oldNameFormatted ? { ...exp, compteDe: newNameFormatted } : exp);
-             financeStore.setExpenses(updatedExpenses);
-          }
-      }
   };
 
   const handleAddPrestataire = (name) => {
@@ -425,13 +409,13 @@ export const ExpertiseProvider = ({ children }) => {
 
   const reorganizeExpenses = () => {
       const occOrder = {};
-      occupants.forEach((o, index) => { if (o.nom && o.nom.trim() !== '') occOrder[o.nom.trim()] = index; });
+      occupants.forEach((o, index) => { occOrder[o.id] = index; });
       const sorted = [...expenses].sort((a, b) => {
-          const rankA = occOrder.hasOwnProperty((a.compteDe || '').trim()) ? occOrder[(a.compteDe || '').trim()] : -1;
-          const rankB = occOrder.hasOwnProperty((b.compteDe || '').trim()) ? occOrder[(b.compteDe || '').trim()] : -1;
+          const rankA = occOrder.hasOwnProperty(a.compteDe) ? occOrder[a.compteDe] : -1;
+          const rankB = occOrder.hasOwnProperty(b.compteDe) ? occOrder[b.compteDe] : -1;
           if (rankA !== rankB) return rankA - rankB; 
-          const valA = parseFloat((a.montant || '0').toString().replace(',', '.'));
-          const valB = parseFloat((b.montant || '0').toString().replace(',', '.'));
+          const valA = parseFloat((a.montantReclame || a.montant || '0').toString().replace(',', '.'));
+          const valB = parseFloat((b.montantReclame || b.montant || '0').toString().replace(',', '.'));
           return (isNaN(valA) ? 0 : valA) - (isNaN(valB) ? 0 : valB);
       });
       financeStore.setExpenses(sorted);
@@ -840,11 +824,23 @@ export const ExpertiseProvider = ({ children }) => {
           // --- PASSE 2 (si nécessaire) : mettre à jour les index dans le HTML et re-capturer ---
           let canvas = canvas1;
           if (actualCoverPages !== coverPageCount) {
-              setCoverPageCount(actualCoverPages);
-              // Attendre que React re-render avec les numéros de pages corrigés
-              await new Promise(r => setTimeout(r, 250));
-              await new Promise(r => requestAnimationFrame(r));
-              canvas = await captureEl();
+              // Modification synchrone du DOM pour éviter le setTimeout
+              const annexIndexEls = document.querySelectorAll('.annex-index-page-num');
+              if (annexIndexEls && annexIndexEls.length > 0) {
+                  // Mettre à jour l'état React pour la suite
+                  setCoverPageCount(actualCoverPages);
+
+                  // Mais forcer la mise à jour du DOM *maintenant* pour html2canvas
+                  let currentAnnexPage = actualCoverPages + 1;
+                  annexIndexEls.forEach(el => {
+                      el.textContent = currentAnnexPage;
+                      const pagesCount = parseInt(el.getAttribute('data-pages') || '1', 10);
+                      currentAnnexPage += pagesCount;
+                  });
+
+                  await new Promise(r => requestAnimationFrame(r));
+                  canvas = await captureEl();
+              }
           }
 
           el.style.boxShadow = prevShadow;

@@ -395,7 +395,7 @@ const Sidebar = () => {
                                         {!isExp ? (
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
                                                 <span className="text-slate-500 cursor-grab">⠿</span>
-                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${exp.compteDe})` : ''}</span>
+                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${(()=>{ const o = occupants.find(occ=>occ.id===exp.compteDe); if(o) { const fn = `${o.nom||''} ${o.prenom||''}`.trim(); return o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fn}` : fn; } return exp.compteDe; })()})` : ''}</span>
                                                 {(attachedFiles[exp.id] || []).length > 0 && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>}
                                             </div>
                                         ) : (
@@ -403,7 +403,17 @@ const Sidebar = () => {
                                                 <div><label>Montant (€)</label><input type="text" autoFocus value={exp.montant} onChange={e=>updateExpense(exp.id, 'montant', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="350.00" className="input-field mb-0 font-bold" /></div>
                                                 <div><label>Type Montant</label><select value={exp.typeMontant} onChange={e=>updateExpense(exp.id, 'typeMontant', e.target.value)} className="input-field mb-0"><option>HTVA</option><option>Forfait</option><option>TVAC</option></select></div>
                                                 <div className="col-span-2"><label>Description courte</label><input type="text" value={exp.desc} onChange={e=>updateExpense(exp.id, 'desc', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} className="input-field mb-0" /></div>
-                                                <div className="col-span-2"><label>Pour le compte de</label><input type="text" value={exp.compteDe} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Choisissez..." className="input-field mb-0 border-indigo-500" list="occupants-global-list" /></div>
+                                                <div className="col-span-2">
+                                                    <label>Pour le compte de</label>
+                                                    <select value={exp.compteDe || ''} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} className="input-field mb-0 border-indigo-500">
+                                                        <option value="">Choisissez...</option>
+                                                        {occupants.filter(o => o.nom).map(o => {
+                                                            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                                                            const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                                                            return <option key={o.id} value={o.id}>{displayName}</option>;
+                                                        })}
+                                                    </select>
+                                                </div>
                                                 {exp.typeMontant !== 'Forfait' && <>
                                                     <div><label>Type</label><select value={exp.type || 'Devis'} onChange={e=>updateExpense(exp.id, 'type', e.target.value)} className="input-field mb-0"><option>Devis</option><option>Facture</option></select></div>
                                                     <div><label>Réf</label><input type="text" value={exp.ref} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Réf" className="input-field mb-0" /></div>
@@ -441,7 +451,6 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="occupants-global-list">{occupants.filter(o => o.nom).map(o => { const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim(); return <option key={o.id} value={o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName} />; })}</datalist>
                                 <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
                             </div>
                         </details>
