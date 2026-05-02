@@ -80,6 +80,7 @@ export const useFinanceStore = create((set, get) => ({
       montantValide: baseMontant,
       pourcentageVetuste: expense.pourcentageVetuste || 0,
       motifRefus: expense.motifRefus || "",
+      isProcessed: expense.isProcessed || false,
       ...expense
     };
     return {

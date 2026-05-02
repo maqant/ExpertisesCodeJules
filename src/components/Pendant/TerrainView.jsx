@@ -38,7 +38,8 @@ const TerrainView = () => {
     store.updateExpense(exp.id, {
       montantValide: exp.montantReclame || exp.montant || "0",
       pourcentageVetuste: 0,
-      motifRefus: ''
+      motifRefus: '',
+      isProcessed: true
     });
   };
 
@@ -54,7 +55,8 @@ const TerrainView = () => {
     if (editModalExp) {
       store.updateExpense(editModalExp.id, {
         montantValide: editData.montantValide,
-        motifRefus: editData.motifRefus
+        motifRefus: editData.motifRefus,
+        isProcessed: true
       });
     }
     setEditModalExp(null);
@@ -126,45 +128,86 @@ const TerrainView = () => {
       </div>
 
       {/* Liste des frais */}
-      <div className="space-y-4">
-        {expenses.map(exp => {
-          const files = attachedFiles[exp.id] || [];
-          const hasFiles = files.length > 0;
-          return (
-            <div key={exp.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-4 flex-1">
-                {hasFiles && (
-                  <button
-                    onClick={() => context.handleOpenFile(files[0].dbKey, files[0].isPdf)}
-                    className="w-12 h-12 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-2xl shrink-0 shadow-sm"
-                    title="Ouvrir le justificatif"
-                  >
-                    👁️
-                  </button>
-                )}
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 ml-2">({getCompteDeName(exp.compteDe)})</span></h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{exp.desc || 'Aucune description'}</p>
-                  <div className="mt-2 text-sm">
-                    Réclamé: <span className="font-semibold">{exp.montantReclame || exp.montant || '0.00'} €</span>
-                    {exp.pourcentageVetuste > 0 && <span className="text-orange-500 ml-2">(-{exp.pourcentageVetuste}%)</span>}
-                    {exp.motifRefus && <span className="text-red-500 ml-2">(Refusé: {exp.motifRefus})</span>}
-                  </div>
-                </div>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-              <div className="flex flex-col items-end shrink-0">
-                <span className="text-xl font-bold text-emerald-500 mb-2">{exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €</span>
+        {/* Colonne À Traiter */}
+        <div>
+            <h3 className="text-lg font-bold mb-4 uppercase text-slate-500 border-b-2 border-slate-300 pb-2">⏳ À Traiter ({expenses.filter(e => !e.isProcessed).length})</h3>
+            <div className="space-y-4">
+                {expenses.filter(e => !e.isProcessed).map(exp => {
+                const files = attachedFiles[exp.id] || [];
+                const hasFiles = files.length > 0;
+                return (
+                    <div key={exp.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border-l-4 border-indigo-500 flex flex-col justify-between items-start gap-4">
+                        <div className="flex items-start gap-4 w-full">
+                            {hasFiles && (
+                            <button
+                                onClick={() => context.handleOpenFile(files[0].dbKey, files[0].isPdf)}
+                                className="w-12 h-12 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-2xl shrink-0 shadow-sm"
+                                title="Ouvrir le justificatif"
+                            >
+                                👁️
+                            </button>
+                            )}
+                            <div className="flex-1">
+                                <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe)}</span></h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 italic mb-2">{exp.desc || 'Aucune description'}</p>
+                                <div className="text-sm bg-slate-100 p-2 rounded inline-block">
+                                    Réclamé : <span className="font-bold text-lg">{exp.montantReclame || exp.montant || '0.00'} €</span>
+                                </div>
+                            </div>
+                        </div>
 
-                <div className="flex gap-2">
-                  <button disabled={isPVEClosed} onClick={() => handleValid100(exp)} className="bg-emerald-100 text-emerald-700 px-3 py-2 rounded font-bold hover:bg-emerald-200 disabled:opacity-50 flex items-center gap-1">✅ Valider</button>
-                  <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="bg-orange-100 text-orange-700 px-3 py-2 rounded font-bold hover:bg-orange-200 disabled:opacity-50 flex items-center gap-1">✏️ Modifier</button>
-                </div>
-              </div>
+                        <div className="flex w-full gap-2 mt-2">
+                            <button disabled={isPVEClosed} onClick={() => handleValid100(exp)} className="flex-1 bg-emerald-100 text-emerald-700 py-2 rounded font-bold hover:bg-emerald-200 disabled:opacity-50 flex justify-center items-center gap-2">✅ Valider (100%)</button>
+                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="flex-1 bg-orange-100 text-orange-700 py-2 rounded font-bold hover:bg-orange-200 disabled:opacity-50 flex justify-center items-center gap-2">✏️ Modifier</button>
+                        </div>
+                    </div>
+                );
+                })}
+                {expenses.filter(e => !e.isProcessed).length === 0 && <p className="text-center text-slate-500 italic py-8">Tout est traité ! 🎉</p>}
             </div>
-          );
-        })}
-        {expenses.length === 0 && <p className="text-center text-slate-500 italic py-8">Aucun frais encodé pour le moment.</p>}
+        </div>
+
+        {/* Colonne Validés */}
+        <div>
+            <h3 className="text-lg font-bold mb-4 uppercase text-slate-500 border-b-2 border-slate-300 pb-2">✅ Traités ({expenses.filter(e => e.isProcessed).length})</h3>
+            <div className="space-y-4">
+                {expenses.filter(e => e.isProcessed).map(exp => {
+                const files = attachedFiles[exp.id] || [];
+                const hasFiles = files.length > 0;
+                return (
+                    <div key={exp.id} className="bg-emerald-50 dark:bg-slate-800 p-4 rounded-xl shadow border-l-4 border-emerald-500 flex flex-col md:flex-row justify-between items-center gap-4 opacity-80 hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-4 flex-1">
+                            {hasFiles && (
+                            <button
+                                onClick={() => context.handleOpenFile(files[0].dbKey, files[0].isPdf)}
+                                className="w-10 h-10 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-xl shrink-0 shadow-sm"
+                                title="Ouvrir le justificatif"
+                            >
+                                👁️
+                            </button>
+                            )}
+                            <div className="flex-1">
+                                <h3 className="font-bold text-base">{exp.prestataire || 'Prestataire Inconnu'}</h3>
+                                <div className="mt-1 text-xs">
+                                    <span className="text-slate-500">Réclamé: {exp.montantReclame || exp.montant || '0.00'} €</span>
+                                    {exp.motifRefus && <span className="text-red-500 ml-2 font-bold">(Motif: {exp.motifRefus})</span>}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-end shrink-0">
+                            <span className="text-lg font-bold text-emerald-600 mb-1">Accordé : {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €</span>
+                            <button disabled={isPVEClosed} onClick={() => openEditModal(exp)} className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded hover:bg-slate-300">Corriger</button>
+                        </div>
+                    </div>
+                );
+                })}
+                {expenses.filter(e => e.isProcessed).length === 0 && <p className="text-center text-slate-500 italic py-8">Aucun frais n'a encore été traité.</p>}
+            </div>
+        </div>
+
       </div>
 
       {/* Modal Edition */}

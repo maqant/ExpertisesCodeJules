@@ -84,10 +84,23 @@ details[open] > summary::before { transform: rotate(90deg); }
    ========================================= */
 @media print {
     @page { size: A4 portrait; margin: 15mm; }
-    body { background: white !important; margin: 0 !important; padding: 0 !important; overflow: auto !important; }
     
-    #sidebar, .resizer, .page-break, .block-controls { display: none !important; }
-    #workspace-container { width: 100% !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    /* Écrasement des containers pour le web pour permettre le saut de page PDF */
+    html, body, #root, .flex.h-screen, .flex.flex-col.h-screen {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+        background: white !important;
+    }
+
+    #sidebar, .resizer, .page-break, .block-controls, .print\:hidden { display: none !important; }
+    #workspace-container, #print-pve-container {
+        width: 100% !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
     
     .a4-page { 
         width: 100% !important; 
@@ -113,7 +126,8 @@ details[open] > summary::before { transform: rotate(90deg); }
     }
 
     #block-frais { page-break-inside: auto !important; }
-    table { page-break-inside: auto; width: 100%; border-collapse: collapse; }
-    tr { page-break-inside: avoid; page-break-after: auto; }
-    th, td { border: 1px solid #94a3b8 !important; }
+    table { page-break-inside: auto !important; width: 100%; border-collapse: collapse; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid !important; page-break-after: auto; }
+    th, td { border: 1px solid #cbd5e1 !important; }
 }
