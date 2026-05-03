@@ -7,11 +7,21 @@ const PaymentWizardModal = ({ onClose }) => {
   const expenses = store.metier.expenses.filter(e => e.isProcessed);
 
   // States du Wizard
-  const [step, setStep] = useState(1);
+  const paiements = store.metier.paiements || [];
+  const reliquatGlobal = paiements.reduce((acc, p) => {
+      const sumVentile = (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0);
+      const totalRecu = parseFloat(p.montantTotal) || 0;
+      const reliquatLocal = totalRecu - sumVentile;
+      return acc + (reliquatLocal > 0 ? reliquatLocal : 0);
+  }, 0);
+
+  // States du Wizard (Saute l'étape 1 si reliquat existant)
+  const [step, setStep] = useState(reliquatGlobal > 0.01 ? 2 : 1);
   const [dateRecept, setDateRecept] = useState(new Date().toISOString().split('T')[0]);
-  const [montantTotalReçu, setMontantTotalReçu] = useState("");
-  const [soldeRestant, setSoldeRestant] = useState(0);
+  const [montantTotalReçu, setMontantTotalReçu] = useState(reliquatGlobal > 0.01 ? reliquatGlobal : "");
+  const [soldeRestant, setSoldeRestant] = useState(reliquatGlobal > 0.01 ? reliquatGlobal : 0);
   const [ventilations, setVentilations] = useState([]); // [{ expenseId, montantAlloue, typeAllocation }]
+  const [isReprise, setIsReprise] = useState(reliquatGlobal > 0.01);
 
   // States de l'étape d'attribution (Step 2)
   const [selectedOccId, setSelectedOccId] = useState("");
@@ -68,11 +78,26 @@ const PaymentWizardModal = ({ onClose }) => {
   };
 
   const handleFinaliser = () => {
-      store.addPaiement({
-          dateRecept,
-          montantTotal: parseFloat(String(montantTotalReçu).replace(',', '.')),
-          ventilations
-      });
+      if (isReprise) {
+          // Si on reprend un reliquat, on triche en ajoutant un nouveau paiement avec la somme exactement ventilée
+          // pour équilibrer, mais l'idéal serait de modifier le paiement parent.
+          // En mode MVP, on l'ajoute comme nouveau "sous-paiement" lié à ce jour.
+          if (ventilations.length > 0) {
+              const totalJustVentile = ventilations.reduce((acc, v) => acc + v.montantAlloue, 0);
+              store.addPaiement({
+                  dateRecept: new Date().toISOString().split('T')[0],
+                  montantTotal: totalJustVentile,
+                  ventilations
+              });
+          }
+      } else {
+          // Nouveau paiement
+          store.addPaiement({
+              dateRecept,
+              montantTotal: parseFloat(String(montantTotalReçu).replace(',', '.')),
+              ventilations
+          });
+      }
       onClose();
   };
 
@@ -154,7 +179,11 @@ const PaymentWizardModal = ({ onClose }) => {
                                     <select value={selectedOccId} onChange={(e) => { setSelectedOccId(e.target.value); setSelectedExpId(""); }} className="w-full p-2.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:border-indigo-500">
                                         <option value="">Sélectionnez...</option>
                                         <option value="unassigned">Frais non attribués</option>
-                                        {occupants.map(o => <option key={o.id} value={o.id}>{getOccName(o)}</option>)}
+                                        {/* Ajouter dynamiquement les compteDe qui ne sont pas des IDs occupants valides, ex: "COMMUNS" */}
+                                        {[...new Set(expenses.map(e => e.compteDe).filter(c => c && !occupants.find(o => o.id === c)))].map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                        {occupants.filter(o => !o.contreExpert).map(o => <option key={o.id} value={o.id}>{getOccName(o)}</option>)}
                                     </select>
                                 </div>
 
@@ -164,7 +193,7 @@ const PaymentWizardModal = ({ onClose }) => {
                                         <select value={selectedExpId} onChange={(e) => { setSelectedExpId(e.target.value); setAllocationAmount(""); setAllocationType("HTVA"); }} className="w-full p-2.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:border-indigo-500">
                                             <option value="">Sélectionnez...</option>
                                             {expenses.filter(e => {
-                                                const matchesOcc = selectedOccId === 'unassigned' ? (!e.compteDe || e.compteDe.trim() === '') : (e.compteDe === selectedOccId);
+                                                const matchesOcc = selectedOccId === 'unassigned' ? (!e.compteDe || String(e.compteDe).trim() === '') : (String(e.compteDe) === String(selectedOccId));
                                                 const resteAPayer = getMontantRestantAPayer(e);
                                                 return matchesOcc && resteAPayer > 0;
                                             }).map(e => (
@@ -239,7 +268,7 @@ const PaymentWizardModal = ({ onClose }) => {
                 <div className="flex flex-col items-center justify-center h-full space-y-6 animate-in zoom-in-95">
                     <div className="w-24 h-24 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center text-5xl">✅</div>
                     <h3 className="text-3xl font-bold text-slate-800 dark:text-white text-center">Paiement entièrement distribué !</h3>
-                    <p className="text-slate-500 text-center max-w-md">Le solde est à 0€. Vous pouvez maintenant valider l'enregistrement de ce paiement dans la trésorerie du dossier.</p>
+                    <p className="text-slate-500 text-center max-w-md">Le solde est à 0€. Vous pouvez maintenant valider l'enregistrement de ce paiement dans la répartition du dossier.</p>
 
                     <button onClick={handleFinaliser} className="bg-emerald-500 hover:bg-emerald-400 text-white text-xl font-bold py-4 px-12 rounded-xl shadow-lg mt-8 transition-transform active:scale-95">Valider & Fermer</button>
                 </div>

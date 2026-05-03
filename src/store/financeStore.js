@@ -92,7 +92,13 @@ export const useFinanceStore = create((set, get) => ({
   updateExpense: (id, expenseData) => set((state) => {
     const expenses = state.metier.expenses.map(e => {
       if (e.id === id) {
-        const updated = { ...e, ...expenseData };
+        // Validation stricte de compteDe (éviter la data corruption de nombres/floats bizarres)
+        let cleanCompteDe = expenseData.compteDe !== undefined ? expenseData.compteDe : e.compteDe;
+        if (cleanCompteDe && typeof cleanCompteDe !== 'string') {
+          cleanCompteDe = String(cleanCompteDe);
+        }
+
+        const updated = { ...e, ...expenseData, compteDe: cleanCompteDe };
 
         // Phase 2.3.2 : Calcul automatique si on modifie des données de facturation (et que l'expertise n'est pas close)
         // Ne pas écraser si l'utilisateur a explicitement fourni montantValide (modification manuelle en mode Terrain)

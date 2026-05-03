@@ -6,7 +6,12 @@ const TresorerieView = () => {
   const store = useFinanceStore();
   const [showWizard, setShowWizard] = useState(false);
   const occupants = store.pii.occupants;
-  const expenses = store.metier.expenses.filter(e => e.isProcessed); // On ne montre que les frais validés
+  const expenses = store.metier.expenses.filter(exp => {
+    // On ne montre que les frais validés ET on exclut les contre-expertises
+    if (!exp.isProcessed) return false;
+    const occ = occupants.find(o => o.id === exp.compteDe);
+    return !(occ && occ.contreExpert);
+  });
 
   const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
 
@@ -30,6 +35,14 @@ const TresorerieView = () => {
     return acc;
   }, {});
 
+  const paiements = store.metier.paiements || [];
+  const reliquatGlobal = paiements.reduce((acc, p) => {
+      const sumVentile = (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0);
+      const totalRecu = parseFloat(p.montantTotal) || 0;
+      const reliquatLocal = totalRecu - sumVentile;
+      return acc + (reliquatLocal > 0 ? reliquatLocal : 0);
+  }, 0);
+
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white p-4 overflow-y-auto w-full relative">
       <div className="flex justify-between items-center mb-6 border-b-2 border-slate-300 dark:border-slate-700 pb-4">
@@ -42,8 +55,26 @@ const TresorerieView = () => {
         </button>
       </div>
 
+      {reliquatGlobal > 0.01 && (
+        <div className="bg-amber-100 border-l-4 border-amber-500 p-4 mb-6 rounded shadow flex justify-between items-center text-amber-900">
+            <div>
+                <h3 className="font-bold text-lg">Paiements avec reliquat en attente</h3>
+                <p className="text-sm">Vous avez des encaissements dont une partie du montant n'a pas encore été ventilée.</p>
+            </div>
+            <div className="flex items-center gap-4">
+                <span className="font-bold text-2xl">{reliquatGlobal.toFixed(2)} €</span>
+                <button
+                    onClick={() => setShowWizard(true)}
+                    className="bg-amber-600 text-white px-4 py-2 rounded shadow hover:bg-amber-500 font-bold"
+                >
+                    Reprendre la répartition
+                </button>
+            </div>
+        </div>
+      )}
+
       {Object.keys(expensesByOcc).length === 0 ? (
-        <div className="text-center text-slate-500 italic py-12">Aucun frais validé n'est prêt pour la trésorerie. Validez des frais dans la vue "Terrain" d'abord.</div>
+        <div className="text-center text-slate-500 italic py-12">Aucun frais validé n'est prêt pour la répartition. Validez des frais dans la vue "Terrain" d'abord.</div>
       ) : (
         <div className="space-y-8">
           {Object.entries(expensesByOcc).map(([occName, occExpenses]) => {

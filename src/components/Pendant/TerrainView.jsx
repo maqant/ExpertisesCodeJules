@@ -7,8 +7,12 @@ import { ExpertiseContext } from '../../context/ExpertiseContext';
 const TerrainView = () => {
   const store = useFinanceStore();
   const context = useContext(ExpertiseContext);
-  const expenses = store.metier.expenses;
   const occupants = store.pii.occupants;
+  const expenses = store.metier.expenses.filter(exp => {
+    // Règle Métier : Exclure les frais liés à une "Contre-Expertise"
+    const occ = occupants.find(o => o.id === exp.compteDe);
+    return !(occ && occ.contreExpert);
+  });
   const attachedFiles = context?.attachedFiles || {};
 
   const isPVEClosed = store.metier.isPVEClosed;
