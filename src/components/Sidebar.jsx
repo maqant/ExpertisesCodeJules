@@ -91,6 +91,36 @@ const Sidebar = () => {
     // Magic Drop states
 
     // Contract Magic Drop states
+    const [isCauseAiLoading, setIsCauseAiLoading] = useState(false);
+
+    const handleCauseMagicDrop = async (files) => {
+        if (!files || files.length === 0) return;
+        setIsCauseAiLoading(true);
+        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
+        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+
+        try {
+            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel);
+            if (result.success && result.data && result.data.cause) {
+                setFormData(prev => ({
+                    ...prev,
+                    cause: result.data.cause
+                }));
+                // Attach documents
+                files.forEach((file, idx) => {
+                    // Create a unique id for each file to attach them under the same conceptual block
+                    // Wait, the block uses doc_rapport_cause for AttachmentUI. Let's attach them there.
+                    handleAttachFile('doc_rapport_cause', file);
+                });
+            } else {
+                alert("Erreur lors de la synthèse : " + (result.error || "Réponse invalide"));
+            }
+        } catch (err) {
+            alert("Erreur : " + err.message);
+        } finally {
+            setIsCauseAiLoading(false);
+        }
+    };
     const [isContractAiLoading, setIsContractAiLoading] = useState(false);
 
     const handleContractMagicDrop = async (files) => {
@@ -393,6 +423,18 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
                             <div className="p-3">
+                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                    {isCauseAiLoading ? (
+                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse et synthèse des documents en cours...</span>
+                                    ) : (
+                                        <DropZone
+                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                            onFiles={handleCauseMagicDrop}
+                                            accept="image/*,application/pdf"
+                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez ici vos rapports de recherche, mails ou justificatifs de cause</span>}
+                                        />
+                                    )}
+                                </div>
                                 <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
                             </div>

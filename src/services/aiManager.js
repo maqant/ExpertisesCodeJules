@@ -47,7 +47,9 @@ const pdfToBase64Image = async (file) => {
  * @param {string} documentType Le type de document ("facture", "devis", "contrat")
  * @returns {Promise<Object>} Un objet JSON formaté pour financeStore.js
  */
-export const extractDataFromDocument = async (file, documentType = 'facture', provider = 'openai', model = 'gpt-4o') => {
+export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o') => {
+    // Ensure files is an array
+    const fileArray = Array.isArray(files) ? files : [files];
     const mode = import.meta.env.VITE_AI_MODE || 'mock';
 
     if (mode === 'mock') {
@@ -57,6 +59,15 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         console.log(`[AI Mock] Extraction terminée avec succès.`);
+
+        if (documentType === 'cause') {
+            return {
+                success: true,
+                data: {
+                    cause: "Le sinistre trouve son origine dans la rupture d'un joint d'étanchéité au niveau du raccordement du lave-vaisselle dans la cuisine. Cette rupture, consécutive à l'usure normale, a entraîné un écoulement d'eau lent et continu sous les meubles encastrés, endommageant la chape et les revêtements de sol."
+                }
+            };
+        }
 
         // Faux JSON formaté parfaitement pour la base de données
         if (documentType === 'contrat') {
@@ -105,16 +116,25 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
         try {
             console.log(`[AI Live] Envoi de la requête à l'API OpenAI pour un document de type: ${documentType}...`);
 
-            let base64Image;
-            if (file.type === 'application/pdf') {
-                base64Image = await pdfToBase64Image(file);
-            } else if (file.type.startsWith('image/')) {
-                base64Image = await fileToBase64(file);
-            } else {
-                 return {
-                    success: false,
-                    error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
-                };
+            // Multi-files logic for vision
+            const contentArray = [{ type: "text", text: "Voici le(s) document(s) à analyser." }];
+
+            for (const file of fileArray) {
+                let base64Image;
+                if (file.type === 'application/pdf') {
+                    base64Image = await pdfToBase64Image(file);
+                } else if (file.type.startsWith('image/')) {
+                    base64Image = await fileToBase64(file);
+                } else {
+                     return {
+                        success: false,
+                        error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
+                    };
+                }
+                contentArray.push({
+                    type: "image_url",
+                    image_url: { url: base64Image }
+                });
             }
 
             // Payload générique pour un modèle multimodal (ex: gpt-4o)
@@ -123,7 +143,9 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
                 messages: [
                     {
                         role: "system",
-                        content: `Tu es un assistant expert en extraction de données pour l'expertise incendie.
+                        content: documentType === 'cause'
+                            ? `Tu es un expert en assurances. Je vais te donner un ou plusieurs documents (rapport de recherche de fuite, mail, devis). Ta mission est d'extraire et de synthétiser l'origine, la cause et les circonstances du sinistre de manière professionnelle, concise et factuelle. Ne réponds QUE par le paragraphe de synthèse, sans introduction.`
+                            : `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
 ${documentType === 'contrat' ? `{
   "nomCie": "Nom de la compagnie d'assurance",
@@ -149,16 +171,10 @@ Ne renvoie aucun autre texte, juste le JSON.`
                     },
                     {
                         role: "user",
-                        content: [
-                            { type: "text", text: "Voici le document à analyser." },
-                            {
-                                type: "image_url",
-                                image_url: { url: base64Image }
-                            }
-                        ]
+                        content: contentArray
                     }
                 ],
-                response_format: { type: "json_object" },
+                response_format: documentType === 'cause' ? { type: "text" } : { type: "json_object" },
                 max_tokens: 500,
                 temperature: 0.1
             };
@@ -180,22 +196,29 @@ Ne renvoie aucun autre texte, juste le JSON.`
             const data = await response.json();
             const contentString = data.choices[0].message.content;
 
-            // Parse le JSON de la réponse
-            const parsedData = JSON.parse(contentString);
+            if (documentType === 'cause') {
+                return {
+                    success: true,
+                    data: { cause: contentString.trim() }
+                };
+            } else {
+                // Parse le JSON de la réponse
+                const parsedData = JSON.parse(contentString);
 
-            // S'assurer de générer un UUID pour chaque frais retourné par l'IA
-            if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
-                parsedData.expenses = parsedData.expenses.map(exp => ({
-                    ...exp,
-                    id: crypto.randomUUID(),
-                    compteDe: exp.compteDe || "unassigned" // Sécurité
-                }));
+                // S'assurer de générer un UUID pour chaque frais retourné par l'IA
+                if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
+                    parsedData.expenses = parsedData.expenses.map(exp => ({
+                        ...exp,
+                        id: crypto.randomUUID(),
+                        compteDe: exp.compteDe || "unassigned" // Sécurité
+                    }));
+                }
+
+                return {
+                    success: true,
+                    data: parsedData
+                };
             }
-
-            return {
-                success: true,
-                data: parsedData
-            };
 
         } catch (error) {
             console.error("[AI Live] Erreur lors de l'extraction :", error);
