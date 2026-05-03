@@ -1,16 +1,18 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import ValidationAiModal from './ValidationAiModal';
+import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import packageInfo from '../../package.json';
 
-const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
+const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
     const [isOver, setIsOver] = useState(false);
     return (
         <div 
             onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
             onDragLeave={() => setIsOver(false)}
             onDrop={(e) => { e.preventDefault(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
-            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'}`}
+            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
             title="Glisser-déposer vos fichiers ici"
             onClick={() => {
                 const input = document.createElement('input');
@@ -85,6 +87,56 @@ const Sidebar = () => {
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
+
+    // Magic Drop states
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [aiValidationData, setAiValidationData] = useState(null);
+
+    const handleMagicDrop = async (files) => {
+        if (!files || files.length === 0) return;
+        setIsAiLoading(true);
+        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
+        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+
+        try {
+            const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel);
+            if (result.success && result.data && result.data.expenses) {
+                setAiValidationData({ data: result.data.expenses, originalFile: files[0] });
+            } else {
+                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+            }
+        } catch (err) {
+            alert("Erreur : " + err.message);
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const handleMagicDropValidate = (validatedData) => {
+        const newExpId = crypto.randomUUID();
+        const newExp = {
+            id: newExpId,
+            prestataire: validatedData.prestataire || '',
+            type: validatedData.type || '',
+            ref: validatedData.ref || '',
+            desc: validatedData.desc || '',
+            compteDe: validatedData.compteDe || '',
+            montant: validatedData.montant || '',
+            montantReclame: validatedData.montantReclame || '',
+            montantValide: validatedData.montantValide || '',
+            pourcentageVetuste: validatedData.pourcentageVetuste || 0,
+            motifRefus: validatedData.motifRefus || '',
+            typeMontant: validatedData.typeMontant || 'HTVA',
+            avisCouverture: validatedData.avisCouverture || 'Oui',
+            noteCouverture: validatedData.noteCouverture || ''
+        };
+        addExpense(newExp);
+        if (aiValidationData.originalFile) {
+            handleAttachFile(newExpId, aiValidationData.originalFile);
+        }
+        setAiValidationData(null);
+    };
+
     const [editingExpert, setEditingExpert] = useState(null);
     const [addFranchiseForm, setAddFranchiseForm] = useState({ moisAnnee: '', montant: '' });
     const draggedOccRef = useRef(null);
@@ -383,6 +435,18 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
                             <div className="p-3 space-y-2">
+                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                    {isAiLoading ? (
+                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse IA en cours...</span>
+                                    ) : (
+                                        <DropZone
+                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                            onFiles={handleMagicDrop}
+                                            accept="image/*,application/pdf"
+                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez une facture ici</span>}
+                                        />
+                                    )}
+                                </div>
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>
@@ -602,9 +666,19 @@ const Sidebar = () => {
                     )}
                 </div>
             </div>
+
+            {aiValidationData && (
+                <ValidationAiModal
+                    extractedData={aiValidationData.data}
+                    occupants={occupants}
+                    onValidate={handleMagicDropValidate}
+                    onCancel={() => setAiValidationData(null)}
+                />
+            )}
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
         </>
+
     );
 };
 

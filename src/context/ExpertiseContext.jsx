@@ -392,10 +392,15 @@ export const ExpertiseProvider = ({ children }) => {
       setOccupants(sorted);
   };
 
-  const addExpense = () => {
-      const newId = crypto.randomUUID();
-      financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
-      setExpandedExpId(newId);
+  const addExpense = (expenseObj = null) => {
+      if (expenseObj) {
+          financeStore.addExpense(expenseObj);
+          setExpandedExpId(expenseObj.id);
+      } else {
+          const newId = crypto.randomUUID();
+          financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
+          setExpandedExpId(newId);
+      }
   };
   const updateExpense = (id, field, value) => {
       let updates = { [field]: value };
@@ -423,23 +428,35 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleAttachFile = async (expenseId, file) => {
       if (!file) return;
-      if (file.type !== 'application/pdf') return alert("Seuls les fichiers PDF sont acceptés pour le moment.");
       
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const pages = pdfDoc.getPageCount();
+          let pages = 1; // Default for images
+          let isPdf = false;
+
+          if (file.type === 'application/pdf') {
+              isPdf = true;
+              try {
+                  const pdfDoc = await PDFDocument.load(arrayBuffer);
+                  pages = pdfDoc.getPageCount();
+              } catch (e) {
+                  console.error("Non-fatal error reading PDF pages:", e);
+                  pages = 1;
+              }
+          } else if (!file.type.startsWith('image/')) {
+              return alert("Seuls les fichiers PDF et les images sont acceptés pour le moment.");
+          }
           
-          const dbKey = `pdf_${crypto.randomUUID()}_${file.name}`;
+          const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
-          const fileObj = { name: file.name, pages, dbKey };
+          const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type };
           setAttachedFiles(prev => {
               const current = prev[expenseId] || [];
               return { ...prev, [expenseId]: [...current, fileObj] };
           });
       } catch (err) {
-          alert("Erreur lors de la lecture du PDF : " + err.message);
+          alert("Erreur lors de la lecture du fichier : " + err.message);
       }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const ValidationAiModal = ({ extractedData, onValidate, onCancel }) => {
+const ValidationAiModal = ({ extractedData, occupants = [], onValidate, onCancel }) => {
     // Initialiser avec la première dépense extraite (s'il y en a une)
     const initialData = extractedData && extractedData.length > 0 ? extractedData[0] : {};
 
@@ -10,7 +10,8 @@ const ValidationAiModal = ({ extractedData, onValidate, onCancel }) => {
         ref: initialData.ref || '',
         desc: initialData.desc || '',
         montantReclame: initialData.montantReclame || '',
-        typeMontant: initialData.typeMontant || 'HTVA'
+        typeMontant: initialData.typeMontant || 'HTVA',
+        compteDe: initialData.compteDe || ''
     });
 
     const handleChange = (e) => {
@@ -68,6 +69,26 @@ const ValidationAiModal = ({ extractedData, onValidate, onCancel }) => {
                                 className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                                 placeholder="Numéro de référence"
                             />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="block text-xs font-bold text-slate-400 mb-1">Compte de (Attribution)</label>
+                            <select
+                                name="compteDe"
+                                value={formData.compteDe}
+                                onChange={handleChange}
+                                className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="">-- Non assigné --</option>
+                                <option value="COMMUNS">COMMUNS</option>
+                                {occupants.map(o => (
+                                    <option key={o.id} value={o.id}>
+                                        {o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : `Occupant sans nom`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

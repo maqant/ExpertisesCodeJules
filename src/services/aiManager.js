@@ -4,6 +4,11 @@
  * Gère le mode "mock" et "live" pour l'isolation complète des appels API.
  */
 
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurer le worker PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 // Utilitaire de conversion File -> Base64
 const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -12,6 +17,28 @@ const fileToBase64 = (file) => {
         reader.onload = () => resolve(reader.result);
         reader.onerror = error => reject(error);
     });
+};
+
+// Utilitaire pour extraire la première page d'un PDF sous forme d'image Base64
+const pdfToBase64Image = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+
+    const scale = 1.5;
+    const viewport = page.getViewport({ scale });
+
+    // Créer un canvas HTML
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    // Rendre la page sur le canvas
+    await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+    // Convertir en base64
+    return canvas.toDataURL('image/jpeg', 0.8);
 };
 
 /**
@@ -63,7 +90,17 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
         try {
             console.log(`[AI Live] Envoi de la requête à l'API OpenAI pour un document de type: ${documentType}...`);
 
-            const base64Image = await fileToBase64(file);
+            let base64Image;
+            if (file.type === 'application/pdf') {
+                base64Image = await pdfToBase64Image(file);
+            } else if (file.type.startsWith('image/')) {
+                base64Image = await fileToBase64(file);
+            } else {
+                 return {
+                    success: false,
+                    error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
+                };
+            }
 
             // Payload générique pour un modèle multimodal (ex: gpt-4o)
             const payload = {
