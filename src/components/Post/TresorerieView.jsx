@@ -36,12 +36,9 @@ const TresorerieView = () => {
   }, {});
 
   const paiements = store.metier.paiements || [];
-  const reliquatGlobal = paiements.reduce((acc, p) => {
-      const sumVentile = (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0);
-      const totalRecu = parseFloat(p.montantTotal) || 0;
-      const reliquatLocal = totalRecu - sumVentile;
-      return acc + (reliquatLocal > 0 ? reliquatLocal : 0);
-  }, 0);
+  const sumTotalRecu = paiements.reduce((acc, p) => acc + (parseFloat(p.montantTotal) || 0), 0);
+  const sumTotalVentile = paiements.reduce((acc, p) => acc + (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0), 0);
+  const reliquatGlobal = Math.max(0, sumTotalRecu - sumTotalVentile);
 
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white p-4 overflow-y-auto w-full relative">

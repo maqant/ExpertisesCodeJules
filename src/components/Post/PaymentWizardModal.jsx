@@ -8,12 +8,9 @@ const PaymentWizardModal = ({ onClose }) => {
 
   // States du Wizard
   const paiements = store.metier.paiements || [];
-  const reliquatGlobal = paiements.reduce((acc, p) => {
-      const sumVentile = (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0);
-      const totalRecu = parseFloat(p.montantTotal) || 0;
-      const reliquatLocal = totalRecu - sumVentile;
-      return acc + (reliquatLocal > 0 ? reliquatLocal : 0);
-  }, 0);
+  const sumTotalRecu = paiements.reduce((acc, p) => acc + (parseFloat(p.montantTotal) || 0), 0);
+  const sumTotalVentile = paiements.reduce((acc, p) => acc + (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0), 0);
+  const reliquatGlobal = Math.max(0, sumTotalRecu - sumTotalVentile);
 
   // States du Wizard (Saute l'étape 1 si reliquat existant)
   const [step, setStep] = useState(reliquatGlobal > 0.01 ? 2 : 1);
@@ -79,14 +76,13 @@ const PaymentWizardModal = ({ onClose }) => {
 
   const handleFinaliser = () => {
       if (isReprise) {
-          // Si on reprend un reliquat, on triche en ajoutant un nouveau paiement avec la somme exactement ventilée
-          // pour équilibrer, mais l'idéal serait de modifier le paiement parent.
-          // En mode MVP, on l'ajoute comme nouveau "sous-paiement" lié à ce jour.
           if (ventilations.length > 0) {
-              const totalJustVentile = ventilations.reduce((acc, v) => acc + v.montantAlloue, 0);
+              // On ajoute uniquement les ventilations. En créant un "paiement" avec 0 reçu,
+              // la formule du pool global (sumTotalRecu - sumTotalVentile) se mettra à jour correctement,
+              // diminuant le reliquat restant sans fausser le total de l'argent reçu dans l'ERP.
               store.addPaiement({
                   dateRecept: new Date().toISOString().split('T')[0],
-                  montantTotal: totalJustVentile,
+                  montantTotal: 0,
                   ventilations
               });
           }
