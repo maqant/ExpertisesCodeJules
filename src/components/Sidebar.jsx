@@ -88,9 +88,6 @@ const Sidebar = () => {
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
-    const [showAiSettings, setShowAiSettings] = useState(false);
-
-
     // Magic Drop states
 
     // Contract Magic Drop states
@@ -244,13 +241,7 @@ const Sidebar = () => {
                             >
                                 <span className={isAiModeActive ? 'animate-pulse' : ''}>✨</span> IA
                             </button>
-                            <button
-                                onClick={() => setShowAiSettings(!showAiSettings)}
-                                className="text-slate-400 hover:text-white p-0.5 rounded transition-colors text-[10px]"
-                                title="Réglages IA"
-                            >
-                                ⚙️
-                            </button>
+
                         </div>
                         <div className="flex gap-1.5">
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
@@ -267,38 +258,6 @@ const Sidebar = () => {
                 </div>
 
                 {/* AI Settings Inline Menu */}
-                {showAiSettings && (
-                    <div className="p-3 bg-slate-900 border border-indigo-500/30 rounded mt-2 text-[10px]">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-indigo-300">⚙️ Configuration IA</span>
-                            <button onClick={() => setShowAiSettings(false)} className="text-slate-500 hover:text-white">✕</button>
-                        </div>
-                        <div className="space-y-2">
-                            <div>
-                                <label className="block text-slate-400 mb-1">Clé API (OpenAI)</label>
-                                <input
-                                    type="password"
-                                    value={aiConfig.apiKey}
-                                    onChange={(e) => updateAiConfig({ apiKey: e.target.value })}
-                                    placeholder="sk-..."
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:border-indigo-500 outline-none"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <div className="flex-1">
-                                    <label className="block text-slate-400 mb-1">Modèle</label>
-                                    <input
-                                        type="text"
-                                        value={aiConfig.model}
-                                        onChange={(e) => updateAiConfig({ model: e.target.value })}
-                                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:border-indigo-500 outline-none"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Warning Message if AI active but no API key */}
                 {isAiModeActive && !aiConfig.apiKey && (
                     <div className="bg-orange-900/40 border border-orange-500/50 p-1.5 mt-2 rounded text-[9px] text-orange-200 text-center">
@@ -316,6 +275,48 @@ const Sidebar = () => {
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
 
+
+
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
+                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
+                                <span>✨ Configuration IA</span>
+                            </h3>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-slate-400 mb-1 text-xs">Clé API (OpenAI)</label>
+                                    <input
+                                        type="password"
+                                        value={aiConfig.apiKey}
+                                        onChange={(e) => updateAiConfig({ apiKey: e.target.value })}
+                                        placeholder="sk-..."
+                                        className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="block text-slate-400 mb-1 text-xs">Provider</label>
+                                        <select
+                                            value={aiConfig.provider}
+                                            onChange={(e) => updateAiConfig({ provider: e.target.value })}
+                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
+                                        >
+                                            <option value="openai">OpenAI</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-slate-400 mb-1 text-xs">Modèle</label>
+                                        <select
+                                            value={aiConfig.model}
+                                            onChange={(e) => updateAiConfig({ model: e.target.value })}
+                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
+                                        >
+                                            <option value="gpt-4o">gpt-4o</option>
+                                            <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
@@ -449,20 +450,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
                             <div className="p-3 space-y-2">
-                                {isAiModeActive && (
-                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                        {isContractAiLoading ? (
-                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse du contrat en cours...</span>
-                                        ) : (
-                                            <DropZone
-                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                                onFiles={handleContractMagicDrop}
-                                                accept="image/*,application/pdf"
-                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez les Conditions Particulières ici</span>}
-                                            />
-                                        )}
-                                    </div>
-                                )}
+
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
                                     <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
@@ -488,20 +476,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
                             <div className="p-3">
-                                {isAiModeActive && (
-                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                        {isCauseAiLoading ? (
-                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse et synthèse des documents en cours...</span>
-                                        ) : (
-                                            <DropZone
-                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                                onFiles={handleCauseMagicDrop}
-                                                accept="image/*,application/pdf"
-                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez ici vos rapports de recherche, mails ou justificatifs de cause</span>}
-                                            />
-                                        )}
-                                    </div>
-                                )}
+
                                 <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
                             </div>
@@ -580,20 +555,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
                             <div className="p-3 space-y-2">
-                                {isAiModeActive && (
-                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                        {isAiLoading ? (
-                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse IA en cours...</span>
-                                        ) : (
-                                            <DropZone
-                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                                onFiles={handleMagicDrop}
-                                                accept="image/*,application/pdf"
-                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez une facture ici</span>}
-                                            />
-                                        )}
-                                    </div>
-                                )}
+
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>
