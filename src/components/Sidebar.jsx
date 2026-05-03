@@ -89,6 +89,30 @@ const Sidebar = () => {
     const [showPrintMenu, setShowPrintMenu] = useState(false);
 
     // Magic Drop states
+
+    // Contract Magic Drop states
+    const [isContractAiLoading, setIsContractAiLoading] = useState(false);
+
+    const handleContractMagicDrop = async (files) => {
+        if (!files || files.length === 0) return;
+        setIsContractAiLoading(true);
+        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
+        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+
+        try {
+            const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel);
+            if (result.success && result.data) {
+                setFormData(prev => ({ ...prev, ...result.data }));
+                handleAttachFile('doc_cond_part', files[0]);
+            } else {
+                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+            }
+        } catch (err) {
+            alert("Erreur : " + err.message);
+        } finally {
+            setIsContractAiLoading(false);
+        }
+    };
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiValidationData, setAiValidationData] = useState(null);
 
@@ -332,6 +356,18 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
                             <div className="p-3 space-y-2">
+                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                    {isContractAiLoading ? (
+                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse du contrat en cours...</span>
+                                    ) : (
+                                        <DropZone
+                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                            onFiles={handleContractMagicDrop}
+                                            accept="image/*,application/pdf"
+                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez les Conditions Particulières ici</span>}
+                                        />
+                                    )}
+                                </div>
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
                                     <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>

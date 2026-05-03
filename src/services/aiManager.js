@@ -59,23 +59,38 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
         console.log(`[AI Mock] Extraction terminée avec succès.`);
 
         // Faux JSON formaté parfaitement pour la base de données
-        return {
-            success: true,
-            data: {
-                expenses: [
-                    {
-                        id: crypto.randomUUID(),
-                        prestataire: "Plomberie Dubois & Fils",
-                        type: documentType === 'facture' ? 'Facture' : 'Devis',
-                        ref: "FAC-2026-042",
-                        desc: "Recherche de fuite et réparation provisoire",
-                        compteDe: "unassigned", // Ou l'UUID d'un occupant spécifique si le prompt le permettait
-                        montantReclame: "450.50",
-                        typeMontant: "HTVA"
-                    }
-                ]
-            }
-        };
+        if (documentType === 'contrat') {
+            return {
+                success: true,
+                data: {
+                    nomCie: "Assurances ABC",
+                    nomContrat: "Top Habitation Idéal",
+                    numPolice: "POL-123456789",
+                    numConditionsGenerales: "CG-2023-V2",
+                    franchise: "250",
+                    adresse: "123 Rue de la Paix, 75000 Paris",
+                    pertesIndirectes: "10%"
+                }
+            };
+        } else {
+            return {
+                success: true,
+                data: {
+                    expenses: [
+                        {
+                            id: crypto.randomUUID(),
+                            prestataire: "Plomberie Dubois & Fils",
+                            type: documentType === 'facture' ? 'Facture' : 'Devis',
+                            ref: "FAC-2026-042",
+                            desc: "Recherche de fuite et réparation provisoire",
+                            compteDe: "unassigned",
+                            montantReclame: "450.50",
+                            typeMontant: "HTVA"
+                        }
+                    ]
+                }
+            };
+        }
     }
 
     if (mode === 'live') {
@@ -110,7 +125,15 @@ export const extractDataFromDocument = async (file, documentType = 'facture', pr
                         role: "system",
                         content: `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
-{
+${documentType === 'contrat' ? `{
+  "nomCie": "Nom de la compagnie d'assurance",
+  "nomContrat": "Nom du produit d'assurance (ex: Top Habitation)",
+  "numPolice": "Numéro de police ou numéro du contrat",
+  "numConditionsGenerales": "Numéro ou référence exacte des Conditions Générales appliquées au contrat",
+  "franchise": "Montant ou règle de la franchise",
+  "adresse": "Adresse complète du risque assuré",
+  "pertesIndirectes": "Pourcentage des pertes indirectes (Doit être STRICTEMENT '0%', '5%', '10%', ou '' si non trouvé)"
+}` : `{
   "expenses": [
     {
       "prestataire": "Nom de l'entreprise",
@@ -121,7 +144,7 @@ Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT
       "typeMontant": "HTVA, TVA ou FORFAIT"
     }
   ]
-}
+}`}
 Ne renvoie aucun autre texte, juste le JSON.`
                     },
                     {
