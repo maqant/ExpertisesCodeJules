@@ -82,6 +82,33 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
+
+  // AI Mode Config
+  const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
+  const [aiConfig, setAiConfig] = useState(() => ({
+      apiKey: localStorage.getItem('aiApiKey') || '',
+      model: localStorage.getItem('aiModel') || 'gpt-4o',
+      provider: localStorage.getItem('aiProvider') || 'openai'
+  }));
+
+  const toggleAiMode = () => {
+      setIsAiModeActive(prev => {
+          const next = !prev;
+          localStorage.setItem('isAiModeActive', next);
+          return next;
+      });
+  };
+
+  const updateAiConfig = (newConfig) => {
+      setAiConfig(prev => {
+          const next = { ...prev, ...newConfig };
+          localStorage.setItem('aiApiKey', next.apiKey);
+          localStorage.setItem('aiModel', next.model);
+          localStorage.setItem('aiProvider', next.provider);
+          return next;
+      });
+  };
+
   const [hideAnnexIndex, setHideAnnexIndex] = useState(false);
   const [printSelection, setPrintSelection] = useState(null); // null = tout inclus, Set<string> = sélection
   const [coverPageCount, setCoverPageCount] = useState(1); // nb de pages de la page de garde (pour indexation correcte)
@@ -1160,7 +1187,8 @@ Voici le format JSON :
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
-      handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile
+      handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
+      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
   };
 
   return (

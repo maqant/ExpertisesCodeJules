@@ -79,7 +79,8 @@ const Sidebar = () => {
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
         attachedFiles, attachedPhotos, attachedFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
-        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF
+        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
+        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
     } = context;
 
 
@@ -87,6 +88,8 @@ const Sidebar = () => {
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
+    const [showAiSettings, setShowAiSettings] = useState(false);
+
 
     // Magic Drop states
 
@@ -96,11 +99,11 @@ const Sidebar = () => {
     const handleCauseMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
         setIsCauseAiLoading(true);
-        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
-        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+        const aiProvider = aiConfig.provider;
+        const aiModel = aiConfig.model;
 
         try {
-            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel);
+            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey);
             if (result.success && result.data && result.data.cause) {
                 setFormData(prev => ({
                     ...prev,
@@ -126,11 +129,11 @@ const Sidebar = () => {
     const handleContractMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
         setIsContractAiLoading(true);
-        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
-        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+        const aiProvider = aiConfig.provider;
+        const aiModel = aiConfig.model;
 
         try {
-            const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel);
+            const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel, aiConfig.apiKey);
             if (result.success && result.data) {
                 setFormData(prev => ({ ...prev, ...result.data }));
                 handleAttachFile('doc_cond_part', files[0]);
@@ -149,11 +152,11 @@ const Sidebar = () => {
     const handleMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
         setIsAiLoading(true);
-        const aiProvider = localStorage.getItem('aiProvider') || 'openai';
-        const aiModel = localStorage.getItem('aiModel') || 'gpt-4o';
+        const aiProvider = aiConfig.provider;
+        const aiModel = aiConfig.model;
 
         try {
-            const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel);
+            const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
             if (result.success && result.data && result.data.expenses) {
                 setAiValidationData({ data: result.data.expenses, originalFile: files[0] });
             } else {
@@ -231,18 +234,78 @@ const Sidebar = () => {
                             <span className="text-indigo-300 font-bold truncate max-w-[100px]">{activeName}</span>
                         </div>
                     </div>
-                    <div className="flex gap-1.5">
-                        <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
-                            ➕ New
-                        </button>
-                        <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
-                            💾 Save
-                        </button>
-                        <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
-                            🔄 Reset
-                        </button>
+                    <div className="flex items-center gap-2">
+                        {/* AI Controls */}
+                        <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
+                            <button
+                                onClick={toggleAiMode}
+                                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isAiModeActive ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+                                title="Activer/Désactiver l'IA"
+                            >
+                                <span className={isAiModeActive ? 'animate-pulse' : ''}>✨</span> IA
+                            </button>
+                            <button
+                                onClick={() => setShowAiSettings(!showAiSettings)}
+                                className="text-slate-400 hover:text-white p-0.5 rounded transition-colors text-[10px]"
+                                title="Réglages IA"
+                            >
+                                ⚙️
+                            </button>
+                        </div>
+                        <div className="flex gap-1.5">
+                            <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                                ➕ New
+                            </button>
+                            <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                                💾 Save
+                            </button>
+                            <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                                🔄 Reset
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                {/* AI Settings Inline Menu */}
+                {showAiSettings && (
+                    <div className="p-3 bg-slate-900 border border-indigo-500/30 rounded mt-2 text-[10px]">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-indigo-300">⚙️ Configuration IA</span>
+                            <button onClick={() => setShowAiSettings(false)} className="text-slate-500 hover:text-white">✕</button>
+                        </div>
+                        <div className="space-y-2">
+                            <div>
+                                <label className="block text-slate-400 mb-1">Clé API (OpenAI)</label>
+                                <input
+                                    type="password"
+                                    value={aiConfig.apiKey}
+                                    onChange={(e) => updateAiConfig({ apiKey: e.target.value })}
+                                    placeholder="sk-..."
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:border-indigo-500 outline-none"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-slate-400 mb-1">Modèle</label>
+                                    <input
+                                        type="text"
+                                        value={aiConfig.model}
+                                        onChange={(e) => updateAiConfig({ model: e.target.value })}
+                                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:border-indigo-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Warning Message if AI active but no API key */}
+                {isAiModeActive && !aiConfig.apiKey && (
+                    <div className="bg-orange-900/40 border border-orange-500/50 p-1.5 mt-2 rounded text-[9px] text-orange-200 text-center">
+                        ⚠️ Veuillez configurer votre clé API dans les réglages ⚙️
+                    </div>
+                )}
+
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg mt-2 border border-slate-700">
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
@@ -386,18 +449,20 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
                             <div className="p-3 space-y-2">
-                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                    {isContractAiLoading ? (
-                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse du contrat en cours...</span>
-                                    ) : (
-                                        <DropZone
-                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                            onFiles={handleContractMagicDrop}
-                                            accept="image/*,application/pdf"
-                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez les Conditions Particulières ici</span>}
-                                        />
-                                    )}
-                                </div>
+                                {isAiModeActive && (
+                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                        {isContractAiLoading ? (
+                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse du contrat en cours...</span>
+                                        ) : (
+                                            <DropZone
+                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                                onFiles={handleContractMagicDrop}
+                                                accept="image/*,application/pdf"
+                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez les Conditions Particulières ici</span>}
+                                            />
+                                        )}
+                                    </div>
+                                )}
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
                                     <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
@@ -423,18 +488,20 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
                             <div className="p-3">
-                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                    {isCauseAiLoading ? (
-                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse et synthèse des documents en cours...</span>
-                                    ) : (
-                                        <DropZone
-                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                            onFiles={handleCauseMagicDrop}
-                                            accept="image/*,application/pdf"
-                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez ici vos rapports de recherche, mails ou justificatifs de cause</span>}
-                                        />
-                                    )}
-                                </div>
+                                {isAiModeActive && (
+                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                        {isCauseAiLoading ? (
+                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse et synthèse des documents en cours...</span>
+                                        ) : (
+                                            <DropZone
+                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                                onFiles={handleCauseMagicDrop}
+                                                accept="image/*,application/pdf"
+                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez ici vos rapports de recherche, mails ou justificatifs de cause</span>}
+                                            />
+                                        )}
+                                    </div>
+                                )}
                                 <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
                             </div>
@@ -513,18 +580,20 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
                             <div className="p-3 space-y-2">
-                                <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
-                                    {isAiLoading ? (
-                                        <span className="text-xs text-indigo-400 font-bold">⏳ Analyse IA en cours...</span>
-                                    ) : (
-                                        <DropZone
-                                            className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
-                                            onFiles={handleMagicDrop}
-                                            accept="image/*,application/pdf"
-                                            label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez une facture ici</span>}
-                                        />
-                                    )}
-                                </div>
+                                {isAiModeActive && (
+                                    <div className="mb-2 p-2 bg-slate-800/50 border border-slate-600 border-dashed rounded flex items-center justify-center">
+                                        {isAiLoading ? (
+                                            <span className="text-xs text-indigo-400 font-bold">⏳ Analyse IA en cours...</span>
+                                        ) : (
+                                            <DropZone
+                                                className="w-full h-8 border-none bg-transparent hover:bg-slate-700/50 !scale-100"
+                                                onFiles={handleMagicDrop}
+                                                accept="image/*,application/pdf"
+                                                label={<span className="text-xs font-bold text-slate-300">🪄 Magic Drop : Glissez une facture ici</span>}
+                                            />
+                                        )}
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>

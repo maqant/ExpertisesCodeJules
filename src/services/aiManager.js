@@ -47,7 +47,7 @@ const pdfToBase64Image = async (file) => {
  * @param {string} documentType Le type de document ("facture", "devis", "contrat")
  * @returns {Promise<Object>} Un objet JSON formaté pour financeStore.js
  */
-export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o') => {
+export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o', providedApiKey = null) => {
     // Ensure files is an array
     const fileArray = Array.isArray(files) ? files : [files];
     const mode = import.meta.env.VITE_AI_MODE || 'mock';
@@ -105,11 +105,11 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
     }
 
     if (mode === 'live') {
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+        const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) {
             return {
                 success: false,
-                error: "La clé API OpenAI n'est pas configurée dans le fichier .env.local."
+                error: "La clé API OpenAI n'est pas configurée (ni dans les paramètres de l'application, ni dans .env.local)."
             };
         }
 
