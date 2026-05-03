@@ -446,7 +446,7 @@ export const ExpertiseProvider = ({ children }) => {
           } else if (!file.type.startsWith('image/')) {
               return alert("Seuls les fichiers PDF et les images sont acceptés pour le moment.");
           }
-          
+
           const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
@@ -561,18 +561,25 @@ export const ExpertiseProvider = ({ children }) => {
       setAttachedFreeAnnexes(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
-  const handleOpenFile = async (dbKey, isPdf = true) => {
+  const handleOpenFile = async (dbKey) => {
       try {
           const fileBytes = await localforage.getItem(dbKey);
           if (!fileBytes) return alert("Fichier introuvable dans la base locale.");
 
-          const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+          let mimeType = 'application/pdf';
+          if (dbKey.startsWith('img_')) {
+              mimeType = 'image/jpeg';
+          } else if (dbKey.startsWith('file_')) {
+              // Try to guess from magic bytes or keep application/pdf
+              const arr = new Uint8Array(fileBytes).subarray(0, 4);
+              const header = Array.from(arr).map(b => b.toString(16)).join('');
+              if (header.startsWith('89504e47')) mimeType = 'image/png';
+              else if (header.startsWith('ffd8ff')) mimeType = 'image/jpeg';
+          }
+
           const blob = new Blob([fileBytes], { type: mimeType });
           const url = URL.createObjectURL(blob);
           window.open(url, '_blank');
-
-          // Libération de la mémoire si ce n'est pas utilisé après
-          // setTimeout(() => URL.revokeObjectURL(url), 10000);
       } catch (err) {
           console.error("Erreur d'ouverture du fichier", err);
           alert("Erreur lors de l'ouverture : " + err.message);

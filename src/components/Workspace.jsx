@@ -3,29 +3,6 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 
 
-const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
-    const [isOver, setIsOver] = useState(false);
-    return (
-        <div
-            onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
-            onDragLeave={() => setIsOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
-            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
-            title="Glisser-déposer vos fichiers ici"
-            onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.multiple = true;
-                input.accept = accept;
-                input.onchange = (e) => onFiles(Array.from(e.target.files));
-                input.click();
-            }}
-        >
-            <span className={`text-[10px] font-bold ${isOver ? 'text-indigo-300' : 'text-slate-500'}`}>{label}</span>
-        </div>
-    );
-};
-
 const BlockToolbar = ({ id, disableText = false }) => {
     const context = useContext(ExpertiseContext);
     const { styles, setStyles, customBlocks, setCustomBlocks, blockWidths, toggleBlockWidth, setBlocksVisible } = context;
