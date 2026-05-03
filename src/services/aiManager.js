@@ -50,10 +50,13 @@ const pdfToBase64Image = async (file) => {
 export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o', providedApiKey = null) => {
     // Ensure files is an array
     const fileArray = Array.isArray(files) ? files : [files];
-    const mode = import.meta.env.VITE_AI_MODE || 'mock';
+
+    // Determine the actual mode: Force "live" if an API key is available, otherwise fallback to "mock"
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
-        console.log(`[AI Mock] Extraction démarrée pour un document de type: ${documentType}...`);
+        console.log(`[AI Mock] Aucune clé API trouvée. Extraction simulée pour un document de type: ${documentType}...`);
 
         // Simulation d'un délai réseau (2s)
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -105,14 +108,6 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
     }
 
     if (mode === 'live') {
-        const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
-        if (!apiKey) {
-            return {
-                success: false,
-                error: "La clé API OpenAI n'est pas configurée (ni dans les paramètres de l'application, ni dans .env.local)."
-            };
-        }
-
         try {
             console.log(`[AI Live] Envoi de la requête à l'API OpenAI pour un document de type: ${documentType}...`);
 
