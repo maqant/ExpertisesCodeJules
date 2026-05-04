@@ -3,6 +3,7 @@ import React, { useState, useContext } from 'react';
 import PrintPVE from "./PrintPVE";
 import { useFinanceStore } from '../../store/financeStore';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
+import { getCompteDeName } from '../../utils/formatters';
 
 const TerrainView = () => {
   const store = useFinanceStore();
@@ -23,20 +24,6 @@ const TerrainView = () => {
   const [editData, setEditData] = useState({ montantValide: "", motifRefus: "" });
   const [showSpontaneModal, setShowSpontaneModal] = useState(false);
   const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '' });
-
-  const getCompteDeName = (compteDe) => {
-    if (!compteDe) return 'Non attribué';
-    const occ = occupants.find(o => o.id === compteDe);
-    if (occ) {
-        const nomAffiche = occ.nom || '';
-        if (occ.etage && occ.etage.trim() !== '') {
-            return `${nomAffiche} (${occ.etage.trim()})`;
-        }
-        return nomAffiche;
-    }
-    // Fallback pour les vieilles données (texte libre)
-    return compteDe;
-  };
 
   const handleValid100 = (exp) => {
     store.updateExpense(exp.id, {
@@ -176,7 +163,7 @@ const TerrainView = () => {
                             </button>
                             )}
                             <div className="flex-1">
-                                <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe)}</span></h3>
+                                <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe, occupants)}</span></h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic mb-2">{exp.desc || 'Aucune description'}</p>
                                 <div className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded inline-block">
                                     Réclamé : <span className="font-bold text-lg">{exp.montantReclame || exp.montant || '0.00'} €</span>

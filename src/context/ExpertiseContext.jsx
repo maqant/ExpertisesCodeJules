@@ -631,7 +631,7 @@ export const ExpertiseProvider = ({ children }) => {
           let files = attachedFiles[id];
           if (!files) return 0;
           if (!Array.isArray(files)) files = [files];
-          return files.filter(f => isFileIncluded(id, f.dbKey)).reduce((s, f) => s + (f.pages || 0), 0);
+          return files.reduce((s, f) => isFileIncluded(id, f.dbKey) ? s + (f.pages || 0) : s, 0);
       };
       const getPhotoPages = (occ) => {
           if (!isPhotoGroupIncluded('doc_photos_occ_' + occ.id)) return 0;
@@ -780,7 +780,7 @@ export const ExpertiseProvider = ({ children }) => {
                                   else image = await mergedPdf.embedJpg(imgBytes);
                                   const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(image, { x: (width - imgDims.width) / 2, y: yOffset - imgDims.height, width: imgDims.width, height: imgDims.height });
-                              } catch (e) { console.error('Erreur image:', e); }
+                              } catch (e) { console.error('[ExpertiseContext] Erreur lors de l\'intégration de l\'image au PDF :', e); }
                           };
                           await drawImage(imgs[i], height - 80);
                           if (i + 1 < imgs.length) await drawImage(imgs[i + 1], height / 2 - 20);
@@ -816,7 +816,7 @@ export const ExpertiseProvider = ({ children }) => {
                       try {
                           if (file.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(bytes);
                           else image = await mergedPdf.embedJpg(bytes);
-                      } catch (e) { continue; }
+                      } catch (e) { console.error('[ExpertiseContext] Failed to embed image in PDF:', e); continue; }
                       const dims = image.scaleToFit(A4W - 100, A4H - 150);
                       page.drawImage(image, { x: (A4W - dims.width) / 2, y: (A4H - dims.height) / 2, width: dims.width, height: dims.height });
                       page.drawText(file.customName || file.name, { x: 50, y: A4H - 40, size: 12, color: rgb(0.2, 0.2, 0.2) });
@@ -966,12 +966,12 @@ export const ExpertiseProvider = ({ children }) => {
                       try {
                         if (file.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(bytes);
                         else image = await mergedPdf.embedJpg(bytes);
-                      } catch (e) { return; }
+                      } catch (e) { console.error('[ExpertiseContext] Failed to embed standalone image in PDF:', e); return; }
                       const dims = image.scaleToFit(A4W - 100, A4H - 150);
                       page.drawImage(image, { x: (A4W - dims.width) / 2, y: (A4H - dims.height) / 2, width: dims.width, height: dims.height });
                       page.drawText(file.customName || file.name, { x: 50, y: A4H - 40, size: 12, color: rgb(0.2, 0.2, 0.2) });
                   }
-              } catch (e) { console.error(e); }
+              } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }
           };
 
           const appendPdfFiles = async (id) => {
@@ -1008,7 +1008,7 @@ export const ExpertiseProvider = ({ children }) => {
                                   const img = imgInfo.name.toLowerCase().endsWith('.png') ? await mergedPdf.embedPng(imgBytes) : await mergedPdf.embedJpg(imgBytes);
                                   const d = img.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(img, { x: (width - d.width) / 2, y: yOff - d.height, width: d.width, height: d.height });
-                              } catch (e) { console.error(e); }
+                              } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }
                           };
                           await drawImg(imgs[i], height - 80);
                           if (i + 1 < imgs.length) await drawImg(imgs[i + 1], height / 2 - 20);
@@ -1092,11 +1092,11 @@ export const ExpertiseProvider = ({ children }) => {
               });
           }
           if (data.occupants && Array.isArray(data.occupants)) {
-             const newOccupants = data.occupants.filter(o => o.nom).map(o => ({...o, id: crypto.randomUUID()}));
+             const newOccupants = data.occupants.reduce((acc, o) => { if (o.nom) acc.push({...o, id: crypto.randomUUID()}); return acc; }, []);
              financeStore.setOccupants([...occupants, ...newOccupants]);
           }
           if (data.expenses && Array.isArray(data.expenses)) {
-             const newExpenses = data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}));
+             const newExpenses = data.expenses.reduce((acc, ex) => { if (ex.prestataire || ex.montant) acc.push({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}); return acc; }, []);
              financeStore.setExpenses([...expenses, ...newExpenses]);
           }
           

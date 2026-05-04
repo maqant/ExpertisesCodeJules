@@ -173,7 +173,7 @@ const Sidebar = () => {
                 }
             }
         } catch (err) {
-            console.error("Erreur lors du titrage de l'annexe : " + err.message);
+            console.error("[Sidebar] Erreur lors du titrage de l'annexe :", err);
             files.forEach(f => handleAttachFreeAnnex(f));
         } finally {
             setIsAnnexAiLoading(false);
@@ -845,7 +845,11 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
+                                <datalist id="prestataires-list">
+                                    {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
+                                        .sort((a, b) => a.localeCompare(b))
+                                        .map(p => <option key={p} value={p} />)}
+                                </datalist>
                             </div>
                         </details>
 
