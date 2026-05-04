@@ -556,7 +556,7 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const handleAttachFreeAnnex = async (file) => {
+  const handleAttachFreeAnnex = async (file, generatedTitle = null) => {
       if (!file) return;
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
@@ -573,7 +573,7 @@ export const ExpertiseProvider = ({ children }) => {
               pages = pdfDoc.getPageCount();
           }
           
-          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: file.name, customName: file.name, desc: '', dbKey, isPdf, pages }]);
+          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: generatedTitle || file.name, customName: generatedTitle || file.name, desc: '', dbKey, isPdf, pages }]);
       } catch (err) {
           alert('Erreur lors de la lecture du fichier : ' + err.message);
       }

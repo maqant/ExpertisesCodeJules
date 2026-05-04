@@ -63,7 +63,12 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
 
         console.log(`[AI Mock] Extraction terminée avec succès.`);
 
-        if (documentType === 'cause') {
+        if (documentType === 'annexe') {
+            return {
+                success: true,
+                data: { title: "Justificatif de remplacement de la chaudière" }
+            };
+        } else if (documentType === 'cause') {
             return {
                 success: true,
                 data: {
@@ -138,7 +143,9 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                 messages: [
                     {
                         role: "system",
-                        content: documentType === 'cause'
+                        content: documentType === 'annexe'
+                            ? `Tu es un assistant administratif. Lis ce document et donne-lui un titre clair, professionnel et très concis (maximum 1 ou 2 lignes). Ce titre servira de légende dans un rapport d'expertise. Ne réponds QUE par le texte du titre, sans guillemets, sans introduction ni formules de politesse.`
+                            : documentType === 'cause'
                             ? `Tu es un expert en assurances. Je vais te donner un ou plusieurs documents (rapport de recherche de fuite, mail, devis). Ta mission est d'extraire et de synthétiser l'origine, la cause et les circonstances du sinistre de manière professionnelle, concise et factuelle. Ne réponds QUE par le paragraphe de synthèse, sans introduction.`
                             : `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
@@ -169,7 +176,7 @@ Ne renvoie aucun autre texte, juste le JSON.`
                         content: contentArray
                     }
                 ],
-                response_format: documentType === 'cause' ? { type: "text" } : { type: "json_object" },
+                response_format: (documentType === 'cause' || documentType === 'annexe') ? { type: "text" } : { type: "json_object" },
                 max_tokens: 500,
                 temperature: 0.1
             };
@@ -191,7 +198,12 @@ Ne renvoie aucun autre texte, juste le JSON.`
             const data = await response.json();
             const contentString = data.choices[0].message.content;
 
-            if (documentType === 'cause') {
+            if (documentType === 'annexe') {
+                return {
+                    success: true,
+                    data: { title: contentString.trim() }
+                };
+            } else if (documentType === 'cause') {
                 return {
                     success: true,
                     data: { cause: contentString.trim() }

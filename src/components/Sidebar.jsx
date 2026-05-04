@@ -88,6 +88,8 @@ const Sidebar = () => {
     const [isDraggingOverFrais, setIsDraggingOverFrais] = useState(false);
     const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
     const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
+    const [isDraggingOverAnnexes, setIsDraggingOverAnnexes] = useState(false);
+    const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -769,7 +771,37 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="annexes_libres" num="9" />
-                            <div className="p-3 space-y-3">
+                            <div
+                                className="p-3 space-y-3 relative"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key) {
+                                        setIsDraggingOverAnnexes(true);
+                                    }
+                                }}
+                                onDragLeave={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                        setIsDraggingOverAnnexes(false);
+                                    }
+                                }}
+                                onDrop={async (e) => {
+                                    e.preventDefault();
+                                    setIsDraggingOverAnnexes(false);
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                            >
+                                {(isDraggingOverAnnexes || isAnnexAiLoading) && (
+                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
+                                        <span className="text-white font-bold text-sm text-center px-4">
+                                            {isAnnexAiLoading ? "⏳ Analyse en cours..." : "🪄 Relâchez pour générer le titre de l'annexe"}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700 mb-2">
                                     <span className="text-[10px] text-slate-400 font-bold uppercase">📂 Glisser vos fichiers ici</span>
                                     <DropZone onFiles={(files) => files.forEach(f => handleAttachFreeAnnex(f))} label="➕" />
