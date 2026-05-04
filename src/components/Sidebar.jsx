@@ -9,9 +9,9 @@ const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
     const [isOver, setIsOver] = useState(false);
     return (
         <div 
-            onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
             onDragLeave={() => setIsOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
             className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
             title="Glisser-déposer vos fichiers ici"
             onClick={() => {
@@ -85,6 +85,7 @@ const Sidebar = () => {
 
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
+    const [isDraggingOverFrais, setIsDraggingOverFrais] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -554,7 +555,37 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
-                            <div className="p-3 space-y-2">
+                            <div
+                                className="p-3 space-y-2 relative"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation(); // Prevenir conflits
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key) {
+                                        setIsDraggingOverFrais(true);
+                                    }
+                                }}
+                                onDragLeave={(e) => {
+                                    // Make sure we only leave if relatedTarget is not inside this div
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                        setIsDraggingOverFrais(false);
+                                    }
+                                }}
+                                onDrop={async (e) => {
+                                    e.preventDefault();
+                                    setIsDraggingOverFrais(false);
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        // Appel global pour créer une nouvelle facture
+                                        await handleMagicDrop(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                            >
+                                {isDraggingOverFrais && (
+                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
+                                        <span className="text-white font-bold text-sm">🪄 Relâchez pour analyser la facture</span>
+                                    </div>
+                                )}
 
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
