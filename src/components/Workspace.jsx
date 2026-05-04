@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
 
@@ -186,23 +186,28 @@ const Workspace = () => {
         return false;
     };
 
-    const mainExpenses = expenses.filter(exp => !isExpenseExcludedFromMain(exp));
+    // SSOT Architecture: Calcul "à la volée" (Derived State)
+    const { mainExpenses, totalFrais, dettesParPersonne } = useMemo(() => {
+        const mainExp = expenses.filter(exp => !isExpenseExcludedFromMain(exp));
 
-    const totalFrais = mainExpenses.reduce((acc, curr) => {
-        const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-        return acc + (isNaN(val) ? 0 : val);
-    }, 0);
+        const total = mainExp.reduce((acc, curr) => {
+            const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
+            return acc + (isNaN(val) ? 0 : val);
+        }, 0);
 
-    const dettesParPersonne = expenses.reduce((acc, exp) => {
-        const pName = getCompteDeName(exp.compteDe);
-        if (!acc[pName]) acc[pName] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
-        acc[pName].lignes.push(exp);
-        const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
-        if (!isNaN(val)) {
-            acc[pName][exp.typeMontant || 'HTVA'] += val;
-        }
-        return acc;
-    }, {});
+        const dettes = expenses.reduce((acc, exp) => {
+            const pName = getCompteDeName(exp.compteDe);
+            if (!acc[pName]) acc[pName] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
+            acc[pName].lignes.push(exp);
+            const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
+            if (!isNaN(val)) {
+                acc[pName][exp.typeMontant || 'HTVA'] += val;
+            }
+            return acc;
+        }, {});
+
+        return { mainExpenses: mainExp, totalFrais: total, dettesParPersonne: dettes };
+    }, [expenses, occupants]);
 
 
 

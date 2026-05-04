@@ -53,6 +53,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
 const AccordionHeader = ({ id, num }) => {
     const { blockTitles, handleTitleChange } = useContext(ExpertiseContext);
     const dragTimer = useRef(null);
+    const wasAutoOpened = useRef(false);
 
     const handleDragEnterHeader = (e) => {
         e.preventDefault();
@@ -60,12 +61,35 @@ const AccordionHeader = ({ id, num }) => {
         if (detailsEl && !detailsEl.hasAttribute('open')) {
             dragTimer.current = setTimeout(() => {
                 detailsEl.setAttribute('open', '');
+                wasAutoOpened.current = true;
+
+                // Add a temporary leave listener to the details element
+                const onLeaveDetails = (leaveEvent) => {
+                    if (!detailsEl.contains(leaveEvent.relatedTarget)) {
+                        if (wasAutoOpened.current) {
+                            detailsEl.removeAttribute('open');
+                            wasAutoOpened.current = false;
+                        }
+                        detailsEl.removeEventListener('dragleave', onLeaveDetails);
+                        detailsEl.removeEventListener('drop', onDropDetails);
+                    }
+                };
+
+                const onDropDetails = () => {
+                    // If dropped inside, keep it open
+                    wasAutoOpened.current = false;
+                    detailsEl.removeEventListener('dragleave', onLeaveDetails);
+                    detailsEl.removeEventListener('drop', onDropDetails);
+                };
+
+                detailsEl.addEventListener('dragleave', onLeaveDetails);
+                detailsEl.addEventListener('drop', onDropDetails);
+
             }, 600);
         }
     };
 
     const handleDragLeaveHeader = (e) => {
-        // Only clear if we actually leave the element, not just a child
         if (!e.currentTarget.contains(e.relatedTarget)) {
             if (dragTimer.current) {
                 clearTimeout(dragTimer.current);
