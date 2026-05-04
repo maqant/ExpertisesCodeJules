@@ -228,7 +228,7 @@ Ne renvoie aucun autre texte, juste le JSON.`
             }
 
         } catch (error) {
-            console.error("[AI Live] Erreur lors de l'extraction :", error);
+            console.error("[aiManager] AI Live extraction error :", error);
             return {
                 success: false,
                 error: error.message || "Une erreur inconnue est survenue lors de l'appel à l'IA."

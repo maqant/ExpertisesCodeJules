@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -164,24 +165,9 @@ const Workspace = () => {
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
 
-
-    const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
-
-    const findOccByCompteDe = (compteDe) => {
-        if (!compteDe) return null;
-        return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
-    };
-
-    const getCompteDeName = (compteDe) => {
-        const matchedOcc = findOccByCompteDe(compteDe);
-        if (matchedOcc) return fmtOccName(matchedOcc);
-        if (compteDe && compteDe.trim() !== '') return compteDe;
-        return 'Non attribué';
-    };
-
     const isExpenseExcludedFromMain = (exp) => {
         if (exp.avisCouverture === 'Non') return true;
-        const matchedOcc = findOccByCompteDe(exp.compteDe);
+        const matchedOcc = findOccByCompteDe(exp.compteDe, occupants);
         if (matchedOcc && matchedOcc.contreExpert) return true;
         return false;
     };
@@ -196,7 +182,7 @@ const Workspace = () => {
         }, 0);
 
         const dettes = expenses.reduce((acc, exp) => {
-            const pName = getCompteDeName(exp.compteDe);
+            const pName = getCompteDeName(exp.compteDe, occupants);
             if (!acc[pName]) acc[pName] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
             acc[pName].lignes.push(exp);
             const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
@@ -214,7 +200,7 @@ const Workspace = () => {
     const formatShortCompteDe = (compteDeStr) => {
         if (!compteDeStr || typeof compteDeStr !== 'string') return '';
         
-        const occupant = findOccByCompteDe(compteDeStr);
+        const occupant = findOccByCompteDe(compteDeStr, occupants);
         
         if (occupant) {
             const nomAffiche = occupant.nom || '';
@@ -368,7 +354,7 @@ const Workspace = () => {
                                                     {data.lignes.map((l, i) => {
                                                         const isExcluded = isExpenseExcludedFromMain(l);
                                                         const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
-                                                        const occForLine = findOccByCompteDe(l.compteDe);
+                                                        const occForLine = findOccByCompteDe(l.compteDe, occupants);
                                                         const lineIsExpertClient = occForLine?.contreExpert;
                                                         return (
                                                             <li key={i}>
