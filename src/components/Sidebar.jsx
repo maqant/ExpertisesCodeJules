@@ -98,6 +98,29 @@ const Sidebar = () => {
     // Contract Magic Drop states
     const [isCauseAiLoading, setIsCauseAiLoading] = useState(false);
 
+    const handleAnnexMagicDrop = async (files) => {
+        if (!files || files.length === 0) return;
+        setIsAnnexAiLoading(true);
+        const aiProvider = aiConfig.provider;
+        const aiModel = aiConfig.model;
+
+        try {
+            for (const file of files) {
+                const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey);
+                if (result.success && result.data && result.data.title) {
+                    await handleAttachFreeAnnex(file, result.data.title);
+                } else {
+                    await handleAttachFreeAnnex(file);
+                }
+            }
+        } catch (err) {
+            console.error("Erreur lors du titrage de l'annexe : " + err.message);
+            files.forEach(f => handleAttachFreeAnnex(f));
+        } finally {
+            setIsAnnexAiLoading(false);
+        }
+    };
+
     const handleCauseMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
         setIsCauseAiLoading(true);
@@ -473,14 +496,30 @@ const Sidebar = () => {
                                     e.preventDefault();
                                     setIsDraggingOverInfos(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        await handleContractMagicDrop(Array.from(e.dataTransfer.files));
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        if (isAiModeActive && key) {
+                                            await handleContractMagicDrop(Array.from(e.dataTransfer.files));
+                                        } else {
+                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFile('doc_cond_part', f));
+                                        }
                                     }
                                 }}
                             >
                                 {isDraggingOverInfos && (
-                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
-                                        <span className="text-white font-bold text-sm text-center px-4">🪄 Relâchez pour extraire les données du contrat</span>
+                                    <div
+                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={async (e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsDraggingOverInfos(false);
+                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                await handleContractMagicDrop(Array.from(e.dataTransfer.files));
+                                            }
+                                        }}
+                                    >
+                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">🪄 Relâchez pour extraire les données du contrat</span>
                                     </div>
                                 )}
 
@@ -527,14 +566,30 @@ const Sidebar = () => {
                                     e.preventDefault();
                                     setIsDraggingOverCause(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        if (isAiModeActive && key) {
+                                            await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
+                                        } else {
+                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFile('doc_rapport_cause', f));
+                                        }
                                     }
                                 }}
                             >
                                 {isDraggingOverCause && (
-                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
-                                        <span className="text-white font-bold text-sm text-center px-4">🪄 Relâchez pour synthétiser les documents de cause</span>
+                                    <div
+                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={async (e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsDraggingOverCause(false);
+                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
+                                            }
+                                        }}
+                                    >
+                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">🪄 Relâchez pour synthétiser les documents de cause</span>
                                     </div>
                                 )}
 
@@ -642,8 +697,20 @@ const Sidebar = () => {
                                 }}
                             >
                                 {isDraggingOverFrais && (
-                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
-                                        <span className="text-white font-bold text-sm">🪄 Relâchez pour analyser la facture</span>
+                                    <div
+                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={async (e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsDraggingOverFrais(false);
+                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                await handleMagicDrop(Array.from(e.dataTransfer.files));
+                                            }
+                                        }}
+                                    >
+                                        <span className="text-white font-bold text-sm pointer-events-none">🪄 Relâchez pour analyser la facture</span>
                                     </div>
                                 )}
 
@@ -790,14 +857,30 @@ const Sidebar = () => {
                                     e.preventDefault();
                                     setIsDraggingOverAnnexes(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        if (isAiModeActive && key) {
+                                            await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
+                                        } else {
+                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFreeAnnex(f));
+                                        }
                                     }
                                 }}
                             >
                                 {(isDraggingOverAnnexes || isAnnexAiLoading) && (
-                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
-                                        <span className="text-white font-bold text-sm text-center px-4">
+                                    <div
+                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={async (e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsDraggingOverAnnexes(false);
+                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
+                                            }
+                                        }}
+                                    >
+                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">
                                             {isAnnexAiLoading ? "⏳ Analyse en cours..." : "🪄 Relâchez pour générer le titre de l'annexe"}
                                         </span>
                                     </div>
