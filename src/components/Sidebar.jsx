@@ -86,6 +86,8 @@ const Sidebar = () => {
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
     const [isDraggingOverFrais, setIsDraggingOverFrais] = useState(false);
+    const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
+    const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -450,7 +452,35 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
-                            <div className="p-3 space-y-2">
+                            <div
+                                className="p-3 space-y-2 relative"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key) {
+                                        setIsDraggingOverInfos(true);
+                                    }
+                                }}
+                                onDragLeave={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                        setIsDraggingOverInfos(false);
+                                    }
+                                }}
+                                onDrop={async (e) => {
+                                    e.preventDefault();
+                                    setIsDraggingOverInfos(false);
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        await handleContractMagicDrop(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                            >
+                                {isDraggingOverInfos && (
+                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
+                                        <span className="text-white font-bold text-sm text-center px-4">🪄 Relâchez pour extraire les données du contrat</span>
+                                    </div>
+                                )}
 
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
@@ -476,7 +506,35 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
-                            <div className="p-3">
+                            <div
+                                className="p-3 relative"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key) {
+                                        setIsDraggingOverCause(true);
+                                    }
+                                }}
+                                onDragLeave={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                        setIsDraggingOverCause(false);
+                                    }
+                                }}
+                                onDrop={async (e) => {
+                                    e.preventDefault();
+                                    setIsDraggingOverCause(false);
+                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                            >
+                                {isDraggingOverCause && (
+                                    <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center pointer-events-none">
+                                        <span className="text-white font-bold text-sm text-center px-4">🪄 Relâchez pour synthétiser les documents de cause</span>
+                                    </div>
+                                )}
 
                                 <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
