@@ -180,7 +180,7 @@ const Sidebar = () => {
             ref: validatedData.ref || '',
             desc: validatedData.desc || '',
             compteDe: validatedData.compteDe || '',
-            montant: validatedData.montant || '',
+            montant: validatedData.montantReclame ? (isNaN(parseFloat(String(validatedData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(validatedData.montantReclame).replace(',', '.')))) : (validatedData.montant || ''),
             montantReclame: validatedData.montantReclame || '',
             montantValide: validatedData.montantValide || '',
             pourcentageVetuste: validatedData.pourcentageVetuste || 0,
