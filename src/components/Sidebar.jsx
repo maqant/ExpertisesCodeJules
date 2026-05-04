@@ -52,9 +52,44 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
 
 const AccordionHeader = ({ id, num }) => {
     const { blockTitles, handleTitleChange } = useContext(ExpertiseContext);
+    const dragTimer = useRef(null);
+
+    const handleDragEnterHeader = (e) => {
+        e.preventDefault();
+        const detailsEl = e.currentTarget.parentElement;
+        if (detailsEl && !detailsEl.hasAttribute('open')) {
+            dragTimer.current = setTimeout(() => {
+                detailsEl.setAttribute('open', '');
+            }, 600);
+        }
+    };
+
+    const handleDragLeaveHeader = (e) => {
+        // Only clear if we actually leave the element, not just a child
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            if (dragTimer.current) {
+                clearTimeout(dragTimer.current);
+                dragTimer.current = null;
+            }
+        }
+    };
+
+    const handleDropHeader = () => {
+        if (dragTimer.current) {
+            clearTimeout(dragTimer.current);
+            dragTimer.current = null;
+        }
+    };
+
     return (
-        <summary className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t">
-            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2">{num}.</span>
+        <summary
+            className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t"
+            onDragEnter={handleDragEnterHeader}
+            onDragLeave={handleDragLeaveHeader}
+            onDrop={handleDropHeader}
+            onDragOver={(e) => e.preventDefault()}
+        >
+            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2 pointer-events-none">{num}.</span>
             <input type="text" value={blockTitles[id]} onChange={(e) => handleTitleChange(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" />
         </summary>
     );
