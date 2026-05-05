@@ -813,13 +813,22 @@ const Sidebar = () => {
                                                 <div className="col-span-2"><label>Description courte</label><input type="text" value={exp.desc} onChange={e=>updateExpense(exp.id, 'desc', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} className="input-field mb-0" /></div>
                                                 <div className="col-span-2">
                                                     <label>Pour le compte de</label>
-                                                    <select value={exp.compteDe || ''} onChange={e=>updateExpense(exp.id, 'compteDe', e.target.value)} className="input-field mb-0 border-indigo-500">
+                                                    <select value={exp.compteDe || ''} onChange={e => {
+                                                        if (e.target.value === 'CREATE_NEW') {
+                                                            const newId = addOcc();
+                                                            updateExpense(exp.id, 'compteDe', newId);
+                                                        } else {
+                                                            updateExpense(exp.id, 'compteDe', e.target.value);
+                                                        }
+                                                    }} className="input-field mb-0 border-indigo-500">
                                                         <option value="">Choisissez...</option>
                                                         {occupants.filter(o => o.nom).map(o => {
                                                             const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
                                                             const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
                                                             return <option key={o.id} value={o.id}>{displayName}</option>;
                                                         })}
+                                                        <option disabled>──────────</option>
+                                                        <option value="CREATE_NEW">[ + Créer une nouvelle partie ]</option>
                                                     </select>
                                                 </div>
                                                 {exp.typeMontant !== 'Forfait' && <>

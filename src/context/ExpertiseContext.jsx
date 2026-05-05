@@ -371,6 +371,7 @@ export const ExpertiseProvider = ({ children }) => {
       const newId = crypto.randomUUID();
       financeStore.addOccupant({ id: newId, nom: '', prenom: '', etage: '', statut: 'Locataire', tel: '', email: '', rc: 'Non', rcPolice: '', secAssurance: 'Non', secType: '', secPolice: '', secCie: '' });
       setExpandedOccId(newId);
+      return newId;
   };
   const updateOcc = (id, field, value) => {
       financeStore.updateOccupant(id, { [field]: value });
