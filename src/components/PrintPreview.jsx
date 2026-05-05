@@ -1,6 +1,5 @@
 import React, { useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
 
 const PrintPreview = () => {
     const context = useContext(ExpertiseContext);
@@ -17,8 +16,22 @@ const PrintPreview = () => {
         return acc + (isNaN(val) ? 0 : val);
     }, 0);
 
+    const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
+
+    const findOccByCompteDe = (compteDe) => {
+        if (!compteDe) return null;
+        return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
+    };
+
+    const getCompteDeName = (compteDe) => {
+        const matchedOcc = findOccByCompteDe(compteDe);
+        if (matchedOcc) return fmtOccName(matchedOcc);
+        if (compteDe && compteDe.trim() !== '') return compteDe;
+        return 'Non attribué';
+    };
+
     const dettesParPersonne = expenses.reduce((acc, exp) => {
-        const p = getCompteDeName(exp.compteDe, occupants);
+        const p = getCompteDeName(exp.compteDe);
         if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
         const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
         const safeVal = isNaN(val) ? 0 : val;
@@ -32,7 +45,7 @@ const PrintPreview = () => {
     const formatShortCompteDe = (compteDeStr) => {
         if (!compteDeStr || typeof compteDeStr !== 'string') return '';
         
-        const occupant = findOccByCompteDe(compteDeStr, occupants);
+        const occupant = findOccByCompteDe(compteDeStr);
         
         if (occupant) {
             const nomAffiche = occupant.nom || '';
