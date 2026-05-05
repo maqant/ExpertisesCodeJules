@@ -45,7 +45,8 @@ const PrintPVE = ({ onBack }) => {
 
         {/* En-tête */}
         <div className="border-b-2 border-slate-800 pb-4 mb-8">
-          <h1 className="text-3xl font-bold text-center uppercase tracking-wider mb-2">RÉSUMÉ DE RÉPARTITION FINANCIÈRE</h1>
+          <h1 className="text-3xl font-bold text-center uppercase tracking-wider mb-2">COMPTE-RENDU D'EXPERTISE (CRE)</h1>
+          <h2 className="text-xl font-bold text-center text-slate-600">DU {new Date().toLocaleDateString('fr-FR')} - DOSSIER {formData.refPechard || formData.nomResidence || '...'}</h2>
         </div>
 
         {/* Informations Dossier */}
@@ -79,7 +80,14 @@ const PrintPVE = ({ onBack }) => {
               {expenses.map(exp => (
                 <tr key={exp.id} className="border-b break-inside-avoid">
                   <td className="border p-2">
-                    <div className="font-bold">{exp.prestataire || 'Frais'}</div>
+                    <div className="font-bold">
+                      {exp.prestataire || 'Frais'}
+                      {exp.isSpontane && (
+                        <span className="ml-2 inline-flex items-center gap-1 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm print:border print:border-fuchsia-600 print:text-fuchsia-600 print:bg-none print:shadow-none">
+                          ✨ Spontané
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-500">{exp.desc}</div>
                   </td>
                   <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe, occupants)}</td>
@@ -146,18 +154,6 @@ const PrintPVE = ({ onBack }) => {
                     <p className="italic text-slate-500">Aucun IBAN renseigné pour ce dossier.</p>
                 )}
             </div>
-        </div>
-
-        {/* Signatures */}
-        <div className="mt-16 grid grid-cols-2 gap-16">
-          <div className="border border-slate-300 p-4 h-40 rounded relative">
-            <span className="absolute top-2 left-4 text-xs font-bold text-slate-500 uppercase">Pour l'Assuré(e) / Le Mandant</span>
-            <div className="absolute bottom-2 left-4 text-xs text-slate-400">Lu et approuvé</div>
-          </div>
-          <div className="border border-slate-300 p-4 h-40 rounded relative">
-            <span className="absolute top-2 left-4 text-xs font-bold text-slate-500 uppercase">L'Expert de la Compagnie</span>
-            <div className="absolute bottom-2 left-4 text-xs text-slate-400">Sous toutes réserves d'usage</div>
-          </div>
         </div>
 
       </div>

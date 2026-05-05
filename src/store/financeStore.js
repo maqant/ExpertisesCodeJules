@@ -83,6 +83,7 @@ export const useFinanceStore = create((set, get) => ({
       motifRefus: expense.motifRefus || "",
       isProcessed: expense.isProcessed || false,
       typeMontant: expense.typeMontant || 'HTVA',
+      isSpontane: expense.isSpontane || false,
       ...expense
     };
     return {
