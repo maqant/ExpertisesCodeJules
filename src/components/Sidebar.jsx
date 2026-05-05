@@ -1,20 +1,20 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import ValidationAiModal from './ValidationAiModal';
-import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import packageInfo from '../../package.json';
 
-const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
+const DropZone = ({ onFiles, label = "+", accept = "*" }) => {
     const [isOver, setIsOver] = useState(false);
     return (
         <div 
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
-            onDragLeave={() => setIsOver(false)}
+            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); }}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
-            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
+            className={`relative z-[60] w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'}`}
             title="Glisser-déposer vos fichiers ici"
-            onClick={() => {
+            onClick={(e) => {
+                e.stopPropagation();
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.multiple = true;
@@ -23,7 +23,7 @@ const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
                 input.click();
             }}
         >
-            <span className={`text-[10px] font-bold ${isOver ? 'text-indigo-300' : 'text-slate-500'}`}>{label}</span>
+            <span className={`pointer-events-none text-[10px] font-bold ${isOver ? 'text-indigo-300' : 'text-slate-500'}`}>{label}</span>
         </div>
     );
 };
@@ -52,68 +52,9 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
 
 const AccordionHeader = ({ id, num }) => {
     const { blockTitles, handleTitleChange } = useContext(ExpertiseContext);
-    const dragTimer = useRef(null);
-    const wasAutoOpened = useRef(false);
-
-    const handleDragEnterHeader = (e) => {
-        e.preventDefault();
-        const detailsEl = e.currentTarget.parentElement;
-        if (detailsEl && !detailsEl.hasAttribute('open')) {
-            dragTimer.current = setTimeout(() => {
-                detailsEl.setAttribute('open', '');
-                wasAutoOpened.current = true;
-
-                // Add a temporary leave listener to the details element
-                const onLeaveDetails = (leaveEvent) => {
-                    if (!detailsEl.contains(leaveEvent.relatedTarget)) {
-                        if (wasAutoOpened.current) {
-                            detailsEl.removeAttribute('open');
-                            wasAutoOpened.current = false;
-                        }
-                        detailsEl.removeEventListener('dragleave', onLeaveDetails);
-                        detailsEl.removeEventListener('drop', onDropDetails);
-                    }
-                };
-
-                const onDropDetails = () => {
-                    // If dropped inside, keep it open
-                    wasAutoOpened.current = false;
-                    detailsEl.removeEventListener('dragleave', onLeaveDetails);
-                    detailsEl.removeEventListener('drop', onDropDetails);
-                };
-
-                detailsEl.addEventListener('dragleave', onLeaveDetails);
-                detailsEl.addEventListener('drop', onDropDetails);
-
-            }, 600);
-        }
-    };
-
-    const handleDragLeaveHeader = (e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) {
-            if (dragTimer.current) {
-                clearTimeout(dragTimer.current);
-                dragTimer.current = null;
-            }
-        }
-    };
-
-    const handleDropHeader = () => {
-        if (dragTimer.current) {
-            clearTimeout(dragTimer.current);
-            dragTimer.current = null;
-        }
-    };
-
     return (
-        <summary
-            className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t"
-            onDragEnter={handleDragEnterHeader}
-            onDragLeave={handleDragLeaveHeader}
-            onDrop={handleDropHeader}
-            onDragOver={(e) => e.preventDefault()}
-        >
-            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2 pointer-events-none">{num}.</span>
+        <summary className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t">
+            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2">{num}.</span>
             <input type="text" value={blockTitles[id]} onChange={(e) => handleTitleChange(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" />
         </summary>
     );
@@ -138,146 +79,14 @@ const Sidebar = () => {
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
         attachedFiles, attachedPhotos, attachedFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
-        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
-        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
+        getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF
     } = context;
 
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
-    const [isDraggingOverFrais, setIsDraggingOverFrais] = useState(false);
-    const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
-    const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
-    const [isDraggingOverAnnexes, setIsDraggingOverAnnexes] = useState(false);
-    const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
-    // Magic Drop states
-
-    // Contract Magic Drop states
-    const [isCauseAiLoading, setIsCauseAiLoading] = useState(false);
-
-    const handleAnnexMagicDrop = async (files) => {
-        if (!files || files.length === 0) return;
-        setIsAnnexAiLoading(true);
-        const aiProvider = aiConfig.provider;
-        const aiModel = aiConfig.model;
-
-        try {
-            for (const file of files) {
-                const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey);
-                if (result.success && result.data && result.data.title) {
-                    await handleAttachFreeAnnex(file, result.data.title);
-                } else {
-                    await handleAttachFreeAnnex(file);
-                }
-            }
-        } catch (err) {
-            console.error("[Sidebar] Erreur lors du titrage de l'annexe :", err);
-            files.forEach(f => handleAttachFreeAnnex(f));
-        } finally {
-            setIsAnnexAiLoading(false);
-        }
-    };
-
-    const handleCauseMagicDrop = async (files) => {
-        if (!files || files.length === 0) return;
-        setIsCauseAiLoading(true);
-        const aiProvider = aiConfig.provider;
-        const aiModel = aiConfig.model;
-
-        try {
-            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey);
-            if (result.success && result.data && result.data.cause) {
-                setFormData(prev => ({
-                    ...prev,
-                    cause: result.data.cause
-                }));
-                // Attach documents
-                files.forEach((file, idx) => {
-                    // Create a unique id for each file to attach them under the same conceptual block
-                    // Wait, the block uses doc_rapport_cause for AttachmentUI. Let's attach them there.
-                    handleAttachFile('doc_rapport_cause', file);
-                });
-            } else {
-                alert("Erreur lors de la synthèse : " + (result.error || "Réponse invalide"));
-            }
-        } catch (err) {
-            alert("Erreur : " + err.message);
-        } finally {
-            setIsCauseAiLoading(false);
-        }
-    };
-    const [isContractAiLoading, setIsContractAiLoading] = useState(false);
-
-    const handleContractMagicDrop = async (files) => {
-        if (!files || files.length === 0) return;
-        setIsContractAiLoading(true);
-        const aiProvider = aiConfig.provider;
-        const aiModel = aiConfig.model;
-
-        try {
-            const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel, aiConfig.apiKey);
-            if (result.success && result.data) {
-                setFormData(prev => ({ ...prev, ...result.data }));
-                handleAttachFile('doc_cond_part', files[0]);
-            } else {
-                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
-            }
-        } catch (err) {
-            alert("Erreur : " + err.message);
-        } finally {
-            setIsContractAiLoading(false);
-        }
-    };
-    const [isAiLoading, setIsAiLoading] = useState(false);
-    const [aiValidationData, setAiValidationData] = useState(null);
-
-    const handleMagicDrop = async (files) => {
-        if (!files || files.length === 0) return;
-        setIsAiLoading(true);
-        const aiProvider = aiConfig.provider;
-        const aiModel = aiConfig.model;
-
-        try {
-            const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
-            if (result.success && result.data && result.data.expenses) {
-                setAiValidationData({ data: result.data.expenses, originalFile: files[0] });
-            } else {
-                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
-            }
-        } catch (err) {
-            alert("Erreur : " + err.message);
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-
-    const handleMagicDropValidate = (validatedData) => {
-        const newExpId = crypto.randomUUID();
-        const newExp = {
-            id: newExpId,
-            prestataire: validatedData.prestataire || '',
-            type: validatedData.type || '',
-            ref: validatedData.ref || '',
-            desc: validatedData.desc || '',
-            compteDe: validatedData.compteDe || '',
-            montant: validatedData.montantReclame ? (isNaN(parseFloat(String(validatedData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(validatedData.montantReclame).replace(',', '.')))) : (validatedData.montant || ''),
-            montantReclame: validatedData.montantReclame || '',
-            montantValide: validatedData.montantValide || '',
-            pourcentageVetuste: validatedData.pourcentageVetuste || 0,
-            motifRefus: validatedData.motifRefus || '',
-            typeMontant: validatedData.typeMontant || 'HTVA',
-            avisCouverture: validatedData.avisCouverture || 'Oui',
-            noteCouverture: validatedData.noteCouverture || ''
-        };
-        addExpense(newExp);
-        if (aiValidationData.originalFile) {
-            handleAttachFile(newExpId, aiValidationData.originalFile);
-        }
-        setAiValidationData(null);
-    };
-
     const [editingExpert, setEditingExpert] = useState(null);
     const [addFranchiseForm, setAddFranchiseForm] = useState({ moisAnnee: '', montant: '' });
     const draggedOccRef = useRef(null);
@@ -318,40 +127,18 @@ const Sidebar = () => {
                             <span className="text-indigo-300 font-bold truncate max-w-[100px]">{activeName}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {/* AI Controls */}
-                        <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
-                            <button
-                                onClick={toggleAiMode}
-                                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isAiModeActive ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300'}`}
-                                title="Activer/Désactiver l'IA"
-                            >
-                                <span className={isAiModeActive ? 'animate-pulse' : ''}>✨</span> IA
-                            </button>
-
-                        </div>
-                        <div className="flex gap-1.5">
-                            <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
-                                ➕ New
-                            </button>
-                            <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
-                                💾 Save
-                            </button>
-                            <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
-                                🔄 Reset
-                            </button>
-                        </div>
+                    <div className="flex gap-1.5">
+                        <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            ➕ New
+                        </button>
+                        <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                            💾 Save
+                        </button>
+                        <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                            🔄 Reset
+                        </button>
                     </div>
                 </div>
-
-                {/* AI Settings Inline Menu */}
-                {/* Warning Message if AI active but no API key */}
-                {isAiModeActive && !aiConfig.apiKey && (
-                    <div className="bg-orange-900/40 border border-orange-500/50 p-1.5 mt-2 rounded text-[9px] text-orange-200 text-center">
-                        ⚠️ Veuillez configurer votre clé API dans les réglages ⚙️
-                    </div>
-                )}
-
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg mt-2 border border-slate-700">
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
@@ -362,48 +149,6 @@ const Sidebar = () => {
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
 
-
-
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
-                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
-                                <span>✨ Configuration IA</span>
-                            </h3>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-slate-400 mb-1 text-xs">Clé API (OpenAI)</label>
-                                    <input
-                                        type="password"
-                                        value={aiConfig.apiKey}
-                                        onChange={(e) => updateAiConfig({ apiKey: e.target.value })}
-                                        placeholder="sk-..."
-                                        className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <div className="flex-1">
-                                        <label className="block text-slate-400 mb-1 text-xs">Provider</label>
-                                        <select
-                                            value={aiConfig.provider}
-                                            onChange={(e) => updateAiConfig({ provider: e.target.value })}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                        >
-                                            <option value="openai">OpenAI</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="block text-slate-400 mb-1 text-xs">Modèle</label>
-                                        <select
-                                            value={aiConfig.model}
-                                            onChange={(e) => updateAiConfig({ model: e.target.value })}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                        >
-                                            <option value="gpt-4o">gpt-4o</option>
-                                            <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
@@ -528,15 +273,7 @@ const Sidebar = () => {
                                                 {showExpertDropdownContradictoire && filteredExpertsContradictoire.length > 0 && <ul className="absolute z-50 w-full bg-slate-700 border border-slate-500 rounded mt-[-2px] max-h-40 overflow-y-auto">{filteredExpertsContradictoire.map((exp, idx) => <li key={idx} className="px-2 py-1.5 text-xs text-white hover:bg-indigo-500 cursor-pointer" onMouseDown={() => { setFormData({ ...formData, expertContradictoire: formatExpertDisplay(exp) }); setShowExpertDropdownContradictoire(false); }}>{formatExpertDisplay(exp)}</li>)}</ul>}
                                             </div>
                                         </div>
-                                        <label>Pour le compte de</label>
-                                        <select name="compteDeContradictoire" value={formData.compteDeContradictoire || ''} onChange={handleChange} className="input-field">
-                                            <option value="">Choisissez...</option>
-                                            {occupants.filter(o => o.nom).map(o => {
-                                                const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-                                                const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
-                                                return <option key={o.id} value={o.id}>{displayName}</option>;
-                                            })}
-                                        </select>
+                                        <label>Pour le compte de</label><input type="text" name="compteDeContradictoire" value={formData.compteDeContradictoire} onChange={handleChange} className="input-field" />
                                     </div>
                                 )}
                             </div>
@@ -544,52 +281,7 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
-                            <div
-                                className="p-3 space-y-2 relative"
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key) {
-                                        setIsDraggingOverInfos(true);
-                                    }
-                                }}
-                                onDragLeave={(e) => {
-                                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                                        setIsDraggingOverInfos(false);
-                                    }
-                                }}
-                                onDrop={async (e) => {
-                                    e.preventDefault();
-                                    setIsDraggingOverInfos(false);
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        if (isAiModeActive && key) {
-                                            await handleContractMagicDrop(Array.from(e.dataTransfer.files));
-                                        } else {
-                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFile('doc_cond_part', f));
-                                        }
-                                    }
-                                }}
-                            >
-                                {isDraggingOverInfos && (
-                                    <div
-                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={async (e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setIsDraggingOverInfos(false);
-                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                                await handleContractMagicDrop(Array.from(e.dataTransfer.files));
-                                            }
-                                        }}
-                                    >
-                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">🪄 Relâchez pour extraire les données du contrat</span>
-                                    </div>
-                                )}
-
+                            <div className="p-3 space-y-2">
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
                                     <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
@@ -614,52 +306,7 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
-                            <div
-                                className="p-3 relative"
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key) {
-                                        setIsDraggingOverCause(true);
-                                    }
-                                }}
-                                onDragLeave={(e) => {
-                                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                                        setIsDraggingOverCause(false);
-                                    }
-                                }}
-                                onDrop={async (e) => {
-                                    e.preventDefault();
-                                    setIsDraggingOverCause(false);
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        if (isAiModeActive && key) {
-                                            await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
-                                        } else {
-                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFile('doc_rapport_cause', f));
-                                        }
-                                    }
-                                }}
-                            >
-                                {isDraggingOverCause && (
-                                    <div
-                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={async (e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setIsDraggingOverCause(false);
-                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                                await handleCauseMagicDrop(Array.from(e.dataTransfer.files));
-                                            }
-                                        }}
-                                    >
-                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">🪄 Relâchez pour synthétiser les documents de cause</span>
-                                    </div>
-                                )}
-
+                            <div className="p-3">
                                 <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
                             </div>
@@ -737,50 +384,7 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
-                            <div
-                                className="p-3 space-y-2 relative"
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation(); // Prevenir conflits
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key) {
-                                        setIsDraggingOverFrais(true);
-                                    }
-                                }}
-                                onDragLeave={(e) => {
-                                    // Make sure we only leave if relatedTarget is not inside this div
-                                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                                        setIsDraggingOverFrais(false);
-                                    }
-                                }}
-                                onDrop={async (e) => {
-                                    e.preventDefault();
-                                    setIsDraggingOverFrais(false);
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        // Appel global pour créer une nouvelle facture
-                                        await handleMagicDrop(Array.from(e.dataTransfer.files));
-                                    }
-                                }}
-                            >
-                                {isDraggingOverFrais && (
-                                    <div
-                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={async (e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setIsDraggingOverFrais(false);
-                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                                await handleMagicDrop(Array.from(e.dataTransfer.files));
-                                            }
-                                        }}
-                                    >
-                                        <span className="text-white font-bold text-sm pointer-events-none">🪄 Relâchez pour analyser la facture</span>
-                                    </div>
-                                )}
-
+                            <div className="p-3 space-y-2">
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>
@@ -853,11 +457,7 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
-                                <datalist id="prestataires-list">
-                                    {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
-                                        .sort((a, b) => a.localeCompare(b))
-                                        .map(p => <option key={p} value={p} />)}
-                                </datalist>
+                                <datalist id="prestataires-list">{[...new Set(expenses.map(e => e.prestataire).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(p => <option key={p} value={p} />)}</datalist>
                             </div>
                         </details>
 
@@ -909,53 +509,7 @@ const Sidebar = () => {
 
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="annexes_libres" num="9" />
-                            <div
-                                className="p-3 space-y-3 relative"
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key) {
-                                        setIsDraggingOverAnnexes(true);
-                                    }
-                                }}
-                                onDragLeave={(e) => {
-                                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                                        setIsDraggingOverAnnexes(false);
-                                    }
-                                }}
-                                onDrop={async (e) => {
-                                    e.preventDefault();
-                                    setIsDraggingOverAnnexes(false);
-                                    const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        if (isAiModeActive && key) {
-                                            await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
-                                        } else {
-                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFreeAnnex(f));
-                                        }
-                                    }
-                                }}
-                            >
-                                {(isDraggingOverAnnexes || isAnnexAiLoading) && (
-                                    <div
-                                        className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[2px] border-2 border-indigo-400 border-dashed rounded z-50 flex items-center justify-center"
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={async (e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setIsDraggingOverAnnexes(false);
-                                            const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                                await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
-                                            }
-                                        }}
-                                    >
-                                        <span className="text-white font-bold text-sm text-center px-4 pointer-events-none">
-                                            {isAnnexAiLoading ? "⏳ Analyse en cours..." : "🪄 Relâchez pour générer le titre de l'annexe"}
-                                        </span>
-                                    </div>
-                                )}
+                            <div className="p-3 space-y-3">
                                 <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700 mb-2">
                                     <span className="text-[10px] text-slate-400 font-bold uppercase">📂 Glisser vos fichiers ici</span>
                                     <DropZone onFiles={(files) => files.forEach(f => handleAttachFreeAnnex(f))} label="➕" />
@@ -1050,19 +604,9 @@ const Sidebar = () => {
                     )}
                 </div>
             </div>
-
-            {aiValidationData && (
-                <ValidationAiModal
-                    extractedData={aiValidationData.data}
-                    occupants={occupants}
-                    onValidate={handleMagicDropValidate}
-                    onCancel={() => setAiValidationData(null)}
-                />
-            )}
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
         </>
-
     );
 };
 

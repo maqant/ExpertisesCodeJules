@@ -9,11 +9,7 @@ const PaymentWizardModal = ({ onClose }) => {
   // States du Wizard
   const paiements = store.metier.paiements || [];
   const sumTotalRecu = paiements.reduce((acc, p) => acc + (parseFloat(p.montantTotal) || 0), 0);
-
-  // Flatten ventilations to avoid nested reducers
-  const sumTotalVentile = paiements
-    .flatMap(p => p.ventilations || [])
-    .reduce((acc, v) => acc + (parseFloat(v.montantAlloue) || 0), 0);
+  const sumTotalVentile = paiements.reduce((acc, p) => acc + (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0), 0);
   const reliquatGlobal = Math.max(0, sumTotalRecu - sumTotalVentile);
 
   // States du Wizard (Saute l'étape 1 si reliquat existant)
@@ -43,7 +39,7 @@ const PaymentWizardModal = ({ onClose }) => {
       if (!exp) return 0;
       const status = store.getStatutPaiementFrais(exp.id);
       // Inclure également les ventilations qui sont en cours d'encodage dans ce wizard
-      const enCours = ventilations.reduce((s, v) => v.expenseId === exp.id ? s + v.montantAlloue : s, 0);
+      const enCours = ventilations.filter(v => v.expenseId === exp.id).reduce((s, v) => s + v.montantAlloue, 0);
       const valide = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
       return Math.max(0, (isNaN(valide) ? 0 : valide) - status.totalGlobal - enCours);
   };

@@ -82,33 +82,6 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
-
-  // AI Mode Config
-  const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
-  const [aiConfig, setAiConfig] = useState(() => ({
-      apiKey: localStorage.getItem('aiApiKey') || '',
-      model: localStorage.getItem('aiModel') || 'gpt-4o',
-      provider: localStorage.getItem('aiProvider') || 'openai'
-  }));
-
-  const toggleAiMode = () => {
-      setIsAiModeActive(prev => {
-          const next = !prev;
-          localStorage.setItem('isAiModeActive', next);
-          return next;
-      });
-  };
-
-  const updateAiConfig = (newConfig) => {
-      setAiConfig(prev => {
-          const next = { ...prev, ...newConfig };
-          localStorage.setItem('aiApiKey', next.apiKey);
-          localStorage.setItem('aiModel', next.model);
-          localStorage.setItem('aiProvider', next.provider);
-          return next;
-      });
-  };
-
   const [hideAnnexIndex, setHideAnnexIndex] = useState(false);
   const [printSelection, setPrintSelection] = useState(null); // null = tout inclus, Set<string> = sélection
   const [coverPageCount, setCoverPageCount] = useState(1); // nb de pages de la page de garde (pour indexation correcte)
@@ -267,7 +240,7 @@ export const ExpertiseProvider = ({ children }) => {
           if (!name) return;
       }
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos };
       
       let updated;
       if (currentDossierId) {
@@ -419,15 +392,10 @@ export const ExpertiseProvider = ({ children }) => {
       setOccupants(sorted);
   };
 
-  const addExpense = (expenseObj = null) => {
-      if (expenseObj) {
-          financeStore.addExpense(expenseObj);
-          setExpandedExpId(expenseObj.id);
-      } else {
-          const newId = crypto.randomUUID();
-          financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
-          setExpandedExpId(newId);
-      }
+  const addExpense = () => {
+      const newId = crypto.randomUUID();
+      financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
+      setExpandedExpId(newId);
   };
   const updateExpense = (id, field, value) => {
       let updates = { [field]: value };
@@ -455,35 +423,23 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleAttachFile = async (expenseId, file) => {
       if (!file) return;
+      if (file.type !== 'application/pdf') return alert("Seuls les fichiers PDF sont acceptés pour le moment.");
       
       try {
           const arrayBuffer = await file.arrayBuffer();
-          let pages = 1; // Default for images
-          let isPdf = false;
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const pages = pdfDoc.getPageCount();
 
-          if (file.type === 'application/pdf') {
-              isPdf = true;
-              try {
-                  const pdfDoc = await PDFDocument.load(arrayBuffer);
-                  pages = pdfDoc.getPageCount();
-              } catch (e) {
-                  console.error("Non-fatal error reading PDF pages:", e);
-                  pages = 1;
-              }
-          } else if (!file.type.startsWith('image/')) {
-              return alert("Seuls les fichiers PDF et les images sont acceptés pour le moment.");
-          }
-
-          const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
+          const dbKey = `pdf_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
-          const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type };
+          const fileObj = { name: file.name, pages, dbKey };
           setAttachedFiles(prev => {
               const current = prev[expenseId] || [];
               return { ...prev, [expenseId]: [...current, fileObj] };
           });
       } catch (err) {
-          alert("Erreur lors de la lecture du fichier : " + err.message);
+          alert("Erreur lors de la lecture du PDF : " + err.message);
       }
   };
 
@@ -556,7 +512,7 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const handleAttachFreeAnnex = async (file, generatedTitle = null) => {
+  const handleAttachFreeAnnex = async (file) => {
       if (!file) return;
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
@@ -573,7 +529,7 @@ export const ExpertiseProvider = ({ children }) => {
               pages = pdfDoc.getPageCount();
           }
           
-          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: generatedTitle || file.name, customName: generatedTitle || file.name, desc: '', dbKey, isPdf, pages }]);
+          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: file.name, customName: file.name, desc: '', dbKey, isPdf, pages }]);
       } catch (err) {
           alert('Erreur lors de la lecture du fichier : ' + err.message);
       }
@@ -588,25 +544,18 @@ export const ExpertiseProvider = ({ children }) => {
       setAttachedFreeAnnexes(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
-  const handleOpenFile = async (dbKey) => {
+  const handleOpenFile = async (dbKey, isPdf = true) => {
       try {
           const fileBytes = await localforage.getItem(dbKey);
           if (!fileBytes) return alert("Fichier introuvable dans la base locale.");
 
-          let mimeType = 'application/pdf';
-          if (dbKey.startsWith('img_')) {
-              mimeType = 'image/jpeg';
-          } else if (dbKey.startsWith('file_')) {
-              // Try to guess from magic bytes or keep application/pdf
-              const arr = new Uint8Array(fileBytes).subarray(0, 4);
-              const header = Array.from(arr).map(b => b.toString(16)).join('');
-              if (header.startsWith('89504e47')) mimeType = 'image/png';
-              else if (header.startsWith('ffd8ff')) mimeType = 'image/jpeg';
-          }
-
+          const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
           const blob = new Blob([fileBytes], { type: mimeType });
           const url = URL.createObjectURL(blob);
           window.open(url, '_blank');
+
+          // Libération de la mémoire si ce n'est pas utilisé après
+          // setTimeout(() => URL.revokeObjectURL(url), 10000);
       } catch (err) {
           console.error("Erreur d'ouverture du fichier", err);
           alert("Erreur lors de l'ouverture : " + err.message);
@@ -631,7 +580,7 @@ export const ExpertiseProvider = ({ children }) => {
           let files = attachedFiles[id];
           if (!files) return 0;
           if (!Array.isArray(files)) files = [files];
-          return files.reduce((s, f) => isFileIncluded(id, f.dbKey) ? s + (f.pages || 0) : s, 0);
+          return files.filter(f => isFileIncluded(id, f.dbKey)).reduce((s, f) => s + (f.pages || 0), 0);
       };
       const getPhotoPages = (occ) => {
           if (!isPhotoGroupIncluded('doc_photos_occ_' + occ.id)) return 0;
@@ -780,7 +729,7 @@ export const ExpertiseProvider = ({ children }) => {
                                   else image = await mergedPdf.embedJpg(imgBytes);
                                   const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(image, { x: (width - imgDims.width) / 2, y: yOffset - imgDims.height, width: imgDims.width, height: imgDims.height });
-                              } catch (e) { console.error('[ExpertiseContext] Erreur lors de l\'intégration de l\'image au PDF :', e); }
+                              } catch (e) { console.error('Erreur image:', e); }
                           };
                           await drawImage(imgs[i], height - 80);
                           if (i + 1 < imgs.length) await drawImage(imgs[i + 1], height / 2 - 20);
@@ -816,7 +765,7 @@ export const ExpertiseProvider = ({ children }) => {
                       try {
                           if (file.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(bytes);
                           else image = await mergedPdf.embedJpg(bytes);
-                      } catch (e) { console.error('[ExpertiseContext] Failed to embed image in PDF:', e); continue; }
+                      } catch (e) { continue; }
                       const dims = image.scaleToFit(A4W - 100, A4H - 150);
                       page.drawImage(image, { x: (A4W - dims.width) / 2, y: (A4H - dims.height) / 2, width: dims.width, height: dims.height });
                       page.drawText(file.customName || file.name, { x: 50, y: A4H - 40, size: 12, color: rgb(0.2, 0.2, 0.2) });
@@ -966,12 +915,12 @@ export const ExpertiseProvider = ({ children }) => {
                       try {
                         if (file.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(bytes);
                         else image = await mergedPdf.embedJpg(bytes);
-                      } catch (e) { console.error('[ExpertiseContext] Failed to embed standalone image in PDF:', e); return; }
+                      } catch (e) { return; }
                       const dims = image.scaleToFit(A4W - 100, A4H - 150);
                       page.drawImage(image, { x: (A4W - dims.width) / 2, y: (A4H - dims.height) / 2, width: dims.width, height: dims.height });
                       page.drawText(file.customName || file.name, { x: 50, y: A4H - 40, size: 12, color: rgb(0.2, 0.2, 0.2) });
                   }
-              } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }
+              } catch (e) { console.error(e); }
           };
 
           const appendPdfFiles = async (id) => {
@@ -1008,7 +957,7 @@ export const ExpertiseProvider = ({ children }) => {
                                   const img = imgInfo.name.toLowerCase().endsWith('.png') ? await mergedPdf.embedPng(imgBytes) : await mergedPdf.embedJpg(imgBytes);
                                   const d = img.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(img, { x: (width - d.width) / 2, y: yOff - d.height, width: d.width, height: d.height });
-                              } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }
+                              } catch (e) { console.error(e); }
                           };
                           await drawImg(imgs[i], height - 80);
                           if (i + 1 < imgs.length) await drawImg(imgs[i + 1], height / 2 - 20);
@@ -1092,11 +1041,11 @@ export const ExpertiseProvider = ({ children }) => {
               });
           }
           if (data.occupants && Array.isArray(data.occupants)) {
-             const newOccupants = data.occupants.reduce((acc, o) => { if (o.nom) acc.push({...o, id: crypto.randomUUID()}); return acc; }, []);
+             const newOccupants = data.occupants.filter(o => o.nom).map(o => ({...o, id: crypto.randomUUID()}));
              financeStore.setOccupants([...occupants, ...newOccupants]);
           }
           if (data.expenses && Array.isArray(data.expenses)) {
-             const newExpenses = data.expenses.reduce((acc, ex) => { if (ex.prestataire || ex.montant) acc.push({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}); return acc; }, []);
+             const newExpenses = data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}));
              financeStore.setExpenses([...expenses, ...newExpenses]);
           }
           
@@ -1187,8 +1136,7 @@ Voici le format JSON :
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
-      handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
-      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
+      handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile
   };
 
   return (
