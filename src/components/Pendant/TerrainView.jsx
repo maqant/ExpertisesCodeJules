@@ -21,7 +21,7 @@ const TerrainView = () => {
   const totalReclame = store.getTotalReclame();
 
   const [editModalExp, setEditModalExp] = useState(null);
-  const [editData, setEditData] = useState({ montantValide: "", motifRefus: "" });
+  const [editData, setEditData] = useState({ montantValide: "", motifRefus: "", isSpontane: false });
   const [showSpontaneModal, setShowSpontaneModal] = useState(false);
   const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait' });
 
@@ -43,7 +43,8 @@ const TerrainView = () => {
       montantValide: exp.montantValide || exp.montantReclame || exp.montant || "",
       motifRefus: exp.motifRefus || "",
       compteDe: exp.compteDe || "",
-      typeMontant: exp.typeMontant || "HTVA"
+      typeMontant: exp.typeMontant || "HTVA",
+      isSpontane: exp.isSpontane || false
     });
   };
 
@@ -54,6 +55,7 @@ const TerrainView = () => {
         motifRefus: editData.motifRefus,
         compteDe: editData.compteDe,
         typeMontant: editData.typeMontant,
+        isSpontane: editData.isSpontane,
         isProcessed: true
       });
     }
@@ -85,7 +87,9 @@ const TerrainView = () => {
         montantValide: spontaneData.montant,
         typeMontant: spontaneData.typeMontant,
         type: 'Forfait',
-        desc: 'Frais spontané sur place'
+        desc: 'Frais spontané sur place',
+        isSpontane: true,
+        isProcessed: true // Spontaneous expenses on terrain are implicitly processed
       });
       setShowSpontaneModal(false);
       setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait' });
@@ -166,7 +170,15 @@ const TerrainView = () => {
                             </button>
                             )}
                             <div className="flex-1">
-                                <h3 className="font-bold text-lg">{exp.prestataire || 'Prestataire Inconnu'} <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe, occupants)}</span></h3>
+                                <h3 className="font-bold text-lg">
+                                  {exp.prestataire || 'Prestataire Inconnu'}
+                                  {exp.isSpontane && (
+                                    <span className="ml-2 inline-flex items-center gap-1 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                      ✨ Spontané
+                                    </span>
+                                  )}
+                                  <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe, occupants)}</span>
+                                </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic mb-2">{exp.desc || 'Aucune description'}</p>
                                 <div className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded inline-block">
                                     Réclamé : <span className="font-bold text-lg">{exp.montantReclame || exp.montant || '0.00'} €</span>
@@ -224,7 +236,14 @@ const TerrainView = () => {
                             </button>
                             )}
                             <div className="flex-1">
-                                <h3 className="font-bold text-base">{exp.prestataire || 'Prestataire Inconnu'}</h3>
+                                <h3 className="font-bold text-base">
+                                  {exp.prestataire || 'Prestataire Inconnu'}
+                                  {exp.isSpontane && (
+                                    <span className="ml-2 inline-flex items-center gap-1 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                      ✨ Spontané
+                                    </span>
+                                  )}
+                                </h3>
                                 <div className="mt-1 text-xs">
                                     <span className="text-slate-500">Réclamé: {exp.montantReclame || exp.montant || '0.00'} €</span>
                                     {exp.motifRefus && <span className="text-red-500 ml-2 font-bold">(Motif: {exp.motifRefus})</span>}
@@ -305,7 +324,7 @@ const TerrainView = () => {
                 </select>
               </div>
             </div>
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block text-sm font-bold mb-1">Motif de la modification (Optionnel)</label>
               <input type="text"
                 className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
@@ -313,6 +332,18 @@ const TerrainView = () => {
                 onChange={e => setEditData({...editData, motifRefus: e.target.value})}
                 placeholder="Ex: Vétusté peinture, Hors garantie..."
               />
+            </div>
+            <div className="mb-6 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isSpontaneCheckbox"
+                checked={editData.isSpontane}
+                onChange={e => setEditData({...editData, isSpontane: e.target.checked})}
+                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <label htmlFor="isSpontaneCheckbox" className="text-sm font-bold text-fuchsia-600 dark:text-fuchsia-400">
+                ✨ Frais spontané (constaté sur place)
+              </label>
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditModalExp(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
