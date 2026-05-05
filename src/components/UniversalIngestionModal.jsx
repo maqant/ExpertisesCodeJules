@@ -1,5 +1,11 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Configurer le worker pour react-pdf
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 const UniversalIngestionModal = () => {
     const {
@@ -19,6 +25,9 @@ const UniversalIngestionModal = () => {
     const { isOpen, type, file, data, existingId } = ingestionModal;
     const [fileUrl, setFileUrl] = useState(null);
     const [localData, setLocalData] = useState({});
+    const [numPages, setNumPages] = useState(null);
+    const containerRef = useRef(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
     // Populate localData when modal opens
     useEffect(() => {
@@ -55,9 +64,27 @@ const UniversalIngestionModal = () => {
                 URL.revokeObjectURL(url);
             };
         }
-    }, [isOpen, file, data, type]);
+    }, [isOpen, file, data, type, existingId, expenses]);
+
+    // Update width for PDF rendering
+    useEffect(() => {
+        if (isOpen && containerRef.current) {
+            const updateWidth = () => {
+                if (containerRef.current) {
+                    setContainerWidth(containerRef.current.clientWidth - 32); // Subtract padding
+                }
+            };
+            updateWidth();
+            window.addEventListener('resize', updateWidth);
+            return () => window.removeEventListener('resize', updateWidth);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
+
+    const onDocumentLoadSuccess = ({ numPages }) => {
+        setNumPages(numPages);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -140,15 +167,37 @@ const UniversalIngestionModal = () => {
                     <h2 className="text-white font-bold mb-2 flex items-center gap-2">
                         <span>📄</span> Document : {file?.name}
                     </h2>
-                    <div className="flex-1 bg-slate-950 rounded-lg border border-slate-700 overflow-y-auto flex items-center justify-center p-2 relative">
+                    <div
+                        ref={containerRef}
+                        className={`flex-1 bg-slate-950 rounded-lg border border-slate-700 overflow-y-auto p-2 relative ${isImage ? 'flex items-center justify-center' : ''}`}
+                    >
                         {fileUrl ? (
                             isImage ? (
                                 <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded" />
                             ) : (
-                                <iframe src={`${fileUrl}#toolbar=0`} className="w-full h-full rounded" title="Document PDF" />
+                                <div className="flex flex-col items-center gap-4 py-4 w-full">
+                                    <Document
+                                        file={file}
+                                        onLoadSuccess={onDocumentLoadSuccess}
+                                        loading={<div className="text-slate-400 text-sm font-bold animate-pulse">⏳ Chargement du document...</div>}
+                                        error={<div className="text-red-400 text-sm font-bold">❌ Erreur lors du chargement du PDF.</div>}
+                                        className="flex flex-col gap-4 w-full items-center"
+                                    >
+                                        {Array.from(new Array(numPages), (el, index) => (
+                                            <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden">
+                                                <Page
+                                                    pageNumber={index + 1}
+                                                    width={containerWidth > 0 ? containerWidth : undefined}
+                                                    renderTextLayer={false}
+                                                    renderAnnotationLayer={false}
+                                                />
+                                            </div>
+                                        ))}
+                                    </Document>
+                                </div>
                             )
                         ) : (
-                            <div className="text-slate-500 text-sm">Aucun aperçu disponible</div>
+                            <div className="text-slate-500 text-sm flex items-center justify-center h-full w-full">Aucun aperçu disponible</div>
                         )}
                     </div>
                 </div>
