@@ -23,7 +23,7 @@ const TerrainView = () => {
   const [editModalExp, setEditModalExp] = useState(null);
   const [editData, setEditData] = useState({ montantValide: "", motifRefus: "" });
   const [showSpontaneModal, setShowSpontaneModal] = useState(false);
-  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '' });
+  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait' });
 
   const handleValid100 = (exp) => {
     store.updateExpense(exp.id, {
@@ -42,7 +42,8 @@ const TerrainView = () => {
     setEditData({
       montantValide: exp.montantValide || exp.montantReclame || exp.montant || "",
       motifRefus: exp.motifRefus || "",
-      compteDe: exp.compteDe || ""
+      compteDe: exp.compteDe || "",
+      typeMontant: exp.typeMontant || "HTVA"
     });
   };
 
@@ -52,6 +53,7 @@ const TerrainView = () => {
         montantValide: editData.montantValide,
         motifRefus: editData.motifRefus,
         compteDe: editData.compteDe,
+        typeMontant: editData.typeMontant,
         isProcessed: true
       });
     }
@@ -81,11 +83,12 @@ const TerrainView = () => {
         prestataire: spontaneData.prestataire,
         montantReclame: spontaneData.montant,
         montantValide: spontaneData.montant,
+        typeMontant: spontaneData.typeMontant,
         type: 'Forfait',
         desc: 'Frais spontané sur place'
       });
       setShowSpontaneModal(false);
-      setSpontaneData({ prestataire: '', montant: '' });
+      setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait' });
     }
   };
 
@@ -284,12 +287,23 @@ const TerrainView = () => {
             </div>
             <div className="mb-4">
               <label className="block text-sm font-bold mb-1">Montant Retenu (PVE) en €</label>
-              <input
-                type="number" autoFocus
-                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 font-bold text-emerald-600"
-                value={editData.montantValide}
-                onChange={e => setEditData({...editData, montantValide: e.target.value})}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number" autoFocus
+                  className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 font-bold text-emerald-600"
+                  value={editData.montantValide}
+                  onChange={e => setEditData({...editData, montantValide: e.target.value})}
+                />
+                <select
+                  className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                  value={editData.typeMontant}
+                  onChange={e => setEditData({...editData, typeMontant: e.target.value})}
+                >
+                  <option value="HTVA">HTVA</option>
+                  <option value="TVAC">TVAC</option>
+                  <option value="Forfait">Forfait</option>
+                </select>
+              </div>
             </div>
             <div className="mb-6">
               <label className="block text-sm font-bold mb-1">Motif de la modification (Optionnel)</label>
@@ -318,11 +332,22 @@ const TerrainView = () => {
               className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-3"
               value={spontaneData.prestataire} onChange={e => setSpontaneData({...spontaneData, prestataire: e.target.value})}
             />
-            <input
-              type="number" placeholder="Montant accordé (€)"
-              className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-4"
-              value={spontaneData.montant} onChange={e => setSpontaneData({...spontaneData, montant: e.target.value})}
-            />
+            <div className="flex gap-2 mb-4">
+              <input
+                type="number" placeholder="Montant accordé (€)"
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                value={spontaneData.montant} onChange={e => setSpontaneData({...spontaneData, montant: e.target.value})}
+              />
+              <select
+                className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                value={spontaneData.typeMontant}
+                onChange={e => setSpontaneData({...spontaneData, typeMontant: e.target.value})}
+              >
+                <option value="HTVA">HTVA</option>
+                <option value="TVAC">TVAC</option>
+                <option value="Forfait">Forfait</option>
+              </select>
+            </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowSpontaneModal(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
               <button onClick={addSpontane} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Ajouter</button>
