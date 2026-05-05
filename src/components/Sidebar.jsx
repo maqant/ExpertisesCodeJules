@@ -5,15 +5,15 @@ import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import packageInfo from '../../package.json';
 
-const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
+const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
     return (
         <div 
             onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
-            className={`relative z-[60] w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (onDragFinish) onDragFinish(); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (onDragFinish) onDragFinish(); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
+            className={`relative z-[60] px-3 py-1.5 w-auto rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500 text-white scale-105' : 'border-indigo-500/50 hover:border-indigo-400 bg-indigo-900/80'} ${className}`}
             title="Glisser-déposer vos fichiers ici"
             onClick={() => {
                 const input = document.createElement('input');
@@ -24,12 +24,12 @@ const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
                 input.click();
             }}
         >
-            <span className={`text-[10px] font-bold ${isOver ? 'text-indigo-300' : 'text-slate-500'}`}>{label}</span>
+            <span className={`text-xs font-bold ${isOver ? 'text-white' : 'text-indigo-200'}`}>{label}</span>
         </div>
     );
 };
 
-const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
+const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
@@ -46,7 +46,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
                     </span>
                 );
             })}
-            <DropZone onFiles={(files) => files.forEach(f => handleAttachFile(docId, f))} accept=".pdf" />
+            <DropZone onDragFinish={onDragFinish} onFiles={(files) => files.forEach(f => handleAttachFile(docId, f))} accept=".pdf" />
         </div>
     );
 };
@@ -149,6 +149,14 @@ const Sidebar = () => {
     const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
     const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
     const [isDraggingOverAnnexes, setIsDraggingOverAnnexes] = useState(false);
+
+    const resetAllDragStates = () => {
+        setIsDraggingOverFrais(false);
+        setIsDraggingOverInfos(false);
+        setIsDraggingOverCause(false);
+        setIsDraggingOverAnnexes(false);
+    };
+
     const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
@@ -495,7 +503,7 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
-                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="flex gap-2"><div className="flex-1"><label>Réf Péchard</label><input type="text" name="refPechard" value={formData.refPechard} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Résidence</label><input type="text" name="nomResidence" value={formData.nomResidence} onChange={handleChange} className="input-field" /></div></div>
                             </div>
                         </details>
@@ -593,14 +601,14 @@ const Sidebar = () => {
 
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1"><label>Date du sinistre</label><input type="date" name="dateSinistre" value={formData.dateSinistre} onChange={handleChange} className="input-field mb-0" /></div>
-                                    <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
+                                    <div className="flex-1"><label className="flex items-center w-full">Date déclaration <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_mail_declaration" title="Mail Déclaration" /></label><input type="date" name="dateDeclaration" value={formData.dateDeclaration} onChange={handleChange} className="input-field mb-0" /></div>
                                 </div>
                                 <div className="mb-2">
                                     <label>Déclaré par (Nom)</label><input type="text" name="declarant" value={formData.declarant} onChange={handleChange} placeholder="Ex: Mme. X" className="input-field mb-0" />
                                 </div>
 
                                 <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
+                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
@@ -661,7 +669,7 @@ const Sidebar = () => {
                                     </div>
                                 )}
 
-                                <label className="flex items-center w-full mb-1">Description <AttachmentUI docId="doc_rapport_cause" title="Rapport de recherche" /></label>
+                                <label className="flex items-center w-full mb-1">Description <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_rapport_cause" title="Rapport de recherche" /></label>
                                 <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
                             </div>
                         </details>
