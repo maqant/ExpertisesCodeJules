@@ -9,10 +9,11 @@ const DropZone = ({ onFiles, label = "+", accept = "*", className = "" }) => {
     const [isOver, setIsOver] = useState(false);
     return (
         <div 
+            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
-            onDragLeave={() => setIsOver(false)}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); }}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (e.dataTransfer.files) onFiles(Array.from(e.dataTransfer.files)); }}
-            className={`w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
+            className={`relative z-[60] w-6 h-6 rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500/20 scale-110' : 'border-slate-600 hover:border-slate-400 bg-slate-800/50'} ${className}`}
             title="Glisser-déposer vos fichiers ici"
             onClick={() => {
                 const input = document.createElement('input');
