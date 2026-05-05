@@ -87,7 +87,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                     numPolice: "POL-123456789",
                     numConditionsGenerales: "CG-2023-V2",
                     franchise: "250",
-                    adresse: "123 Rue de la Paix, 75000 Paris",
+                    nomResidence: "Résidence Les Fleurs",
                     pertesIndirectes: "10%"
                 }
             };
@@ -155,7 +155,7 @@ ${documentType === 'contrat' ? `{
   "numPolice": "Numéro de police ou numéro du contrat",
   "numConditionsGenerales": "Numéro ou référence exacte des Conditions Générales appliquées au contrat",
   "franchise": "Montant ou règle de la franchise",
-  "adresse": "Adresse complète du risque assuré",
+  "nomResidence": "Nom du preneur ou de la résidence",
   "pertesIndirectes": "Pourcentage des pertes indirectes (Doit être STRICTEMENT '0%', '5%', '10%', ou '' si non trouvé)"
 }` : `{
   "expenses": [

@@ -110,6 +110,15 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const [hideAnnexIndex, setHideAnnexIndex] = useState(false);
+
+  // Ingestion Modal State
+  const [ingestionModal, setIngestionModal] = useState({ isOpen: false, type: null, file: null, data: null });
+  const openIngestion = (file, type, initialData = null) => {
+      setIngestionModal({ isOpen: true, type, file, data: initialData });
+  };
+  const closeIngestion = () => {
+      setIngestionModal({ isOpen: false, type: null, file: null, data: null });
+  };
   const [printSelection, setPrintSelection] = useState(null); // null = tout inclus, Set<string> = sélection
   const [coverPageCount, setCoverPageCount] = useState(1); // nb de pages de la page de garde (pour indexation correcte)
   const [expandedOccId, setExpandedOccId] = useState(null);
@@ -557,7 +566,7 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const handleAttachFreeAnnex = async (file, generatedTitle = null) => {
+  const handleAttachFreeAnnex = async (file, generatedTitle = null, desc = '') => {
       if (!file) return;
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
@@ -574,7 +583,7 @@ export const ExpertiseProvider = ({ children }) => {
               pages = pdfDoc.getPageCount();
           }
           
-          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: generatedTitle || file.name, customName: generatedTitle || file.name, desc: '', dbKey, isPdf, pages }]);
+          setAttachedFreeAnnexes(prev => [...prev, { id: crypto.randomUUID().toString(), name: generatedTitle || file.name, customName: generatedTitle || file.name, desc: desc, dbKey, isPdf, pages }]);
       } catch (err) {
           alert('Erreur lors de la lecture du fichier : ' + err.message);
       }
@@ -1184,6 +1193,7 @@ Voici le format JSON :
       printSelection, setPrintSelection,
       coverPageCount, setCoverPageCount,
       startResizing, stopResizing, resize, handleReset, handleChange, handleNewDossier,
+      ingestionModal, openIngestion, closeIngestion,
       handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,

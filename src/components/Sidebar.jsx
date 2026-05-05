@@ -1,8 +1,8 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import ValidationAiModal from './ValidationAiModal';
 import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
+import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
@@ -125,6 +125,7 @@ const Sidebar = () => {
     if (!context) return null;
 
     const {
+        ingestionModal, openIngestion, closeIngestion,
         activeTab, setActiveTab, sidebarWidth, isResizing, uiZoom, pastedJson, setPastedJson,
         orgaAdvancedMode, setOrgaAdvancedMode,
         showSubtotals, setShowSubtotals, currentDossierId,
@@ -173,17 +174,20 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
-            for (const file of files) {
+            if (isAiModeActive) {
+                const file = files[0]; // Process only the first file for AI extraction, but UI can be adapted later if needed
                 const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey);
                 if (result.success && result.data && result.data.title) {
-                    await handleAttachFreeAnnex(file, result.data.title);
+                    openIngestion(file, 'annexe', { customName: result.data.title });
                 } else {
-                    await handleAttachFreeAnnex(file);
+                    openIngestion(file, 'annexe');
                 }
+            } else {
+                 openIngestion(files[0], 'annexe');
             }
         } catch (err) {
             console.error("[Sidebar] Erreur lors du titrage de l'annexe :", err);
-            files.forEach(f => handleAttachFreeAnnex(f));
+            openIngestion(files[0], 'annexe');
         } finally {
             setIsAnnexAiLoading(false);
         }
@@ -226,21 +230,25 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
-            const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel, aiConfig.apiKey);
-            if (result.success && result.data) {
-                setFormData(prev => ({ ...prev, ...result.data }));
-                handleAttachFile('doc_cond_part', files[0]);
+            if (isAiModeActive) {
+                const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel, aiConfig.apiKey);
+                if (result.success && result.data) {
+                    openIngestion(files[0], 'cp', result.data);
+                } else {
+                    alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+                    openIngestion(files[0], 'cp');
+                }
             } else {
-                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+                openIngestion(files[0], 'cp');
             }
         } catch (err) {
             alert("Erreur : " + err.message);
+            openIngestion(files[0], 'cp');
         } finally {
             setIsContractAiLoading(false);
         }
     };
     const [isAiLoading, setIsAiLoading] = useState(false);
-    const [aiValidationData, setAiValidationData] = useState(null);
 
     const handleMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
@@ -249,42 +257,23 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
-            const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
-            if (result.success && result.data && result.data.expenses) {
-                setAiValidationData({ data: result.data.expenses, originalFile: files[0] });
+            if (isAiModeActive) {
+                const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
+                if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
+                    openIngestion(files[0], 'frais', result.data.expenses[0]);
+                } else {
+                    alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+                    openIngestion(files[0], 'frais');
+                }
             } else {
-                alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
+                openIngestion(files[0], 'frais');
             }
         } catch (err) {
             alert("Erreur : " + err.message);
+            openIngestion(files[0], 'frais');
         } finally {
             setIsAiLoading(false);
         }
-    };
-
-    const handleMagicDropValidate = (validatedData) => {
-        const newExpId = crypto.randomUUID();
-        const newExp = {
-            id: newExpId,
-            prestataire: validatedData.prestataire || '',
-            type: validatedData.type || '',
-            ref: validatedData.ref || '',
-            desc: validatedData.desc || '',
-            compteDe: validatedData.compteDe || '',
-            montant: validatedData.montantReclame ? (isNaN(parseFloat(String(validatedData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(validatedData.montantReclame).replace(',', '.')))) : (validatedData.montant || ''),
-            montantReclame: validatedData.montantReclame || '',
-            montantValide: validatedData.montantValide || '',
-            pourcentageVetuste: validatedData.pourcentageVetuste || 0,
-            motifRefus: validatedData.motifRefus || '',
-            typeMontant: validatedData.typeMontant || 'HTVA',
-            avisCouverture: validatedData.avisCouverture || 'Oui',
-            noteCouverture: validatedData.noteCouverture || ''
-        };
-        addExpense(newExp);
-        if (aiValidationData.originalFile) {
-            handleAttachFile(newExpId, aiValidationData.originalFile);
-        }
-        setAiValidationData(null);
     };
 
     const [editingExpert, setEditingExpert] = useState(null);
@@ -573,11 +562,7 @@ const Sidebar = () => {
                                     setIsDraggingOverInfos(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
                                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        if (isAiModeActive && key) {
-                                            await handleContractMagicDrop(Array.from(e.dataTransfer.files));
-                                        } else {
-                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFile('doc_cond_part', f));
-                                        }
+                                        await handleContractMagicDrop(Array.from(e.dataTransfer.files));
                                     }
                                 }}
                             >
@@ -590,7 +575,7 @@ const Sidebar = () => {
                                             e.stopPropagation();
                                             setIsDraggingOverInfos(false);
                                             const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                                                 await handleContractMagicDrop(Array.from(e.dataTransfer.files));
                                             }
                                         }}
@@ -766,8 +751,7 @@ const Sidebar = () => {
                                     e.preventDefault();
                                     setIsDraggingOverFrais(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                    if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        // Appel global pour créer une nouvelle facture
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                                         await handleMagicDrop(Array.from(e.dataTransfer.files));
                                     }
                                 }}
@@ -781,7 +765,7 @@ const Sidebar = () => {
                                             e.stopPropagation();
                                             setIsDraggingOverFrais(false);
                                             const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                                                 await handleMagicDrop(Array.from(e.dataTransfer.files));
                                             }
                                         }}
@@ -947,11 +931,7 @@ const Sidebar = () => {
                                     setIsDraggingOverAnnexes(false);
                                     const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
                                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        if (isAiModeActive && key) {
-                                            await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
-                                        } else {
-                                            Array.from(e.dataTransfer.files).forEach(f => handleAttachFreeAnnex(f));
-                                        }
+                                        await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
                                     }
                                 }}
                             >
@@ -964,7 +944,7 @@ const Sidebar = () => {
                                             e.stopPropagation();
                                             setIsDraggingOverAnnexes(false);
                                             const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
-                                            if (isAiModeActive && key && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                                                 await handleAnnexMagicDrop(Array.from(e.dataTransfer.files));
                                             }
                                         }}
@@ -976,7 +956,7 @@ const Sidebar = () => {
                                 )}
                                 <div className="flex justify-between items-center bg-slate-900/50 p-2 rounded border border-slate-700 mb-2">
                                     <span className="text-[10px] text-slate-400 font-bold uppercase">📂 Glisser vos fichiers ici</span>
-                                    <DropZone onFiles={(files) => files.forEach(f => handleAttachFreeAnnex(f))} label="➕" />
+                                    <DropZone onFiles={(files) => handleAnnexMagicDrop(files)} label="➕" />
                                 </div>
                                 <div className="space-y-2">
                                     {attachedFreeAnnexes.map(file => (
@@ -1069,16 +1049,9 @@ const Sidebar = () => {
                 </div>
             </div>
 
-            {aiValidationData && (
-                <ValidationAiModal
-                    extractedData={aiValidationData.data}
-                    occupants={occupants}
-                    onValidate={handleMagicDropValidate}
-                    onCancel={() => setAiValidationData(null)}
-                />
-            )}
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
+        <UniversalIngestionModal />
         </>
 
     );
