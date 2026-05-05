@@ -82,7 +82,6 @@ const ValidationAiModal = ({ extractedData, occupants = [], onValidate, onCancel
                                 className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                             >
                                 <option value="">-- Non assigné --</option>
-                                <option value="COMMUNS">COMMUNS</option>
                                 {occupants.map(o => (
                                     <option key={o.id} value={o.id}>
                                         {o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : `Occupant sans nom`}
