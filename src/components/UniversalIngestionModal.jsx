@@ -7,6 +7,8 @@ const UniversalIngestionModal = () => {
         closeIngestion,
         setFormData,
         addExpense,
+        updateExpense,
+        expenses,
         handleAttachFile,
         handleAttachFreeAnnex,
         occupants,
@@ -14,28 +16,34 @@ const UniversalIngestionModal = () => {
         formData
     } = useContext(ExpertiseContext);
 
-    const { isOpen, type, file, data } = ingestionModal;
+    const { isOpen, type, file, data, existingId } = ingestionModal;
     const [fileUrl, setFileUrl] = useState(null);
     const [localData, setLocalData] = useState({});
 
     // Populate localData when modal opens
     useEffect(() => {
-        if (isOpen && data) {
-            setLocalData(data);
-        } else {
-            // Default empty data based on type
-            if (type === 'cp') {
-                setLocalData({
-                    numPolice: '', numConditionsGenerales: '', pertesIndirectes: '',
-                    franchise: '', nomResidence: '', nomCie: '', nomContrat: ''
-                });
-            } else if (type === 'frais') {
-                setLocalData({
-                    prestataire: '', montant: '', montantReclame: '', typeMontant: 'HTVA',
-                    type: 'Facture', ref: '', desc: '', compteDe: ''
-                });
-            } else if (type === 'annexe') {
-                setLocalData({ customName: file?.name || '', desc: '' });
+        if (isOpen) {
+            if (type === 'frais' && existingId) {
+                // Find existing expense and merge with any AI extracted data
+                const existingExpense = expenses.find(e => e.id === existingId) || {};
+                setLocalData({ ...existingExpense, ...(data || {}) });
+            } else if (data) {
+                setLocalData(data);
+            } else {
+                // Default empty data based on type
+                if (type === 'cp') {
+                    setLocalData({
+                        numPolice: '', numConditionsGenerales: '', pertesIndirectes: '',
+                        franchise: '', nomResidence: '', nomCie: '', nomContrat: ''
+                    });
+                } else if (type === 'frais') {
+                    setLocalData({
+                        prestataire: '', montant: '', montantReclame: '', typeMontant: 'HTVA',
+                        type: 'Facture', ref: '', desc: '', compteDe: ''
+                    });
+                } else if (type === 'annexe') {
+                    setLocalData({ customName: file?.name || '', desc: '' });
+                }
             }
         }
 
@@ -64,27 +72,52 @@ const UniversalIngestionModal = () => {
                 // Attach file
                 if (file) await handleAttachFile('doc_cond_part', file);
             } else if (type === 'frais') {
-                // Add expense
-                const newExpId = crypto.randomUUID();
-                const newExp = {
-                    id: newExpId,
-                    prestataire: localData.prestataire || '',
-                    type: localData.type || '',
-                    ref: localData.ref || '',
-                    desc: localData.desc || '',
-                    compteDe: localData.compteDe || '',
-                    montant: localData.montantReclame ? (isNaN(parseFloat(String(localData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(localData.montantReclame).replace(',', '.')))) : (localData.montant || ''),
-                    montantReclame: localData.montantReclame || '',
-                    montantValide: localData.montantValide || '',
-                    pourcentageVetuste: localData.pourcentageVetuste || 0,
-                    motifRefus: localData.motifRefus || '',
-                    typeMontant: localData.typeMontant || 'HTVA',
-                    avisCouverture: localData.avisCouverture || 'Oui',
-                    noteCouverture: localData.noteCouverture || ''
-                };
-                addExpense(newExp);
-                // Attach file
-                if (file) await handleAttachFile(newExpId, file);
+                const finalMontantReclame = localData.montantReclame ? (isNaN(parseFloat(String(localData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(localData.montantReclame).replace(',', '.')))) : (localData.montant || '');
+                if (existingId) {
+                    // Update existing expense
+                    const updates = {
+                        prestataire: localData.prestataire || '',
+                        type: localData.type || '',
+                        ref: localData.ref || '',
+                        desc: localData.desc || '',
+                        compteDe: localData.compteDe || '',
+                        montant: finalMontantReclame,
+                        montantReclame: localData.montantReclame || '',
+                        montantValide: localData.montantValide || '',
+                        pourcentageVetuste: localData.pourcentageVetuste || 0,
+                        motifRefus: localData.motifRefus || '',
+                        typeMontant: localData.typeMontant || 'HTVA',
+                        avisCouverture: localData.avisCouverture || 'Oui',
+                        noteCouverture: localData.noteCouverture || ''
+                    };
+                    Object.keys(updates).forEach(key => {
+                        updateExpense(existingId, key, updates[key]);
+                    });
+                    // Attach file
+                    if (file) await handleAttachFile(existingId, file);
+                } else {
+                    // Add new expense
+                    const newExpId = crypto.randomUUID();
+                    const newExp = {
+                        id: newExpId,
+                        prestataire: localData.prestataire || '',
+                        type: localData.type || '',
+                        ref: localData.ref || '',
+                        desc: localData.desc || '',
+                        compteDe: localData.compteDe || '',
+                        montant: finalMontantReclame,
+                        montantReclame: localData.montantReclame || '',
+                        montantValide: localData.montantValide || '',
+                        pourcentageVetuste: localData.pourcentageVetuste || 0,
+                        motifRefus: localData.motifRefus || '',
+                        typeMontant: localData.typeMontant || 'HTVA',
+                        avisCouverture: localData.avisCouverture || 'Oui',
+                        noteCouverture: localData.noteCouverture || ''
+                    };
+                    addExpense(newExp);
+                    // Attach file
+                    if (file) await handleAttachFile(newExpId, file);
+                }
             } else if (type === 'annexe') {
                 if (file) await handleAttachFreeAnnex(file, localData.customName, localData.desc);
             }
@@ -124,7 +157,7 @@ const UniversalIngestionModal = () => {
                 <div className="w-1/3 bg-slate-900 p-6 flex flex-col h-full overflow-y-auto">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-bold text-indigo-300">
-                            {type === 'cp' ? 'Conditions Particulières' : type === 'frais' ? 'Nouvelle Ligne de Frais' : 'Nouvelle Annexe Libre'}
+                            {type === 'cp' ? 'Conditions Particulières' : type === 'frais' ? (existingId ? 'Modifier Ligne de Frais' : 'Nouvelle Ligne de Frais') : 'Nouvelle Annexe Libre'}
                         </h2>
                         <button onClick={closeIngestion} className="text-slate-400 hover:text-white transition-colors">✕</button>
                     </div>

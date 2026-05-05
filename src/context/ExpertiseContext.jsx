@@ -112,12 +112,12 @@ export const ExpertiseProvider = ({ children }) => {
   const [hideAnnexIndex, setHideAnnexIndex] = useState(false);
 
   // Ingestion Modal State
-  const [ingestionModal, setIngestionModal] = useState({ isOpen: false, type: null, file: null, data: null });
-  const openIngestion = (file, type, initialData = null) => {
-      setIngestionModal({ isOpen: true, type, file, data: initialData });
+  const [ingestionModal, setIngestionModal] = useState({ isOpen: false, type: null, file: null, data: null, existingId: null });
+  const openIngestion = (file, type, initialData = null, existingId = null) => {
+      setIngestionModal({ isOpen: true, type, file, data: initialData, existingId });
   };
   const closeIngestion = () => {
-      setIngestionModal({ isOpen: false, type: null, file: null, data: null });
+      setIngestionModal({ isOpen: false, type: null, file: null, data: null, existingId: null });
   };
   const [printSelection, setPrintSelection] = useState(null); // null = tout inclus, Set<string> = sélection
   const [coverPageCount, setCoverPageCount] = useState(1); // nb de pages de la page de garde (pour indexation correcte)

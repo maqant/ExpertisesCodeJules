@@ -29,10 +29,18 @@ const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = ""
     );
 };
 
-const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish }) => {
+const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
+
+    const handleFiles = (files) => {
+        if (onUpload) {
+            onUpload(files);
+        } else {
+            files.forEach(f => handleAttachFile(docId, f));
+        }
+    };
 
     return (
         <div className="flex items-center gap-1 ml-auto shrink-0 flex-wrap justify-end">
@@ -46,7 +54,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish }) =>
                     </span>
                 );
             })}
-            <DropZone onDragFinish={onDragFinish} onFiles={(files) => files.forEach(f => handleAttachFile(docId, f))} accept=".pdf" />
+            <DropZone onDragFinish={onDragFinish} onFiles={handleFiles} accept=".pdf" />
         </div>
     );
 };
@@ -250,7 +258,7 @@ const Sidebar = () => {
     };
     const [isAiLoading, setIsAiLoading] = useState(false);
 
-    const handleMagicDrop = async (files) => {
+    const handleMagicDrop = async (files, existingId = null) => {
         if (!files || files.length === 0) return;
         setIsAiLoading(true);
         const aiProvider = aiConfig.provider;
@@ -260,17 +268,17 @@ const Sidebar = () => {
             if (isAiModeActive) {
                 const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
                 if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
-                    openIngestion(files[0], 'frais', result.data.expenses[0]);
+                    openIngestion(files[0], 'frais', result.data.expenses[0], existingId);
                 } else {
                     alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
-                    openIngestion(files[0], 'frais');
+                    openIngestion(files[0], 'frais', null, existingId);
                 }
             } else {
-                openIngestion(files[0], 'frais');
+                openIngestion(files[0], 'frais', null, existingId);
             }
         } catch (err) {
             alert("Erreur : " + err.message);
-            openIngestion(files[0], 'frais');
+            openIngestion(files[0], 'frais', null, existingId);
         } finally {
             setIsAiLoading(false);
         }
@@ -593,7 +601,7 @@ const Sidebar = () => {
                                 </div>
 
                                 <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
+                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" onUpload={(files) => handleContractMagicDrop(files)} /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
@@ -830,7 +838,7 @@ const Sidebar = () => {
                                                     )}
                                                     <div className="flex justify-between items-center border-t border-slate-700 pt-2">
                                                         <label className="text-indigo-300 font-bold block">📄 Justificatif (PDF)</label>
-                                                        <DropZone onFiles={(files) => files.forEach(f => handleAttachFile(exp.id, f))} accept=".pdf" />
+                                                        <DropZone onFiles={(files) => handleMagicDrop(files, exp.id)} accept=".pdf" />
                                                     </div>
                                                     {(attachedFiles[exp.id] || []).length > 0 && (
                                                         <div className="mt-2 space-y-1">
