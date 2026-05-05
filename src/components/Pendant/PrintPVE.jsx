@@ -1,5 +1,6 @@
 import React from 'react';
 import { useFinanceStore } from '../../store/financeStore';
+import { getCompteDeName } from '../../utils/formatters';
 
 const PrintPVE = ({ onBack }) => {
   const store = useFinanceStore();
@@ -7,23 +8,9 @@ const PrintPVE = ({ onBack }) => {
   const formData = store.metier.formData;
   const occupants = store.pii.occupants;
   const totalPVE = store.getTotalPVE();
-
-  const getCompteDeName = (compteDe) => {
-    if (!compteDe) return 'Non attribué';
-    const occ = occupants.find(o => o.id === compteDe);
-    if (occ) {
-        const nomAffiche = occ.nom || '';
-        if (occ.etage && occ.etage.trim() !== '') {
-            return `${nomAffiche} (${occ.etage.trim()})`;
-        }
-        return nomAffiche;
-    }
-    return compteDe;
-  };
-
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
     if (!exp.isProcessed) return acc;
-    const name = getCompteDeName(exp.compteDe);
+    const name = getCompteDeName(exp.compteDe, occupants);
     if (!acc[name]) acc[name] = { HTVA: 0, TVAC: 0, Forfait: 0 };
     const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
     const safeVal = isNaN(val) ? 0 : val;
@@ -95,7 +82,7 @@ const PrintPVE = ({ onBack }) => {
                     <div className="font-bold">{exp.prestataire || 'Frais'}</div>
                     <div className="text-xs text-slate-500">{exp.desc}</div>
                   </td>
-                  <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe)}</td>
+                  <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe, occupants)}</td>
                   <td className="border p-2 text-right">{exp.montantReclame || exp.montant || '0.00'} €</td>
                   <td className="border p-2 text-right font-bold">
                       {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €

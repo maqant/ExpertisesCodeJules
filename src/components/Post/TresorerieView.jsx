@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFinanceStore } from '../../store/financeStore';
 import PaymentWizardModal from './PaymentWizardModal';
+import { getCompteDeName } from '../../utils/formatters';
 
 const TresorerieView = () => {
   const store = useFinanceStore();
@@ -13,23 +14,9 @@ const TresorerieView = () => {
     return !(occ && occ.contreExpert);
   });
 
-  const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
-
-  const findOccByCompteDe = (compteDe) => {
-    if (!compteDe) return null;
-    return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
-  };
-
-  const getCompteDeName = (compteDe) => {
-    const matchedOcc = findOccByCompteDe(compteDe);
-    if (matchedOcc) return fmtOccName(matchedOcc);
-    if (compteDe && compteDe.trim() !== '') return compteDe;
-    return 'Non attribué';
-  };
-
   // Regrouper par occupant (avec résolution nom/ID)
   const expensesByOcc = expenses.reduce((acc, exp) => {
-    const pName = getCompteDeName(exp.compteDe);
+    const pName = getCompteDeName(exp.compteDe, occupants);
     if (!acc[pName]) acc[pName] = [];
     acc[pName].push(exp);
     return acc;
@@ -37,7 +24,11 @@ const TresorerieView = () => {
 
   const paiements = store.metier.paiements || [];
   const sumTotalRecu = paiements.reduce((acc, p) => acc + (parseFloat(p.montantTotal) || 0), 0);
-  const sumTotalVentile = paiements.reduce((acc, p) => acc + (p.ventilations || []).reduce((s, v) => s + (parseFloat(v.montantAlloue) || 0), 0), 0);
+
+  // Flatten ventilations and compute total to avoid nested reducers
+  const sumTotalVentile = paiements
+    .flatMap(p => p.ventilations || [])
+    .reduce((acc, v) => acc + (parseFloat(v.montantAlloue) || 0), 0);
   const reliquatGlobal = Math.max(0, sumTotalRecu - sumTotalVentile);
 
   return (
