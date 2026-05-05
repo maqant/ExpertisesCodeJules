@@ -1,5 +1,8 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
+
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+
 
 const BlockToolbar = ({ id, disableText = false }) => {
     const context = useContext(ExpertiseContext);
@@ -162,51 +165,42 @@ const Workspace = () => {
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
     } = context;
 
-    const fmtOccName = (o) => o.nom ? (o.etage && o.etage.trim() !== '' ? `${o.etage} - ${o.nom}` : o.nom) : '';
-
-    const findOccByCompteDe = (compteDe) => {
-        if (!compteDe) return null;
-        return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
-    };
-
-    const getCompteDeName = (compteDe) => {
-        const matchedOcc = findOccByCompteDe(compteDe);
-        if (matchedOcc) return fmtOccName(matchedOcc);
-        if (compteDe && compteDe.trim() !== '') return compteDe;
-        return 'Non attribué';
-    };
-
     const isExpenseExcludedFromMain = (exp) => {
         if (exp.avisCouverture === 'Non') return true;
-        const matchedOcc = findOccByCompteDe(exp.compteDe);
+        const matchedOcc = findOccByCompteDe(exp.compteDe, occupants);
         if (matchedOcc && matchedOcc.contreExpert) return true;
         return false;
     };
 
-    const mainExpenses = expenses.filter(exp => !isExpenseExcludedFromMain(exp));
+    // SSOT Architecture: Calcul "à la volée" (Derived State)
+    const { mainExpenses, totalFrais, dettesParPersonne } = useMemo(() => {
+        const mainExp = expenses.filter(exp => !isExpenseExcludedFromMain(exp));
 
-    const totalFrais = mainExpenses.reduce((acc, curr) => {
-        const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-        return acc + (isNaN(val) ? 0 : val);
-    }, 0);
+        const total = mainExp.reduce((acc, curr) => {
+            const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
+            return acc + (isNaN(val) ? 0 : val);
+        }, 0);
 
-    const dettesParPersonne = expenses.reduce((acc, exp) => {
-        const pName = getCompteDeName(exp.compteDe);
-        if (!acc[pName]) acc[pName] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
-        acc[pName].lignes.push(exp);
-        const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
-        if (!isNaN(val)) {
-            acc[pName][exp.typeMontant || 'HTVA'] += val;
-        }
-        return acc;
-    }, {});
+        const dettes = expenses.reduce((acc, exp) => {
+            const pKey = exp.compteDe || 'Non attribué';
+            if (!acc[pKey]) acc[pKey] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
+            acc[pKey].lignes.push(exp);
+            const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
+            if (!isNaN(val)) {
+                acc[pKey][exp.typeMontant || 'HTVA'] += val;
+            }
+            return acc;
+        }, {});
+
+        return { mainExpenses: mainExp, totalFrais: total, dettesParPersonne: dettes };
+    }, [expenses, occupants]);
 
 
 
     const formatShortCompteDe = (compteDeStr) => {
         if (!compteDeStr || typeof compteDeStr !== 'string') return '';
         
-        const occupant = findOccByCompteDe(compteDeStr);
+        const occupant = findOccByCompteDe(compteDeStr, occupants);
         
         if (occupant) {
             const nomAffiche = occupant.nom || '';
@@ -242,7 +236,7 @@ const Workspace = () => {
                             <p className="italic underline mb-1 break-words">Expertise contradictoire avec :</p>
                             <p className="break-words"><strong>Cie :</strong> {formData.cieContradictoire}</p>
                             <p className="break-words"><strong>Expert :</strong> {formData.bureauContradictoire ? formData.bureauContradictoire + ' - ' : ''}{formData.expertContradictoire}</p>
-                            <p className="break-words"><strong>Pour le compte de :</strong> {formData.compteDeContradictoire}</p>
+                            <p className="break-words"><strong>Pour le compte de :</strong> {getCompteDeName(formData.compteDeContradictoire, occupants)}</p>
                         </div>
                     )}
                 </BlockContainer>
@@ -296,6 +290,7 @@ const Workspace = () => {
             if (key === 'frais') return (
                 <BlockContainer key="frais" id="frais">
                     {blockTitles.frais && <p className="font-bold underline mb-2 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize + 2}px` }}>{blockTitles.frais}</p>}
+
                     <table className="w-full border-collapse mb-2 text-left break-inside-avoid table-fixed border border-slate-400" style={{ fontSize: `${styles.frais.fontSize}px` }}>
                         <thead className="bg-slate-100">
                             <tr>
@@ -342,13 +337,13 @@ const Workspace = () => {
                                 <p className="font-bold mb-0">Détail des justificatifs par partie</p>
                                 <p className="text-[0.85em] text-slate-500 italic mb-2">Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.</p>
                                 <div className="space-y-4">
-                                    {Object.entries(dettesParPersonne).map(([personne, data]) => {
-                                        const matchOcc = occupants.find(o => fmtOccName(o) === personne);
+                                    {Object.entries(dettesParPersonne).map(([personneKey, data]) => {
+                                        const matchOcc = findOccByCompteDe(personneKey, occupants);
                                         const isExpertClient = matchOcc?.contreExpert;
                                         return (
-                                            <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
+                                            <div key={personneKey} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
                                                 <div className="flex justify-between items-baseline mb-1">
-                                                    <h4 className="font-bold underline">{formatShortCompteDe(personne)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                                    <h4 className="font-bold underline">{formatShortCompteDe(personneKey)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
                                                     <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
                                                         {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
                                                         {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
@@ -359,7 +354,7 @@ const Workspace = () => {
                                                     {data.lignes.map((l, i) => {
                                                         const isExcluded = isExpenseExcludedFromMain(l);
                                                         const pagInfo = isExcluded ? getPaginationInfo(l.id) : null;
-                                                        const occForLine = findOccByCompteDe(l.compteDe);
+                                                        const occForLine = findOccByCompteDe(l.compteDe, occupants);
                                                         const lineIsExpertClient = occForLine?.contreExpert;
                                                         return (
                                                             <li key={i}>
@@ -471,6 +466,7 @@ const Workspace = () => {
                     /* On force les colonnes 50% à rester en ligne à l'impression si besoin, Tailwind 'w-1/2' s'en charge. */
                 }
             `}</style>
+
         </div>
     );
 };
