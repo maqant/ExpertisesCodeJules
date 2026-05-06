@@ -3,6 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 // Configurer le worker pour react-pdf (correction Vercel 404)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -167,35 +168,53 @@ const UniversalIngestionModal = () => {
                     <h2 className="text-white font-bold mb-2 flex items-center gap-2">
                         <span>📄</span> Document : {file?.name}
                     </h2>
-                    <div
-                        ref={containerRef}
-                        className={`flex-1 bg-slate-950 rounded-lg border border-slate-700 overflow-y-auto p-2 relative ${isImage ? 'flex items-center justify-center' : ''}`}
-                    >
+                    <div ref={containerRef} className="flex-1 flex flex-col bg-slate-950 rounded-lg border border-slate-700 overflow-hidden relative">
                         {fileUrl ? (
-                            isImage ? (
-                                <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded" />
-                            ) : (
-                                <div className="flex flex-col items-center gap-4 py-4 w-full">
-                                    <Document
-                                        file={file}
-                                        onLoadSuccess={onDocumentLoadSuccess}
-                                        loading={<div className="text-slate-400 text-sm font-bold animate-pulse">⏳ Chargement du document...</div>}
-                                        error={<div className="text-red-400 text-sm font-bold">❌ Erreur lors du chargement du PDF.</div>}
-                                        className="flex flex-col gap-4 w-full items-center"
-                                    >
-                                        {Array.from(new Array(numPages), (el, index) => (
-                                            <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden">
-                                                <Page
-                                                    pageNumber={index + 1}
-                                                    width={containerWidth > 0 ? containerWidth : undefined}
-                                                    renderTextLayer={false}
-                                                    renderAnnotationLayer={false}
-                                                />
-                                            </div>
-                                        ))}
-                                    </Document>
-                                </div>
-                            )
+                            <TransformWrapper
+                                initialScale={1}
+                                minScale={0.5}
+                                maxScale={4}
+                                centerOnInit={true}
+                                wheel={{ step: 0.1 }}
+                            >
+                                {({ zoomIn, zoomOut, resetTransform }) => (
+                                    <div className="relative w-full h-full flex flex-col">
+
+                                        {/* Barre d'outils de Zoom flottante */}
+                                        <div className="absolute top-4 right-4 z-50 flex gap-2 bg-slate-800/90 p-1.5 rounded-lg border border-slate-600 backdrop-blur-md shadow-lg">
+                                            <button onClick={() => zoomIn()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">+</button>
+                                            <button onClick={() => zoomOut()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">-</button>
+                                            <button onClick={() => resetTransform()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors" title="Centrer">↺</button>
+                                        </div>
+
+                                        {/* Zone de rendu du document */}
+                                        <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full flex flex-col items-center justify-center py-4">
+                                            {isImage ? (
+                                                <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded" />
+                                            ) : (
+                                                <Document
+                                                    file={file}
+                                                    onLoadSuccess={onDocumentLoadSuccess}
+                                                    loading={<div className="text-slate-400 text-sm font-bold animate-pulse">⏳ Chargement du document...</div>}
+                                                    error={<div className="text-red-400 text-sm font-bold">❌ Erreur lors du chargement du PDF.</div>}
+                                                    className="flex flex-col gap-4 w-full items-center"
+                                                >
+                                                    {Array.from(new Array(numPages), (el, index) => (
+                                                        <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden">
+                                                            <Page
+                                                                pageNumber={index + 1}
+                                                                width={containerWidth > 0 ? containerWidth : undefined}
+                                                                renderTextLayer={false}
+                                                                renderAnnotationLayer={false}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </Document>
+                                            )}
+                                        </TransformComponent>
+                                    </div>
+                                )}
+                            </TransformWrapper>
                         ) : (
                             <div className="text-slate-500 text-sm flex items-center justify-center h-full w-full">Aucun aperçu disponible</div>
                         )}
