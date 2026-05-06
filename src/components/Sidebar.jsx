@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
+import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
 
@@ -796,7 +797,25 @@ const Sidebar = () => {
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
                                                 <span className="text-slate-500 cursor-grab">⠿</span>
                                                 <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${(()=>{ const o = occupants.find(occ=>occ.id===exp.compteDe); if(o) { const fn = `${o.nom||''} ${o.prenom||''}`.trim(); return o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fn}` : fn; } return exp.compteDe; })()})` : ''}</span>
-                                                {(attachedFiles[exp.id] || []).length > 0 && <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>}
+                                                {(attachedFiles[exp.id] || []).length > 0 && (
+                                                    <div className="flex items-center">
+                                                        <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const firstFile = attachedFiles[exp.id][0];
+                                                                if (firstFile) {
+                                                                    context.handleOpenFile(firstFile.dbKey, true);
+                                                                }
+                                                            }}
+                                                            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors ml-1 flex items-center justify-center"
+                                                            title="Voir le document"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <div className="mt-1 grid grid-cols-2 gap-2">
@@ -862,7 +881,7 @@ const Sidebar = () => {
                                         )}
                                     </div>
                                 )})}
-                                <button onClick={addExpense} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
+                                <button onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
                                 <datalist id="prestataires-list">
                                     {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
                                         .sort((a, b) => a.localeCompare(b))
