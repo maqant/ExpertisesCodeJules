@@ -19,26 +19,31 @@ const fileToBase64 = (file) => {
     });
 };
 
-// Utilitaire pour extraire la première page d'un PDF sous forme d'image Base64
-const pdfToBase64Image = async (file) => {
+// Utilitaire pour extraire les pages d'un PDF sous forme d'images Base64
+const pdfToBase64Images = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
+    const images = [];
+    const maxPages = Math.min(pdf.numPages, 20); // Limite de sécurité à 20 pages
 
-    const scale = 1.5;
-    const viewport = page.getViewport({ scale });
+    for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const scale = 1.5;
+        const viewport = page.getViewport({ scale });
 
-    // Créer un canvas HTML
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+        // Créer un canvas HTML
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-    // Rendre la page sur le canvas
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
+        // Rendre la page sur le canvas
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-    // Convertir en base64
-    return canvas.toDataURL('image/jpeg', 0.8);
+        // Convertir en base64
+        images.push(canvas.toDataURL('image/jpeg', 0.8));
+    }
+    return images;
 };
 
 /**
@@ -120,21 +125,26 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
             const contentArray = [{ type: "text", text: "Voici le(s) document(s) à analyser." }];
 
             for (const file of fileArray) {
-                let base64Image;
                 if (file.type === 'application/pdf') {
-                    base64Image = await pdfToBase64Image(file);
+                    const base64Images = await pdfToBase64Images(file);
+                    for (const img of base64Images) {
+                        contentArray.push({
+                            type: "image_url",
+                            image_url: { url: img }
+                        });
+                    }
                 } else if (file.type.startsWith('image/')) {
-                    base64Image = await fileToBase64(file);
+                    const base64Image = await fileToBase64(file);
+                    contentArray.push({
+                        type: "image_url",
+                        image_url: { url: base64Image }
+                    });
                 } else {
                      return {
                         success: false,
                         error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
                     };
                 }
-                contentArray.push({
-                    type: "image_url",
-                    image_url: { url: base64Image }
-                });
             }
 
             // Payload générique pour un modèle multimodal (ex: gpt-4o)
@@ -146,7 +156,17 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                         content: documentType === 'annexe'
                             ? `Tu es un assistant administratif. Lis ce document et donne-lui un titre clair, professionnel et très concis (maximum 1 ou 2 lignes). Ce titre servira de légende dans un rapport d'expertise. Ne réponds QUE par le texte du titre, sans guillemets, sans introduction ni formules de politesse.`
                             : documentType === 'cause'
-                            ? `Tu es un expert en assurances. Je vais te donner un ou plusieurs documents (rapport de recherche de fuite, mail, devis). Ta mission est d'extraire et de synthétiser l'origine, la cause et les circonstances du sinistre de manière professionnelle, concise et factuelle. Ne réponds QUE par le paragraphe de synthèse, sans introduction.`
+                            ? `Tu es un expert en assurance spécialisé dans le bâtiment. Ton rôle est de lire ce rapport technique (recherche de fuite, rapport de pompiers, etc.) et d'en extraire UNIQUEMENT les faits techniques.
+
+Ignore totalement les lettres de couverture, les formules de politesse, les noms des gestionnaires ou l'historique des rendez-vous.
+
+Rédige un paragraphe concis et professionnel qui répond uniquement à ces questions :
+1. Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
+2. Où est-elle localisée avec précision ?
+3. Quelles sont les conséquences matérielles directes constatées (ex: matériaux saturés) ?
+4. Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
+
+Ne fais pas d'introduction, va droit au but.`
                             : `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
 ${documentType === 'contrat' ? `{
