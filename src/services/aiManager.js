@@ -19,26 +19,31 @@ const fileToBase64 = (file) => {
     });
 };
 
-// Utilitaire pour extraire la première page d'un PDF sous forme d'image Base64
-const pdfToBase64Image = async (file) => {
+// Utilitaire pour extraire les pages d'un PDF sous forme d'images Base64
+const pdfToBase64Images = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
+    const images = [];
+    const maxPages = Math.min(pdf.numPages, 20); // Limite de sécurité à 20 pages
 
-    const scale = 1.5;
-    const viewport = page.getViewport({ scale });
+    for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const scale = 1.5;
+        const viewport = page.getViewport({ scale });
 
-    // Créer un canvas HTML
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+        // Créer un canvas HTML
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-    // Rendre la page sur le canvas
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
+        // Rendre la page sur le canvas
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-    // Convertir en base64
-    return canvas.toDataURL('image/jpeg', 0.8);
+        // Convertir en base64
+        images.push(canvas.toDataURL('image/jpeg', 0.8));
+    }
+    return images;
 };
 
 /**
@@ -120,21 +125,26 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
             const contentArray = [{ type: "text", text: "Voici le(s) document(s) à analyser." }];
 
             for (const file of fileArray) {
-                let base64Image;
                 if (file.type === 'application/pdf') {
-                    base64Image = await pdfToBase64Image(file);
+                    const base64Images = await pdfToBase64Images(file);
+                    for (const img of base64Images) {
+                        contentArray.push({
+                            type: "image_url",
+                            image_url: { url: img }
+                        });
+                    }
                 } else if (file.type.startsWith('image/')) {
-                    base64Image = await fileToBase64(file);
+                    const base64Image = await fileToBase64(file);
+                    contentArray.push({
+                        type: "image_url",
+                        image_url: { url: base64Image }
+                    });
                 } else {
                      return {
                         success: false,
                         error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
                     };
                 }
-                contentArray.push({
-                    type: "image_url",
-                    image_url: { url: base64Image }
-                });
             }
 
             // Payload générique pour un modèle multimodal (ex: gpt-4o)
