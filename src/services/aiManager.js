@@ -146,7 +146,17 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                         content: documentType === 'annexe'
                             ? `Tu es un assistant administratif. Lis ce document et donne-lui un titre clair, professionnel et très concis (maximum 1 ou 2 lignes). Ce titre servira de légende dans un rapport d'expertise. Ne réponds QUE par le texte du titre, sans guillemets, sans introduction ni formules de politesse.`
                             : documentType === 'cause'
-                            ? `Tu es un expert en assurances. Je vais te donner un ou plusieurs documents (rapport de recherche de fuite, mail, devis). Ta mission est d'extraire et de synthétiser l'origine, la cause et les circonstances du sinistre de manière professionnelle, concise et factuelle. Ne réponds QUE par le paragraphe de synthèse, sans introduction.`
+                            ? `Tu es un expert en assurance spécialisé dans le bâtiment. Ton rôle est de lire ce rapport technique (recherche de fuite, rapport de pompiers, etc.) et d'en extraire UNIQUEMENT les faits techniques.
+
+Ignore totalement les lettres de couverture, les formules de politesse, les noms des gestionnaires ou l'historique des rendez-vous.
+
+Rédige un paragraphe concis et professionnel qui répond uniquement à ces questions :
+1. Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
+2. Où est-elle localisée avec précision ?
+3. Quelles sont les conséquences matérielles directes constatées (ex: matériaux saturés) ?
+4. Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
+
+Ne fais pas d'introduction, va droit au but.`
                             : `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
 ${documentType === 'contrat' ? `{
