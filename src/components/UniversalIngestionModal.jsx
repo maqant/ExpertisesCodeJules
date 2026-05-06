@@ -19,6 +19,7 @@ const UniversalIngestionModal = () => {
         handleAttachFile,
         handleAttachFreeAnnex,
         occupants,
+        addOcc,
         franchises,
         formData
     } = useContext(ExpertiseContext);
@@ -316,14 +317,27 @@ const UniversalIngestionModal = () => {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-300 mb-1">Pour le compte de</label>
-                                    <select name="compteDe" value={localData.compteDe || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm border-indigo-500">
+                                    <select
+                                        name="compteDe"
+                                        value={localData.compteDe || ''}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'CREATE_NEW') {
+                                                const newId = addOcc();
+                                                setLocalData(prev => ({ ...prev, compteDe: newId }));
+                                            } else {
+                                                handleChange(e);
+                                            }
+                                        }}
+                                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm border-indigo-500"
+                                    >
                                         <option value="">Choisissez...</option>
-                                        <option value="COMMUNS">COMMUNS</option>
                                         {occupants.filter(o => o.nom).map(o => {
                                             const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
                                             const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
                                             return <option key={o.id} value={o.id}>{displayName}</option>;
                                         })}
+                                        <option disabled>──────────</option>
+                                        <option value="CREATE_NEW">[ + Créer une nouvelle partie ]</option>
                                     </select>
                                 </div>
                             </>
