@@ -1,7 +1,9 @@
 import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { Plus } from 'lucide-react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+import UniversalIngestionModal from './UniversalIngestionModal';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -156,6 +158,8 @@ const BlockContainer = ({ id, children }) => {
 
 const Workspace = () => {
     const context = useContext(ExpertiseContext);
+    const [isIngestionModalOpen, setIsIngestionModalOpen] = useState(false);
+
     if (!context) return null;
 
     const {
@@ -452,7 +456,18 @@ const Workspace = () => {
     };
 
     return (
-        <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 print:py-0 print:block">
+        <div id="workspace-container" className="relative flex-1 overflow-auto bg-slate-200 flex flex-col items-center py-12 print:py-0 print:block">
+            {/* Barre d'outils du Workspace (non imprimée) */}
+            <div className="w-full max-w-[210mm] mb-4 flex justify-end print:hidden">
+                <button
+                    onClick={() => setIsIngestionModalOpen(true)}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition-colors font-medium text-sm"
+                >
+                    <Plus className="w-4 h-4" />
+                    Sas d'Ingestion (Dossiers/Fichiers)
+                </button>
+            </div>
+
             <div id="a4-page" className="relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
                 {renderBlocksInOrder()}
                 <PageBreakLines />
@@ -467,6 +482,9 @@ const Workspace = () => {
                 }
             `}</style>
 
+            {isIngestionModalOpen && (
+                <UniversalIngestionModal isOpen={isIngestionModalOpen} onClose={() => setIsIngestionModalOpen(false)} />
+            )}
         </div>
     );
 };
