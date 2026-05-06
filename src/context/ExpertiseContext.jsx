@@ -623,90 +623,77 @@ export const ExpertiseProvider = ({ children }) => {
       }
   };
 
-  const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
-      if (hideAnnexIndex) return null;
 
-      // sel: null = tout inclus, Set<string> = clés incluses
+  const generateMasterIndex = useCallback((baseCoverPages, selOverride = undefined) => {
       const sel = selOverride !== undefined ? selOverride : printSelection;
-
-      const isFileIncluded = (id, dbKey) => {
-          if (!sel) return true;
-          return sel.has(`${id}::${dbKey}`);
-      };
-      const isPhotoGroupIncluded = (id) => {
-          if (!sel) return true;
-          return sel.has(id);
-      };
-      const getIncludedPages = (id) => {
-          let files = attachedFiles[id];
-          if (!files) return 0;
-          if (!Array.isArray(files)) files = [files];
-          return files.reduce((s, f) => isFileIncluded(id, f.dbKey) ? s + (f.pages || 0) : s, 0);
-      };
-      const getPhotoPages = (occ) => {
-          if (!isPhotoGroupIncluded('doc_photos_occ_' + occ.id)) return 0;
-          const pList = attachedPhotos[occ.id];
-          if (!pList || pList.length === 0) return 0;
-          const imgs = pList.filter(p => !p.isPdf);
-          const pdfs = pList.filter(p => p.isPdf);
-          return Math.ceil(imgs.length / 2) + pdfs.reduce((s, p) => s + (p.pages || 0), 0);
-      };
-
-      let currentPage = coverPageCount + 1; // 1ère annexe démarre après les pages de la page de garde
+      let currentPage = baseCoverPages + 1;
       let annexeIndex = 1;
+      const masterIndex = [];
 
-      const checkDoc = (id, label = '', pagesOverride = null) => {
-          const pages = pagesOverride !== null ? pagesOverride : getIncludedPages(id);
-          if (docId === id) {
-              if (pages === 0) return null;
-              const endPage = currentPage + pages - 1;
-              const pagesText = pages === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
-              const finalLabel = forcedLabel || label;
-              const text = finalLabel ? `${finalLabel} (Annexe ${annexeIndex} - ${pagesText})` : `(Annexe ${annexeIndex} - ${pagesText})`;
-              return { text, annexeIndex, startPage: currentPage, endPage };
-          }
-          if (pages > 0) { currentPage += pages; annexeIndex++; }
-          return null;
+      const isFileIncluded = (id, dbKey) => !sel || sel.has(`${id}::${dbKey}`);
+
+      const processDoc = (id, label, files) => {
+          if (!files) return;
+          const arr = Array.isArray(files) ? files : [files];
+          const validFiles = arr.filter(f => isFileIncluded(id, f.dbKey));
+          if (validFiles.length === 0) return;
+
+          const totalPages = validFiles.reduce((sum, f) => sum + (f.pages || 0), 0);
+          if (totalPages === 0) return;
+
+          masterIndex.push({ id, label, annexeIndex, startPage: currentPage, endPage: currentPage + totalPages - 1 });
+          currentPage += totalPages;
+          annexeIndex++;
       };
 
-      let res;
-      res = checkDoc('doc_mail_expertise', 'Mails de fixation et confirmation'); if (res) return res;
-      res = checkDoc('doc_mail_declaration', 'Mail de déclaration'); if (res) return res;
-      res = checkDoc('doc_cond_part', 'Conditions particulières'); if (res) return res;
-      res = checkDoc('doc_cond_gen', 'Conditions générales'); if (res) return res;
-      res = checkDoc('doc_rapport_cause', 'Rapport de recherche'); if (res) return res;
+      // L'ORDRE ICI DOIT ÊTRE LE MÊME QUE DANS downloadDossierPDF
+      processDoc('doc_mail_expertise', 'Mails de fixation et confirmation', attachedFiles['doc_mail_expertise']);
+      processDoc('doc_mail_declaration', 'Mail de déclaration', attachedFiles['doc_mail_declaration']);
+      processDoc('doc_rapport_cause', 'Rapport de recherche', attachedFiles['doc_rapport_cause']);
 
       for (const occ of occupants) {
-          const pp = getPhotoPages(occ);
-          if (pp > 0) {
-              if (docId === 'doc_photos_occ_' + occ.id) {
-                  const endPage = currentPage + pp - 1;
-                  const pagesText = pp === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
-                  const label = forcedLabel || `Photos de ${occ.nom}`;
-                  return { text: `${label} (Annexe ${annexeIndex} - ${pagesText})`, num: annexeIndex, annexeIndex, startPage: currentPage, endPage };
+          const photoGroupKey = 'doc_photos_occ_' + occ.id;
+          if (sel && !sel.has(photoGroupKey)) continue;
+          const pList = attachedPhotos[occ.id];
+          if (pList && pList.length > 0) {
+              const imgs = pList.filter(p => !p.isPdf);
+              const pdfs = pList.filter(p => p.isPdf);
+              const totalPages = Math.ceil(imgs.length / 2) + pdfs.reduce((s, p) => s + (p.pages || 0), 0);
+
+              if (totalPages > 0) {
+                  masterIndex.push({ id: photoGroupKey, label: `Photos de ${occ.nom}`, annexeIndex, startPage: currentPage, endPage: currentPage + totalPages - 1 });
+                  currentPage += totalPages;
+                  annexeIndex++;
               }
-              currentPage += pp; annexeIndex++;
           }
       }
 
-      for (const exp of expenses) {
-          res = checkDoc(exp.id); if (res) return res;
-      }
+      expenses.forEach(exp => processDoc(exp.id, exp.prestataire || 'Frais', attachedFiles[exp.id]));
+      processDoc('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
+      processDoc('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
 
-      for (const file of attachedFreeAnnexes) {
-          const isIncluded = !sel || sel.has(`free::${file.id}`);
-          const pages = isIncluded ? file.pages : 0;
-          if (docId === file.id) {
-              if (pages === 0) return null;
-              const endPage = currentPage + pages - 1;
-              const pagesText = pages === 1 ? `Page ${currentPage}` : `Pages ${currentPage} à ${endPage}`;
-              const label = forcedLabel || file.customName || file.name;
-              return { text: `${label} (Annexe ${annexeIndex} - ${pagesText})`, num: annexeIndex, annexeIndex, startPage: currentPage, endPage };
+      attachedFreeAnnexes.forEach(file => {
+          if (!sel || sel.has(`free::${file.id}`)) {
+              if (file.pages > 0) {
+                  masterIndex.push({ id: file.id, label: file.customName || file.name, annexeIndex, startPage: currentPage, endPage: currentPage + file.pages - 1 });
+                  currentPage += file.pages;
+                  annexeIndex++;
+              }
           }
-          if (pages > 0) { currentPage += pages; annexeIndex++; }
-      }
+      });
 
-      return null;
+      return masterIndex;
+  }, [attachedFiles, attachedPhotos, attachedFreeAnnexes, occupants, expenses, printSelection]);
+
+  const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
+      if (hideAnnexIndex) return null;
+      const indexList = generateMasterIndex(coverPageCount, selOverride);
+      const item = indexList.find(x => x.id === docId);
+      if (!item) return null;
+
+      const label = forcedLabel || item.label;
+      const pagesText = item.startPage === item.endPage ? `Page ${item.startPage}` : `Pages ${item.startPage} à ${item.endPage}`;
+      return { text: `${label} (Annexe ${item.annexeIndex} - ${pagesText})`, num: item.annexeIndex, annexeIndex: item.annexeIndex, startPage: item.startPage, endPage: item.endPage };
   };
 
   // Retourne la liste ordonnée de toutes les annexes disponibles pour la modale
@@ -900,26 +887,15 @@ export const ExpertiseProvider = ({ children }) => {
           const significantH = slicePixH * 0.05; // Tolérance de 5% de page pour éviter les sauts de page vides
           const actualCoverPages = Math.max(1, Math.ceil((canvas1.height - significantH) / slicePixH));
 
-          // --- PASSE 2 (si nécessaire) : mettre à jour les index dans le HTML et re-capturer ---
+          // --- PASSE 2 (si nécessaire) : mettre à jour le DOM et re-capturer ---
           let canvas = canvas1;
           if (actualCoverPages !== coverPageCount) {
-              // Modification synchrone du DOM pour éviter le setTimeout
-              const annexIndexEls = document.querySelectorAll('.annex-index-page-num');
-              if (annexIndexEls && annexIndexEls.length > 0) {
-                  // Mettre à jour l'état React pour la suite
-                  setCoverPageCount(actualCoverPages);
+              setCoverPageCount(actualCoverPages); // Met à jour le State React
 
-                  // Mais forcer la mise à jour du DOM *maintenant* pour html2canvas
-                  let currentAnnexPage = actualCoverPages + 1;
-                  annexIndexEls.forEach(el => {
-                      el.textContent = currentAnnexPage;
-                      const pagesCount = parseInt(el.getAttribute('data-pages') || '1', 10);
-                      currentAnnexPage += pagesCount;
-                  });
+              // Attendre que React refasse le rendu avec les nouveaux numéros du Master Index
+              await new Promise(resolve => setTimeout(resolve, 500));
 
-                  await new Promise(r => requestAnimationFrame(r));
-                  canvas = await captureEl();
-              }
+              canvas = await captureEl(); // Nouvelle capture avec les bons numéros affichés !
           }
 
           el.style.boxShadow = prevShadow;
