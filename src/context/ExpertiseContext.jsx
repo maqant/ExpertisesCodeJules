@@ -430,14 +430,18 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const addExpense = (expenseObj = null) => {
+      let idToReturn;
       if (expenseObj) {
           financeStore.addExpense(expenseObj);
           setExpandedExpId(expenseObj.id);
+          idToReturn = expenseObj.id;
       } else {
           const newId = crypto.randomUUID();
           financeStore.addExpense({ id: newId, prestataire: '', type: '', ref: '', desc: '', compteDe: '', montant: '', montantReclame: '', montantValide: '', pourcentageVetuste: 0, motifRefus: '', typeMontant: 'HTVA', avisCouverture: 'Oui', noteCouverture: '' });
           setExpandedExpId(newId);
+          idToReturn = newId;
       }
+      return idToReturn;
   };
   const updateExpense = (id, field, value) => {
       let updates = { [field]: value };
