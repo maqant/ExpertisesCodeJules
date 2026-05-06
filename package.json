@@ -12,6 +12,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@kenjiuno/msgreader": "^1.28.0",
     "html2canvas": "^1.4.1",
     "localforage": "^1.10.0",
     "lucide-react": "^1.14.0",

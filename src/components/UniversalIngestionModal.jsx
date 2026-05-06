@@ -6,6 +6,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useDropzone } from 'react-dropzone';
 import { FileText, UploadCloud } from 'lucide-react';
+import { extractMsgData } from '../utils/msgParser';
 
 // Configurer le worker pour react-pdf (correction Vercel 404)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -107,10 +108,35 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
     };
 
     const onDrop = useCallback((acceptedFiles) => {
-        setPendingFiles((prev) => [
-            ...prev,
-            ...acceptedFiles.map(f => ({ file: f, id: crypto.randomUUID(), status: 'idle' }))
-        ]);
+        const newFiles = acceptedFiles.map(f => {
+            const isMsg = f.name.toLowerCase().endsWith('.msg');
+            return {
+                file: f,
+                id: crypto.randomUUID(),
+                status: isMsg ? 'processing' : 'idle',
+                isMsg
+            };
+        });
+
+        setPendingFiles((prev) => [...prev, ...newFiles]);
+
+        // Process MSG files asynchronously
+        newFiles.filter(f => f.isMsg).forEach(async (pf) => {
+            try {
+                const extractedData = await extractMsgData(pf.file);
+                console.log("[UniversalIngestionModal] MSG Extracted Data:", extractedData);
+
+                setPendingFiles((prev) => prev.map(item =>
+                    item.id === pf.id ? { ...item, status: 'ready', extractedData } : item
+                ));
+            } catch (error) {
+                console.error(`[UniversalIngestionModal] Erreur extraction MSG pour ${pf.file.name}:`, error);
+                setPendingFiles((prev) => prev.map(item =>
+                    item.id === pf.id ? { ...item, status: 'error' } : item
+                ));
+            }
+        });
+
     }, []);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -242,6 +268,21 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
                                         {pf.status === 'idle' && (
                                             <span className="bg-slate-700 text-slate-300 rounded px-2 py-1 text-xs shrink-0 border border-slate-600">
                                                 En attente
+                                            </span>
+                                        )}
+                                        {pf.status === 'processing' && (
+                                            <span className="bg-orange-900/50 text-orange-300 rounded px-2 py-1 text-xs shrink-0 border border-orange-700/50">
+                                                Extraction...
+                                            </span>
+                                        )}
+                                        {pf.status === 'ready' && (
+                                            <span className="bg-emerald-900/50 text-emerald-300 rounded px-2 py-1 text-xs shrink-0 border border-emerald-700/50">
+                                                Prêt
+                                            </span>
+                                        )}
+                                        {pf.status === 'error' && (
+                                            <span className="bg-red-900/50 text-red-300 rounded px-2 py-1 text-xs shrink-0 border border-red-700/50">
+                                                Erreur
                                             </span>
                                         )}
                                     </div>
