@@ -1,9 +1,11 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { useDropzone } from 'react-dropzone';
+import { FileText, UploadCloud } from 'lucide-react';
 
 // Configurer le worker pour react-pdf (correction Vercel 404)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -40,6 +42,7 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
     const [numPages, setNumPages] = useState(null);
     const containerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
+    const [pendingFiles, setPendingFiles] = useState([]);
 
     // Populate localData when modal opens
     useEffect(() => {
@@ -102,6 +105,28 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         const { name, value } = e.target;
         setLocalData(prev => ({ ...prev, [name]: value }));
     };
+
+    const onDrop = useCallback((acceptedFiles) => {
+        setPendingFiles((prev) => [
+            ...prev,
+            ...acceptedFiles.map(f => ({ file: f, id: crypto.randomUUID(), status: 'idle' }))
+        ]);
+    }, []);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        multiple: true,
+        accept: {
+            'application/pdf': ['.pdf'],
+            'image/jpeg': ['.jpeg', '.jpg'],
+            'image/png': ['.png'],
+            'application/msword': ['.doc'],
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+            'application/vnd.ms-excel': ['.xls'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'application/vnd.ms-outlook': ['.msg']
+        }
+    });
 
     const handleValidate = async () => {
         try {
@@ -185,11 +210,44 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
                 {/* Corps de la modale en Split-Screen */}
                 <div className="flex-1 overflow-hidden grid grid-cols-2 gap-4 p-4">
 
-                    {/* Left Column: Dropzone Placeholder */}
-                    <div className="bg-slate-800/50 rounded-lg flex items-center justify-center p-6 border border-slate-700 overflow-hidden">
-                        <div className="text-center text-slate-400">
-                            <p className="text-lg font-medium">Espace future Zone d'Attente & Dropzone Multiple</p>
+                    {/* Left Column: Dropzone Multiple et Zone d'Attente */}
+                    <div className="bg-slate-800/50 rounded-lg flex flex-col p-4 border border-slate-700 overflow-y-auto">
+                        <div
+                            {...getRootProps()}
+                            className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors
+                                ${isDragActive ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-600 hover:border-indigo-400 hover:bg-slate-800'}`}
+                        >
+                            <input {...getInputProps()} />
+                            <UploadCloud className="text-slate-400 mb-2" size={32} />
+                            <p className="text-slate-300 font-medium text-center">
+                                {isDragActive ? "Déposez les fichiers ici..." : "Glissez & déposez jusqu'à 300 fichiers ici"}
+                            </p>
+                            <p className="text-slate-500 text-sm mt-1 text-center">
+                                Formats acceptés : .pdf, .jpg, .png, .doc, .docx, .xls, .xlsx, .msg
+                            </p>
                         </div>
+
+                        {/* Zone d'Attente (Liste UI) */}
+                        {pendingFiles.length > 0 && (
+                            <div className="mt-4 flex flex-col gap-2">
+                                <h3 className="text-slate-300 font-semibold mb-1 text-sm">Fichiers en attente ({pendingFiles.length})</h3>
+                                {pendingFiles.map((pf) => (
+                                    <div key={pf.id} className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded p-2">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            <FileText size={16} className="text-slate-400 shrink-0" />
+                                            <span className="text-slate-200 text-sm truncate" title={pf.file.name}>
+                                                {pf.file.name}
+                                            </span>
+                                        </div>
+                                        {pf.status === 'idle' && (
+                                            <span className="bg-slate-700 text-slate-300 rounded px-2 py-1 text-xs shrink-0 border border-slate-600">
+                                                En attente
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Column: AI Form Placeholder */}
