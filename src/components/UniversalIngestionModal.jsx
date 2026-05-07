@@ -1,16 +1,14 @@
-import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { useDropzone } from 'react-dropzone';
-import { FileText, UploadCloud } from 'lucide-react';
 
 // Configurer le worker pour react-pdf (correction Vercel 404)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) => {
+const UniversalIngestionModal = () => {
     const {
         ingestionModal,
         closeIngestion,
@@ -26,23 +24,12 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         formData
     } = useContext(ExpertiseContext);
 
-    const isContextModalOpen = ingestionModal?.isOpen;
-    const isOpen = propIsOpen || isContextModalOpen;
-    const type = ingestionModal?.type;
-    const file = ingestionModal?.file;
-    const data = ingestionModal?.data;
-    const existingId = ingestionModal?.existingId;
-
-    const handleClose = () => {
-        if (propOnClose) propOnClose();
-        if (isContextModalOpen) closeIngestion();
-    };
+    const { isOpen, type, file, data, existingId } = ingestionModal;
     const [fileUrl, setFileUrl] = useState(null);
     const [localData, setLocalData] = useState({});
     const [numPages, setNumPages] = useState(null);
     const containerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
-    const [pendingFiles, setPendingFiles] = useState([]);
 
     // Populate localData when modal opens
     useEffect(() => {
@@ -95,6 +82,8 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         }
     }, [isOpen]);
 
+    if (!isOpen) return null;
+
     const onDocumentLoadSuccess = ({ numPages }) => {
         setNumPages(numPages);
     };
@@ -103,28 +92,6 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         const { name, value } = e.target;
         setLocalData(prev => ({ ...prev, [name]: value }));
     };
-
-    const onDrop = useCallback((acceptedFiles) => {
-        setPendingFiles((prev) => [
-            ...prev,
-            ...acceptedFiles.map(f => ({ file: f, id: crypto.randomUUID(), status: 'idle' }))
-        ]);
-    }, []);
-
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        multiple: true,
-        accept: {
-            'application/pdf': ['.pdf'],
-            'image/jpeg': ['.jpeg', '.jpg'],
-            'image/png': ['.png'],
-            'application/msword': ['.doc'],
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-            'application/vnd.ms-excel': ['.xls'],
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-            'application/vnd.ms-outlook': ['.msg']
-        }
-    });
 
     const handleValidate = async () => {
         try {
@@ -191,74 +158,214 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         }
     };
 
-    if (!isOpen) return null;
-
     const isImage = file?.type?.startsWith('image/');
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-slate-900 rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-700 w-11/12 max-w-7xl h-[90vh]">
+            <div className="bg-slate-900 rounded-lg shadow-2xl flex flex-row overflow-hidden border border-slate-700 w-full max-w-[95vw] h-[90vh]">
 
-                {/* Header commun */}
-                <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-900">
-                    <h2 className="text-lg font-bold text-indigo-300">
-                        Sas d'Ingestion
+                {/* Left Side: Document Preview (w-2/3) */}
+                <div className="w-2/3 bg-slate-800 border-r border-slate-700 p-4 flex flex-col h-full overflow-hidden">
+                    <h2 className="text-white font-bold mb-2 flex items-center gap-2">
+                        <span>📄</span> Document : {file?.name}
                     </h2>
-                    <button onClick={handleClose} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">✕</button>
+                    <div ref={containerRef} className="flex-1 flex flex-col bg-slate-950 rounded-lg border border-slate-700 overflow-hidden relative">
+                        {fileUrl ? (
+                            <TransformWrapper
+                                initialScale={1}
+                                minScale={0.5}
+                                maxScale={4}
+                                centerOnInit={true}
+                                wheel={{ step: 0.1 }}
+                            >
+                                {({ zoomIn, zoomOut, resetTransform }) => (
+                                    <div className="relative w-full h-full flex flex-col">
+
+                                        {/* Barre d'outils de Zoom flottante */}
+                                        <div className="absolute top-4 right-4 z-50 flex gap-2 bg-slate-800/90 p-1.5 rounded-lg border border-slate-600 backdrop-blur-md shadow-lg">
+                                            <button onClick={() => zoomIn()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">+</button>
+                                            <button onClick={() => zoomOut()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">-</button>
+                                            <button onClick={() => resetTransform()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors" title="Centrer">↺</button>
+                                        </div>
+
+                                        {/* Zone de rendu du document */}
+                                        <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full flex flex-col items-center justify-center py-4">
+                                            {isImage ? (
+                                                <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded" />
+                                            ) : (
+                                                <Document
+                                                    file={file}
+                                                    onLoadSuccess={onDocumentLoadSuccess}
+                                                    loading={<div className="text-slate-400 text-sm font-bold animate-pulse">⏳ Chargement du document...</div>}
+                                                    error={<div className="text-red-400 text-sm font-bold">❌ Erreur lors du chargement du PDF.</div>}
+                                                    className="flex flex-col gap-4 w-full items-center"
+                                                >
+                                                    {Array.from(new Array(numPages), (el, index) => (
+                                                        <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden">
+                                                            <Page
+                                                                pageNumber={index + 1}
+                                                                width={containerWidth > 0 ? containerWidth : undefined}
+                                                                renderTextLayer={false}
+                                                                renderAnnotationLayer={false}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </Document>
+                                            )}
+                                        </TransformComponent>
+                                    </div>
+                                )}
+                            </TransformWrapper>
+                        ) : (
+                            <div className="text-slate-500 text-sm flex items-center justify-center h-full w-full">Aucun aperçu disponible</div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Corps de la modale en Split-Screen */}
-                <div className="flex-1 overflow-hidden grid grid-cols-2 gap-4 p-4">
+                {/* Right Side: Form (w-1/3) */}
+                <div className="w-1/3 bg-slate-900 p-6 flex flex-col h-full overflow-y-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-lg font-bold text-indigo-300">
+                            {type === 'cp' ? 'Conditions Particulières' : type === 'frais' ? (existingId ? 'Modifier Ligne de Frais' : 'Nouvelle Ligne de Frais') : 'Nouvelle Annexe Libre'}
+                        </h2>
+                        <button onClick={closeIngestion} className="text-slate-400 hover:text-white transition-colors">✕</button>
+                    </div>
 
-                    {/* Left Column: Dropzone Multiple et Zone d'Attente */}
-                    <div className="bg-slate-800/50 rounded-lg flex flex-col p-4 border border-slate-700 overflow-y-auto">
-                        <div
-                            {...getRootProps()}
-                            className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors
-                                ${isDragActive ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-600 hover:border-indigo-400 hover:bg-slate-800'}`}
-                        >
-                            <input {...getInputProps()} />
-                            <UploadCloud className="text-slate-400 mb-2" size={32} />
-                            <p className="text-slate-300 font-medium text-center">
-                                {isDragActive ? "Déposez les fichiers ici..." : "Glissez & déposez jusqu'à 300 fichiers ici"}
-                            </p>
-                            <p className="text-slate-500 text-sm mt-1 text-center">
-                                Formats acceptés : .pdf, .jpg, .png, .doc, .docx, .xls, .xlsx, .msg
-                            </p>
-                        </div>
+                    <div className="flex-1 space-y-4">
+                        {type === 'cp' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Nom Compagnie</label>
+                                    <input type="text" name="nomCie" value={localData.nomCie || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Nom Contrat</label>
+                                    <input type="text" name="nomContrat" value={localData.nomContrat || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">N° Police</label>
+                                    <input type="text" name="numPolice" value={localData.numPolice || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">N° Cond. Générales</label>
+                                    <input type="text" name="numConditionsGenerales" value={localData.numConditionsGenerales || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Franchise</label>
+                                    <input type="text" name="franchise" value={localData.franchise || ''} onChange={handleChange} list="franchise-list" className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                    <datalist id="franchise-list">
+                                        {franchises.map((f, idx) => <option key={idx} value={f} />)}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Pertes indirectes</label>
+                                    <select name="pertesIndirectes" value={localData.pertesIndirectes || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm">
+                                        <option value="">Sélectionner...</option>
+                                        <option value="0%">0%</option>
+                                        <option value="5%">5%</option>
+                                        <option value="10%">10%</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Nom Résidence (Preneur)</label>
+                                    <input type="text" name="nomResidence" value={localData.nomResidence || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                            </>
+                        )}
 
-                        {/* Zone d'Attente (Liste UI) */}
-                        {pendingFiles.length > 0 && (
-                            <div className="mt-4 flex flex-col gap-2">
-                                <h3 className="text-slate-300 font-semibold mb-1 text-sm">Fichiers en attente ({pendingFiles.length})</h3>
-                                {pendingFiles.map((pf) => (
-                                    <div key={pf.id} className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded p-2">
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <FileText size={16} className="text-slate-400 shrink-0" />
-                                            <span className="text-slate-200 text-sm truncate" title={pf.file.name}>
-                                                {pf.file.name}
-                                            </span>
-                                        </div>
-                                        {pf.status === 'idle' && (
-                                            <span className="bg-slate-700 text-slate-300 rounded px-2 py-1 text-xs shrink-0 border border-slate-600">
-                                                En attente
-                                            </span>
-                                        )}
+                        {type === 'frais' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Prestataire</label>
+                                    <input type="text" name="prestataire" value={localData.prestataire || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm font-bold text-indigo-300" />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1">Montant réclamé</label>
+                                        <input type="text" name="montantReclame" value={localData.montantReclame || localData.montant || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm font-bold" />
                                     </div>
-                                ))}
-                            </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1">Type de montant</label>
+                                        <select name="typeMontant" value={localData.typeMontant || 'HTVA'} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm">
+                                            <option value="HTVA">HTVA</option>
+                                            <option value="TVAC">TVAC</option>
+                                            <option value="Forfait">Forfait</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1">Type de document</label>
+                                        <select name="type" value={localData.type || 'Facture'} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm">
+                                            <option value="Facture">Facture</option>
+                                            <option value="Devis">Devis</option>
+                                            <option value="Autre">Autre</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1">Référence</label>
+                                        <input type="text" name="ref" value={localData.ref || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Description</label>
+                                    <textarea name="desc" value={localData.desc || ''} onChange={handleChange} rows="2" className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm resize-none" />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Pour le compte de</label>
+                                    <select
+                                        name="compteDe"
+                                        value={localData.compteDe || ''}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'CREATE_NEW') {
+                                                const newId = addOcc();
+                                                setLocalData(prev => ({ ...prev, compteDe: newId }));
+                                            } else {
+                                                handleChange(e);
+                                            }
+                                        }}
+                                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm border-indigo-500"
+                                    >
+                                        <option value="">Choisissez...</option>
+                                        {occupants.filter(o => o.nom).map(o => {
+                                            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                                            const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                                            return <option key={o.id} value={o.id}>{displayName}</option>;
+                                        })}
+                                        <option disabled>──────────</option>
+                                        <option value="CREATE_NEW">[ + Créer une nouvelle partie ]</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {type === 'annexe' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Titre de l'annexe</label>
+                                    <input type="text" name="customName" value={localData.customName || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1">Description (Optionnelle)</label>
+                                    <textarea name="desc" value={localData.desc || ''} onChange={handleChange} rows="4" className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm resize-none" />
+                                </div>
+                            </>
                         )}
                     </div>
 
-                    {/* Right Column: AI Form Placeholder */}
-                    <div className="rounded-lg flex items-center justify-center p-6 border-2 border-dashed border-slate-600 overflow-hidden">
-                        <div className="text-center text-slate-500">
-                            <p className="text-lg font-medium">Espace futur formulaire de saisie IA</p>
-                        </div>
+                    <div className="mt-6 pt-4 border-t border-slate-700 flex justify-end gap-3 shrink-0">
+                        <button onClick={closeIngestion} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-sm transition-colors">
+                            Annuler
+                        </button>
+                        <button onClick={handleValidate} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold shadow transition-colors text-sm">
+                            Valider
+                        </button>
                     </div>
-
                 </div>
-
             </div>
         </div>
     );
