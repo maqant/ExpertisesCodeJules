@@ -96,17 +96,6 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
-
-    const onDocumentLoadSuccess = ({ numPages }) => {
-        setNumPages(numPages);
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setLocalData(prev => ({ ...prev, [name]: value }));
-    };
-
     const onDrop = useCallback((acceptedFiles) => {
         const newFiles = acceptedFiles.map(f => {
             const isMsg = f.name.toLowerCase().endsWith('.msg');
@@ -153,6 +142,17 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
             'application/vnd.ms-outlook': ['.msg']
         }
     });
+
+    if (!isOpen) return null;
+
+    const onDocumentLoadSuccess = ({ numPages }) => {
+        setNumPages(numPages);
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setLocalData(prev => ({ ...prev, [name]: value }));
+    };
 
     const handleValidate = async () => {
         try {
