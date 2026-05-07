@@ -95,8 +95,6 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
-
     const onDocumentLoadSuccess = ({ numPages }) => {
         setNumPages(numPages);
     };
@@ -192,6 +190,8 @@ const UniversalIngestionModal = ({ isOpen: propIsOpen, onClose: propOnClose }) =
             closeIngestion();
         }
     };
+
+    if (!isOpen) return null;
 
     const isImage = file?.type?.startsWith('image/');
 
