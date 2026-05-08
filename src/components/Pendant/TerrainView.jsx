@@ -4,6 +4,7 @@ import PrintPVE from "./PrintPVE";
 import { useFinanceStore } from '../../store/financeStore';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { getCompteDeName } from '../../utils/formatters';
+import { reformatCompteRendu } from '../../services/aiManager';
 
 const TerrainView = () => {
   const store = useFinanceStore();
@@ -23,7 +24,7 @@ const TerrainView = () => {
   const [editModalExp, setEditModalExp] = useState(null);
   const [editData, setEditData] = useState({ montantValide: "", motifRefus: "", isSpontane: false });
   const [showSpontaneModal, setShowSpontaneModal] = useState(false);
-  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait' });
+  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '' });
 
   const handleValid100 = (exp) => {
     store.updateExpense(exp.id, {
@@ -86,17 +87,42 @@ const TerrainView = () => {
         montantReclame: spontaneData.montant,
         montantValide: spontaneData.montant,
         typeMontant: spontaneData.typeMontant,
+        compteDe: spontaneData.compteDe,
         type: 'Forfait',
         desc: 'Frais spontané sur place',
         isSpontane: true,
         isProcessed: true // Spontaneous expenses on terrain are implicitly processed
       });
       setShowSpontaneModal(false);
-      setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait' });
+      setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '' });
     }
   };
 
   const [showPrintPVE, setShowPrintPVE] = useState(false);
+  const [isReformatting, setIsReformatting] = useState(false);
+
+  const handleMagicCompteRendu = async () => {
+      const notes = context.formData.compteRendu;
+      if (!notes) return;
+      setIsReformatting(true);
+      try {
+          const res = await reformatCompteRendu(
+              notes,
+              context.aiConfig?.provider || 'openai',
+              context.aiConfig?.model || 'gpt-4o',
+              context.aiConfig?.apiKey || ''
+          );
+          if (res.success) {
+              context.setFormData(prev => ({ ...prev, compteRendu: res.data }));
+          } else {
+              alert("Erreur IA : " + res.error);
+          }
+      } catch (err) {
+          alert("Erreur lors de la remise en forme : " + err.message);
+      } finally {
+          setIsReformatting(false);
+      }
+  };
 
   if (showPrintPVE) {
     return <PrintPVE onBack={() => setShowPrintPVE(false)} />;
@@ -112,6 +138,30 @@ const TerrainView = () => {
         >
           {isPVEClosed ? 'Rouvrir l\'expertise' : '🔒 Clôturer l\'expertise'}
         </button>
+      </div>
+
+      {/* COMPTE RENDU */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold uppercase">Compte Rendu</h2>
+          {context.isAiModeActive && (
+            <button
+              onClick={handleMagicCompteRendu}
+              disabled={isReformatting || !context.formData.compteRendu}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50 font-bold"
+            >
+              {isReformatting ? '⏳ Magie en cours...' : '✨ Magique (Remise en forme)'}
+            </button>
+          )}
+        </div>
+        <textarea
+          name="compteRendu"
+          value={context.formData.compteRendu || ""}
+          onChange={context.handleChange}
+          disabled={isPVEClosed || isReformatting}
+          className="w-full bg-slate-900 text-indigo-100 border border-slate-700 rounded p-4 min-h-[200px]"
+          placeholder="Prenez vos notes brutes sur le terrain ici..."
+        />
       </div>
 
       {/* Jauge PVE */}
@@ -177,7 +227,23 @@ const TerrainView = () => {
                                       ✨ Spontané
                                     </span>
                                   )}
-                                  <span className="text-sm font-normal text-slate-500 block">Pour: {getCompteDeName(exp.compteDe, occupants)}</span>
+                                  <div className="mt-2 block">
+                                    <select 
+                                      className="bg-slate-800 border border-slate-700 text-indigo-300 rounded px-2 py-1 text-xs font-normal"
+                                      value={exp.compteDe || ""}
+                                      onChange={(e) => store.updateExpense(exp.id, { compteDe: e.target.value })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      disabled={isPVEClosed}
+                                    >
+                                      <option value="">Attribuer à...</option>
+                                      {occupants.map(o => {
+                                        const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                                        if (!fullName) return null;
+                                        const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                                        return <option key={o.id} value={o.id}>{displayName}</option>;
+                                      })}
+                                    </select>
+                                  </div>
                                 </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic mb-2">{exp.desc || 'Aucune description'}</p>
                                 <div className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded inline-block">
@@ -243,6 +309,23 @@ const TerrainView = () => {
                                       ✨ Spontané
                                     </span>
                                   )}
+                                  <div className="mt-2 block">
+                                    <select 
+                                      className="bg-slate-800 border border-slate-700 text-indigo-300 rounded px-2 py-1 text-xs font-normal"
+                                      value={exp.compteDe || ""}
+                                      onChange={(e) => store.updateExpense(exp.id, { compteDe: e.target.value })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      disabled={isPVEClosed}
+                                    >
+                                      <option value="">Attribuer à...</option>
+                                      {occupants.map(o => {
+                                        const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                                        if (!fullName) return null;
+                                        const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                                        return <option key={o.id} value={o.id}>{displayName}</option>;
+                                      })}
+                                    </select>
+                                  </div>
                                 </h3>
                                 <div className="mt-1 text-xs">
                                     <span className="text-slate-500">Réclamé: {exp.montantReclame || exp.montant || '0.00'} €</span>
@@ -333,18 +416,6 @@ const TerrainView = () => {
                 placeholder="Ex: Vétusté peinture, Hors garantie..."
               />
             </div>
-            <div className="mb-6 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isSpontaneCheckbox"
-                checked={editData.isSpontane}
-                onChange={e => setEditData({...editData, isSpontane: e.target.checked})}
-                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <label htmlFor="isSpontaneCheckbox" className="text-sm font-bold text-fuchsia-600 dark:text-fuchsia-400">
-                ✨ Frais spontané (constaté sur place)
-              </label>
-            </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditModalExp(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
               <button onClick={submitEdit} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Enregistrer</button>
@@ -377,6 +448,21 @@ const TerrainView = () => {
                 <option value="HTVA">HTVA</option>
                 <option value="TVAC">TVAC</option>
                 <option value="Forfait">Forfait</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <select
+                className="w-full bg-slate-800 border border-slate-700 text-indigo-300 rounded px-2 py-1 text-xs"
+                value={spontaneData.compteDe || ""}
+                onChange={e => setSpontaneData({...spontaneData, compteDe: e.target.value})}
+              >
+                <option value="">Attribuer à...</option>
+                {occupants.map(o => {
+                  const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                  if (!fullName) return null;
+                  const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                  return <option key={o.id} value={o.id}>{displayName}</option>;
+                })}
               </select>
             </div>
             <div className="flex justify-end gap-2">

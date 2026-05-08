@@ -11,12 +11,16 @@ const PrintPVE = ({ onBack }) => {
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
     if (!exp.isProcessed) return acc;
     const name = getCompteDeName(exp.compteDe, occupants);
-    if (!acc[name]) acc[name] = { HTVA: 0, TVAC: 0, Forfait: 0 };
+    const occ = occupants.find(o => o.id === exp.compteDe);
+    if (!acc[name]) acc[name] = { HTVA: 0, TVAC: 0, Forfait: 0, iban: occ?.iban || '', lignes: [] };
     const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
     const safeVal = isNaN(val) ? 0 : val;
     const typeM = exp.typeMontant || 'HTVA';
     if (acc[name][typeM] !== undefined) {
        acc[name][typeM] += safeVal;
+    }
+    if (safeVal > 0) {
+      acc[name].lignes.push({ prestataire: exp.prestataire, desc: exp.desc, montant: safeVal, type: typeM });
     }
     return acc;
   }, {});
@@ -63,6 +67,16 @@ const PrintPVE = ({ onBack }) => {
           </div>
         </div>
 
+        {/* Compte Rendu (si existant) */}
+        {formData.compteRendu && (
+          <div className="mb-8 break-inside-avoid">
+            <h3 className="text-lg font-bold mb-4 uppercase text-slate-700 border-b pb-2">Notes & Compte-rendu</h3>
+            <div className="bg-slate-50 border border-slate-300 p-4 rounded text-sm whitespace-pre-wrap">
+              {formData.compteRendu}
+            </div>
+          </div>
+        )}
+
         {/* Tableau des Frais */}
         <div className="mb-8">
           <h3 className="text-lg font-bold mb-4 uppercase text-slate-700 border-b pb-2">Détail de la réclamation et fixation</h3>
@@ -77,8 +91,16 @@ const PrintPVE = ({ onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {expenses.map(exp => (
-                <tr key={exp.id} className="border-b break-inside-avoid">
+              {expenses.map(exp => {
+                const valReclame = parseFloat(String(exp.montantReclame || exp.montant || '0').replace(',', '.'));
+                const valAccorde = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || '0').replace(',', '.'));
+                let bgClass = "bg-white";
+                if (valAccorde === 0) bgClass = "bg-red-50";
+                else if (valAccorde < valReclame) bgClass = "bg-orange-50";
+                else bgClass = "bg-emerald-50";
+
+                return (
+                <tr key={exp.id} className={`border-b break-inside-avoid ${bgClass}`}>
                   <td className="border p-2">
                     <div className="font-bold">
                       {exp.prestataire || 'Frais'}
@@ -88,6 +110,7 @@ const PrintPVE = ({ onBack }) => {
                         </span>
                       )}
                     </div>
+                    {exp.ref && <div className="text-xs text-slate-600 font-medium">Réf: {exp.ref}</div>}
                     <div className="text-xs text-slate-500">{exp.desc}</div>
                   </td>
                   <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe, occupants)}</td>
@@ -100,7 +123,7 @@ const PrintPVE = ({ onBack }) => {
                     {exp.motifRefus || ''}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
             <tfoot>
               <tr className="bg-slate-200 font-bold text-base">
@@ -126,13 +149,27 @@ const PrintPVE = ({ onBack }) => {
               <div className="border border-slate-300 p-4 rounded bg-slate-50 text-sm">
                   <ul className="list-none space-y-1">
                       {Object.entries(recapParBeneficiaire).map(([name, totals]) => (
-                          <li key={name} className="flex justify-between max-w-xl items-center border-b border-slate-200 py-1 last:border-0">
-                            <span className="font-bold">{name}</span>
-                            <span className="text-right flex gap-3">
-                                {totals.HTVA > 0 && <span>{totals.HTVA.toFixed(2)} € HTVA</span>}
-                                {totals.TVAC > 0 && <span>{totals.TVAC.toFixed(2)} € TVAC</span>}
-                                {totals.Forfait > 0 && <span>{totals.Forfait.toFixed(2)} € Forfait</span>}
-                            </span>
+                          <li key={name} className="flex flex-col border-b border-slate-200 py-3 last:border-0 max-w-xl">
+                            <div className="flex justify-between items-center mb-2">
+                              <span>
+                                  <span className="font-bold">{name}</span>
+                                  {totals.iban && <span className="ml-2 text-[10px] italic text-slate-500">(IBAN: {totals.iban})</span>}
+                              </span>
+                              <span className="text-right flex gap-3 font-bold text-slate-800">
+                                  {totals.HTVA > 0 && <span>{totals.HTVA.toFixed(2)} € HTVA</span>}
+                                  {totals.TVAC > 0 && <span>{totals.TVAC.toFixed(2)} € TVAC</span>}
+                                  {totals.Forfait > 0 && <span>{totals.Forfait.toFixed(2)} € Forfait</span>}
+                              </span>
+                            </div>
+                            {totals.lignes && totals.lignes.length > 0 && (
+                              <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1">
+                                {totals.lignes.map((l, i) => (
+                                  <li key={i}>
+                                    <span className="font-semibold">{l.prestataire || 'Frais'}</span> {l.desc ? `- ${l.desc}` : ''} ({l.montant.toFixed(2)} € {l.type})
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </li>
                       ))}
                   </ul>
@@ -140,21 +177,7 @@ const PrintPVE = ({ onBack }) => {
           </div>
         )}
 
-        {/* Bloc IBANs */}
-        <div className="mb-8 break-inside-avoid">
-            <h3 className="text-base font-bold mb-2 uppercase text-slate-700">Coordonnées Bancaires (IBAN)</h3>
-            <div className="border border-slate-300 p-4 rounded bg-slate-50 text-sm">
-                {occupants.filter(o => o.iban && o.iban.trim() !== '').length > 0 ? (
-                    <ul className="list-disc pl-5">
-                        {occupants.filter(o => o.iban && o.iban.trim() !== '').map(o => (
-                            <li key={o.id} className="mb-1"><span className="font-bold">{o.nom} {o.prenom}</span> : {o.iban}</li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="italic text-slate-500">Aucun IBAN renseigné pour ce dossier.</p>
-                )}
-            </div>
-        </div>
+
 
       </div>
     </div>

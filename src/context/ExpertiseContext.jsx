@@ -12,7 +12,7 @@ const initialFormData = {
   dateSinistre: '', dateDeclaration: '', declarant: '', 
   isContradictoire: false, cieContradictoire: '', bureauContradictoire: '', expertContradictoire: '', compteDeContradictoire: '',
   nomCie: '', nomContrat: '', numPolice: '', numSinistreCie: '', numConditionsGenerales: '',
-  cause: "", divers: ""
+  cause: "", divers: "", compteRendu: ""
 };
 
 const initialTitles = {

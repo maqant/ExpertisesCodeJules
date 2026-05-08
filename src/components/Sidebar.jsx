@@ -64,6 +64,7 @@ const AccordionHeader = ({ id, num }) => {
     const { blockTitles, handleTitleChange } = useContext(ExpertiseContext);
     const dragTimer = useRef(null);
     const wasAutoOpened = useRef(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     const handleDragEnterHeader = (e) => {
         e.preventDefault();
@@ -124,7 +125,33 @@ const AccordionHeader = ({ id, num }) => {
             onDragOver={(e) => e.preventDefault()}
         >
             <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2 pointer-events-none">{num}.</span>
-            <input type="text" value={blockTitles[id]} onChange={(e) => handleTitleChange(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" />
+            {!isEditing ? (
+                <span 
+                    className="text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors inline-block"
+                    title="Double-cliquez pour renommer"
+                    onDoubleClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        setIsEditing(true); 
+                    }}
+                >
+                    {blockTitles[id]}
+                </span>
+            ) : (
+                <input 
+                    type="text" 
+                    value={blockTitles[id]} 
+                    onChange={(e) => handleTitleChange(id, e.target.value)} 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" 
+                    autoFocus
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    onBlur={() => setIsEditing(false)}
+                    onKeyDown={(e) => { 
+                        if (e.key === 'Enter') setIsEditing(false); 
+                    }}
+                />
+            )}
         </summary>
     );
 };
@@ -729,12 +756,22 @@ const Sidebar = () => {
                                                         <div className="grid grid-cols-2 gap-2"><div><label>Autre assurance ?</label><select value={o.secAssurance} onChange={e=>updateOcc(o.id, 'secAssurance', e.target.value)} className="input-field mb-0"><option>Non</option><option>Oui</option></select></div>{o.secAssurance === 'Oui' && <div><label>Type</label><input type="text" value={o.secType} onChange={e=>updateOcc(o.id, 'secType', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}{o.secAssurance === 'Oui' && <div><label>Compagnie (2e ass.)</label><input type="text" value={o.secCie} onChange={e=>updateOcc(o.id, 'secCie', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}{o.secAssurance === 'Oui' && <div><label>N° Police (2e ass.)</label><input type="text" value={o.secPolice} onChange={e=>updateOcc(o.id, 'secPolice', e.target.value)} className="input-field mb-0 border-indigo-500" /></div>}</div>
                                                     </div>
                                                 )}
-
+                                                
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setExpandedOccId(null); 
+                                                        setTimeout(() => document.getElementById('add-occ-btn')?.focus(), 50); 
+                                                    }} 
+                                                    className="col-span-2 mt-2 bg-slate-700 hover:bg-slate-600 text-white py-1.5 rounded text-[11px] font-bold border border-slate-600 transition-colors"
+                                                >
+                                                    ✓ Valider la partie
+                                                </button>
                                             </div>
                                         )}
                                     </div>
                                 )})}
-                                <button onClick={addOcc} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une partie impliquée</button>
+                                <button id="add-occ-btn" onClick={addOcc} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une partie impliquée</button>
                             </div>
                         </details>
 
@@ -877,11 +914,21 @@ const Sidebar = () => {
                                                     )}
                                                 </div>
 
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setExpandedExpId(null); 
+                                                        setTimeout(() => document.getElementById('add-exp-btn')?.focus(), 50); 
+                                                    }} 
+                                                    className="col-span-2 mt-2 bg-slate-700 hover:bg-slate-600 text-white py-1.5 rounded text-[11px] font-bold border border-slate-600 transition-colors"
+                                                >
+                                                    ✓ Valider le frais
+                                                </button>
                                             </div>
                                         )}
                                     </div>
                                 )})}
-                                <button onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
+                                <button id="add-exp-btn" onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
                                 <datalist id="prestataires-list">
                                     {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
                                         .sort((a, b) => a.localeCompare(b))

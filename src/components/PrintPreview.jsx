@@ -109,7 +109,7 @@ const PrintPreview = () => {
                                     <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o.statut === 'Locataire' ? 'ml-12 text-slate-700' : ''}`}>
                                         <strong className="break-words">{o.etage || '-'}</strong>
                                         <span className="text-slate-800 break-words">- {o.statut}</span>
-                                        <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
+                                        <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong>{o.iban ? <span className="ml-1 text-[10px] italic text-slate-500">(IBAN: {o.iban})</span> : ''} {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
                                     </div>
                                     {orgaAdvancedMode && (o.rc === 'Oui' || o.secAssurance === 'Oui') && (
                                         <div className={`ml-[280px] ${o.statut === 'Locataire' ? 'pl-12' : ''}`}>
@@ -295,6 +295,14 @@ const PrintPreview = () => {
                         ))}
                     </div>
                     {renderBlocksInOrder()}
+                    {formData.compteRendu && (
+                        <div className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.cause?.fontSize || 12}px`, color: styles.cause?.color || '#000', fontFamily: styles.cause?.fontFamily || 'Arial', textAlign: styles.cause?.textAlign || 'left' }}>
+                            <div className={`${styles.cause?.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
+                                <p className="font-bold underline mb-1" style={{ fontSize: `${(styles.cause?.fontSize || 12) + 2}px` }}>COMPTE RENDU D'EXPERTISE</p>
+                                <p className="whitespace-pre-wrap break-words">{formData.compteRendu}</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

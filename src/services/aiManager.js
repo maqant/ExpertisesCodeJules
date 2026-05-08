@@ -262,3 +262,72 @@ Ne renvoie aucun autre texte, juste le JSON.`
         error: "Le mode IA (VITE_AI_MODE) n'est ni 'mock' ni 'live'."
     };
 };
+
+/**
+ * Reformate les notes brutes du courtier en un compte rendu structuré.
+ */
+export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-4o', providedApiKey = null) => {
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    
+    if (!apiKey) {
+        // Mode Mock si pas de clé API
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return {
+            success: true,
+            data: `Chronologie : (Mock) Intervention sur place à 10h.
+Paroles de l'expert : (Mock) "Les dégâts sont importants."
+Actions de l'expert : (Mock) Prise de photos et mesures de l'humidité.
+Remarques du courtier : (Mock) Le client était très stressé.
+Décisions & Actions : (Mock) Attente du devis du plombier d'ici vendredi.`
+        };
+    }
+
+    try {
+        const payload = {
+            model: model,
+            messages: [
+                {
+                    role: "system",
+                    content: `Tu es un assistant expert en expertise sinistre. Ton rôle est de transformer des notes brutes prises sur le terrain en un compte rendu structuré et professionnel pour le Syndic et les Copropriétaires. L'auteur des notes est le COURTIER. Utilise ce format exact :
+- Chronologie : (ce qu'il s'est passé)
+- Paroles de l'expert : (ce qui a été dit)
+- Actions de l'expert : (ce qui a été fait/vérifié)
+- Remarques du courtier : (mes observations)
+- Décisions & Actions : (Qui fait quoi ? Quels devis sont attendus ?)`
+                },
+                {
+                    role: "user",
+                    content: rawNotes
+                }
+            ],
+            response_format: { type: "text" },
+            temperature: 0.3
+        };
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        return {
+            success: true,
+            data: data.choices[0].message.content.trim()
+        };
+    } catch (error) {
+        console.error("[aiManager] reformatCompteRendu error :", error);
+        return {
+            success: false,
+            error: error.message || "Erreur lors du formatage du compte rendu."
+        };
+    }
+};
