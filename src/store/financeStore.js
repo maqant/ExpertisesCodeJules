@@ -3,6 +3,12 @@ import { create } from 'zustand';
 // Utilitaire pour la génération d'ID sécurisée
 const generateId = () => crypto.randomUUID();
 
+// Utilitaire pour parser un montant textuel en nombre
+const parseMontant = (val) => {
+  if (typeof val === 'number') return val;
+  return parseFloat(String(val || '0').replace(',', '.')) || 0;
+};
+
 export const useFinanceStore = create((set, get) => ({
   // ==========================================
   // 1. SQUELETTE DE DONNÉES STRICT (Phase 2.1)
@@ -28,9 +34,10 @@ export const useFinanceStore = create((set, get) => ({
       adresse: "",
       cause: ""
     },
-    expenses: [],      // { id: UUID, prestataire, type, ref, desc, compteDe, montantReclame, montantValide, pourcentageVetuste, motifRefus, typeMontant }
+    expenses: [],      // { id, prestataire, type, ref, desc, compteDe, montantReclame, montantValide, pourcentageVetuste, motifRefus, typeMontant, categorieGarantie, tauxTVA, factureRecue, isFranchise }
     paiements: [],     // Phase 3: { id: UUID, dateRecept, montantTotal, ventilations: [{ expenseId, montantAlloue, typeAllocation }] }
-    isPVEClosed: false // Statut de l'expertise (Verrouille les modifications)
+    isPVEClosed: false, // Statut de l'expertise (Verrouille les modifications)
+    franchiseOccId: null // ID de l'occupant qui porte la franchise (null = pas encore décidé)
   },
 
   // ==========================================
@@ -40,7 +47,14 @@ export const useFinanceStore = create((set, get) => ({
   // --- Chargement global ---
   loadDossier: (data) => set({
     pii: data.pii || { occupants: [], prestataires: [], experts: [] },
-    metier: data.metier || { formData: {}, expenses: [], paiements: [], isPVEClosed: false }
+    metier: {
+      formData: {},
+      expenses: [],
+      paiements: [],
+      isPVEClosed: false,
+      franchiseOccId: null,
+      ...(data.metier || {})
+    }
   }),
 
   // --- Formulaire (Métier) ---
@@ -84,6 +98,11 @@ export const useFinanceStore = create((set, get) => ({
       isProcessed: expense.isProcessed || false,
       typeMontant: expense.typeMontant || 'HTVA',
       isSpontane: expense.isSpontane || false,
+      // v5.1.0 : Nouveaux champs financiers
+      categorieGarantie: expense.categorieGarantie || '',
+      tauxTVA: expense.tauxTVA ?? 0,
+      factureRecue: expense.factureRecue || false,
+      isFranchise: expense.isFranchise || false,
       ...expense
     };
     return {
@@ -104,7 +123,8 @@ export const useFinanceStore = create((set, get) => ({
 
         // Phase 2.3.2 : Calcul automatique si on modifie des données de facturation (et que l'expertise n'est pas close)
         // Ne pas écraser si l'utilisateur a explicitement fourni montantValide (modification manuelle en mode Terrain)
-        if (!state.metier.isPVEClosed && expenseData.montantValide === undefined) {
+        // Ne pas recalculer pour les frais de franchise (montant négatif fixe)
+        if (!state.metier.isPVEClosed && expenseData.montantValide === undefined && !updated.isFranchise) {
           const reclame = parseFloat(String(updated.montantReclame || "0").replace(',', '.')) || 0;
           let vetuste = parseFloat(updated.pourcentageVetuste) || 0;
 
@@ -133,6 +153,43 @@ export const useFinanceStore = create((set, get) => ({
     metier: { ...state.metier, isPVEClosed: !state.metier.isPVEClosed }
   })),
 
+  // --- Franchise (v5.1.0) ---
+  setFranchiseOccId: (occId) => set((state) => ({
+    metier: { ...state.metier, franchiseOccId: occId }
+  })),
+
+  generateFranchiseExpense: (occId, montant) => set((state) => {
+    // Supprimer tout ancien frais franchise existant avant d'en créer un nouveau
+    const cleanedExpenses = state.metier.expenses.filter(e => !e.isFranchise);
+    const id = generateId();
+    const franchiseExp = {
+      id,
+      prestataire: 'Franchise contractuelle',
+      type: 'Franchise',
+      ref: '',
+      desc: 'Franchise déduite conformément aux conditions du contrat',
+      compteDe: occId,
+      montantReclame: (-Math.abs(montant)).toFixed(2),
+      montantValide: (-Math.abs(montant)).toFixed(2),
+      typeMontant: 'Forfait',
+      categorieGarantie: 'Principale',
+      tauxTVA: 0,
+      factureRecue: false,
+      isFranchise: true,
+      isSpontane: false,
+      isProcessed: true,
+      pourcentageVetuste: 0,
+      motifRefus: ''
+    };
+    return {
+      metier: {
+        ...state.metier,
+        expenses: [...cleanedExpenses, franchiseExp],
+        franchiseOccId: occId
+      }
+    };
+  }),
+
   // --- Paiements (Phase 3) ---
   addPaiement: (paiement) => set((state) => {
     const id = paiement.id || generateId();
@@ -152,7 +209,7 @@ export const useFinanceStore = create((set, get) => ({
   getTotalPVE: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.')) || 0;
+      const val = parseMontant(exp.montantValide || exp.montantReclame || exp.montant);
       return sum + val;
     }, 0);
     return total;
@@ -161,10 +218,104 @@ export const useFinanceStore = create((set, get) => ({
   getTotalReclame: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseFloat(String(exp.montantReclame || exp.montant || "0").replace(',', '.')) || 0;
+      const val = parseMontant(exp.montantReclame || exp.montant);
       return sum + val;
     }, 0);
     return total;
+  },
+
+  // v5.1.0 : Sélecteur financier avancé par occupant
+  getFinancialSummaryByOcc: (formData) => {
+    const state = get();
+    const expenses = state.metier.expenses;
+    const occupants = state.pii.occupants;
+    const franchiseOccId = state.metier.franchiseOccId;
+
+    // Parser le taux PI depuis formData (ex: "10%" → 10)
+    const tauxPI = parseFloat(String(formData?.pertesIndirectes || '0').replace('%', '')) || 0;
+
+    // Parser le montant brut de la franchise depuis formData (ex: "Avril 2026 - 333,39 €" → 333.39)
+    let franchiseBrute = 0;
+    const franchiseStr = formData?.franchise || '';
+    const franchiseMatch = franchiseStr.match(/([\d.,]+)\s*€?/);
+    if (franchiseMatch) {
+      franchiseBrute = parseFloat(franchiseMatch[1].replace(',', '.')) || 0;
+    } else {
+      franchiseBrute = parseFloat(String(franchiseStr).replace(',', '.')) || 0;
+    }
+
+    const summary = {};
+
+    // Initialiser chaque occupant
+    occupants.forEach(o => {
+      summary[o.id] = {
+        nom: `${o.nom || ''} ${o.prenom || ''}`.trim(),
+        etage: o.etage || '',
+        totalPrincipale: 0,
+        totalComplementaire: 0,
+        franchiseMontant: 0,
+        pertesIndirectes: 0,
+        totalNet: 0,
+        tvaAttendue: 0,
+        lignes: []
+      };
+    });
+
+    // Répartir les frais
+    expenses.forEach(exp => {
+      if (!exp.isProcessed || !exp.compteDe) return;
+      if (!summary[exp.compteDe]) {
+        // Occupant inconnu ou supprimé, créer une entrée fallback
+        summary[exp.compteDe] = {
+          nom: exp.compteDe,
+          etage: '',
+          totalPrincipale: 0,
+          totalComplementaire: 0,
+          franchiseMontant: 0,
+          pertesIndirectes: 0,
+          totalNet: 0,
+          tvaAttendue: 0,
+          lignes: []
+        };
+      }
+
+      const val = parseMontant(exp.montantValide || exp.montantReclame || exp.montant);
+      const entry = summary[exp.compteDe];
+
+      if (exp.isFranchise) {
+        entry.franchiseMontant += val; // val est déjà négatif
+      } else {
+        entry.lignes.push(exp);
+        const cat = exp.categorieGarantie || 'Principale';
+        if (cat === 'Principale') {
+          entry.totalPrincipale += val;
+        } else {
+          entry.totalComplementaire += val;
+        }
+
+        // TVA attendue pour les frais HTVA sans facture reçue
+        if (exp.typeMontant === 'HTVA' && !exp.factureRecue && (exp.tauxTVA || 0) > 0) {
+          entry.tvaAttendue += val * ((exp.tauxTVA || 0) / 100);
+        }
+      }
+    });
+
+    // Calculer PI et Total Net pour chaque occupant
+    Object.keys(summary).forEach(occId => {
+      const entry = summary[occId];
+
+      // PI = (Total Principale + Franchise) × tauxPI / 100
+      // La franchise ne s'applique qu'à l'occupant désigné
+      const basePourPI = entry.totalPrincipale + entry.franchiseMontant;
+
+      if (tauxPI > 0 && basePourPI > 0) {
+        entry.pertesIndirectes = basePourPI * (tauxPI / 100);
+      }
+
+      entry.totalNet = entry.totalPrincipale + entry.totalComplementaire + entry.franchiseMontant + entry.pertesIndirectes;
+    });
+
+    return summary;
   },
 
   // Calcul du montant total alloué (versé) sur un frais spécifique

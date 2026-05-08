@@ -293,7 +293,8 @@ Décisions & Actions : (Mock) Attente du devis du plombier d'ici vendredi.`
 - Paroles de l'expert : (ce qui a été dit)
 - Actions de l'expert : (ce qui a été fait/vérifié)
 - Remarques du courtier : (mes observations)
-- Décisions & Actions : (Qui fait quoi ? Quels devis sont attendus ?)`
+- Décisions & Actions : (Qui fait quoi ? Quels devis sont attendus ?)
+- Ventilation financière : (Si des montants sont mentionnés, ventile-les en Garantie Principale (Bâtiment), Garantie Complémentaire (Frais/Cause), Pertes Indirectes et Franchise. Sinon, indique "À compléter après fixation.")`
                 },
                 {
                     role: "user",

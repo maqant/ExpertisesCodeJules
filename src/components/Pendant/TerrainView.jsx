@@ -22,17 +22,62 @@ const TerrainView = () => {
   const totalReclame = store.getTotalReclame();
 
   const [editModalExp, setEditModalExp] = useState(null);
-  const [editData, setEditData] = useState({ montantValide: "", motifRefus: "", isSpontane: false });
+  const [editData, setEditData] = useState({ montantValide: "", motifRefus: "", isSpontane: false, categorieGarantie: '' });
   const [showSpontaneModal, setShowSpontaneModal] = useState(false);
-  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '' });
+  const [spontaneData, setSpontaneData] = useState({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '', categorieGarantie: '' });
 
+  // v5.1.0 : Modale de catégorisation (Valider)
+  const [categorieModalExp, setCategorieModalExp] = useState(null);
+
+  // v5.1.0 : Modale de clôture (franchise)
+  const [showClotureModal, setShowClotureModal] = useState(false);
+  const [franchiseTarget, setFranchiseTarget] = useState('');
+
+  // v5.1.0 : Valider ouvre la modale de catégorisation
   const handleValid100 = (exp) => {
-    store.updateExpense(exp.id, {
-      montantValide: exp.montantReclame || exp.montant || "0",
-      pourcentageVetuste: 0,
-      motifRefus: '',
-      isProcessed: true
-    });
+    setCategorieModalExp(exp);
+  };
+
+  const confirmCategorie = (categorie) => {
+    if (categorieModalExp) {
+      store.updateExpense(categorieModalExp.id, {
+        montantValide: categorieModalExp.montantReclame || categorieModalExp.montant || "0",
+        pourcentageVetuste: 0,
+        motifRefus: '',
+        isProcessed: true,
+        categorieGarantie: categorie
+      });
+    }
+    setCategorieModalExp(null);
+  };
+
+  // v5.1.0 : Parsing du montant de franchise depuis formData
+  const parseFranchiseMontant = () => {
+    const str = context.formData?.franchise || '';
+    const match = str.match(/([\d.,]+)\s*€?/);
+    if (match) return parseFloat(match[1].replace(',', '.')) || 0;
+    return parseFloat(String(str).replace(',', '.')) || 0;
+  };
+
+  const handleClotureClick = () => {
+    const montant = parseFranchiseMontant();
+    if (montant > 0) {
+      setShowClotureModal(true);
+    } else {
+      store.togglePVEStatus();
+    }
+  };
+
+  const confirmCloture = (mode) => {
+    const montant = parseFranchiseMontant();
+    if (mode === 'assign' && franchiseTarget) {
+      store.generateFranchiseExpense(franchiseTarget, montant);
+    } else if (mode === 'later') {
+      store.setFranchiseOccId(null);
+    }
+    store.togglePVEStatus();
+    setShowClotureModal(false);
+    setFranchiseTarget('');
   };
 
   const [refusModalExp, setRefusModalExp] = useState(null);
@@ -45,7 +90,8 @@ const TerrainView = () => {
       motifRefus: exp.motifRefus || "",
       compteDe: exp.compteDe || "",
       typeMontant: exp.typeMontant || "HTVA",
-      isSpontane: exp.isSpontane || false
+      isSpontane: exp.isSpontane || false,
+      categorieGarantie: exp.categorieGarantie || ''
     });
   };
 
@@ -57,6 +103,7 @@ const TerrainView = () => {
         compteDe: editData.compteDe,
         typeMontant: editData.typeMontant,
         isSpontane: editData.isSpontane,
+        categorieGarantie: editData.categorieGarantie,
         isProcessed: true
       });
     }
@@ -81,20 +128,21 @@ const TerrainView = () => {
   };
 
   const addSpontane = () => {
-    if (spontaneData.prestataire && spontaneData.montant) {
+    if (spontaneData.prestataire && spontaneData.montant && spontaneData.categorieGarantie) {
       store.addExpense({
         prestataire: spontaneData.prestataire,
         montantReclame: spontaneData.montant,
         montantValide: spontaneData.montant,
         typeMontant: spontaneData.typeMontant,
         compteDe: spontaneData.compteDe,
+        categorieGarantie: spontaneData.categorieGarantie,
         type: 'Forfait',
         desc: 'Frais spontané sur place',
         isSpontane: true,
-        isProcessed: true // Spontaneous expenses on terrain are implicitly processed
+        isProcessed: true
       });
       setShowSpontaneModal(false);
-      setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '' });
+      setSpontaneData({ prestataire: '', montant: '', typeMontant: 'Forfait', compteDe: '', categorieGarantie: '' });
     }
   };
 
@@ -133,7 +181,7 @@ const TerrainView = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Expertise Terrain (Fixation PVE)</h1>
         <button
-          onClick={() => store.togglePVEStatus()}
+          onClick={() => isPVEClosed ? store.togglePVEStatus() : handleClotureClick()}
           className={`px-4 py-2 rounded font-bold ${isPVEClosed ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}
         >
           {isPVEClosed ? 'Rouvrir l\'expertise' : '🔒 Clôturer l\'expertise'}
@@ -183,9 +231,11 @@ const TerrainView = () => {
         <div className="flex gap-2">
           <button
             onClick={() => setShowPrintPVE(true)}
-            className="bg-slate-700 text-white px-4 py-2 rounded shadow hover:bg-slate-600 flex items-center gap-2"
+            disabled={!isPVEClosed}
+            className={`px-4 py-2 rounded shadow flex items-center gap-2 ${isPVEClosed ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-400 text-slate-200 cursor-not-allowed'}`}
+            title={!isPVEClosed ? 'Clôturez l\'expertise pour générer le CRE' : ''}
           >
-            🖨️ Générer PVE
+            🖨️ Générer CRE
           </button>
           <button
             onClick={() => setShowSpontaneModal(true)}
@@ -402,10 +452,21 @@ const TerrainView = () => {
                   onChange={e => setEditData({...editData, typeMontant: e.target.value})}
                 >
                   <option value="HTVA">HTVA</option>
-                  <option value="TVAC">TVAC</option>
                   <option value="Forfait">Forfait</option>
                 </select>
               </div>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-bold mb-1">Catégorie de garantie</label>
+              <select
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                value={editData.categorieGarantie}
+                onChange={e => setEditData({...editData, categorieGarantie: e.target.value})}
+              >
+                <option value="">Choisir...</option>
+                <option value="Principale">🏠 Garantie Principale (Bâtiment)</option>
+                <option value="Complémentaire">📋 Garantie Complémentaire (Frais/Cause)</option>
+              </select>
             </div>
             <div className="mb-4">
               <label className="block text-sm font-bold mb-1">Motif de la modification (Optionnel)</label>
@@ -446,8 +507,19 @@ const TerrainView = () => {
                 onChange={e => setSpontaneData({...spontaneData, typeMontant: e.target.value})}
               >
                 <option value="HTVA">HTVA</option>
-                <option value="TVAC">TVAC</option>
                 <option value="Forfait">Forfait</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-bold mb-1">Catégorie de garantie</label>
+              <select
+                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                value={spontaneData.categorieGarantie}
+                onChange={e => setSpontaneData({...spontaneData, categorieGarantie: e.target.value})}
+              >
+                <option value="">Choisir...</option>
+                <option value="Principale">🏠 Garantie Principale (Bâtiment)</option>
+                <option value="Complémentaire">📋 Garantie Complémentaire (Frais/Cause)</option>
               </select>
             </div>
             <div className="mb-4">
@@ -467,7 +539,80 @@ const TerrainView = () => {
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowSpontaneModal(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
-              <button onClick={addSpontane} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Ajouter</button>
+              <button onClick={addSpontane} disabled={!spontaneData.categorieGarantie} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold disabled:opacity-50">Ajouter</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Catégorisation (v5.1.0) */}
+      {categorieModalExp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl">
+            <h3 className="text-lg font-bold mb-2">Catégorie de garantie</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Pour <strong>{categorieModalExp.prestataire}</strong> — {categorieModalExp.montantReclame || categorieModalExp.montant || '0'} €</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => confirmCategorie('Principale')}
+                className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors text-center"
+              >
+                <span className="text-2xl block mb-1">🏠</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-300 text-sm">Garantie Principale</span>
+                <span className="block text-xs text-slate-500 mt-1">Bâtiment</span>
+              </button>
+              <button
+                onClick={() => confirmCategorie('Complémentaire')}
+                className="p-4 rounded-xl border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-center"
+              >
+                <span className="text-2xl block mb-1">📋</span>
+                <span className="font-bold text-blue-700 dark:text-blue-300 text-sm">Garantie Complémentaire</span>
+                <span className="block text-xs text-slate-500 mt-1">Frais / Cause</span>
+              </button>
+            </div>
+            <button onClick={() => setCategorieModalExp(null)} className="w-full text-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Clôture Franchise (v5.1.0) */}
+      {showClotureModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl">
+            <h3 className="text-lg font-bold mb-2">🔒 Attribution de la franchise</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">À qui attribuer la franchise de <strong className="text-red-500">{parseFranchiseMontant().toFixed(2)} €</strong> ?</p>
+            <select
+              className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-4"
+              value={franchiseTarget}
+              onChange={e => setFranchiseTarget(e.target.value)}
+            >
+              <option value="">Choisir un bénéficiaire...</option>
+              {occupants.map(o => {
+                const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                if (!fullName) return null;
+                const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                return <option key={o.id} value={o.id}>{displayName}</option>;
+              })}
+            </select>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => confirmCloture('assign')}
+                disabled={!franchiseTarget}
+                className="w-full px-4 py-2 bg-emerald-600 text-white rounded font-bold disabled:opacity-50 hover:bg-emerald-500"
+              >
+                ✅ Attribuer et clôturer
+              </button>
+              <button
+                onClick={() => confirmCloture('later')}
+                className="w-full px-4 py-2 bg-amber-500 text-white rounded font-bold hover:bg-amber-400"
+              >
+                ⏳ Décider plus tard
+              </button>
+              <button
+                onClick={() => setShowClotureModal(false)}
+                className="w-full text-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mt-1"
+              >
+                Annuler
+              </button>
             </div>
           </div>
         </div>

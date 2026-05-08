@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useFinanceStore } from '../../store/financeStore';
+import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { getCompteDeName } from '../../utils/formatters';
 
 const PrintPVE = ({ onBack }) => {
   const store = useFinanceStore();
+  const context = useContext(ExpertiseContext);
   const expenses = store.metier.expenses;
   const formData = store.metier.formData;
   const occupants = store.pii.occupants;
   const totalPVE = store.getTotalPVE();
+  const financialSummary = store.getFinancialSummaryByOcc(context?.formData || {});
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
     if (!exp.isProcessed) return acc;
     const name = getCompteDeName(exp.compteDe, occupants);
@@ -85,6 +88,7 @@ const PrintPVE = ({ onBack }) => {
               <tr className="bg-slate-100 text-left">
                 <th className="border p-2 w-1/4">Poste / Prestataire</th>
                 <th className="border p-2">Bénéficiaire</th>
+                <th className="border p-2">Catégorie</th>
                 <th className="border p-2 text-right">Réclamé</th>
                 <th className="border p-2 text-right">Accordé</th>
                 <th className="border p-2">Motif (si différent)</th>
@@ -109,11 +113,17 @@ const PrintPVE = ({ onBack }) => {
                           ✨ Spontané
                         </span>
                       )}
+                      {exp.isFranchise && (
+                        <span className="ml-2 inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          Franchise
+                        </span>
+                      )}
                     </div>
                     {exp.ref && <div className="text-xs text-slate-600 font-medium">Réf: {exp.ref}</div>}
                     <div className="text-xs text-slate-500">{exp.desc}</div>
                   </td>
                   <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe, occupants)}</td>
+                  <td className="border p-2 text-xs">{exp.isFranchise ? 'Franchise' : (exp.categorieGarantie === 'Complémentaire' ? 'Compl.' : 'Princ.')}</td>
                   <td className="border p-2 text-right">{exp.montantReclame || exp.montant || '0.00'} €</td>
                   <td className="border p-2 text-right font-bold">
                       {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €
@@ -127,13 +137,12 @@ const PrintPVE = ({ onBack }) => {
             </tbody>
             <tfoot>
               <tr className="bg-slate-200 font-bold text-base">
-                <td className="border p-3 text-right align-top" colSpan="3">TOTAL DE L'INDEMNITÉ FIXÉE :</td>
+                <td className="border p-3 text-right align-top" colSpan="4">TOTAL DE L'INDEMNITÉ FIXÉE :</td>
                 <td className="border p-3 text-right text-emerald-700">
                     <div className="flex flex-col gap-1 items-end">
                         {totalGlobalPVE.HTVA > 0 && <span>{totalGlobalPVE.HTVA.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">HTVA</span></span>}
-                        {totalGlobalPVE.TVAC > 0 && <span>{totalGlobalPVE.TVAC.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">TVAC</span></span>}
                         {totalGlobalPVE.Forfait > 0 && <span>{totalGlobalPVE.Forfait.toFixed(2)} € <span className="text-[10px] text-slate-500 font-normal">Forfait</span></span>}
-                        {totalGlobalPVE.HTVA === 0 && totalGlobalPVE.TVAC === 0 && totalGlobalPVE.Forfait === 0 && <span>0.00 €</span>}
+                        {totalGlobalPVE.HTVA === 0 && totalGlobalPVE.Forfait === 0 && <span>0.00 €</span>}
                     </div>
                 </td>
                 <td className="border p-3"></td>
@@ -174,6 +183,37 @@ const PrintPVE = ({ onBack }) => {
                       ))}
                   </ul>
               </div>
+          </div>
+        )}
+
+        {/* v5.1.0 : Ventilation financière */}
+        {Object.keys(financialSummary).length > 0 && (
+          <div className="mb-8 break-inside-avoid">
+            <h3 className="text-base font-bold mb-2 uppercase text-slate-700 border-b pb-2">Ventilation financière</h3>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-100 text-left text-xs uppercase">
+                  <th className="border p-2">Bénéficiaire</th>
+                  <th className="border p-2 text-right">Principale</th>
+                  <th className="border p-2 text-right">Complémentaire</th>
+                  <th className="border p-2 text-right">Franchise</th>
+                  <th className="border p-2 text-right">Pertes Ind.</th>
+                  <th className="border p-2 text-right font-bold">Total Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(financialSummary).map(([occId, data]) => (
+                  <tr key={occId} className="border-b">
+                    <td className="border p-2 font-bold">{data.etage ? `${data.etage} - ` : ''}{data.nom || 'Non attribué'}</td>
+                    <td className="border p-2 text-right">{data.totalPrincipale > 0 ? data.totalPrincipale.toFixed(2) + ' €' : '-'}</td>
+                    <td className="border p-2 text-right">{data.totalComplementaire > 0 ? data.totalComplementaire.toFixed(2) + ' €' : '-'}</td>
+                    <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
+                    <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
+                    <td className="border p-2 text-right font-bold text-lg">{data.totalNet.toFixed(2)} €</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
