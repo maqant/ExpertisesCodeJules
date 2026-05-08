@@ -37,7 +37,8 @@ export const useFinanceStore = create((set, get) => ({
     expenses: [],      // { id, prestataire, type, ref, desc, compteDe, montantReclame, montantValide, pourcentageVetuste, motifRefus, typeMontant, categorieGarantie, tauxTVA, factureRecue, isFranchise }
     paiements: [],     // Phase 3: { id: UUID, dateRecept, montantTotal, ventilations: [{ expenseId, montantAlloue, typeAllocation }] }
     isPVEClosed: false, // Statut de l'expertise (Verrouille les modifications)
-    franchiseOccId: null // ID de l'occupant qui porte la franchise (null = pas encore décidé)
+    franchiseOccId: null, // ID de l'occupant qui porte la franchise (null = pas encore décidé)
+    referentielFranchises: [] // Liste des franchises applicables selon date
   },
 
   // ==========================================
@@ -53,9 +54,15 @@ export const useFinanceStore = create((set, get) => ({
       paiements: [],
       isPVEClosed: false,
       franchiseOccId: null,
+      referentielFranchises: [],
       ...(data.metier || {})
     }
   }),
+
+  // --- Franchise Référentiel ---
+  setReferentielFranchises: (liste) => set((state) => ({
+    metier: { ...state.metier, referentielFranchises: liste }
+  })),
 
   // --- Formulaire (Métier) ---
   updateFormData: (newData) => set((state) => ({
@@ -158,7 +165,10 @@ export const useFinanceStore = create((set, get) => ({
     metier: { ...state.metier, franchiseOccId: occId }
   })),
 
-  generateFranchiseExpense: (occId, montant) => set((state) => {
+  generateFranchiseExpense: (occId) => set((state) => {
+    // Supprimer tout ancien frais franchise existant avant d'en créer un nouveau
+    const franchiseBrute = get().getFranchiseMontant();
+
     // Supprimer tout ancien frais franchise existant avant d'en créer un nouveau
     const cleanedExpenses = state.metier.expenses.filter(e => !e.isFranchise);
     const id = generateId();
@@ -169,8 +179,8 @@ export const useFinanceStore = create((set, get) => ({
       ref: '',
       desc: 'Franchise déduite conformément aux conditions du contrat',
       compteDe: occId,
-      montantReclame: (-Math.abs(montant)).toFixed(2),
-      montantValide: (-Math.abs(montant)).toFixed(2),
+      montantReclame: (-Math.abs(franchiseBrute)).toFixed(2),
+      montantValide: (-Math.abs(franchiseBrute)).toFixed(2),
       typeMontant: 'Forfait',
       categorieGarantie: 'Principale',
       tauxTVA: 0,
@@ -224,6 +234,44 @@ export const useFinanceStore = create((set, get) => ({
     return total;
   },
 
+  getFranchiseMontant: () => {
+    const state = get();
+    const formData = state.metier.formData;
+    const refFranchises = state.metier.referentielFranchises || [];
+    let foundInRef = false;
+    let franchiseBrute = 0;
+    
+    if (formData?.dateSinistre && refFranchises.length > 0) {
+      const dateSinistre = new Date(formData.dateSinistre);
+      if (!isNaN(dateSinistre.getTime())) {
+        const year = dateSinistre.getFullYear();
+        const month = dateSinistre.getMonth() + 1;
+        const matchingRef = refFranchises.find(f => 
+          (f.year === year || f.annee === year) && 
+          (f.month === month || f.mois === month)
+        );
+        if (matchingRef && matchingRef.montant) {
+          franchiseBrute = parseMontant(matchingRef.montant);
+          foundInRef = true;
+        }
+      }
+    }
+
+    if (!foundInRef) {
+      const franchiseStr = String(formData?.franchise || '').trim();
+      const matchEuro = franchiseStr.match(/([\d.,]+)\s*€/);
+      if (matchEuro) {
+        franchiseBrute = parseFloat(matchEuro[1].replace(',', '.'));
+      } else {
+        const numbers = franchiseStr.match(/[\d.,]+/g);
+        if (numbers && numbers.length > 0) {
+           franchiseBrute = parseFloat(numbers[numbers.length - 1].replace(',', '.'));
+        }
+      }
+    }
+    return franchiseBrute;
+  },
+
   // v5.1.0 : Sélecteur financier avancé par occupant
   getFinancialSummaryByOcc: (formData) => {
     const state = get();
@@ -234,15 +282,8 @@ export const useFinanceStore = create((set, get) => ({
     // Parser le taux PI depuis formData (ex: "10%" → 10)
     const tauxPI = parseFloat(String(formData?.pertesIndirectes || '0').replace('%', '')) || 0;
 
-    // Parser le montant brut de la franchise depuis formData (ex: "Avril 2026 - 333,39 €" → 333.39)
-    let franchiseBrute = 0;
-    const franchiseStr = formData?.franchise || '';
-    const franchiseMatch = franchiseStr.match(/([\d.,]+)\s*€?/);
-    if (franchiseMatch) {
-      franchiseBrute = parseFloat(franchiseMatch[1].replace(',', '.')) || 0;
-    } else {
-      franchiseBrute = parseFloat(String(franchiseStr).replace(',', '.')) || 0;
-    }
+    // Utilisation du sélecteur unifié
+    const franchiseBrute = get().getFranchiseMontant();
 
     const summary = {};
 
@@ -300,13 +341,17 @@ export const useFinanceStore = create((set, get) => ({
       }
     });
 
-    // Calculer PI et Total Net pour chaque occupant
+    // Calculer PI et Total Net pour chaque occupant avec imputation stricte de la franchise
     Object.keys(summary).forEach(occId => {
       const entry = summary[occId];
 
-      // PI = (Total Principale + Franchise) × tauxPI / 100
-      // La franchise ne s'applique qu'à l'occupant désigné
-      const basePourPI = entry.totalPrincipale + entry.franchiseMontant;
+      const absFranchise = Math.abs(entry.franchiseMontant);
+      
+      // Imputation: on déduit d'abord de la Garantie Principale
+      const partFranchiseImputeePrincipale = Math.min(absFranchise, entry.totalPrincipale);
+      
+      // PI = (Total Principale - Part Franchise Imputée sur la Principale) × tauxPI / 100
+      const basePourPI = entry.totalPrincipale - partFranchiseImputeePrincipale;
 
       if (tauxPI > 0 && basePourPI > 0) {
         entry.pertesIndirectes = basePourPI * (tauxPI / 100);

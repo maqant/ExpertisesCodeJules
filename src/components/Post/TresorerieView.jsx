@@ -41,10 +41,7 @@ const TresorerieView = () => {
   const [franchiseTargetPost, setFranchiseTargetPost] = useState('');
 
   const parseFranchiseMontant = () => {
-    const str = context?.formData?.franchise || '';
-    const match = str.match(/([\d.,]+)\s*€?/);
-    if (match) return parseFloat(match[1].replace(',', '.')) || 0;
-    return parseFloat(String(str).replace(',', '.')) || 0;
+    return store.getFranchiseMontant();
   };
 
   const assignFranchisePost = () => {
@@ -152,104 +149,170 @@ const TresorerieView = () => {
                   )}
                 </div>
                 <div className="p-4 space-y-6">
-                  {occExpenses.filter(e => !e.isFranchise).map(exp => {
-                    const status = store.getStatutPaiementFrais(exp.id);
-                    const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
-                    const safeVal = isNaN(val) ? 0 : val;
-                    const percent = safeVal > 0 ? Math.min(100, (status.totalGlobal / safeVal) * 100) : 0;
-                    const tvaRate = exp.tauxTVA || 0;
-                    const tvaAmount = exp.typeMontant === 'HTVA' ? safeVal * (tvaRate / 100) : 0;
+                  {(() => {
+                    let franchiseRestanteVisuelle = hasFranchise ? Math.abs(summary.franchiseMontant) : 0;
+                    
+                    const sortedExpenses = [...occExpenses].filter(e => !e.isFranchise).sort((a, b) => {
+                      if (a.categorieGarantie === 'Principale' && b.categorieGarantie !== 'Principale') return -1;
+                      if (a.categorieGarantie !== 'Principale' && b.categorieGarantie === 'Principale') return 1;
+                      return 0;
+                    });
+
+                    const renderedExpenses = sortedExpenses.map(exp => {
+                      const status = store.getStatutPaiementFrais(exp.id);
+                      const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
+                      const safeVal = isNaN(val) ? 0 : val;
+                      const tvaRate = exp.tauxTVA || 0;
+                      const tvaAmount = exp.typeMontant === 'HTVA' ? safeVal * (tvaRate / 100) : 0;
+                      const montantTotalAttendu = safeVal + tvaAmount;
+
+                      // Imputation franchise visuelle sur ce frais
+                      const partFranchise = Math.min(franchiseRestanteVisuelle, safeVal);
+                      franchiseRestanteVisuelle -= partFranchise;
+
+                      // Calculs pour la jauge 80/20
+                      const principalPaye = exp.typeMontant === 'HTVA' ? status.totalHTVA : status.totalGlobal;
+                      const tvaPayee = exp.typeMontant === 'HTVA' ? status.totalTVA : 0;
+                      
+                      const pctFranchiseA = safeVal > 0 ? Math.min(100, (partFranchise / safeVal) * 100) : 0;
+                      const pctPrincipalA = safeVal > 0 ? Math.min(100 - pctFranchiseA, (principalPaye / safeVal) * 100) : 0;
+                      const pctTVAB = tvaAmount > 0 ? Math.min(100, (tvaPayee / tvaAmount) * 100) : 0;
+
+                      return (
+                        <div key={exp.id} className="group">
+                          <div className="flex justify-between items-end mb-1">
+                            <div>
+                              <p className="font-bold text-lg">
+                                {exp.prestataire || 'Frais'}
+                                <span className="text-xs font-normal text-slate-500 ml-2">({exp.typeMontant || 'HTVA'})</span>
+                                {exp.categorieGarantie && (
+                                  <span className={`ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${exp.categorieGarantie === 'Principale' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                    {exp.categorieGarantie === 'Principale' ? '🏠 Principale' : '📋 Complémentaire'}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-sm text-slate-500">{exp.desc}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm text-slate-500">Versé : </span>
+                              <span className="font-bold text-indigo-600 dark:text-indigo-400">{status.totalGlobal.toFixed(2)} €</span>
+                              <span className="text-sm text-slate-400 mx-1">/</span>
+                              <span className="font-bold">{montantTotalAttendu.toFixed(2)} €</span>
+                              {tvaAmount > 0 && (
+                                <span className="text-xs text-slate-500 ml-1">
+                                  (Principal: {safeVal.toFixed(2)}€ + TVA: {tvaAmount.toFixed(2)}€)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Jauge principale refondue 80/20 */}
+                          <div className="w-full flex gap-1">
+                            {/* Conteneur A (Principal) */}
+                            <div className="w-[80%] bg-slate-200 dark:bg-slate-600 h-3 rounded-full overflow-hidden flex shadow-inner">
+                              {/* Segment 1: Franchise imputée (Zone morte) */}
+                              {pctFranchiseA > 0 && (
+                                <div
+                                  className="bg-red-800 h-full transition-all duration-700 ease-out"
+                                  style={{ width: `${pctFranchiseA}%` }}
+                                  title={`Franchise imputée : ${partFranchise.toFixed(2)} €`}
+                                ></div>
+                              )}
+                              {/* Segment 2: Principal payé */}
+                              {pctPrincipalA > 0 && (
+                                <div
+                                  className={`bg-indigo-600 h-full transition-all duration-700 ease-out ${pctFranchiseA > 0 ? 'border-l border-indigo-700' : ''}`}
+                                  style={{ width: `${pctPrincipalA}%` }}
+                                  title={`Principal payé : ${principalPaye.toFixed(2)} €`}
+                                ></div>
+                              )}
+                            </div>
+                            
+                            {/* Conteneur B (TVA) */}
+                            {exp.typeMontant === 'HTVA' ? (
+                              <div className={`w-[20%] h-3 rounded-full overflow-hidden flex shadow-inner ${tvaAmount > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-slate-100 dark:bg-slate-700/30'}`}>
+                                {pctTVAB > 0 && (
+                                  <div
+                                    className="bg-amber-500 h-full transition-all duration-700 ease-out"
+                                    style={{ width: `${pctTVAB}%` }}
+                                    title={`TVA payée : ${tvaPayee.toFixed(2)} €`}
+                                  ></div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="w-[20%]"></div>
+                            )}
+                          </div>
+
+                          {/* TVA controls + tags */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {status.totalGlobal > 0 && (
+                              <>
+                                {status.totalHTVA > 0 && <span className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-700">HTVA: {status.totalHTVA.toFixed(2)} €</span>}
+                                {status.totalTVA > 0 && <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700">TVA: {status.totalTVA.toFixed(2)} €</span>}
+                                {status.totalForfait > 0 && <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">Forfait: {status.totalForfait.toFixed(2)} €</span>}
+                              </>
+                            )}
+                            {/* v5.1.0 : TVA controls */}
+                            {exp.typeMontant === 'HTVA' && (
+                              <>
+                                <select
+                                  value={exp.tauxTVA || 0}
+                                  onChange={e => store.updateExpense(exp.id, { tauxTVA: parseInt(e.target.value) })}
+                                  className="text-[10px] bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5"
+                                >
+                                  <option value={0}>TVA 0%</option>
+                                  <option value={6}>TVA 6%</option>
+                                  <option value={21}>TVA 21%</option>
+                                </select>
+                                <label className="flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={exp.factureRecue || false}
+                                    onChange={e => store.updateExpense(exp.id, { factureRecue: e.target.checked })}
+                                    className="w-3 h-3 rounded"
+                                  />
+                                  Facture reçue
+                                </label>
+                                {tvaAmount > 0 && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                                    TVA attendue : {tvaAmount.toFixed(2)} € {exp.factureRecue ? '✅' : ''}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
 
                     return (
-                      <div key={exp.id} className="group">
-                        <div className="flex justify-between items-end mb-1">
-                          <div>
-                            <p className="font-bold text-lg">
-                              {exp.prestataire || 'Frais'}
-                              <span className="text-xs font-normal text-slate-500 ml-2">({exp.typeMontant || 'HTVA'})</span>
-                              {exp.categorieGarantie && (
-                                <span className={`ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${exp.categorieGarantie === 'Principale' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
-                                  {exp.categorieGarantie === 'Principale' ? '🏠 Principale' : '📋 Complémentaire'}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-sm text-slate-500">{exp.desc}</p>
+                      <>
+                        {renderedExpenses}
+                        {franchiseRestanteVisuelle > 0 && (
+                          <div className="mt-6 p-4 bg-red-600 border-2 border-red-800 text-white rounded-xl shadow-lg flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl">⚠️</span>
+                              <div>
+                                <h4 className="font-black text-lg uppercase tracking-wide">Dette Franchise Restante</h4>
+                                <p className="text-red-100 text-sm">Les frais validés ne couvrent pas l'intégralité de la franchise.</p>
+                              </div>
+                            </div>
+                            <span className="text-2xl font-black">{franchiseRestanteVisuelle.toFixed(2)} €</span>
                           </div>
-                          <div className="text-right">
-                            <span className="text-sm text-slate-500">Versé : </span>
-                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{status.totalGlobal.toFixed(2)} €</span>
-                            <span className="text-sm text-slate-400 mx-1">/</span>
-                            <span className="font-bold">{safeVal.toFixed(2)} €</span>
+                        )}
+                        {/* v5.1.0 : Alerte franchise globale pour cet occupant */}
+                        {hasFranchise && franchiseRestanteVisuelle === 0 && (
+                          <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-3 flex items-center gap-3">
+                            <span className="text-2xl">🔻</span>
+                            <div>
+                              <p className="font-bold text-red-700 dark:text-red-300 text-sm">Malus Franchise</p>
+                              <p className="text-xs text-red-600 dark:text-red-400">{summary.franchiseMontant.toFixed(2)} € déduits conformément au contrat</p>
+                            </div>
                           </div>
-                        </div>
-                        {/* Jauge principale */}
-                        <div className="w-full bg-slate-200 dark:bg-slate-600 h-3 rounded-full overflow-hidden relative shadow-inner">
-                          <div
-                            className={`h-full transition-all duration-700 ease-out ${percent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-                            style={{ width: `${percent}%` }}
-                          ></div>
-                          {/* TVA attendue en grisé */}
-                          {tvaAmount > 0 && !exp.factureRecue && safeVal > 0 && (
-                            <div
-                              className="absolute top-0 h-full bg-amber-400/30 border-r-2 border-amber-500/50"
-                              style={{ left: `${percent}%`, width: `${Math.min(100 - percent, (tvaAmount / safeVal) * 100)}%` }}
-                              title={`TVA attendue : ${tvaAmount.toFixed(2)} €`}
-                            ></div>
-                          )}
-                        </div>
-
-                        {/* TVA controls + tags */}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {status.totalGlobal > 0 && (
-                            <>
-                              {status.totalHTVA > 0 && <span className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-700">HTVA: {status.totalHTVA.toFixed(2)} €</span>}
-                              {status.totalTVA > 0 && <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700">TVA: {status.totalTVA.toFixed(2)} €</span>}
-                              {status.totalForfait > 0 && <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">Forfait: {status.totalForfait.toFixed(2)} €</span>}
-                            </>
-                          )}
-                          {/* v5.1.0 : TVA controls */}
-                          {exp.typeMontant === 'HTVA' && (
-                            <>
-                              <select
-                                value={exp.tauxTVA || 0}
-                                onChange={e => store.updateExpense(exp.id, { tauxTVA: parseInt(e.target.value) })}
-                                className="text-[10px] bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5"
-                              >
-                                <option value={0}>TVA 0%</option>
-                                <option value={6}>TVA 6%</option>
-                                <option value={21}>TVA 21%</option>
-                              </select>
-                              <label className="flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={exp.factureRecue || false}
-                                  onChange={e => store.updateExpense(exp.id, { factureRecue: e.target.checked })}
-                                  className="w-3 h-3 rounded"
-                                />
-                                Facture reçue
-                              </label>
-                              {tvaAmount > 0 && (
-                                <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">
-                                  TVA attendue : {tvaAmount.toFixed(2)} € {exp.factureRecue ? '✅' : ''}
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
+                        )}
+                      </>
                     );
-                  })}
-
-                  {/* v5.1.0 : Alerte franchise pour cet occupant */}
-                  {hasFranchise && (
-                    <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-3 flex items-center gap-3">
-                      <span className="text-2xl">🔻</span>
-                      <div>
-                        <p className="font-bold text-red-700 dark:text-red-300 text-sm">Malus Franchise</p>
-                        <p className="text-xs text-red-600 dark:text-red-400">{summary.franchiseMontant.toFixed(2)} € déduits conformément au contrat</p>
-                      </div>
-                    </div>
-                  )}
+                  })()}
                 </div>
               </div>
             );

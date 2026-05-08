@@ -51,12 +51,9 @@ const TerrainView = () => {
     setCategorieModalExp(null);
   };
 
-  // v5.1.0 : Parsing du montant de franchise depuis formData
+  // v5.1.0 : Parsing du montant de franchise unifié depuis le store
   const parseFranchiseMontant = () => {
-    const str = context.formData?.franchise || '';
-    const match = str.match(/([\d.,]+)\s*€?/);
-    if (match) return parseFloat(match[1].replace(',', '.')) || 0;
-    return parseFloat(String(str).replace(',', '.')) || 0;
+    return store.getFranchiseMontant();
   };
 
   const handleClotureClick = () => {

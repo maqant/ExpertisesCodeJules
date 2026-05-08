@@ -38,23 +38,74 @@ const PaymentWizardModal = ({ onClose }) => {
     setStep(2);
   };
 
-  const currentExpense = expenses.find(e => e.id === selectedExpId);
-  const getMontantRestantAPayer = (exp) => {
-      if (!exp) return 0;
+  const calculateLimits = (exp) => {
+      if (!exp) return { maxPrincipal: 0, maxTVA: 0, partFranchise: 0 };
+      
+      const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
+      const safeVal = isNaN(val) ? 0 : val;
+      const tvaRate = exp.tauxTVA || 0;
+      const tvaAmount = exp.typeMontant === 'HTVA' ? safeVal * (tvaRate / 100) : 0;
+      
+      // Calculer la part de franchise imputée sur ce frais
+      let franchiseImputee = 0;
+      const franchiseGlobale = store.getFranchiseMontant();
+      if (exp.compteDe && franchiseGlobale > 0) {
+          const occExpenses = expenses.filter(e => String(e.compteDe) === String(exp.compteDe) && !e.isFranchise);
+          const sorted = [...occExpenses].sort((a, b) => {
+              if (a.categorieGarantie === 'Principale' && b.categorieGarantie !== 'Principale') return -1;
+              if (a.categorieGarantie !== 'Principale' && b.categorieGarantie === 'Principale') return 1;
+              return 0;
+          });
+          
+          let remainingFranchise = franchiseGlobale;
+          for (const e of sorted) {
+              const eVal = parseFloat(String(e.montantValide || e.montantReclame || e.montant || "0").replace(',', '.'));
+              const eSafe = isNaN(eVal) ? 0 : eVal;
+              const imputed = Math.min(remainingFranchise, eSafe);
+              if (e.id === exp.id) {
+                  franchiseImputee = imputed;
+                  break;
+              }
+              remainingFranchise -= imputed;
+              if (remainingFranchise <= 0) break;
+          }
+      }
+      
       const status = store.getStatutPaiementFrais(exp.id);
-      // Inclure également les ventilations qui sont en cours d'encodage dans ce wizard
-      const enCours = ventilations.reduce((s, v) => v.expenseId === exp.id ? s + v.montantAlloue : s, 0);
-      const valide = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
-      return Math.max(0, (isNaN(valide) ? 0 : valide) - status.totalGlobal - enCours);
+      
+      // Inclure les ventilations en cours d'encodage
+      const enCoursPrincipal = ventilations.reduce((s, v) => (v.expenseId === exp.id && (v.typeAllocation === 'HTVA' || v.typeAllocation === 'FORFAIT')) ? s + v.montantAlloue : s, 0);
+      const enCoursTVA = ventilations.reduce((s, v) => (v.expenseId === exp.id && v.typeAllocation === 'TVA') ? s + v.montantAlloue : s, 0);
+      
+      const dejaPayePrincipal = (exp.typeMontant === 'HTVA' ? status.totalHTVA : status.totalGlobal) + enCoursPrincipal;
+      const dejaPayeTVA = status.totalTVA + enCoursTVA;
+      
+      const maxPrincipal = Math.max(0, safeVal - dejaPayePrincipal - franchiseImputee);
+      const maxTVA = Math.max(0, tvaAmount - dejaPayeTVA);
+      
+      return { maxPrincipal, maxTVA, partFranchise: franchiseImputee };
   };
-  const currentRestantAPayer = getMontantRestantAPayer(currentExpense);
+
+  const currentExpense = expenses.find(e => e.id === selectedExpId);
+  const currentLimits = calculateLimits(currentExpense);
+  const activeMaxLimit = allocationType === 'TVA' ? currentLimits.maxTVA : currentLimits.maxPrincipal;
+
+  const getMontantRestantAPayer = (exp) => {
+      const limits = calculateLimits(exp);
+      return limits.maxPrincipal + limits.maxTVA;
+  };
 
   const handleAjouterVentilation = () => {
       const amt = parseFloat(String(allocationAmount).replace(',', '.'));
       if (isNaN(amt) || amt <= 0) return alert("Montant d'attribution invalide.");
 
       if (amt > soldeRestant + 0.01) return alert("Le montant alloué dépasse le solde disponible."); // Marge de flottant
-      if (amt > currentRestantAPayer + 0.01) return alert("Le montant alloué dépasse le solde restant à payer pour cette facture.");
+      
+      if (allocationType === 'TVA' && amt > currentLimits.maxTVA + 0.01) {
+          return alert(`Le montant alloué dépasse le solde de TVA restant à payer pour cette facture (Max: ${currentLimits.maxTVA.toFixed(2)}€).`);
+      } else if (allocationType !== 'TVA' && amt > currentLimits.maxPrincipal + 0.01) {
+          return alert(`Le montant alloué dépasse le solde de Principal restant à payer pour cette facture (Max: ${currentLimits.maxPrincipal.toFixed(2)}€).`);
+      }
 
       const nouvelleAlloc = {
           expenseId: selectedExpId,
@@ -79,6 +130,12 @@ const PaymentWizardModal = ({ onClose }) => {
   };
 
   const handleFinaliser = () => {
+      const amtPending = parseFloat(String(allocationAmount).replace(',', '.'));
+      if (!isNaN(amtPending) && amtPending > 0) {
+          alert("Attention : vous avez saisi un montant qui n'a pas encore été ajouté.\nVeuillez cliquer sur 'Ajouter l'allocation ↓' ou effacer le champ avant d'enregistrer.");
+          return;
+      }
+
       if (isReprise) {
           if (ventilations.length > 0) {
               // On ajoute uniquement les ventilations. En créant un "paiement" avec 0 reçu,
@@ -190,7 +247,12 @@ const PaymentWizardModal = ({ onClose }) => {
                                 {selectedOccId && (
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">2. Choisir la Facture / Frais</label>
-                                        <select value={selectedExpId} onChange={(e) => { setSelectedExpId(e.target.value); setAllocationAmount(""); setAllocationType("HTVA"); }} className="w-full p-2.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:border-indigo-500">
+                                        <select value={selectedExpId} onChange={(e) => { 
+                                            setSelectedExpId(e.target.value); 
+                                            setAllocationAmount(""); 
+                                            const exp = expenses.find(x => x.id === e.target.value);
+                                            setAllocationType(exp && exp.typeMontant === 'Forfait' ? 'FORFAIT' : 'HTVA'); 
+                                        }} className="w-full p-2.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:border-indigo-500">
                                             <option value="">Sélectionnez...</option>
                                             {expenses.filter(e => {
                                                 const matchesOcc = selectedOccId === 'unassigned' ? (!e.compteDe || String(e.compteDe).trim() === '') : (String(e.compteDe) === String(selectedOccId));
@@ -208,31 +270,55 @@ const PaymentWizardModal = ({ onClose }) => {
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-amber-800 dark:text-amber-500 mb-1 uppercase">3. Montant alloué</label>
                                             <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    value={allocationAmount}
-                                                    onChange={e => setAllocationAmount(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleAjouterVentilation()}
-                                                    className="w-full p-2.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-lg font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 pr-16"
-                                                    placeholder={`Max: ${Math.min(currentRestantAPayer, soldeRestant).toFixed(2)}`}
-                                                />
-                                                <div className="absolute right-2 top-2">
-                                                    <button onClick={() => setAllocationAmount(Math.min(currentRestantAPayer, soldeRestant).toFixed(2))} className="text-[10px] bg-amber-200 text-amber-800 px-2 py-1 rounded font-bold hover:bg-amber-300">MAX</button>
-                                                </div>
+                                                {activeMaxLimit <= 0.01 ? (
+                                                    <div className="w-full p-3 rounded border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-500 text-sm font-bold text-center">
+                                                        {allocationType === 'TVA' ? 'TVA entièrement payée' : (currentLimits.partFranchise > 0 && currentLimits.maxPrincipal <= 0 ? 'Frais couvert par la franchise' : 'Principal entièrement payé')}
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <input
+                                                            type="number"
+                                                            value={allocationAmount}
+                                                            onChange={e => {
+                                                                let val = e.target.value;
+                                                                if (val !== '') {
+                                                                    const num = parseFloat(val);
+                                                                    const maxAllow = Math.min(activeMaxLimit, soldeRestant);
+                                                                    if (!isNaN(num) && num > maxAllow) {
+                                                                        val = maxAllow.toFixed(2);
+                                                                    }
+                                                                }
+                                                                setAllocationAmount(val);
+                                                            }}
+                                                            onKeyDown={e => e.key === 'Enter' && handleAjouterVentilation()}
+                                                            className="w-full p-2.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-lg font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 pr-16"
+                                                            placeholder={`Max: ${Math.min(activeMaxLimit, soldeRestant).toFixed(2)}`}
+                                                            max={Math.min(activeMaxLimit, soldeRestant)}
+                                                        />
+                                                        <div className="absolute right-2 top-2">
+                                                            <button onClick={() => setAllocationAmount(Math.min(activeMaxLimit, soldeRestant).toFixed(2))} className="text-[10px] bg-amber-200 text-amber-800 px-2 py-1 rounded font-bold hover:bg-amber-300">MAX</button>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="w-1/3">
                                             <label className="block text-xs font-bold text-amber-800 dark:text-amber-500 mb-1 uppercase">Type</label>
                                             <select value={allocationType} onChange={e => setAllocationType(e.target.value)} className="w-full p-3 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 font-bold outline-none focus:border-amber-500">
-                                                <option value="HTVA">HTVA</option>
-                                                <option value="TVA">TVA</option>
-                                                <option value="FORFAIT">FORFAIT</option>
+                                                {currentExpense.typeMontant === 'Forfait' ? (
+                                                    <option value="FORFAIT">FORFAIT</option>
+                                                ) : (
+                                                    <>
+                                                        <option value="HTVA">Principal (HTVA)</option>
+                                                        <option value="TVA">TVA</option>
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
                                     </div>
                                 )}
 
-                                {currentExpense && (
+                                {currentExpense && activeMaxLimit > 0.01 && (
                                     <button onClick={handleAjouterVentilation} className="w-full bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 rounded-lg mt-2 shadow-md">Ajouter l'allocation ↓</button>
                                 )}
                             </div>

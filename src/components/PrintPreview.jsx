@@ -19,12 +19,20 @@ const PrintPreview = () => {
 
     const dettesParPersonne = expenses.reduce((acc, exp) => {
         const p = getCompteDeName(exp.compteDe, occupants);
-        if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
+        if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, Franchise: 0, lignes: [] };
         const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
         const safeVal = isNaN(val) ? 0 : val;
-        if (exp.typeMontant === 'HTVA') acc[p].HTVA += safeVal;
-        else if (exp.typeMontant === 'TVAC') acc[p].TVAC += safeVal;
-        else if (exp.typeMontant === 'Forfait') acc[p].Forfait += safeVal;
+        
+        if (exp.isFranchise) {
+            acc[p].Franchise += safeVal;
+        } else if (exp.typeMontant === 'HTVA') {
+            acc[p].HTVA += safeVal;
+        } else if (exp.typeMontant === 'TVAC') {
+            acc[p].TVAC += safeVal;
+        } else if (exp.typeMontant === 'Forfait') {
+            acc[p].Forfait += safeVal;
+        }
+        
         acc[p].lignes.push(exp);
         return acc;
     }, {});
@@ -155,7 +163,11 @@ const PrintPreview = () => {
                                                 {exp.montant ? (
                                                     <>
                                                         <div className="whitespace-nowrap">{exp.montant} €</div>
-                                                        <div className="text-[0.75em] font-normal opacity-80 uppercase">{exp.typeMontant}</div>
+                                                        {exp.isFranchise ? (
+                                                            <div className="text-[0.75em] px-1.5 py-0.5 rounded-full text-white inline-block mt-0.5 bg-purple-800 uppercase tracking-wide">FRANCHISE</div>
+                                                        ) : (
+                                                            <div className="text-[0.75em] font-normal opacity-80 uppercase">{exp.typeMontant}</div>
+                                                        )}
                                                     </>
                                                 ) : ''}
                                             </td>
@@ -200,7 +212,8 @@ const PrintPreview = () => {
                                                     <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
                                                         {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
                                                         {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
-                                                        {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.Forfait > 0 && <span>Forfaits accordés : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                                        {data.Franchise !== 0 && <span className="text-purple-800 font-black">Franchise contractuelle : {data.Franchise.toFixed(2).replace('.', ',')} €</span>}
                                                     </div>
                                                 </div>
                                                 <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">

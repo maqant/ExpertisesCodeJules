@@ -6,13 +6,14 @@ import Workspace from './components/Workspace';
 import TerrainView from './components/Pendant/TerrainView';
 import { useState } from 'react';
 
+import packageJson from '../package.json';
+
 function App() {
   const [viewMode, setViewMode] = useState('bureau'); // 'bureau' ou 'terrain'
 
   return (
     <ExpertiseProvider>
-      <div className="flex flex-col h-screen w-full bg-slate-200">
-
+      <div className="flex flex-col h-screen w-full bg-slate-200 relative">
 
         <div className="bg-slate-900 text-white p-2 flex justify-center gap-4 z-50 shadow-md">
           <button
@@ -44,6 +45,11 @@ function App() {
           )}
           {viewMode === 'terrain' && <TerrainView />}
           {viewMode === 'tresorerie' && <TresorerieView />}
+        </div>
+
+        {/* Version Badge */}
+        <div className="fixed bottom-2 right-3 text-[10px] text-slate-400/60 font-bold tracking-wider pointer-events-none z-50 print:hidden uppercase">
+          v{packageJson.version}
         </div>
       </div>
     </ExpertiseProvider>

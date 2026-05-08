@@ -12,7 +12,7 @@ const PrintPVE = ({ onBack }) => {
   const totalPVE = store.getTotalPVE();
   const financialSummary = store.getFinancialSummaryByOcc(context?.formData || {});
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
-    if (!exp.isProcessed) return acc;
+    if (!exp.isProcessed || exp.isFranchise) return acc;
     const name = getCompteDeName(exp.compteDe, occupants);
     const occ = occupants.find(o => o.id === exp.compteDe);
     if (!acc[name]) acc[name] = { HTVA: 0, TVAC: 0, Forfait: 0, iban: occ?.iban || '', lignes: [] };
@@ -29,7 +29,7 @@ const PrintPVE = ({ onBack }) => {
   }, {});
 
   const totalGlobalPVE = expenses.reduce((acc, exp) => {
-    if (!exp.isProcessed) return acc;
+    if (!exp.isProcessed || exp.isFranchise) return acc;
     const val = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || "0").replace(',', '.'));
     const safeVal = isNaN(val) ? 0 : val;
     const typeM = exp.typeMontant || 'HTVA';
@@ -95,7 +95,7 @@ const PrintPVE = ({ onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {expenses.map(exp => {
+              {expenses.filter(e => !e.isFranchise).map(exp => {
                 const valReclame = parseFloat(String(exp.montantReclame || exp.montant || '0').replace(',', '.'));
                 const valAccorde = parseFloat(String(exp.montantValide || exp.montantReclame || exp.montant || '0').replace(',', '.'));
                 let bgClass = "bg-white";
@@ -113,17 +113,12 @@ const PrintPVE = ({ onBack }) => {
                           ✨ Spontané
                         </span>
                       )}
-                      {exp.isFranchise && (
-                        <span className="ml-2 inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          Franchise
-                        </span>
-                      )}
                     </div>
                     {exp.ref && <div className="text-xs text-slate-600 font-medium">Réf: {exp.ref}</div>}
                     <div className="text-xs text-slate-500">{exp.desc}</div>
                   </td>
                   <td className="border p-2 text-slate-700">{getCompteDeName(exp.compteDe, occupants)}</td>
-                  <td className="border p-2 text-xs">{exp.isFranchise ? 'Franchise' : (exp.categorieGarantie === 'Complémentaire' ? 'Compl.' : 'Princ.')}</td>
+                  <td className="border p-2 text-xs">{exp.categorieGarantie === 'Complémentaire' ? 'Compl.' : 'Princ.'}</td>
                   <td className="border p-2 text-right">{exp.montantReclame || exp.montant || '0.00'} €</td>
                   <td className="border p-2 text-right font-bold">
                       {exp.montantValide || exp.montantReclame || exp.montant || '0.00'} €
@@ -194,24 +189,25 @@ const PrintPVE = ({ onBack }) => {
               <thead>
                 <tr className="bg-slate-100 text-left text-xs uppercase">
                   <th className="border p-2">Bénéficiaire</th>
-                  <th className="border p-2 text-right">Principale</th>
-                  <th className="border p-2 text-right">Complémentaire</th>
+                  <th className="border p-2 text-right">Montant Validé (HTVA)</th>
                   <th className="border p-2 text-right">Franchise</th>
                   <th className="border p-2 text-right">Pertes Ind.</th>
-                  <th className="border p-2 text-right font-bold">Total Net</th>
+                  <th className="border p-2 text-right font-bold text-emerald-700">Indemnisation</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(financialSummary).map(([occId, data]) => (
-                  <tr key={occId} className="border-b">
-                    <td className="border p-2 font-bold">{data.etage ? `${data.etage} - ` : ''}{data.nom || 'Non attribué'}</td>
-                    <td className="border p-2 text-right">{data.totalPrincipale > 0 ? data.totalPrincipale.toFixed(2) + ' €' : '-'}</td>
-                    <td className="border p-2 text-right">{data.totalComplementaire > 0 ? data.totalComplementaire.toFixed(2) + ' €' : '-'}</td>
-                    <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
-                    <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
-                    <td className="border p-2 text-right font-bold text-lg">{data.totalNet.toFixed(2)} €</td>
-                  </tr>
-                ))}
+                {Object.entries(financialSummary).map(([occId, data]) => {
+                  const montantValide = data.totalPrincipale + data.totalComplementaire;
+                  return (
+                    <tr key={occId} className="border-b">
+                      <td className="border p-2 font-bold">{data.etage ? `${data.etage} - ` : ''}{data.nom || 'Non attribué'}</td>
+                      <td className="border p-2 text-right">{montantValide > 0 ? montantValide.toFixed(2) + ' €' : '-'}</td>
+                      <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
+                      <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
+                      <td className="border p-2 text-right font-bold text-lg text-emerald-700">{data.totalNet.toFixed(2)} €</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
