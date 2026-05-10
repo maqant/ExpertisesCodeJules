@@ -328,6 +328,8 @@ export const useFinanceStore = create((set, get) => ({
       } else {
         entry.lignes.push(exp);
         const cat = exp.categorieGarantie || 'Principale';
+
+        // Comptabilité à 100% — toujours le montant validé intégral
         if (cat === 'Principale') {
           entry.totalPrincipale += val;
         } else {
@@ -341,23 +343,44 @@ export const useFinanceStore = create((set, get) => ({
       }
     });
 
+    // v5.1.1 : Détection règle AXA
+    const isAxa = state.metier.formData?.isAxa === true;
+
     // Calculer PI et Total Net pour chaque occupant avec imputation stricte de la franchise
     Object.keys(summary).forEach(occId => {
       const entry = summary[occId];
 
       const absFranchise = Math.abs(entry.franchiseMontant);
       
-      // Imputation: on déduit d'abord de la Garantie Principale
-      const partFranchiseImputeePrincipale = Math.min(absFranchise, entry.totalPrincipale);
-      
-      // PI = (Total Principale - Part Franchise Imputée sur la Principale) × tauxPI / 100
-      const basePourPI = entry.totalPrincipale - partFranchiseImputeePrincipale;
+      // v5.1.1 : Chez AXA, PI = % de l'argent REÇU (80% de Principale - franchise)
+      // Hors AXA, PI = % de (100% Principale - franchise)
+      // PI ne s'applique JAMAIS sur la Complémentaire
+      if (isAxa) {
+        const base80 = entry.totalPrincipale * 0.8;
+        const franchiseSurBase80 = Math.min(absFranchise, base80);
+        const apresfranchise80 = base80 - franchiseSurBase80;
 
-      if (tauxPI > 0 && basePourPI > 0) {
-        entry.pertesIndirectes = basePourPI * (tauxPI / 100);
+        // PI sur l'argent reçu au 1er paiement
+        if (tauxPI > 0 && apresfranchise80 > 0) {
+          entry.pertesIndirectes = apresfranchise80 * (tauxPI / 100);
+        }
+
+        // Indemnisation = ce que la personne va effectivement toucher au 1er paiement
+        entry.totalNet = apresfranchise80 + entry.pertesIndirectes + entry.totalComplementaire;
+        // Le premierPaiement est identique à totalNet chez AXA
+        entry.premierPaiement = entry.totalNet;
+      } else {
+        // Hors AXA : calcul classique sur base 100%
+        const partFranchiseImputeePrincipale = Math.min(absFranchise, entry.totalPrincipale);
+        const basePourPI = entry.totalPrincipale - partFranchiseImputeePrincipale;
+
+        if (tauxPI > 0 && basePourPI > 0) {
+          entry.pertesIndirectes = basePourPI * (tauxPI / 100);
+        }
+
+        entry.totalNet = entry.totalPrincipale + entry.totalComplementaire + entry.franchiseMontant + entry.pertesIndirectes;
+        entry.premierPaiement = null; // Pas applicable
       }
-
-      entry.totalNet = entry.totalPrincipale + entry.totalComplementaire + entry.franchiseMontant + entry.pertesIndirectes;
     });
 
     return summary;

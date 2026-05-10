@@ -189,15 +189,15 @@ const TerrainView = () => {
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold uppercase">Compte Rendu</h2>
-          {context.isAiModeActive && (
-            <button
-              onClick={handleMagicCompteRendu}
-              disabled={isReformatting || !context.formData.compteRendu}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50 font-bold"
-            >
-              {isReformatting ? '⏳ Magie en cours...' : '✨ Magique (Remise en forme)'}
-            </button>
-          )}
+          
+          <button
+            onClick={handleMagicCompteRendu}
+            disabled={!context.isAiModeActive || isReformatting || !context.formData.compteRendu}
+            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-sm transition-colors font-bold ${!context.isAiModeActive ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-700 dark:text-slate-500' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-600 dark:bg-indigo-900/40 dark:hover:bg-indigo-900/60 dark:text-indigo-400'}`}
+            title={!context.isAiModeActive ? "Activez l'IA dans les paramètres" : "Mettre en forme les notes (IA)"}
+          >
+            <span className={`text-lg ${isReformatting ? 'animate-spin' : ''}`}>🔄</span>
+          </button>
         </div>
         <textarea
           name="compteRendu"

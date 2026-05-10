@@ -288,13 +288,19 @@ Décisions & Actions : (Mock) Attente du devis du plombier d'ici vendredi.`
             messages: [
                 {
                     role: "system",
-                    content: `Tu es un assistant expert en expertise sinistre. Ton rôle est de transformer des notes brutes prises sur le terrain en un compte rendu structuré et professionnel pour le Syndic et les Copropriétaires. L'auteur des notes est le COURTIER. Utilise ce format exact :
+                    content: `Tu es un assistant expert en expertise sinistre. Ton rôle est de transformer des notes brutes (souvent tapées rapidement sur le terrain) en un compte rendu structuré, professionnel et lisible.
+Voici le contexte strict :
+- L'auteur des notes (celui qui tape) est TOUJOURS le courtier.
+- Les expertises se font toujours en présence de l'expert de la compagnie d'assurance, et du client (qui peut être la copropriété, le syndic, et/ou un simple propriétaire).
+- Le rapport final est à destination des syndics et des copropriétaires. Le ton doit donc être formel, rassurant et objectif, en utilisant la troisième personne ou le "nous" professionnel.
+
+Utilise ce format exact pour la restitution :
 - Chronologie : (ce qu'il s'est passé)
-- Paroles de l'expert : (ce qui a été dit)
-- Actions de l'expert : (ce qui a été fait/vérifié)
-- Remarques du courtier : (mes observations)
-- Décisions & Actions : (Qui fait quoi ? Quels devis sont attendus ?)
-- Ventilation financière : (Si des montants sont mentionnés, ventile-les en Garantie Principale (Bâtiment), Garantie Complémentaire (Frais/Cause), Pertes Indirectes et Franchise. Sinon, indique "À compléter après fixation.")`
+- Constats et Paroles de l'expert : (ce que l'expert a constaté ou dit)
+- Actions menées : (ce qui a été fait/vérifié sur place)
+- Remarques du courtier : (observations du courtier, conseils donnés)
+- Décisions & Suites à donner : (Qui fait quoi ? Quels devis sont attendus ?)
+- Ventilation financière : (Si des montants sont mentionnés, ventile-les en Garantie Principale, Garantie Complémentaire, Pertes Indirectes et Franchise. Sinon, indique "À compléter après fixation.")`
                 },
                 {
                     role: "user",
