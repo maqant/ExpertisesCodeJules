@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+import { useFinanceStore } from '../store/financeStore';
 
 const PrintPreview = () => {
     const context = useContext(ExpertiseContext);
@@ -11,6 +12,10 @@ const PrintPreview = () => {
         blocksVisible, customBlocks, positions, styles, showSubtotals, orgaAdvancedMode,
         getSortedBlocks, getPaginationInfo
     } = context;
+
+    const financeStore = useFinanceStore();
+    const isAxa = formData.nomCie?.toUpperCase().includes('AXA');
+    const financialSummary = financeStore.getFinancialSummaryByOcc(formData);
 
     const totalFrais = expenses.reduce((acc, curr) => {
         const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
@@ -178,17 +183,27 @@ const PrintPreview = () => {
                                 {expenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais encodé</td></tr>}
                             </tbody>
                         </table>
-                        {showSubtotals && Object.keys(dettesParPersonne).length > 0 && (
+                        {showSubtotals && Object.keys(financialSummary).length > 0 && (
                             <div className="mt-4 pt-3 border-t border-slate-300 text-slate-700 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize}px` }}>
-                                <p className="font-bold mb-2">Décompte par partie impliquée (HTVA) :</p>
-                                <ul className="list-none m-0 p-0 space-y-1">
-                                    {Object.entries(dettesParPersonne).map(([personne, data]) => (
-                                        <li key={personne} className="flex justify-between w-2/3">
-                                            <span>- {formatShortCompteDe(personne)}</span>
-                                            <span className="font-bold">{data.HTVA.toFixed(2).replace('.', ',')} €</span>
-                                        </li>
+                                <p className="font-bold mb-2">Décompte par partie impliquée :</p>
+                                <div className="space-y-4">
+                                    {Object.entries(financialSummary).map(([occId, data]) => (
+                                        <div key={occId} className="w-full">
+                                            <p className="font-bold border-b border-slate-200 mb-1">{data.nom} {data.etage ? `(${data.etage})` : ''}</p>
+                                            <ul className="list-none m-0 p-0 space-y-1">
+                                                <li className="flex justify-between w-2/3 ml-4">
+                                                    <span>- {isAxa ? "Indemnisation (80% HTVA)" : "Indemnisation"}</span>
+                                                    <span className="font-bold">{(data.totalNet || 0).toFixed(2).replace('.', ',')} €</span>
+                                                </li>
+                                            </ul>
+                                            {isAxa && (
+                                                <p className="mt-2 text-[0.8em] text-slate-500 italic ml-4 leading-tight">
+                                                    Le paiement chez AXA est de 80% pour les garanties principales HTVA, et 100% pour les garanties complémentaires. Pour la principale, le solde des 20% et la TVA sont versés sur présentation des factures, à transmettre au courtier.
+                                                </p>
+                                            )}
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         )}
                     </div>

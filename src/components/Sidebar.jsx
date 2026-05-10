@@ -186,6 +186,7 @@ const Sidebar = () => {
     const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
     const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
     const [isDraggingOverAnnexes, setIsDraggingOverAnnexes] = useState(false);
+    const [nomCieAutre, setNomCieAutre] = useState('');
 
     const resetAllDragStates = () => {
         setIsDraggingOverFrais(false);
@@ -545,12 +546,7 @@ const Sidebar = () => {
                                     </div>
                                     <div className="flex-1"><label>Pertes indirectes</label><select name="pertesIndirectes" value={formData.pertesIndirectes} onChange={handleChange} className="input-field mb-0"><option value="">Sélectionner...</option><option value="0%">0%</option><option value="5%">5%</option><option value="10%">10%</option></select></div>
                                 </div>
-                                <div className="flex justify-end mt-1">
-                                    <label className="flex items-center space-x-1.5 cursor-pointer text-[10px] text-slate-500 hover:text-slate-300 transition-colors" title="Chez AXA, on ne reçoit que 80% des montants HTVA">
-                                        <input type="checkbox" name="isAxa" checked={formData.isAxa || false} onChange={(e) => setFormData({...formData, isAxa: e.target.checked})} className="w-3 h-3 rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-0" />
-                                        <span>Règle AXA (80% HTVA)</span>
-                                    </label>
-                                </div>
+
 
                                 <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700">
                                     <div><label>Bureau d'expertise</label><input type="text" name="bureau" value={formData.bureau} onChange={handleChange} placeholder="Ex: DION" className="input-field mb-0" list="bureau-suggestions" /><datalist id="bureau-suggestions"><option value="Expert interne" /><option value="DION Expertises" /><option value="DE ROO & PARTNERS" /></datalist></div>
@@ -634,7 +630,47 @@ const Sidebar = () => {
                                     <label>Déclaré par (Nom)</label><input type="text" name="declarant" value={formData.declarant} onChange={handleChange} placeholder="Ex: Mme. X" className="input-field mb-0" />
                                 </div>
 
-                                <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
+                                <div className="flex gap-2 pt-2 border-t border-slate-600">
+                                    <div className="flex-1">
+                                        <label>Nom Compagnie</label>
+                                        <select 
+                                            value={['AG', 'Allianz', 'AXA', 'Baloise', 'Ethias'].includes(formData.nomCie) ? formData.nomCie : (formData.nomCie ? 'Autre...' : '')} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === 'Autre...') {
+                                                    setFormData({ ...formData, nomCie: nomCieAutre });
+                                                } else {
+                                                    setFormData({ ...formData, nomCie: val });
+                                                }
+                                            }} 
+                                            className="input-field mb-1"
+                                        >
+                                            <option value="">Sélectionner...</option>
+                                            <option value="AG">AG</option>
+                                            <option value="Allianz">Allianz</option>
+                                            <option value="AXA">AXA</option>
+                                            <option value="Baloise">Baloise</option>
+                                            <option value="Ethias">Ethias</option>
+                                            <option value="Autre...">Autre...</option>
+                                        </select>
+                                        {(!['AG', 'Allianz', 'AXA', 'Baloise', 'Ethias'].includes(formData.nomCie) && formData.nomCie !== '') || 
+                                         (formData.nomCie === '' && nomCieAutre !== '') ? (
+                                            <input 
+                                                type="text" 
+                                                value={nomCieAutre} 
+                                                onChange={(e) => {
+                                                    setNomCieAutre(e.target.value);
+                                                    setFormData({ ...formData, nomCie: e.target.value });
+                                                }} 
+                                                placeholder="Taper le nom..." 
+                                                className="input-field mt-1" 
+                                            />
+                                        ) : null}
+                                        {/* Correction de la condition d'affichage pour plus de robustesse */}
+                                        {/* En fait on peut faire plus simple : si la valeur n'est pas dans la liste et n'est pas vide, on affiche l'input */}
+                                    </div>
+                                    <div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div>
+                                </div>
                                 <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" onUpload={(files) => handleContractMagicDrop(files)} /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 <div className="mt-4 pt-2 border-t border-slate-600">

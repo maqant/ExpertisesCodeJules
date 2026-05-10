@@ -10,6 +10,7 @@ const PrintPVE = ({ onBack }) => {
   const formData = store.metier.formData;
   const occupants = store.pii.occupants;
   const totalPVE = store.getTotalPVE();
+  const isAxa = String(context?.formData?.nomCie || '').toUpperCase().includes('AXA');
   const financialSummary = store.getFinancialSummaryByOcc(context?.formData || {});
   const recapParBeneficiaire = expenses.reduce((acc, exp) => {
     if (!exp.isProcessed || exp.isFranchise) return acc;
@@ -185,9 +186,6 @@ const PrintPVE = ({ onBack }) => {
         {Object.keys(financialSummary).length > 0 && (
           <div className="mb-8 break-inside-avoid">
             <h3 className="text-base font-bold mb-2 uppercase text-slate-700 border-b pb-2">Ventilation financière</h3>
-            {formData?.isAxa && (
-              <p className="text-[10px] text-slate-500 italic mb-2">⚡ Règle AXA active — Le premier paiement correspond à 80% des montants HTVA validés. Les 20% restants + TVA seront versés sur fourniture de facture.</p>
-            )}
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-left text-xs uppercase">
@@ -195,8 +193,9 @@ const PrintPVE = ({ onBack }) => {
                   <th className="border p-2 text-right">Montant Validé</th>
                   <th className="border p-2 text-right">Franchise</th>
                   <th className="border p-2 text-right">Pertes Ind.</th>
-                  <th className="border p-2 text-right font-bold text-emerald-700">Indemnisation</th>
-                  {formData?.isAxa && <th className="border p-2 text-right font-bold text-indigo-700">1er Paiement (80%)</th>}
+                  <th className="border p-2 text-right font-bold text-emerald-700">
+                    {isAxa ? "Indemnisation (80% HTVA)" : "Indemnisation"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -208,17 +207,19 @@ const PrintPVE = ({ onBack }) => {
                       <td className="border p-2 text-right">{montantValide > 0 ? montantValide.toFixed(2) + ' €' : '-'}</td>
                       <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
                       <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
-                      <td className="border p-2 text-right font-bold text-lg text-emerald-700">{data.totalNet.toFixed(2)} €</td>
-                      {formData?.isAxa && (
-                        <td className="border p-2 text-right font-bold text-lg text-indigo-700 bg-indigo-50">
-                          {data.premierPaiement !== null ? data.premierPaiement.toFixed(2) + ' €' : '-'}
-                        </td>
-                      )}
+                      <td className="border p-2 text-right font-bold text-lg text-emerald-700">
+                        {(isAxa ? (data.premierPaiement ?? data.totalNet) : data.totalNet).toFixed(2)} €
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            {isAxa && (
+              <p className="mt-4 text-[10px] text-slate-500 italic leading-snug">
+                Note : Le paiement chez AXA est de 80% pour les garanties principales HTVA, et 100% pour les garanties complémentaires. Pour la principale, le solde des 20% et la TVA sont versés sur présentation des factures, à transmettre au courtier.
+              </p>
+            )}
           </div>
         )}
 

@@ -343,8 +343,9 @@ export const useFinanceStore = create((set, get) => ({
       }
     });
 
-    // v5.1.1 : Détection règle AXA
-    const isAxa = state.metier.formData?.isAxa === true;
+    // v5.1.1 : Détection règle AXA (Automatique v5.2.0)
+    const nomCompagnie = String(state.metier.formData?.nomCie || '').toUpperCase();
+    const isAxa = nomCompagnie.includes('AXA');
 
     // Calculer PI et Total Net pour chaque occupant avec imputation stricte de la franchise
     Object.keys(summary).forEach(occId => {
