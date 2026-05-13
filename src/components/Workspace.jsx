@@ -122,7 +122,7 @@ const PageBreakLines = () => {
 const BlockContainer = ({ id, children }) => {
     const { blockWidths, styles, setStyles } = useContext(ExpertiseContext);
     const isHalf = blockWidths[id] === '50%';
-    const marginMm = styles[id]?.marginBottom || 0;
+    const marginMm = styles[id]?.marginBottom;
     const adjustMargin = (delta) => {
         setStyles(p => ({ ...p, [id]: { ...p[id], marginBottom: Math.max(0, (p[id]?.marginBottom || 0) + delta) } }));
     };
@@ -130,7 +130,7 @@ const BlockContainer = ({ id, children }) => {
         <div
             id={`block-${id}`}
             className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full'}`}
-            style={{ marginBottom: marginMm > 0 ? `${marginMm}mm` : '1rem' }}
+            style={{ marginBottom: marginMm !== undefined ? `${marginMm}mm` : '0.5rem' }}
         >
             <BlockHeaderControls id={id} />
             <BlockToolbar id={id} />
@@ -146,7 +146,7 @@ const BlockContainer = ({ id, children }) => {
             >
                 <button onMouseDown={(e) => { e.preventDefault(); adjustMargin(-5); }} className="text-slate-300 hover:text-red-400 font-bold text-sm leading-none w-4 text-center">−</button>
                 <span className="text-[9px] text-slate-300 font-mono min-w-[30px] text-center">
-                    {marginMm > 0 ? `↕ ${marginMm}mm` : '↕'}
+                    {marginMm !== undefined ? `↕ ${marginMm}mm` : '↕'}
                 </span>
                 <button onMouseDown={(e) => { e.preventDefault(); adjustMargin(+5); }} className="text-slate-300 hover:text-green-400 font-bold text-sm leading-none w-4 text-center">+</button>
             </div>

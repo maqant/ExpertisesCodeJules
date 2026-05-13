@@ -736,12 +736,33 @@ export const ExpertiseProvider = ({ children }) => {
           const mergedPdf = await PDFDocument.create();
           const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
 
-          const appendPdf = async (dbKey) => {
-              const pdfBytes = await localforage.getItem(dbKey);
-              if (pdfBytes) {
-                  const pdf = await PDFDocument.load(pdfBytes);
-                  const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-                  copiedPages.forEach((page) => mergedPdf.addPage(page));
+          const appendDoc = async (file) => {
+              try {
+                  const bytes = await localforage.getItem(file.dbKey);
+                  if (!bytes) return;
+                  if (file.isPdf) {
+                      const pdf = await PDFDocument.load(bytes);
+                      const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                      copiedPages.forEach((page) => mergedPdf.addPage(page));
+                  } else {
+                      let img;
+                      const isPng = file.dbKey.toLowerCase().includes('png') || (file.name && file.name.toLowerCase().endsWith('.png'));
+                      if (isPng) {
+                          img = await mergedPdf.embedPng(bytes);
+                      } else {
+                          img = await mergedPdf.embedJpg(bytes);
+                      }
+                      const imgDims = img.scale(1);
+                      const A4W = 595.28, A4H = 841.89;
+                      let scale = Math.min(A4W / imgDims.width, A4H / imgDims.height);
+                      if (scale > 1) scale = 1;
+                      const drawnW = imgDims.width * scale;
+                      const drawnH = imgDims.height * scale;
+                      const page = mergedPdf.addPage([A4W, A4H]);
+                      page.drawImage(img, { x: (A4W - drawnW) / 2, y: A4H - drawnH, width: drawnW, height: drawnH });
+                  }
+              } catch (e) {
+                  console.error("Failed to append document", file.dbKey, e);
               }
           };
 
@@ -751,7 +772,7 @@ export const ExpertiseProvider = ({ children }) => {
               if (!Array.isArray(files)) files = [files];
               for (const f of files) {
                   const key = `${id}::${f.dbKey}`;
-                  if (selectedKeys.has(key)) await appendPdf(f.dbKey);
+                  if (selectedKeys.has(key)) await appendDoc(f);
               }
           };
 
@@ -789,7 +810,7 @@ export const ExpertiseProvider = ({ children }) => {
                   }
                   // PDFs annexes à la suite
                   for (const pdfItem of pdfs) {
-                      await appendPdf(pdfItem.dbKey);
+                      await appendDoc(pdfItem);
                   }
               }
           }
@@ -970,7 +991,7 @@ export const ExpertiseProvider = ({ children }) => {
               if (!Array.isArray(files)) files = [files];
               for (const f of files) {
                   if (!selectedKeys || selectedKeys.has(`${id}::${f.dbKey}`)) {
-                      await appendDoc({ ...f, isPdf: true });
+                      await appendDoc(f);
                   }
               }
           };
