@@ -80,6 +80,9 @@ export const ExpertiseProvider = ({ children }) => {
   const [pastedJson, setPastedJson] = useState("");
   const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(false);
 
+  // Pending AI data — "sas" de validation avant import
+  const [pendingAiData, setPendingAiData] = useState(null);
+
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
 
@@ -1070,6 +1073,7 @@ export const ExpertiseProvider = ({ children }) => {
           cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
           const data = JSON.parse(cleanedText);
           
+          // Dossiers & Franchises — fusion silencieuse (pas de sas)
           if (data.dossiers && Array.isArray(data.dossiers)) {
               setSavedDossiers(prev => {
                   const merged = [...prev];
@@ -1083,7 +1087,8 @@ export const ExpertiseProvider = ({ children }) => {
               const safeFranchises = data.franchises.map(f => typeof f === 'object' && f !== null ? Object.values(f).join(' - ') : String(f));
               setFranchises(prev => Array.from(new Set([...prev, ...safeFranchises])));
           }
-          if (data.formData) setFormData(prev => ({ ...prev, ...data.formData }));
+
+          // Experts — fusion silencieuse (pas de sas)
           if (data.experts && Array.isArray(data.experts)) {
               const newExperts = data.experts.map(e => {
                   if (typeof e === 'string') return { nom: e, tel: '' };
@@ -1102,21 +1107,109 @@ export const ExpertiseProvider = ({ children }) => {
                   return merged; 
               });
           }
-          if (data.occupants && Array.isArray(data.occupants)) {
-             const newOccupants = data.occupants.reduce((acc, o) => { if (o.nom) acc.push({...o, id: crypto.randomUUID()}); return acc; }, []);
-             financeStore.setOccupants([...occupants, ...newOccupants]);
-          }
-          if (data.expenses && Array.isArray(data.expenses)) {
-             const newExpenses = data.expenses.reduce((acc, ex) => { if (ex.prestataire || ex.montant) acc.push({...ex, id: crypto.randomUUID(), montantReclame: ex.montant, montantValide: ex.montant}); return acc; }, []);
-             financeStore.setExpenses([...expenses, ...newExpenses]);
+
+          // FormData, Occupants, Expenses — stockées dans pendingAiData pour le sas de validation
+          const pendingFormData = data.formData || null;
+          const pendingOccupants = data.occupants && Array.isArray(data.occupants)
+              ? data.occupants.filter(o => o.nom).map(o => ({ ...o, id: o.id || crypto.randomUUID() }))
+              : [];
+          const pendingExpenses = data.expenses && Array.isArray(data.expenses)
+              ? data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({ ...ex, id: ex.id || crypto.randomUUID() }))
+              : [];
+
+          // S'il y a des données à valider, ouvrir le sas
+          if (pendingFormData || pendingOccupants.length > 0 || pendingExpenses.length > 0) {
+              setPendingAiData({ formData: pendingFormData, occupants: pendingOccupants, expenses: pendingExpenses });
+          } else {
+              // Rien à valider (seulement dossiers/franchises/experts), confirmer silencieusement
+              alert("✅ Données importées (base globale mise à jour).");
           }
           
-          alert("✅ Données IA importées avec succès !"); 
           setPastedJson('');
-          setActiveTab('builder');
       } catch (error) { 
           alert("❌ Erreur de lecture : " + error.message); 
       }
+  };
+
+  // Fonction appelée par GlobalValidationModal pour appliquer les données sélectionnées
+  const commitPendingAiData = async (selections) => {
+      if (!pendingAiData) return;
+
+      // Capture pendingFiles AVANT de modifier le state
+      const pendingFiles = pendingAiData.pendingFiles || [];
+
+      // 1. FormData — écraser seulement les champs cochés
+      if (selections.formFields && selections.formFields.length > 0 && pendingAiData.formData) {
+          const updates = {};
+          selections.formFields.forEach(key => {
+              if (pendingAiData.formData[key] !== undefined && pendingAiData.formData[key] !== '') {
+                  updates[key] = pendingAiData.formData[key];
+              }
+          });
+          if (Object.keys(updates).length > 0) {
+              setFormData(prev => ({ ...prev, ...updates }));
+          }
+      }
+
+      // 2. Occupants — ajouter ou mettre à jour
+      if (selections.occupants && selections.occupants.length > 0) {
+          selections.occupants.forEach(sel => {
+              const aiOcc = pendingAiData.occupants.find(o => o.id === sel.id);
+              if (!aiOcc) return;
+
+              if (sel.action === 'update' && sel.existingId) {
+                  const existingOcc = occupants.find(o => o.id === sel.existingId);
+                  if (existingOcc) {
+                      const updates = {};
+                      Object.keys(aiOcc).forEach(key => {
+                          if (key === 'id') return;
+                          if (aiOcc[key] && aiOcc[key] !== '' && aiOcc[key] !== existingOcc[key]) {
+                              updates[key] = aiOcc[key];
+                          }
+                      });
+                      if (Object.keys(updates).length > 0) {
+                          financeStore.updateOccupant(sel.existingId, updates);
+                      }
+                  }
+              } else {
+                  financeStore.addOccupant({ ...aiOcc, id: crypto.randomUUID() });
+              }
+          });
+      }
+
+      // 3. Expenses — ajouter + Magic Drop auto-attach (séquentiel, pas de setTimeout)
+      if (selections.expenses && selections.expenses.length > 0) {
+          for (const expId of selections.expenses) {
+              const aiExp = pendingAiData.expenses.find(e => e.id === expId);
+              if (!aiExp) continue;
+
+              const newId = crypto.randomUUID();
+              financeStore.addExpense({
+                  ...aiExp,
+                  id: newId,
+                  montantReclame: aiExp.montant || aiExp.montantReclame || '',
+                  montantValide: aiExp.montant || aiExp.montantReclame || '',
+                  compteDe: aiExp.compteDe || 'unassigned'
+              });
+
+              // Magic Drop: auto-attach file if sourceFileName matches a pending file
+              if (aiExp.sourceFileName && aiExp.sourceFileName !== '' && pendingFiles.length > 0) {
+                  const matchedFile = pendingFiles.find(f => f.name === aiExp.sourceFileName);
+                  if (matchedFile) {
+                      try {
+                          await handleAttachFile(newId, matchedFile);
+                          console.log(`[Magic Drop] ✅ Auto-attaché: ${matchedFile.name} → frais ${newId}`);
+                      } catch (err) {
+                          console.warn(`[Magic Drop] ❌ Échec auto-attach pour ${matchedFile.name}:`, err);
+                      }
+                  }
+              }
+          }
+      }
+
+      // 4. Nettoyer APRÈS tous les attachements
+      setPendingAiData(null);
+      setActiveTab('builder');
   };
 
   const handleJsonImport = (e) => {
@@ -1200,7 +1293,8 @@ Voici le format JSON :
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
       handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
-      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
+      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
+      pendingAiData, setPendingAiData, commitPendingAiData
   };
 
   return (

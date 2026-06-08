@@ -4,6 +4,7 @@ import TresorerieView from "./components/Post/TresorerieView";
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
 import TerrainView from './components/Pendant/TerrainView';
+import GlobalValidationModal from './components/GlobalValidationModal';
 import { useState } from 'react';
 
 import packageJson from '../package.json';
@@ -47,6 +48,9 @@ function App() {
           {viewMode === 'tresorerie' && <TresorerieView />}
         </div>
 
+        {/* Global AI Validation Modal */}
+        <GlobalValidationModal />
+
         {/* Version Badge */}
         <div className="fixed bottom-2 right-3 text-[10px] text-slate-400/60 font-bold tracking-wider pointer-events-none z-50 print:hidden uppercase">
           v{packageJson.version}
@@ -57,3 +61,4 @@ function App() {
 }
 
 export default App;
+

@@ -5,6 +5,7 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import MsgReader from '@kenjiuno/msgreader';
 
 // Configurer le worker PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -17,6 +18,45 @@ const fileToBase64 = (file) => {
         reader.onload = () => resolve(reader.result);
         reader.onerror = error => reject(error);
     });
+};
+
+// Utilitaire d'extraction du texte + pièces jointes d'un fichier .msg (Outlook)
+const MIME_MAP = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+const getMimeType = (filename) => { const ext = (filename || '').split('.').pop().toLowerCase(); return MIME_MAP[ext] || 'application/octet-stream'; };
+
+const parseMsgFile = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const msgReader = new MsgReader(arrayBuffer);
+    const fileData = msgReader.getFileData();
+    
+    // Extract text body
+    const parts = [];
+    if (fileData.subject) parts.push(`Sujet: ${fileData.subject}`);
+    if (fileData.senderName) parts.push(`De: ${fileData.senderName}`);
+    if (fileData.body) parts.push(fileData.body);
+    const bodyText = parts.join('\n');
+
+    // Extract attachments as File objects
+    const attachments = [];
+    if (fileData.attachments && fileData.attachments.length > 0) {
+        for (let i = 0; i < fileData.attachments.length; i++) {
+            const att = fileData.attachments[i];
+            const attName = att.fileName || att.name || `attachment_${i}`;
+            try {
+                const attData = msgReader.getAttachment(i);
+                if (attData && attData.content) {
+                    const mime = getMimeType(attName);
+                    const blob = new Blob([new Uint8Array(attData.content)], { type: mime });
+                    const extractedFile = new File([blob], attName, { type: mime });
+                    attachments.push(extractedFile);
+                }
+            } catch (e) {
+                console.warn(`[aiManager] Impossible d'extraire la pièce jointe ${attName}:`, e);
+            }
+        }
+    }
+
+    return { bodyText, attachments };
 };
 
 // Utilitaire pour extraire les pages d'un PDF sous forme d'images Base64
@@ -80,6 +120,23 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                     cause: "Le sinistre trouve son origine dans la rupture d'un joint d'étanchéité au niveau du raccordement du lave-vaisselle dans la cuisine. Cette rupture, consécutive à l'usure normale, a entraîné un écoulement d'eau lent et continu sous les meubles encastrés, endommageant la chape et les revêtements de sol."
                 }
             };
+        } else if (documentType === 'dossier_global') {
+            return {
+                success: true,
+                data: {
+                    formData: { dateSinistre: "2026-05-15", dateDeclaration: "2026-05-16", declarant: "Syndic ABC", nomCie: "AXA Belgium", nomContrat: "Top Habitation", numPolice: "POL-MOCK-001", numSinistreCie: "SIN-2026-9999", adresse: "Rue de la Loi 42, 1000 Bruxelles", cause: "" },
+                    experts: [{ nom: "GABER Lionel", tel: "04XX XX XX" }],
+                    occupants: [
+                        { etage: "3ème", statut: "Locataire", nom: "Dupont Jean", tel: "0471 00 00 00", email: "jean.dupont@test.be", rc: "Non", rcPolice: "", secAssurance: "Non", secType: "", secPolice: "", secCie: "" },
+                        { etage: "2ème", statut: "Propriétaire occupant", nom: "Martin Sophie", tel: "0472 00 00 00", email: "", rc: "Non", rcPolice: "", secAssurance: "Non", secType: "", secPolice: "", secCie: "" }
+                    ],
+                    expenses: [
+                        { prestataire: "Plomberie Dubois", type: "Devis", ref: "DEV-001", desc: "Recherche de fuite et réparation", compteDe: "unassigned", montant: "450,00", typeMontant: "HTVA", sourceFileName: "" },
+                        { prestataire: "Peintures Martin", type: "Devis", ref: "DEV-002", desc: "Remise en peinture plafond et murs", compteDe: "unassigned", montant: "1250,00", typeMontant: "HTVA", sourceFileName: "" }
+                    ]
+                },
+                extractedFiles: [] // En mode mock, pas de vrais fichiers extraits
+            };
         }
 
         // Faux JSON formaté parfaitement pour la base de données
@@ -121,11 +178,52 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
         try {
             console.log(`[AI Live] Envoi de la requête à l'API OpenAI pour un document de type: ${documentType}...`);
 
-            // Multi-files logic for vision
+            // Multi-files logic for vision — supports strings, .msg, PDF, images
             const contentArray = [{ type: "text", text: "Voici le(s) document(s) à analyser." }];
+            const allExtractedFiles = []; // Files extracted from MSG for Magic Drop auto-attach
 
-            for (const file of fileArray) {
-                if (file.type === 'application/pdf') {
+            for (const item of fileArray) {
+                // Plain text string (pasted notes, raw text)
+                if (typeof item === 'string') {
+                    if (item.trim()) {
+                        contentArray.push({ type: "text", text: item });
+                    }
+                    continue;
+                }
+
+                // File object
+                const file = item;
+                const fileName = (file.name || '').toLowerCase();
+
+                if (fileName.endsWith('.msg')) {
+                    // Outlook .msg — parse body + extract attachments
+                    try {
+                        const { bodyText, attachments } = await parseMsgFile(file);
+                        if (bodyText.trim()) {
+                            contentArray.push({ type: "text", text: `[Email Outlook: ${file.name}]\n${bodyText}` });
+                        }
+                        // Process extracted attachments (PDFs & images go to vision)
+                        for (const att of attachments) {
+                            allExtractedFiles.push(att);
+                            if (att.type === 'application/pdf') {
+                                const base64Images = await pdfToBase64Images(att);
+                                for (const img of base64Images) {
+                                    contentArray.push({ type: "image_url", image_url: { url: img } });
+                                }
+                            } else if (att.type.startsWith('image/')) {
+                                const base64Image = await fileToBase64(att);
+                                contentArray.push({ type: "image_url", image_url: { url: base64Image } });
+                            }
+                            // Other attachment types (doc, xls) — just mention their name
+                            else {
+                                contentArray.push({ type: "text", text: `[Pièce jointe: ${att.name}]` });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[aiManager] Impossible de lire le fichier MSG ${file.name}:`, e);
+                        contentArray.push({ type: "text", text: `[Fichier MSG illisible: ${file.name}]` });
+                    }
+                } else if (file.type === 'application/pdf') {
                     const base64Images = await pdfToBase64Images(file);
                     for (const img of base64Images) {
                         contentArray.push({
@@ -142,21 +240,18 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                 } else {
                      return {
                         success: false,
-                        error: "Format de fichier non supporté. Veuillez utiliser un PDF ou une image."
+                        error: `Format de fichier non supporté: ${file.name}. Utilisez un PDF, une image ou un .msg.`
                     };
                 }
             }
 
-            // Payload générique pour un modèle multimodal (ex: gpt-4o)
-            const payload = {
-                model: model,
-                messages: [
-                    {
-                        role: "system",
-                        content: documentType === 'annexe'
-                            ? `Tu es un assistant administratif. Lis ce document et donne-lui un titre clair, professionnel et très concis (maximum 1 ou 2 lignes). Ce titre servira de légende dans un rapport d'expertise. Ne réponds QUE par le texte du titre, sans guillemets, sans introduction ni formules de politesse.`
-                            : documentType === 'cause'
-                            ? `Tu es un expert en assurance spécialisé dans le bâtiment. Ton rôle est de lire ces documents techniques (rapports de recherche de fuite, rapports de pompiers, etc.) et d'en extraire UNIQUEMENT les faits techniques.
+            // System prompt par type de document
+            const getSystemPrompt = () => {
+                if (documentType === 'annexe') {
+                    return `Tu es un assistant administratif. Lis ce document et donne-lui un titre clair, professionnel et très concis (maximum 1 ou 2 lignes). Ce titre servira de légende dans un rapport d'expertise. Ne réponds QUE par le texte du titre, sans guillemets, sans introduction ni formules de politesse.`;
+                }
+                if (documentType === 'cause') {
+                    return `Tu es un expert en assurance spécialisé dans le bâtiment. Ton rôle est de lire ces documents techniques (rapports de recherche de fuite, rapports de pompiers, etc.) et d'en extraire UNIQUEMENT les faits techniques.
 
 Ignore totalement les lettres de couverture, les formules de politesse, les noms des gestionnaires ou l'historique des rendez-vous.
 
@@ -170,8 +265,30 @@ Dans tous les cas, pour chaque document analysé, tu dois extraire et répondre 
 3. Quelles sont les conséquences matérielles directes constatées (ex: matériaux saturés) ?
 4. Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
 
-Ne fais aucune introduction générale, va droit au but.`
-                            : `Tu es un assistant expert en extraction de données pour l'expertise incendie.
+Ne fais aucune introduction générale, va droit au but.`;
+                }
+                if (documentType === 'dossier_global') {
+                    return `Tu es un assistant expert en extraction de données pour l'encodage de dossiers d'expertise incendie. Ton objectif est d'analyser des données brutes (notes, emails, documents) et d'en extraire TOUTES les entités pertinentes selon un schéma JSON strict.
+
+MÉTHODE DE TRAVAIL OBLIGATOIRE :
+1. LECTURE GLOBALE : Analyse silencieusement tout le document. Identifie chaque acteur et chaque réclamation financière.
+2. RÈGLE DU HTVA STRICT : Tous les montants insérés DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement.
+3. FORMATAGE DES NOMBRES : Les montants doivent être au format texte avec une virgule (ex: "350,00"). Jamais de point. Jamais de sigle €.
+4. CONTRAINTES DE VALEURS :
+   - "statut" (occupants) DOIT être : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", ou "Syndic / Autre".
+   - "typeMontant" (dépenses) DOIT TOUJOURS être "HTVA".
+5. AUTO-ATTACHEMENT (Magic Drop) : Pour chaque dépense (expense) identifiée provenant d'une pièce jointe ou d'un document fourni, ajoute obligatoirement la clé "sourceFileName" contenant le nom exact du fichier. Sinon, laisse vide.
+
+FORMAT JSON ATTENDU :
+{
+  "formData": { "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", "adresse": "", "cause": "" },
+  "experts": [ { "nom": "", "tel": "" } ],
+  "occupants": [ { "etage": "", "statut": "Locataire", "nom": "", "tel": "", "email": "", "rc": "Non", "rcPolice": "", "secAssurance": "Non", "secType": "", "secPolice": "", "secCie": "" } ],
+  "expenses": [ { "prestataire": "", "type": "Facture", "ref": "", "desc": "", "compteDe": "unassigned", "montant": "", "typeMontant": "HTVA", "sourceFileName": "" } ]
+}`;
+                }
+                // Default: facture/devis/contrat
+                return `Tu es un assistant expert en extraction de données pour l'expertise incendie.
 Extrais les informations de ce document (${documentType}) et renvoie STRICTEMENT un JSON valide respectant ce format :
 ${documentType === 'contrat' ? `{
   "nomCie": "Nom de la compagnie d'assurance",
@@ -193,15 +310,18 @@ ${documentType === 'contrat' ? `{
     }
   ]
 }`}
-Ne renvoie aucun autre texte, juste le JSON.`
-                    },
-                    {
-                        role: "user",
-                        content: contentArray
-                    }
+Ne renvoie aucun autre texte, juste le JSON.`;
+            };
+
+            // Payload générique pour un modèle multimodal (ex: gpt-4o)
+            const payload = {
+                model: model,
+                messages: [
+                    { role: "system", content: getSystemPrompt() },
+                    { role: "user", content: contentArray }
                 ],
                 response_format: (documentType === 'cause' || documentType === 'annexe') ? { type: "text" } : { type: "json_object" },
-                max_tokens: 500,
+                max_tokens: documentType === 'dossier_global' ? 4096 : 500,
                 temperature: 0.1
             };
 
@@ -245,9 +365,18 @@ Ne renvoie aucun autre texte, juste le JSON.`
                     }));
                 }
 
+                // UUID pour les occupants (dossier_global)
+                if (parsedData.occupants && Array.isArray(parsedData.occupants)) {
+                    parsedData.occupants = parsedData.occupants.map(occ => ({
+                        ...occ,
+                        id: crypto.randomUUID()
+                    }));
+                }
+
                 return {
                     success: true,
-                    data: parsedData
+                    data: parsedData,
+                    extractedFiles: allExtractedFiles || []
                 };
             }
 

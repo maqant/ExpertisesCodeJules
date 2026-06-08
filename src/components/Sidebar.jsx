@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { extractDataFromDocument } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
+import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
@@ -164,9 +165,9 @@ const Sidebar = () => {
         ingestionModal, openIngestion, closeIngestion,
         activeTab, setActiveTab, sidebarWidth, isResizing, uiZoom, pastedJson, setPastedJson,
         orgaAdvancedMode, setOrgaAdvancedMode,
-        showSubtotals, setShowSubtotals, currentDossierId,
+        showSubtotals, setShowSubtotals, currentDossierId, setCurrentDossierId,
         expandedOccId, setExpandedOccId, expandedExpId, setExpandedExpId,
-        savedDossiers, dossierSearch, setDossierSearch, expertsList, setExpertsList, franchises, setFranchises,
+        savedDossiers, setSavedDossiers, dossierSearch, setDossierSearch, expertsList, setExpertsList, franchises, setFranchises,
         showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
         showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, handleAddPrestataire, formData, setFormData, blockTitles, setBlockTitles,
         references, occupants, setOccupants, expenses, setExpenses, blocksVisible, setBlocksVisible, customBlocks, setCustomBlocks,
@@ -177,7 +178,8 @@ const Sidebar = () => {
         attachedFiles, attachedPhotos, attachedFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
-        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig
+        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
+        processJsonData, setPendingAiData
     } = context;
 
 
@@ -186,6 +188,11 @@ const Sidebar = () => {
     const [isDraggingOverInfos, setIsDraggingOverInfos] = useState(false);
     const [isDraggingOverCause, setIsDraggingOverCause] = useState(false);
     const [isDraggingOverAnnexes, setIsDraggingOverAnnexes] = useState(false);
+    const [showAiDossierPrompt, setShowAiDossierPrompt] = useState(false);
+    const [aiDossierRef, setAiDossierRef] = useState('');
+    const [droppedMsgFile, setDroppedMsgFile] = useState(null);
+    const [isDraggingOverMagic, setIsDraggingOverMagic] = useState(false);
+    const [isAiDossierLoading, setIsAiDossierLoading] = useState(false);
 
     const resetAllDragStates = () => {
         setIsDraggingOverFrais(false);
@@ -368,6 +375,31 @@ const Sidebar = () => {
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
+                                onDrop={(e) => {
+                                    e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(false);
+                                    const files = Array.from(e.dataTransfer.files);
+                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg'));
+                                    if (msgFile) {
+                                        setDroppedMsgFile(msgFile);
+                                        setShowAiDossierPrompt(true);
+                                    } else if (files.length > 0) {
+                                        setDroppedMsgFile(files[0]);
+                                        setShowAiDossierPrompt(true);
+                                    }
+                                }}
+                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
+                                    isDraggingOverMagic
+                                        ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40'
+                                        : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50'
+                                }`}
+                                title="Glissez un e-mail .msg ici pour créer un dossier via IA"
+                                onClick={() => setShowAiDossierPrompt(true)}
+                            >
+                                {isDraggingOverMagic ? '📥' : '🪄'}
+                            </div>
                             <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
@@ -498,24 +530,7 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-4 rounded border border-indigo-400 shadow-lg">
-                            <h3 className="text-sm font-bold text-white mb-2 flex items-center">🤖 Assistant IA (Import rapide)</h3>
-                            <p className="text-[10px] text-indigo-200 mb-3 leading-tight">Copiez le prompt et donnez-le à l'IA avec vos notes brutes.<br/>Ensuite, collez la réponse ci-dessous ou importez le fichier.</p>
-                            
-                            <button onClick={copyPrompt} className="w-full mb-3 bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded text-xs font-bold shadow">📋 1. Copier Prompt</button>
-                            
-                            <textarea 
-                                value={pastedJson} 
-                                onChange={(e) => setPastedJson(e.target.value)} 
-                                placeholder="Collez la réponse JSON de l'IA ici..." 
-                                className="input-field h-24 resize-y mb-2 text-[10px] font-mono leading-tight"
-                            />
-                            
-                            <div className="flex gap-2">
-                                <button onClick={handlePasteImport} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-1.5 rounded text-xs font-bold shadow">📥 2. Importer Texte</button>
-                                <DropZone onFiles={(files) => handleJsonImport({ target: { files } })} label="📂" accept=".json" />
-                            </div>
-                        </div>
+                        <GlobalAiAssistant />
 
                         <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
                             <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
@@ -1132,8 +1147,148 @@ const Sidebar = () => {
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
         <UniversalIngestionModal />
-        </>
 
+        {/* Mini-dialog : Créer un dossier via IA (apparaît après drop ou clic) */}
+        {showAiDossierPrompt && (
+            <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => { setShowAiDossierPrompt(false); setDroppedMsgFile(null); setAiDossierRef(''); }}>
+                <div className="bg-slate-900 rounded-xl border border-indigo-500/40 shadow-2xl p-6 w-full max-w-[400px]" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-1">
+                        <span className="text-lg">{droppedMsgFile ? '📧' : '🪄'}</span> {droppedMsgFile ? 'E-mail détecté !' : 'Nouveau dossier via IA'}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mb-3 leading-tight">
+                        {droppedMsgFile
+                            ? <>Fichier : <span className="text-indigo-300 font-bold">{droppedMsgFile.name}</span><br/>Saisissez la référence pour créer le dossier et lancer l'extraction automatique.</>
+                            : 'Saisissez la référence. Le dossier sera créé et l\'assistant IA s\'ouvrira pour y déposer vos documents.'
+                        }
+                    </p>
+                    {/* Drop zone if no file yet */}
+                    {!droppedMsgFile && (
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            onDrop={(e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const files = Array.from(e.dataTransfer.files);
+                                if (files.length > 0) setDroppedMsgFile(files[0]);
+                            }}
+                            className="mb-3 border-2 border-dashed border-slate-600 hover:border-indigo-400 rounded-lg p-3 text-center cursor-pointer transition-colors"
+                        >
+                            <p className="text-[10px] text-slate-400">📁 Glissez un fichier ici (optionnel)</p>
+                        </div>
+                    )}
+                    <input
+                        type="text"
+                        value={aiDossierRef}
+                        onChange={(e) => setAiDossierRef(e.target.value)}
+                        onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && aiDossierRef.trim() && !isAiDossierLoading) {
+                                // Lancer le workflow
+                                setIsAiDossierLoading(true);
+                                try {
+                                    handleReset();
+                                    const newId = crypto.randomUUID();
+                                    const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
+                                    const updated = [newDossier, ...savedDossiers];
+                                    setSavedDossiers(updated);
+                                    localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+                                    setCurrentDossierId(newId);
+                                    
+                                    if (droppedMsgFile) {
+                                        // Lancer extraction IA directe
+                                        const result = await extractDataFromDocument(
+                                            [droppedMsgFile],
+                                            'dossier_global',
+                                            aiConfig.provider,
+                                            aiConfig.model,
+                                            aiConfig.apiKey
+                                        );
+                                        if (result.success && result.data) {
+                                            processJsonData(JSON.stringify(result.data));
+                                            // Inject pendingFiles for Magic Drop auto-attach
+                                            const allPendingFiles = [...(result.extractedFiles || [])];
+                                            if (allPendingFiles.length > 0) {
+                                                setTimeout(() => {
+                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                                }, 50);
+                                            }
+                                        }
+                                    } else {
+                                        setActiveTab('settings');
+                                    }
+                                } finally {
+                                    setIsAiDossierLoading(false);
+                                    setShowAiDossierPrompt(false);
+                                    setAiDossierRef('');
+                                    setDroppedMsgFile(null);
+                                }
+                            }
+                        }}
+                        placeholder="Ex: Sinistre Dupont - 2026/05"
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none placeholder-slate-500 mb-4"
+                        autoFocus
+                        disabled={isAiDossierLoading}
+                    />
+                    {isAiDossierLoading && (
+                        <div className="mb-3">
+                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500 rounded-full animate-pulse" style={{ width: '100%' }} />
+                            </div>
+                            <p className="text-[9px] text-indigo-300 text-center mt-1">🧠 Extraction IA en cours...</p>
+                        </div>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                        <button onClick={() => { setShowAiDossierPrompt(false); setAiDossierRef(''); setDroppedMsgFile(null); }}
+                            disabled={isAiDossierLoading}
+                            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded transition-colors disabled:opacity-50">
+                            Annuler
+                        </button>
+                        <button onClick={async () => {
+                            if (!aiDossierRef.trim() || isAiDossierLoading) return;
+                            setIsAiDossierLoading(true);
+                            try {
+                                handleReset();
+                                const newId = crypto.randomUUID();
+                                const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
+                                const updated = [newDossier, ...savedDossiers];
+                                setSavedDossiers(updated);
+                                localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+                                setCurrentDossierId(newId);
+                                
+                                if (droppedMsgFile) {
+                                    const result = await extractDataFromDocument(
+                                        [droppedMsgFile],
+                                        'dossier_global',
+                                        aiConfig.provider,
+                                        aiConfig.model,
+                                        aiConfig.apiKey
+                                    );
+                                    if (result.success && result.data) {
+                                        processJsonData(JSON.stringify(result.data));
+                                        const allPendingFiles = [...(result.extractedFiles || [])];
+                                        if (allPendingFiles.length > 0) {
+                                            setTimeout(() => {
+                                                setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                            }, 50);
+                                        }
+                                    }
+                                } else {
+                                    setActiveTab('settings');
+                                }
+                            } finally {
+                                setIsAiDossierLoading(false);
+                                setShowAiDossierPrompt(false);
+                                setAiDossierRef('');
+                                setDroppedMsgFile(null);
+                            }
+                        }}
+                            disabled={!aiDossierRef.trim() || isAiDossierLoading}
+                            className={`px-4 py-2 text-xs font-bold rounded transition-colors ${aiDossierRef.trim() && !isAiDossierLoading ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
+                            {droppedMsgFile ? '🚀 Créer & Analyser' : '✨ Créer & Ouvrir l\'IA'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 
