@@ -449,6 +449,7 @@ const TerrainView = () => {
                   onChange={e => setEditData({...editData, typeMontant: e.target.value})}
                 >
                   <option value="HTVA">HTVA</option>
+                  <option value="TVAC">TVAC</option>
                   <option value="Forfait">Forfait</option>
                 </select>
               </div>
@@ -504,6 +505,7 @@ const TerrainView = () => {
                 onChange={e => setSpontaneData({...spontaneData, typeMontant: e.target.value})}
               >
                 <option value="HTVA">HTVA</option>
+                <option value="TVAC">TVAC</option>
                 <option value="Forfait">Forfait</option>
               </select>
             </div>
