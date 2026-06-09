@@ -6,6 +6,7 @@ import { getCompteDeName } from '../../utils/formatters';
 const PrintPVE = ({ onBack }) => {
   const store = useFinanceStore();
   const context = useContext(ExpertiseContext);
+  const { causeTimeline } = context || {};
   const expenses = store.metier.expenses;
   const formData = store.metier.formData;
   const occupants = store.pii.occupants;
@@ -71,6 +72,32 @@ const PrintPVE = ({ onBack }) => {
             <p><span className="font-bold">Franchise applicable :</span> {formData.franchise || 'Non précisée'}</p>
             <p><span className="font-bold">Pertes indirectes :</span> {formData.pertesIndirectes || 'Non précisées'}</p>
           </div>
+        </div>
+
+        {/* Circonstances / Recherche de cause */}
+        <div className="mb-8 break-inside-avoid">
+            <h3 className="text-lg font-bold mb-4 uppercase text-slate-700 border-b pb-2">Circonstances / Recherche de cause</h3>
+            {causeTimeline && causeTimeline.length > 0 ? (
+                <div className="flex flex-col gap-3 mt-2 break-inside-avoid">
+                    {causeTimeline.map((item, index) => (
+                        <div key={item.id || index} className={`p-3 rounded border-l-4 ${item.type === 'file' ? 'border-blue-500 bg-blue-50/50' : 'border-amber-500 bg-amber-50/50'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-slate-500">{item.date}</span>
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-600">
+                                    {item.type === 'file' ? '📄 DOCUMENT' : '📝 NOTE'}
+                                </span>
+                            </div>
+                            {item.type === 'file' ? (
+                                <p className="text-sm font-bold text-blue-900">{item.fileName}</p>
+                            ) : (
+                                <p className="text-sm text-slate-800 whitespace-pre-wrap">{item.content}</p>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-sm text-slate-700 whitespace-pre-wrap mt-2">{formData.cause || "Non renseigné."}</p>
+            )}
         </div>
 
         {/* Compte Rendu (si existant) */}

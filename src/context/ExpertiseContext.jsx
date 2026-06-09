@@ -117,6 +117,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
+  const [causeTimeline, setCauseTimeline] = useState([]);
 
   // AI Mode Config
   const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
@@ -255,6 +256,7 @@ export const ExpertiseProvider = ({ children }) => {
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
       setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
+      setCauseTimeline([]);
   };
 
   const handleChange = (e) => financeStore.updateFormData({ [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -311,7 +313,7 @@ export const ExpertiseProvider = ({ children }) => {
           if (!name) return;
       }
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline };
       
       let updated;
       if (currentDossierId) {
@@ -331,7 +333,7 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline };
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
@@ -373,6 +375,7 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.attachedFiles) setAttachedFiles(d.attachedFiles); else setAttachedFiles({});
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
       if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
+      if(d.causeTimeline) setCauseTimeline(d.causeTimeline); else setCauseTimeline([]);
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
@@ -1315,6 +1318,18 @@ Voici le format JSON :
       URL.revokeObjectURL(url);
   };
 
+  const addCauseTimelineItem = (type, contentOrFile, dbKey = null) => {
+      setCauseTimeline(prev => [...prev, {
+          id: crypto.randomUUID(),
+          type: type, // 'text' ou 'file'
+          date: new Date().toLocaleDateString('fr-FR'),
+          content: type === 'text' ? contentOrFile : '',
+          fileName: type === 'file' ? contentOrFile.name : '',
+          dbKey: dbKey,
+          isPdf: type === 'file' ? contentOrFile.type === 'application/pdf' : false
+      }]);
+  };
+
   const contextValue = {
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
@@ -1347,7 +1362,8 @@ Voici le format JSON :
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
       handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
-      pendingAiData, setPendingAiData, commitPendingAiData
+      pendingAiData, setPendingAiData, commitPendingAiData,
+      causeTimeline, setCauseTimeline, addCauseTimelineItem
   };
 
   return (

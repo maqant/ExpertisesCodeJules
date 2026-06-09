@@ -6,6 +6,7 @@ import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
+import localforage from 'localforage';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
@@ -179,7 +180,7 @@ const Sidebar = () => {
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
-        processJsonData, setPendingAiData
+        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem
     } = context;
 
 
@@ -255,37 +256,31 @@ const Sidebar = () => {
     const handleCauseMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
         setIsCauseAiLoading(true);
-        const aiProvider = aiConfig.provider;
-        const aiModel = aiConfig.model;
-
+        
         try {
             if (!isAiModeActive) {
                 const file = files[0];
-                if (file.name.toLowerCase().endsWith('.msg')) {
-                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
-                    if (extractedFiles.length === 0) {
-                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
-                        return;
-                    }
-                    extractedFiles.forEach(f => handleAttachFile('doc_rapport_cause', f));
-                } else {
-                    handleAttachFile('doc_rapport_cause', file);
+                const filesToProcess = file.name.toLowerCase().endsWith('.msg') ? await extractValidAttachmentsFromMsg(file) : [file];
+                if (filesToProcess.length === 0) return alert("Aucune pièce jointe valide trouvée.");
+                
+                for (const f of filesToProcess) {
+                    const arrayBuffer = await f.arrayBuffer();
+                    const dbKey = `cause_${crypto.randomUUID()}_${f.name}`;
+                    await localforage.setItem(dbKey, arrayBuffer);
+                    addCauseTimelineItem('file', f, dbKey);
                 }
                 return;
             }
 
-            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
+            const result = await extractDataFromDocument(files, 'cause', aiConfig.provider, aiConfig.model, aiConfig.apiKey, setAiStatus);
             if (result.success && result.data && result.data.cause) {
-                setFormData(prev => ({
-                    ...prev,
-                    cause: result.data.cause
-                }));
-                // Attach documents
-                files.forEach((file, idx) => {
-                    // Create a unique id for each file to attach them under the same conceptual block
-                    // Wait, the block uses doc_rapport_cause for AttachmentUI. Let's attach them there.
-                    handleAttachFile('doc_rapport_cause', file);
-                });
+                addCauseTimelineItem('text', "Synthèse IA : " + result.data.cause);
+                for (const f of files) {
+                    const arrayBuffer = await f.arrayBuffer();
+                    const dbKey = `cause_${crypto.randomUUID()}_${f.name}`;
+                    await localforage.setItem(dbKey, arrayBuffer);
+                    addCauseTimelineItem('file', f, dbKey);
+                }
             } else {
                 alert("Erreur lors de la synthèse : " + (result.error || "Réponse invalide"));
             }
@@ -779,8 +774,43 @@ const Sidebar = () => {
                                     </div>
                                 )}
 
-                                <label className="flex items-center w-full mb-1">Description <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_rapport_cause" title="Rapport de recherche" /></label>
-                                <textarea name="cause" value={formData.cause} onChange={handleChange} rows="4" className="input-field resize-none m-0"></textarea>
+                                <div className="flex items-center justify-between mb-2 mt-2">
+                                    <label className="text-xs font-bold text-slate-300">Fil Chronologique</label>
+                                </div>
+                                <div className="flex gap-2 mb-3">
+                                    <input type="text" id="newCauseNote" placeholder="Ajouter une note ou coller un mail..." className="input-field mb-0 flex-1 text-xs" onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            const val = e.target.value;
+                                            if(val.trim()) { addCauseTimelineItem('text', val); e.target.value = ''; }
+                                        }
+                                    }} />
+                                    <button onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.getElementById('newCauseNote');
+                                        if(input.value.trim()) { addCauseTimelineItem('text', input.value); input.value = ''; }
+                                    }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded text-xs font-bold shadow">+</button>
+                                </div>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                    {causeTimeline && causeTimeline.length > 0 ? causeTimeline.map(item => (
+                                        <div key={item.id} className={`p-2 rounded border ${item.type === 'file' ? 'border-blue-500/30 bg-blue-900/20' : 'border-amber-500/30 bg-amber-900/20'}`}>
+                                            <div className="flex justify-between items-center text-[9px] text-slate-400 mb-1">
+                                                <span className="font-bold">{item.type === 'file' ? '📄 RAPPORT' : '📝 NOTE'}</span>
+                                                <span>{item.date}</span>
+                                            </div>
+                                            {item.type === 'file' ? (
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-blue-300 font-bold truncate max-w-[200px]" title={item.fileName}>{item.fileName}</span>
+                                                    <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(item.dbKey); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir">👁️</button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-300 whitespace-pre-wrap">{item.content}</p>
+                                            )}
+                                        </div>
+                                    )) : (
+                                        <p className="text-[10px] text-slate-500 italic text-center py-2">Aucune note ou rapport.</p>
+                                    )}
+                                </div>
                             </div>
                         </details>
 
