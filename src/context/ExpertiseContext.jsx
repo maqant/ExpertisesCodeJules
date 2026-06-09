@@ -795,7 +795,9 @@ export const ExpertiseProvider = ({ children }) => {
                       for (let i = 0; i < imgs.length; i += 2) {
                           const page = mergedPdf.addPage();
                           const { width, height } = page.getSize();
-                          page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
+                          const occName = `${occ.nom || 'Inconnu'} ${occ.prenom || ''}`.trim();
+                          const occEtage = occ.etage ? ` - ${occ.etage}` : '';
+                          page.drawText(`Espace / Partie : ${occName}${occEtage}`, { x: 50, y: height - 50, size: 16, font });
                           const drawImage = async (imgInfo, yOffset) => {
                               try {
                                   const imgBytes = await localforage.getItem(imgInfo.dbKey);
@@ -1014,7 +1016,9 @@ export const ExpertiseProvider = ({ children }) => {
                       for (let i = 0; i < imgs.length; i += 2) {
                           const page = mergedPdf.addPage();
                           const { width, height } = page.getSize();
-                          page.drawText(`Photos de : ${occ.nom || 'Inconnu'}`, { x: 50, y: height - 50, size: 16, font });
+                          const occName = `${occ.nom || 'Inconnu'} ${occ.prenom || ''}`.trim();
+                          const occEtage = occ.etage ? ` - ${occ.etage}` : '';
+                          page.drawText(`Espace / Partie : ${occName}${occEtage}`, { x: 50, y: height - 50, size: 16, font });
                           const drawImg = async (imgInfo, yOff) => {
                               try {
                                   const imgBytes = await localforage.getItem(imgInfo.dbKey);
