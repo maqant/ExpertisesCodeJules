@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -7,6 +7,10 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 // Configurer le worker pour react-pdf (correction Vercel 404)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// Largeur fixe de rendu natif du PDF (le "vrai" contenu, indépendant du container)
+// Cela découple la taille de rendu du viewport du zoom — clé de la fluidité
+const PDF_RENDER_WIDTH = 760;
 
 const UniversalIngestionModal = () => {
     const {
@@ -28,20 +32,16 @@ const UniversalIngestionModal = () => {
     const [fileUrl, setFileUrl] = useState(null);
     const [localData, setLocalData] = useState({});
     const [numPages, setNumPages] = useState(null);
-    const containerRef = useRef(null);
-    const [containerWidth, setContainerWidth] = useState(0);
 
     // Populate localData when modal opens
     useEffect(() => {
         if (isOpen) {
             if (type === 'frais' && existingId) {
-                // Find existing expense and merge with any AI extracted data
                 const existingExpense = expenses.find(e => e.id === existingId) || {};
                 setLocalData({ ...existingExpense, ...(data || {}) });
             } else if (data) {
                 setLocalData(data);
             } else {
-                // Default empty data based on type
                 if (type === 'cp') {
                     setLocalData({
                         numPolice: '', numConditionsGenerales: '', pertesIndirectes: '',
@@ -58,35 +58,14 @@ const UniversalIngestionModal = () => {
             }
         }
 
-        // Generate file URL for preview
         if (isOpen && file) {
             const url = URL.createObjectURL(file);
             setFileUrl(url);
-            return () => {
-                URL.revokeObjectURL(url);
-            };
+            return () => { URL.revokeObjectURL(url); };
         }
     }, [isOpen, file, data, type, existingId, expenses]);
 
-    // Update width for PDF rendering
-    useEffect(() => {
-        if (isOpen && containerRef.current) {
-            const updateWidth = () => {
-                if (containerRef.current) {
-                    setContainerWidth(containerRef.current.clientWidth - 32); // Subtract padding
-                }
-            };
-            updateWidth();
-            window.addEventListener('resize', updateWidth);
-            return () => window.removeEventListener('resize', updateWidth);
-        }
-    }, [isOpen]);
-
     if (!isOpen) return null;
-
-    const onDocumentLoadSuccess = ({ numPages }) => {
-        setNumPages(numPages);
-    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -96,14 +75,13 @@ const UniversalIngestionModal = () => {
     const handleValidate = async () => {
         try {
             if (type === 'cp') {
-                // Update global form data
                 setFormData(prev => ({ ...prev, ...localData }));
-                // Attach file
                 if (file) await handleAttachFile('doc_cond_part', file);
             } else if (type === 'frais') {
-                const finalMontantReclame = localData.montantReclame ? (isNaN(parseFloat(String(localData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(localData.montantReclame).replace(',', '.')))) : (localData.montant || '');
+                const finalMontantReclame = localData.montantReclame
+                    ? (isNaN(parseFloat(String(localData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(localData.montantReclame).replace(',', '.'))))
+                    : (localData.montant || '');
                 if (existingId) {
-                    // Update existing expense
                     const updates = {
                         prestataire: localData.prestataire || '',
                         type: localData.type || '',
@@ -119,13 +97,9 @@ const UniversalIngestionModal = () => {
                         avisCouverture: localData.avisCouverture || 'Oui',
                         noteCouverture: localData.noteCouverture || ''
                     };
-                    Object.keys(updates).forEach(key => {
-                        updateExpense(existingId, key, updates[key]);
-                    });
-                    // Attach file
+                    Object.keys(updates).forEach(key => { updateExpense(existingId, key, updates[key]); });
                     if (file) await handleAttachFile(existingId, file);
                 } else {
-                    // Add new expense
                     const newExpId = crypto.randomUUID();
                     const newExp = {
                         id: newExpId,
@@ -144,7 +118,6 @@ const UniversalIngestionModal = () => {
                         noteCouverture: localData.noteCouverture || ''
                     };
                     addExpense(newExp);
-                    // Attach file
                     if (file) await handleAttachFile(newExpId, file);
                 }
             } else if (type === 'annexe') {
@@ -169,42 +142,51 @@ const UniversalIngestionModal = () => {
                     <h2 className="text-white font-bold mb-2 flex items-center gap-2">
                         <span>📄</span> Document : {file?.name}
                     </h2>
-                    <div ref={containerRef} className="flex-1 flex flex-col bg-slate-950 rounded-lg border border-slate-700 overflow-hidden relative">
+                    <div className="flex-1 bg-slate-950 rounded-lg border border-slate-700 overflow-hidden relative">
                         {fileUrl ? (
                             <TransformWrapper
                                 initialScale={1}
-                                minScale={0.5}
-                                maxScale={4}
-                                centerOnInit={true}
-                                wheel={{ step: 0.1 }}
+                                minScale={0.1}
+                                maxScale={8}
+                                centerOnInit={false}
+                                limitToBounds={false}
+                                wheel={{ step: 0.05, smoothStep: 0.003 }}
+                                panning={{ velocityDisabled: false }}
                             >
-                                {({ zoomIn, zoomOut, resetTransform }) => (
+                                {({ zoomIn, zoomOut, resetTransform, centerView }) => (
                                     <div className="relative w-full h-full flex flex-col">
-
+                                        
                                         {/* Barre d'outils de Zoom flottante */}
                                         <div className="absolute top-4 right-4 z-50 flex gap-2 bg-slate-800/90 p-1.5 rounded-lg border border-slate-600 backdrop-blur-md shadow-lg">
                                             <button onClick={() => zoomIn()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">+</button>
                                             <button onClick={() => zoomOut()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-lg font-bold transition-colors">-</button>
-                                            <button onClick={() => resetTransform()} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors" title="Centrer">↺</button>
+                                            <button onClick={() => centerView(1, 200)} className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors" title="Centrer">↺</button>
                                         </div>
 
-                                        {/* Zone de rendu du document */}
                                         <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full flex flex-col items-center justify-center py-4">
                                             {isImage ? (
-                                                <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded" />
+                                                <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded shadow-xl" />
                                             ) : (
                                                 <Document
                                                     file={file}
-                                                    onLoadSuccess={onDocumentLoadSuccess}
+                                                    onLoadSuccess={(data) => {
+                                                        setNumPages(data.numPages);
+                                                        // Double rAF pour garantir le rendu avant centrage parfait (sans animation : 0ms)
+                                                        requestAnimationFrame(() => {
+                                                            requestAnimationFrame(() => {
+                                                                centerView(1, 0);
+                                                            });
+                                                        });
+                                                    }}
                                                     loading={<div className="text-slate-400 text-sm font-bold animate-pulse">⏳ Chargement du document...</div>}
                                                     error={<div className="text-red-400 text-sm font-bold">❌ Erreur lors du chargement du PDF.</div>}
                                                     className="flex flex-col gap-4 w-full items-center"
                                                 >
                                                     {Array.from(new Array(numPages), (el, index) => (
-                                                        <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden">
+                                                        <div key={`page_${index + 1}`} className="shadow-2xl border border-slate-700 rounded overflow-hidden bg-white">
                                                             <Page
                                                                 pageNumber={index + 1}
-                                                                width={containerWidth > 0 ? containerWidth : undefined}
+                                                                width={760} 
                                                                 renderTextLayer={false}
                                                                 renderAnnotationLayer={false}
                                                             />

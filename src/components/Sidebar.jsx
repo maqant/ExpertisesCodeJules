@@ -968,7 +968,15 @@ const Sidebar = () => {
                                         <div key={occ.id} className="bg-slate-900 border border-slate-700 p-3 rounded">
                                             <div className="flex justify-between items-center mb-2">
                                                 <h4 className="text-white text-xs font-bold">{occ.nom || 'Inconnu'}</h4>
-                                                <DropZone onFiles={(files) => files.forEach(f => handleAttachPhoto(occ.id, f))} label="📸" accept="image/*,application/pdf" />
+                                                <DropZone
+                                                    onFiles={(files) => {
+                                                        Array.from(files).forEach(file => {
+                                                            handleAttachPhoto(occ.id, file);
+                                                        });
+                                                    }}
+                                                    label="📸"
+                                                    accept="image/*,application/pdf"
+                                                />
                                             </div>
                                             {(attachedPhotos[occ.id] || []).length > 0 ? (
                                                 <div className="grid grid-cols-2 gap-2 mt-2">
