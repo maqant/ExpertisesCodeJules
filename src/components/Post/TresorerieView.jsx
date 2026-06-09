@@ -128,6 +128,52 @@ const TresorerieView = () => {
         </div>
       )}
 
+      {/* Historique des versements de la Compagnie */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-6 border border-slate-200 dark:border-slate-700">
+        <h3 className="text-sm font-bold uppercase text-slate-500 mb-3">Versements de la Compagnie</h3>
+        {paiements.length === 0 ? (
+          <p className="text-sm italic text-slate-500">Aucun versement enregistré.</p>
+        ) : (
+          <div className="space-y-3">
+            {paiements.map((p, idx) => {
+              const totalRecu = parseFloat(p.montantTotal) || 0;
+              const dejaVentile = (p.ventilations || []).reduce((acc, v) => acc + (parseFloat(v.montantAlloue) || 0), 0);
+              const resteAVentiler = Math.max(0, totalRecu - dejaVentile);
+              const estComplet = resteAVentiler <= 0.01;
+
+              return (
+                <div key={p.id || idx} className="flex justify-between items-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500 font-semibold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">
+                      📅 {p.dateRecept}
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-white">
+                      {totalRecu.toFixed(2)} €
+                    </span>
+                    {estComplet ? (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100 dark:bg-emerald-950/30 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                        ✓ Complet
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-950/30 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-900/50">
+                        (Reste à ventiler : {resteAVentiler.toFixed(2)} €)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    {p.ventilations && p.ventilations.length > 0 ? (
+                      <span>{p.ventilations.length} ventilation(s)</span>
+                    ) : (
+                      <span className="italic">Aucune ventilation</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {Object.keys(expensesByOcc).length === 0 ? (
         <div className="text-center text-slate-500 italic py-12">Aucun frais validé n'est prêt pour la répartition. Validez des frais dans la vue "Terrain" d'abord.</div>
       ) : (
