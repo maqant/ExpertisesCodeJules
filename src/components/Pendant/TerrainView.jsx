@@ -32,6 +32,8 @@ const TerrainView = () => {
   // v5.1.0 : Modale de clôture (franchise)
   const [showClotureModal, setShowClotureModal] = useState(false);
   const [franchiseTarget, setFranchiseTarget] = useState('');
+  // v5.3.1 : SPLIT franchise
+  const [splitData, setSplitData] = useState({});
 
   // v5.1.0 : Valider ouvre la modale de catégorisation
   const handleValid100 = (exp) => {
@@ -67,7 +69,13 @@ const TerrainView = () => {
 
   const confirmCloture = (mode) => {
     const montant = parseFranchiseMontant();
-    if (mode === 'assign' && franchiseTarget) {
+    if (mode === 'assign' && franchiseTarget === 'SPLIT') {
+      // v5.3.1 : Répartition SPLIT
+      const splitMap = Object.entries(splitData)
+        .filter(([, val]) => parseFloat(val) > 0)
+        .map(([occId, val]) => ({ occId, montant: parseFloat(val) }));
+      store.generateFranchiseExpenseSplit(splitMap);
+    } else if (mode === 'assign' && franchiseTarget) {
       store.generateFranchiseExpense(franchiseTarget, montant);
     } else if (mode === 'later') {
       store.setFranchiseOccId(null);
@@ -75,7 +83,12 @@ const TerrainView = () => {
     store.togglePVEStatus();
     setShowClotureModal(false);
     setFranchiseTarget('');
+    setSplitData({});
   };
+
+  // v5.3.1 : Validation du split
+  const splitTotal = Object.values(splitData).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const splitIsValid = Math.abs(splitTotal - parseFranchiseMontant()) < 0.02;
 
   const [refusModalExp, setRefusModalExp] = useState(null);
   const [refusText, setRefusText] = useState("");
@@ -573,16 +586,28 @@ const TerrainView = () => {
         </div>
       )}
 
-      {/* Modal Clôture Franchise (v5.1.0) */}
+      {/* Modal Clôture Franchise (v5.1.0 + v5.3.1 SPLIT) */}
       {showClotureModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-2">🔒 Attribution de la franchise</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">À qui attribuer la franchise de <strong className="text-red-500">{parseFranchiseMontant().toFixed(2)} €</strong> ?</p>
             <select
               className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-4"
               value={franchiseTarget}
-              onChange={e => setFranchiseTarget(e.target.value)}
+              onChange={e => {
+                setFranchiseTarget(e.target.value);
+                if (e.target.value === 'SPLIT') {
+                  // Pré-remplir avec répartition égale
+                  const validOccs = occupants.filter(o => (o.nom || '').trim());
+                  const perOcc = validOccs.length > 0 ? (parseFranchiseMontant() / validOccs.length) : 0;
+                  const init = {};
+                  validOccs.forEach(o => { init[o.id] = parseFloat(perOcc.toFixed(2)); });
+                  setSplitData(init);
+                } else {
+                  setSplitData({});
+                }
+              }}
             >
               <option value="">Choisir un bénéficiaire...</option>
               {occupants.map(o => {
@@ -591,11 +616,49 @@ const TerrainView = () => {
                 const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
                 return <option key={o.id} value={o.id}>{displayName}</option>;
               })}
+              <option value="SPLIT">⚡ SPLIT (Répartition manuelle)</option>
             </select>
+
+            {/* v5.3.1 : Interface SPLIT */}
+            {franchiseTarget === 'SPLIT' && (
+              <div className="mb-4 space-y-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">Répartissez le montant de la franchise entre les bénéficiaires :</p>
+                {occupants.filter(o => (o.nom || '').trim()).map(o => {
+                  const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                  const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                  return (
+                    <div key={o.id} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm font-medium truncate">{displayName}</span>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28 p-1.5 border rounded dark:bg-slate-700 dark:border-slate-600 text-right text-sm font-bold"
+                          value={splitData[o.id] ?? ''}
+                          onChange={e => setSplitData(prev => ({ ...prev, [o.id]: e.target.value }))}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">€</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Indicateur de validation */}
+                <div className={`flex justify-between items-center p-2 rounded text-sm font-bold ${
+                  splitIsValid
+                    ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                }`}>
+                  <span>Total réparti : {splitTotal.toFixed(2)} € / {parseFranchiseMontant().toFixed(2)} €</span>
+                  <span>{splitIsValid ? '✓' : '✗'}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => confirmCloture('assign')}
-                disabled={!franchiseTarget}
+                disabled={franchiseTarget === 'SPLIT' ? !splitIsValid : !franchiseTarget}
                 className="w-full px-4 py-2 bg-emerald-600 text-white rounded font-bold disabled:opacity-50 hover:bg-emerald-500"
               >
                 ✅ Attribuer et clôturer
@@ -607,7 +670,7 @@ const TerrainView = () => {
                 ⏳ Décider plus tard
               </button>
               <button
-                onClick={() => setShowClotureModal(false)}
+                onClick={() => { setShowClotureModal(false); setSplitData({}); }}
                 className="w-full text-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mt-1"
               >
                 Annuler

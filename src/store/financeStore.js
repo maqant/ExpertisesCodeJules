@@ -205,6 +205,40 @@ export const useFinanceStore = create((set, get) => ({
     };
   }),
 
+  // v5.3.1 : Répartition SPLIT de la franchise sur plusieurs occupants
+  // splitMap = [{ occId: 'uuid', montant: 150.00 }, ...]
+  generateFranchiseExpenseSplit: (splitMap) => set((state) => {
+    const cleanedExpenses = state.metier.expenses.filter(e => !e.isFranchise);
+    const franchiseExps = splitMap
+      .filter(entry => entry.montant > 0)
+      .map(entry => ({
+        id: generateId(),
+        prestataire: 'Franchise contractuelle',
+        type: 'Franchise',
+        ref: '',
+        desc: 'Franchise déduite (quote-part)',
+        compteDe: entry.occId,
+        montantReclame: (-Math.abs(entry.montant)).toFixed(2),
+        montantValide: (-Math.abs(entry.montant)).toFixed(2),
+        typeMontant: 'Forfait',
+        categorieGarantie: 'Principale',
+        tauxTVA: 0,
+        factureRecue: false,
+        isFranchise: true,
+        isSpontane: false,
+        isProcessed: true,
+        pourcentageVetuste: 0,
+        motifRefus: ''
+      }));
+    return {
+      metier: {
+        ...state.metier,
+        expenses: [...cleanedExpenses, ...franchiseExps],
+        franchiseOccId: 'SPLIT'
+      }
+    };
+  }),
+
   // --- Paiements (Phase 3) ---
   addPaiement: (paiement) => set((state) => {
     const id = paiement.id || generateId();

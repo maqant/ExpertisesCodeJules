@@ -39,17 +39,29 @@ const TresorerieView = () => {
   // v5.1.0 : Franchise assignment modal in post
   const [showFranchiseModal, setShowFranchiseModal] = useState(false);
   const [franchiseTargetPost, setFranchiseTargetPost] = useState('');
+  // v5.3.1 : SPLIT franchise
+  const [splitDataPost, setSplitDataPost] = useState({});
 
   const parseFranchiseMontant = () => {
     return store.getFranchiseMontant();
   };
 
+  // v5.3.1 : Validation du split
+  const splitTotalPost = Object.values(splitDataPost).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const splitIsValidPost = Math.abs(splitTotalPost - parseFranchiseMontant()) < 0.02;
+
   const assignFranchisePost = () => {
-    if (franchiseTargetPost) {
+    if (franchiseTargetPost === 'SPLIT') {
+      const splitMap = Object.entries(splitDataPost)
+        .filter(([, val]) => parseFloat(val) > 0)
+        .map(([occId, val]) => ({ occId, montant: parseFloat(val) }));
+      store.generateFranchiseExpenseSplit(splitMap);
+    } else if (franchiseTargetPost) {
       store.generateFranchiseExpense(franchiseTargetPost, parseFranchiseMontant());
     }
     setShowFranchiseModal(false);
     setFranchiseTargetPost('');
+    setSplitDataPost({});
   };
 
   return (
@@ -368,16 +380,27 @@ const TresorerieView = () => {
 
       {showWizard && <PaymentWizardModal onClose={() => setShowWizard(false)} />}
 
-      {/* v5.1.0 : Modal d'attribution franchise en Post */}
+      {/* v5.1.0 + v5.3.1 : Modal d'attribution franchise en Post */}
       {showFranchiseModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-[420px] shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-2">Attribution de la franchise</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">À qui attribuer la franchise de <strong className="text-red-500">{parseFranchiseMontant().toFixed(2)} €</strong> ?</p>
             <select
               className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 mb-4"
               value={franchiseTargetPost}
-              onChange={e => setFranchiseTargetPost(e.target.value)}
+              onChange={e => {
+                setFranchiseTargetPost(e.target.value);
+                if (e.target.value === 'SPLIT') {
+                  const validOccs = occupants.filter(o => (o.nom || '').trim());
+                  const perOcc = validOccs.length > 0 ? (parseFranchiseMontant() / validOccs.length) : 0;
+                  const init = {};
+                  validOccs.forEach(o => { init[o.id] = parseFloat(perOcc.toFixed(2)); });
+                  setSplitDataPost(init);
+                } else {
+                  setSplitDataPost({});
+                }
+              }}
             >
               <option value="">Choisir un bénéficiaire...</option>
               {occupants.map(o => {
@@ -386,10 +409,51 @@ const TresorerieView = () => {
                 const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
                 return <option key={o.id} value={o.id}>{displayName}</option>;
               })}
+              <option value="SPLIT">⚡ SPLIT (Répartition manuelle)</option>
             </select>
+
+            {/* v5.3.1 : Interface SPLIT */}
+            {franchiseTargetPost === 'SPLIT' && (
+              <div className="mb-4 space-y-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">Répartissez le montant de la franchise entre les bénéficiaires :</p>
+                {occupants.filter(o => (o.nom || '').trim()).map(o => {
+                  const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
+                  const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
+                  return (
+                    <div key={o.id} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm font-medium truncate">{displayName}</span>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28 p-1.5 border rounded dark:bg-slate-700 dark:border-slate-600 text-right text-sm font-bold"
+                          value={splitDataPost[o.id] ?? ''}
+                          onChange={e => setSplitDataPost(prev => ({ ...prev, [o.id]: e.target.value }))}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">€</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className={`flex justify-between items-center p-2 rounded text-sm font-bold ${
+                  splitIsValidPost
+                    ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                }`}>
+                  <span>Total réparti : {splitTotalPost.toFixed(2)} € / {parseFranchiseMontant().toFixed(2)} €</span>
+                  <span>{splitIsValidPost ? '✓' : '✗'}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <button onClick={() => setShowFranchiseModal(false)} className="flex-1 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
-              <button onClick={assignFranchisePost} disabled={!franchiseTargetPost} className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded font-bold disabled:opacity-50">Attribuer</button>
+              <button onClick={() => { setShowFranchiseModal(false); setSplitDataPost({}); }} className="flex-1 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded">Annuler</button>
+              <button
+                onClick={assignFranchisePost}
+                disabled={franchiseTargetPost === 'SPLIT' ? !splitIsValidPost : !franchiseTargetPost}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded font-bold disabled:opacity-50"
+              >Attribuer</button>
             </div>
           </div>
         </div>
