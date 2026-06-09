@@ -1068,68 +1068,81 @@ export const ExpertiseProvider = ({ children }) => {
 
 
   const processJsonData = (rawText) => {
-      try {
-          let cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-          cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-          const data = JSON.parse(cleanedText);
-          
-          // Dossiers & Franchises — fusion silencieuse (pas de sas)
-          if (data.dossiers && Array.isArray(data.dossiers)) {
-              setSavedDossiers(prev => {
-                  const merged = [...prev];
-                  data.dossiers.forEach(d => {
-                      if (!merged.find(existing => existing.id === d.id)) merged.push(d);
-                  });
-                  return merged;
-              });
-          }
-          if (data.franchises && Array.isArray(data.franchises)) {
-              const safeFranchises = data.franchises.map(f => typeof f === 'object' && f !== null ? Object.values(f).join(' - ') : String(f));
-              setFranchises(prev => Array.from(new Set([...prev, ...safeFranchises])));
-          }
+  try {
+    // 1. Extraction blindée du JSON (ignore le texte avant et après)
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error("Aucun format de données valide trouvé par l'IA.");
+    }
+    
+    let cleanedText = rawText.substring(firstBrace, lastBrace + 1);
+    cleanedText = cleanedText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
+    const data = JSON.parse(cleanedText);
 
-          // Experts — fusion silencieuse (pas de sas)
-          if (data.experts && Array.isArray(data.experts)) {
-              const newExperts = data.experts.map(e => {
-                  if (typeof e === 'string') return { nom: e, tel: '' };
-                  let safeNom = typeof e.nom === 'object' && e.nom !== null ? Object.values(e.nom).join(' ') : String(e.nom || '');
-                  let safeTel = typeof e.tel === 'object' && e.tel !== null ? Object.values(e.tel).join(' ') : String(e.tel || '');
-                  return { ...e, nom: safeNom, tel: safeTel };
-              }).filter(e => e.nom && e.nom.trim() !== "");
-              setExpertsList(prev => { 
-                  const merged = [...prev]; 
-                  newExperts.forEach(ne => { 
-                      const keyNe = normalizeExpertKey(ne.nom);
-                      if (!merged.find(pe => normalizeExpertKey(pe.nom) === keyNe)) {
-                          merged.push(ne); 
-                      }
-                  }); 
-                  return merged; 
-              });
-          }
+    // 2. Fusion sécurisée (Dossiers, Franchises, FormData)
+    if (data.dossiers && Array.isArray(data.dossiers)) {
+      setSavedDossiers(prev => {
+        const merged = [...prev];
+        data.dossiers.forEach(d => { 
+          if (!merged.find(existing => existing.id === d.id)) merged.push(d); 
+        });
+        return merged;
+      });
+    }
 
-          // FormData, Occupants, Expenses — stockées dans pendingAiData pour le sas de validation
-          const pendingFormData = data.formData || null;
-          const pendingOccupants = data.occupants && Array.isArray(data.occupants)
-              ? data.occupants.filter(o => o.nom).map(o => ({ ...o, id: o.id || crypto.randomUUID() }))
-              : [];
-          const pendingExpenses = data.expenses && Array.isArray(data.expenses)
-              ? data.expenses.filter(ex => ex.prestataire || ex.montant).map(ex => ({ ...ex, id: ex.id || crypto.randomUUID() }))
-              : [];
+    if (data.franchises && Array.isArray(data.franchises)) {
+      const safeFranchises = data.franchises.map(f => 
+        typeof f === 'object' && f !== null ? Object.values(f).join('-') : String(f)
+      );
+      setFranchises(prev => Array.from(new Set([...prev, ...safeFranchises])));
+    }
 
-          // S'il y a des données à valider, ouvrir le sas
-          if (pendingFormData || pendingOccupants.length > 0 || pendingExpenses.length > 0) {
-              setPendingAiData({ formData: pendingFormData, occupants: pendingOccupants, expenses: pendingExpenses });
-          } else {
-              // Rien à valider (seulement dossiers/franchises/experts), confirmer silencieusement
-              alert("✅ Données importées (base globale mise à jour).");
-          }
-          
-          setPastedJson('');
-      } catch (error) { 
-          alert("❌ Erreur de lecture : " + error.message); 
-      }
-  };
+    if (data.formData) setFormData(prev => ({ ...prev, ...data.formData }));
+
+    // 3. ANTI-DOUBLONS: Occupants
+    if (data.occupants && Array.isArray(data.occupants)) {
+      const existingNames = occupants.map(o => (o.nom || "").trim().toLowerCase());
+      const newOccupants = data.occupants.reduce((acc, o) => {
+        const occName = (o.nom || "").trim().toLowerCase();
+        if (occName && !existingNames.includes(occName)) {
+          acc.push({...o, id: crypto.randomUUID()});
+          existingNames.push(occName); // Empêche les doublons au sein même du JSON
+        }
+        return acc;
+      }, []);
+      if (newOccupants.length > 0) financeStore.setOccupants([...occupants, ...newOccupants]);
+    }
+
+    // 4. ANTI-DOUBLONS: Frais (Vérifie prestataire + montant)
+    if (data.expenses && Array.isArray(data.expenses)) {
+      const newExpenses = [];
+      data.expenses.forEach(ex => {
+        const isDuplicate = expenses.some(existing => 
+          existing.prestataire?.toLowerCase() === ex.prestataire?.toLowerCase() &&
+          (existing.montantReclame === ex.montant || existing.montant === ex.montant)
+        );
+        if (!isDuplicate && (ex.prestataire || ex.montant)) {
+          newExpenses.push({
+            ...ex, 
+            id: crypto.randomUUID(), 
+            montantReclame: ex.montant, 
+            montantValide: ex.montant
+          });
+        }
+      });
+      if (newExpenses.length > 0) financeStore.setExpenses([...expenses, ...newExpenses]);
+    }
+
+    alert("✅ Données IA importées avec succès !");
+    setPastedJson("");
+    setActiveTab('builder');
+
+  } catch (error) {
+    console.error("Erreur brute de l'IA:", rawText);
+    alert("❌ Erreur de lecture: Vérifiez que l'IA a bien généré les données. (Détail: " + error.message + ")");
+  }
+};
 
   // Fonction appelée par GlobalValidationModal pour appliquer les données sélectionnées
   const commitPendingAiData = async (selections) => {
