@@ -162,7 +162,7 @@ const Workspace = () => {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
         fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes,
-        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo
+        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo, causeTimeline
     } = context;
 
     const isExpenseExcludedFromMain = (exp) => {
@@ -256,7 +256,27 @@ const Workspace = () => {
             if (key === 'cause') return (
                 <BlockContainer key="cause" id="cause">
                     {blockTitles.cause && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.cause.fontSize + 2}px` }}>{blockTitles.cause}</p>}
-                    <p className="whitespace-pre-wrap break-words">{formData.cause} {getPaginationInfo('doc_rapport_cause') && <span className="block text-[0.8em] text-slate-500 italic font-normal mt-1">{getPaginationInfo('doc_rapport_cause').text}</span>}</p>
+                    {causeTimeline && causeTimeline.length > 0 ? (
+                        <div className="flex flex-col gap-3 mt-2 break-inside-avoid text-left">
+                            {causeTimeline.map((item, index) => (
+                                <div key={item.id || index} className={`p-3 rounded border-l-4 ${item.type === 'file' ? 'border-blue-500 bg-blue-50/50' : 'border-amber-500 bg-amber-50/50'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[10px] font-bold text-slate-500">{item.date}</span>
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-600">
+                                            {item.type === 'file' ? '📄 DOCUMENT' : '📝 NOTE'}
+                                        </span>
+                                    </div>
+                                    {item.type === 'file' ? (
+                                        <p className="font-bold text-blue-900 m-0">{item.fileName}</p>
+                                    ) : (
+                                        <p className="text-slate-800 whitespace-pre-wrap m-0">{item.content}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="whitespace-pre-wrap break-words">{formData.cause} {getPaginationInfo('doc_rapport_cause') && <span className="block text-[0.8em] text-slate-500 italic font-normal mt-1">{getPaginationInfo('doc_rapport_cause').text}</span>}</p>
+                    )}
                 </BlockContainer>
             );
             if (key === 'orga') return (
