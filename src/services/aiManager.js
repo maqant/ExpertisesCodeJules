@@ -112,7 +112,7 @@ const pdfToBase64Images = async (file) => {
  * @param {string} documentType Le type de document ("facture", "devis", "contrat")
  * @returns {Promise<Object>} Un objet JSON formaté pour financeStore.js
  */
-export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o', providedApiKey = null) => {
+export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o', providedApiKey = null, onStatusChange = null) => {
     // Ensure files is an array
     const fileArray = Array.isArray(files) ? files : [files];
 
@@ -121,10 +121,16 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
     const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
+        if (onStatusChange) onStatusChange('extracting');
         console.log(`[AI Mock] Aucune clé API trouvée. Extraction simulée pour un document de type: ${documentType}...`);
 
-        // Simulation d'un délai réseau (2s)
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Simulation d'étapes (2s au total)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (onStatusChange) onStatusChange('sending');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (onStatusChange) onStatusChange('thinking');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (onStatusChange) onStatusChange('attaching');
 
         console.log(`[AI Mock] Extraction terminée avec succès.`);
 
@@ -196,6 +202,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
 
     if (mode === 'live') {
         try {
+            if (onStatusChange) onStatusChange('extracting');
             console.log(`[AI Live] Envoi de la requête à l'API OpenAI pour un document de type: ${documentType}...`);
 
             // Multi-files logic for vision — supports strings, .msg, PDF, images
@@ -366,6 +373,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
                 temperature: 0.1
             };
 
+            if (onStatusChange) onStatusChange('sending');
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -382,6 +390,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
 
             const data = await response.json();
             const contentString = data.choices[0].message.content;
+            if (onStatusChange) onStatusChange('thinking');
 
             if (documentType === 'annexe') {
                 return {
@@ -414,6 +423,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
                     }));
                 }
 
+                if (onStatusChange) onStatusChange('attaching');
                 return {
                     success: true,
                     data: parsedData,

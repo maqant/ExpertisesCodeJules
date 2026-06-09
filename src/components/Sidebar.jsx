@@ -201,6 +201,7 @@ const Sidebar = () => {
         setIsDraggingOverAnnexes(false);
     };
 
+    const [aiStatus, setAiStatus] = useState('idle');
     const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
@@ -235,7 +236,7 @@ const Sidebar = () => {
             }
 
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey);
+                const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
                 if (result.success && result.data && result.data.title) {
                     openIngestion(file, 'annexe', { customName: result.data.title });
                 } else {
@@ -247,6 +248,7 @@ const Sidebar = () => {
             openIngestion(files[0], 'annexe');
         } finally {
             setIsAnnexAiLoading(false);
+            setAiStatus('idle');
         }
     };
 
@@ -272,7 +274,7 @@ const Sidebar = () => {
                 return;
             }
 
-            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey);
+            const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
             if (result.success && result.data && result.data.cause) {
                 setFormData(prev => ({
                     ...prev,
@@ -291,6 +293,7 @@ const Sidebar = () => {
             alert("Erreur : " + err.message);
         } finally {
             setIsCauseAiLoading(false);
+            setAiStatus('idle');
         }
     };
     const [isContractAiLoading, setIsContractAiLoading] = useState(false);
@@ -320,7 +323,7 @@ const Sidebar = () => {
             }
 
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(file, 'contrat', aiProvider, aiModel, aiConfig.apiKey);
+                const result = await extractDataFromDocument(file, 'contrat', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
                 if (result.success && result.data) {
                     openIngestion(file, 'cp', result.data);
                 } else {
@@ -333,6 +336,7 @@ const Sidebar = () => {
             openIngestion(files[0], 'cp');
         } finally {
             setIsContractAiLoading(false);
+            setAiStatus('idle');
         }
     };
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -362,7 +366,7 @@ const Sidebar = () => {
             }
 
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(file, 'facture', aiProvider, aiModel, aiConfig.apiKey);
+                const result = await extractDataFromDocument(file, 'facture', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
                 if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
                     openIngestion(file, 'frais', result.data.expenses[0], existingId);
                 } else {
@@ -375,6 +379,7 @@ const Sidebar = () => {
             openIngestion(files[0], 'frais', null, existingId);
         } finally {
             setIsAiLoading(false);
+            setAiStatus('idle');
         }
     };
 
@@ -1282,7 +1287,8 @@ const Sidebar = () => {
                                                 'dossier_global',
                                                 aiConfig.provider,
                                                 aiConfig.model,
-                                                aiConfig.apiKey
+                                                aiConfig.apiKey,
+                                                setAiStatus
                                             );
                                             if (result.success && result.data) {
                                                 processJsonData(JSON.stringify(result.data));
@@ -1303,6 +1309,7 @@ const Sidebar = () => {
                                     setShowAiDossierPrompt(false);
                                     setAiDossierRef('');
                                     setDroppedMsgFile(null);
+                                    setAiStatus('idle');
                                 }
                             }
                         }}
@@ -1355,7 +1362,8 @@ const Sidebar = () => {
                                             'dossier_global',
                                             aiConfig.provider,
                                             aiConfig.model,
-                                            aiConfig.apiKey
+                                            aiConfig.apiKey,
+                                            setAiStatus
                                         );
                                         if (result.success && result.data) {
                                             processJsonData(JSON.stringify(result.data));
@@ -1375,6 +1383,7 @@ const Sidebar = () => {
                                 setShowAiDossierPrompt(false);
                                 setAiDossierRef('');
                                 setDroppedMsgFile(null);
+                                setAiStatus('idle');
                             }
                         }}
                             disabled={!aiDossierRef.trim() || isAiDossierLoading}
@@ -1383,6 +1392,15 @@ const Sidebar = () => {
                         </button>
                     </div>
                 </div>
+            </div>
+        )}
+        {aiStatus !== 'idle' && (
+            <div className="fixed bottom-4 right-4 bg-slate-900 border border-indigo-500 p-3 rounded shadow-2xl flex items-center gap-3 text-xs font-bold text-indigo-300 z-[9999]">
+                <span className="animate-spin text-indigo-500">🔄</span>
+                {aiStatus === 'extracting' && "Lecture du fichier..."}
+                {aiStatus === 'sending' && "Envoi au serveur..."}
+                {aiStatus === 'thinking' && "Réflexion de l'IA..."}
+                {aiStatus === 'attaching' && "Attachement des documents..."}
             </div>
         )}
         </>
