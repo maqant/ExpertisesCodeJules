@@ -158,15 +158,16 @@ const GlobalValidationModal = () => {
                 .map(([id]) => id)
         };
 
-        // CRITICAL: Merge editableData INTO pendingAiData while PRESERVING pendingFiles
-        setPendingAiData(prev => ({
-            ...prev,                    // keeps pendingFiles, experts, etc.
-            ...editableData             // overwrites formData, occupants, expenses with edited versions
-        }));
-        // Call commit on next tick so the merged state is available
-        setTimeout(() => {
-            commitPendingAiData(selections);
-        }, 0);
+        // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
+        const mergedData = {
+            ...pendingAiData,               // preserves pendingFiles, experts, etc.
+            ...editableData,                // overwrites formData, occupants, expenses with edited versions
+            pendingFiles: pendingAiData.pendingFiles || []  // explicit safety net
+        };
+        setPendingAiData(mergedData);
+
+        // Call commit with the merged data directly — bypasses React state async delay
+        commitPendingAiData(selections, mergedData);
     };
 
     const handleCancel = () => { setPendingAiData(null); };

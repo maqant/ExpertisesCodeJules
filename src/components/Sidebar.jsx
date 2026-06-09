@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument } from '../services/aiManager';
+import { extractDataFromDocument, extractValidAttachmentsFromMsg } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
@@ -217,16 +217,30 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
+            const file = files[0];
+            if (!isAiModeActive) {
+                if (file.name.toLowerCase().endsWith('.msg')) {
+                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    if (extractedFiles.length === 0) {
+                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                        return;
+                    }
+                    extractedFiles.forEach(extractedFile => {
+                        openIngestion(extractedFile, 'annexe');
+                    });
+                } else {
+                    openIngestion(file, 'annexe');
+                }
+                return;
+            }
+
             if (isAiModeActive) {
-                const file = files[0]; // Process only the first file for AI extraction, but UI can be adapted later if needed
                 const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey);
                 if (result.success && result.data && result.data.title) {
                     openIngestion(file, 'annexe', { customName: result.data.title });
                 } else {
                     openIngestion(file, 'annexe');
                 }
-            } else {
-                 openIngestion(files[0], 'annexe');
             }
         } catch (err) {
             console.error("[Sidebar] Erreur lors du titrage de l'annexe :", err);
@@ -273,16 +287,31 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
+            const file = files[0];
+            if (!isAiModeActive) {
+                if (file.name.toLowerCase().endsWith('.msg')) {
+                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    if (extractedFiles.length === 0) {
+                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                        return;
+                    }
+                    extractedFiles.forEach(extractedFile => {
+                        openIngestion(extractedFile, 'cp');
+                    });
+                } else {
+                    openIngestion(file, 'cp');
+                }
+                return;
+            }
+
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(files[0], 'contrat', aiProvider, aiModel, aiConfig.apiKey);
+                const result = await extractDataFromDocument(file, 'contrat', aiProvider, aiModel, aiConfig.apiKey);
                 if (result.success && result.data) {
-                    openIngestion(files[0], 'cp', result.data);
+                    openIngestion(file, 'cp', result.data);
                 } else {
                     alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
-                    openIngestion(files[0], 'cp');
+                    openIngestion(file, 'cp');
                 }
-            } else {
-                openIngestion(files[0], 'cp');
             }
         } catch (err) {
             alert("Erreur : " + err.message);
@@ -300,16 +329,31 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
+            const file = files[0];
+            if (!isAiModeActive) {
+                if (file.name.toLowerCase().endsWith('.msg')) {
+                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    if (extractedFiles.length === 0) {
+                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                        return;
+                    }
+                    extractedFiles.forEach(extractedFile => {
+                        openIngestion(extractedFile, 'frais', null, existingId);
+                    });
+                } else {
+                    openIngestion(file, 'frais', null, existingId);
+                }
+                return;
+            }
+
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(files[0], 'facture', aiProvider, aiModel, aiConfig.apiKey);
+                const result = await extractDataFromDocument(file, 'facture', aiProvider, aiModel, aiConfig.apiKey);
                 if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
-                    openIngestion(files[0], 'frais', result.data.expenses[0], existingId);
+                    openIngestion(file, 'frais', result.data.expenses[0], existingId);
                 } else {
                     alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
-                    openIngestion(files[0], 'frais', null, existingId);
+                    openIngestion(file, 'frais', null, existingId);
                 }
-            } else {
-                openIngestion(files[0], 'frais', null, existingId);
             }
         } catch (err) {
             alert("Erreur : " + err.message);

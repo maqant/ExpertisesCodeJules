@@ -24,6 +24,43 @@ const fileToBase64 = (file) => {
 const MIME_MAP = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 const getMimeType = (filename) => { const ext = (filename || '').split('.').pop().toLowerCase(); return MIME_MAP[ext] || 'application/octet-stream'; };
 
+export const extractValidAttachmentsFromMsg = async (msgFile) => {
+    const arrayBuffer = await msgFile.arrayBuffer();
+    const msgReader = new MsgReader(arrayBuffer);
+    const fileData = msgReader.getFileData();
+    const validFilesArray = [];
+
+    if (fileData.attachments && fileData.attachments.length > 0) {
+        for (let i = 0; i < fileData.attachments.length; i++) {
+            const att = fileData.attachments[i];
+            const attName = att.fileName || att.name || `attachment_${i}`;
+            const ext = attName.split('.').pop().toLowerCase();
+
+            if (['doc', 'docx', 'xls', 'xlsx'].includes(ext)) {
+                console.warn(`Le fichier ${attName} a été ignoré car seuls les PDF et Images sont supportés.`);
+                continue;
+            }
+
+            try {
+                const attData = msgReader.getAttachment(i);
+                if (attData && attData.content) {
+                    const mime = getMimeType(attName);
+                    // On ne convertit que si c'est un pdf ou image
+                    if (mime === 'application/pdf' || mime.startsWith('image/')) {
+                        const blob = new Blob([new Uint8Array(attData.content)], { type: mime });
+                        const extractedFile = new File([blob], attName, { type: mime });
+                        validFilesArray.push(extractedFile);
+                    }
+                }
+            } catch (e) {
+                console.warn(`[aiManager] Impossible d'extraire la pièce jointe ${attName}:`, e);
+            }
+        }
+    }
+
+    return validFilesArray;
+};
+
 const parseMsgFile = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const msgReader = new MsgReader(arrayBuffer);
@@ -36,25 +73,8 @@ const parseMsgFile = async (file) => {
     if (fileData.body) parts.push(fileData.body);
     const bodyText = parts.join('\n');
 
-    // Extract attachments as File objects
-    const attachments = [];
-    if (fileData.attachments && fileData.attachments.length > 0) {
-        for (let i = 0; i < fileData.attachments.length; i++) {
-            const att = fileData.attachments[i];
-            const attName = att.fileName || att.name || `attachment_${i}`;
-            try {
-                const attData = msgReader.getAttachment(i);
-                if (attData && attData.content) {
-                    const mime = getMimeType(attName);
-                    const blob = new Blob([new Uint8Array(attData.content)], { type: mime });
-                    const extractedFile = new File([blob], attName, { type: mime });
-                    attachments.push(extractedFile);
-                }
-            } catch (e) {
-                console.warn(`[aiManager] Impossible d'extraire la pièce jointe ${attName}:`, e);
-            }
-        }
-    }
+    // Extract attachments as File objects using the new function
+    const attachments = await extractValidAttachmentsFromMsg(file);
 
     return { bodyText, attachments };
 };
@@ -181,6 +201,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
             // Multi-files logic for vision — supports strings, .msg, PDF, images
             const contentArray = [{ type: "text", text: "Voici le(s) document(s) à analyser." }];
             const allExtractedFiles = []; // Files extracted from MSG for Magic Drop auto-attach
+            const validFileNames = []; // On liste les fichiers autorisés
 
             for (const item of fileArray) {
                 // Plain text string (pasted notes, raw text)
@@ -193,9 +214,13 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
 
                 // File object
                 const file = item;
-                const fileName = (file.name || '').toLowerCase();
+                const fileName = file.name || 'document_sans_nom';
+                validFileNames.push(fileName);
+                const fileNameLower = fileName.toLowerCase();
 
-                if (fileName.endsWith('.msg')) {
+                contentArray.push({ type: "text", text: `\n\n==================================================\n[DÉBUT DE LA PIÈCE JOINTE : ${fileName}]\n` });
+
+                if (fileNameLower.endsWith('.msg')) {
                     // Outlook .msg — parse body + extract attachments
                     try {
                         const { bodyText, attachments } = await parseMsgFile(file);
@@ -205,6 +230,11 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                         // Process extracted attachments (PDFs & images go to vision)
                         for (const att of attachments) {
                             allExtractedFiles.push(att);
+                            const attName = att.name || 'piece_jointe_sans_nom';
+                            validFileNames.push(attName);
+                            
+                            contentArray.push({ type: "text", text: `\n\n==================================================\n[DÉBUT DE LA PIÈCE JOINTE : ${attName}]\n` });
+
                             if (att.type === 'application/pdf') {
                                 const base64Images = await pdfToBase64Images(att);
                                 for (const img of base64Images) {
@@ -216,8 +246,10 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                             }
                             // Other attachment types (doc, xls) — just mention their name
                             else {
-                                contentArray.push({ type: "text", text: `[Pièce jointe: ${att.name}]` });
+                                contentArray.push({ type: "text", text: `[Pièce jointe non analysable visuellement: ${attName}]` });
                             }
+                            
+                            contentArray.push({ type: "text", text: `\n[FIN DE LA PIÈCE JOINTE : ${attName}]\n==================================================\n\n` });
                         }
                     } catch (e) {
                         console.warn(`[aiManager] Impossible de lire le fichier MSG ${file.name}:`, e);
@@ -243,6 +275,8 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                         error: `Format de fichier non supporté: ${file.name}. Utilisez un PDF, une image ou un .msg.`
                     };
                 }
+
+                contentArray.push({ type: "text", text: `\n[FIN DE LA PIÈCE JOINTE : ${fileName}]\n==================================================\n\n` });
             }
 
             // System prompt par type de document
@@ -313,11 +347,18 @@ ${documentType === 'contrat' ? `{
 Ne renvoie aucun autre texte, juste le JSON.`;
             };
 
+            const antiHallucinationPrompt = `\n\n⚠️ RÈGLE ABSOLUE POUR LA SOURCE (sourceFileName) ⚠️ :
+Tu as accès UNIQUEMENT à ces pièces jointes : [${validFileNames.join(', ')}].
+Pour le champ \`sourceFileName\` dans ton JSON, tu DOIS OBLIGATOIREMENT choisir une valeur exacte dans cette liste stricte.
+Il t'est STRICTEMENT INTERDIT d'inventer un nom de fichier, de croiser les sources, ou d'utiliser un fichier qui n'est pas dans cette liste (comme un ancien .doc ignoré).
+Si l'information que tu extrais provient du texte encadré par [DÉBUT DE LA PIÈCE JOINTE : X], alors \`sourceFileName\` doit être EXACTEMENT "X".
+Si l'information se trouve dans l'email principal et pas dans une pièce jointe, laisse \`sourceFileName\` totalement vide ("").`;
+
             // Payload générique pour un modèle multimodal (ex: gpt-4o)
             const payload = {
                 model: model,
                 messages: [
-                    { role: "system", content: getSystemPrompt() },
+                    { role: "system", content: getSystemPrompt() + antiHallucinationPrompt },
                     { role: "user", content: contentArray }
                 ],
                 response_format: (documentType === 'cause' || documentType === 'annexe') ? { type: "text" } : { type: "json_object" },

@@ -4,6 +4,38 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import html2canvas from 'html2canvas';
 
+// v5.4.0 Magic Drop: Fuzzy file name matching utility
+// Tries multiple strategies: exact → case-insensitive → without extension → includes
+const findMatchingFile = (pendingFiles, sourceFileName) => {
+    if (!sourceFileName || !pendingFiles || pendingFiles.length === 0) return null;
+    const needle = sourceFileName.trim();
+    if (!needle) return null;
+
+    // 1. Exact match
+    const exact = pendingFiles.find(f => f.name === needle);
+    if (exact) return exact;
+
+    // 2. Case-insensitive match
+    const needleLower = needle.toLowerCase();
+    const caseInsensitive = pendingFiles.find(f => f.name.toLowerCase() === needleLower);
+    if (caseInsensitive) return caseInsensitive;
+
+    // 3. Strip extension from both sides and compare
+    const stripExt = (name) => name.replace(/\.[^.]+$/, '').toLowerCase().trim();
+    const needleNoExt = stripExt(needle);
+    const withoutExt = pendingFiles.find(f => stripExt(f.name) === needleNoExt);
+    if (withoutExt) return withoutExt;
+
+    // 4. Inclusion match (one contains the other)
+    const includes = pendingFiles.find(f => {
+        const fLower = f.name.toLowerCase();
+        return fLower.includes(needleLower) || needleLower.includes(fLower);
+    });
+    if (includes) return includes;
+
+    return null;
+};
+
 export const ExpertiseContext = createContext();
 
 const initialFormData = {
@@ -1149,18 +1181,20 @@ export const ExpertiseProvider = ({ children }) => {
 };
 
   // Fonction appelée par GlobalValidationModal pour appliquer les données sélectionnées
-  const commitPendingAiData = async (selections) => {
-      if (!pendingAiData) return;
+  // v5.4.0: dataOverride permet de passer les données fusionnées directement (bypass du state async React)
+  const commitPendingAiData = async (selections, dataOverride = null) => {
+      const data = dataOverride || pendingAiData;
+      if (!data) return;
 
       // Capture pendingFiles AVANT de modifier le state
-      const pendingFiles = pendingAiData.pendingFiles || [];
+      const pendingFiles = data.pendingFiles || [];
 
       // 1. FormData — écraser seulement les champs cochés
-      if (selections.formFields && selections.formFields.length > 0 && pendingAiData.formData) {
+      if (selections.formFields && selections.formFields.length > 0 && data.formData) {
           const updates = {};
           selections.formFields.forEach(key => {
-              if (pendingAiData.formData[key] !== undefined && pendingAiData.formData[key] !== '') {
-                  updates[key] = pendingAiData.formData[key];
+              if (data.formData[key] !== undefined && data.formData[key] !== '') {
+                  updates[key] = data.formData[key];
               }
           });
           if (Object.keys(updates).length > 0) {
@@ -1171,7 +1205,7 @@ export const ExpertiseProvider = ({ children }) => {
       // 2. Occupants — ajouter ou mettre à jour
       if (selections.occupants && selections.occupants.length > 0) {
           selections.occupants.forEach(sel => {
-              const aiOcc = pendingAiData.occupants.find(o => o.id === sel.id);
+              const aiOcc = data.occupants.find(o => o.id === sel.id);
               if (!aiOcc) return;
 
               if (sel.action === 'update' && sel.existingId) {
@@ -1197,7 +1231,7 @@ export const ExpertiseProvider = ({ children }) => {
       // 3. Expenses — ajouter + Magic Drop auto-attach (séquentiel, pas de setTimeout)
       if (selections.expenses && selections.expenses.length > 0) {
           for (const expId of selections.expenses) {
-              const aiExp = pendingAiData.expenses.find(e => e.id === expId);
+              const aiExp = data.expenses.find(e => e.id === expId);
               if (!aiExp) continue;
 
               const newId = crypto.randomUUID();
@@ -1209,16 +1243,18 @@ export const ExpertiseProvider = ({ children }) => {
                   compteDe: aiExp.compteDe || 'unassigned'
               });
 
-              // Magic Drop: auto-attach file if sourceFileName matches a pending file
+              // v5.4.0 Magic Drop: auto-attach file via fuzzy matching
               if (aiExp.sourceFileName && aiExp.sourceFileName !== '' && pendingFiles.length > 0) {
-                  const matchedFile = pendingFiles.find(f => f.name === aiExp.sourceFileName);
+                  const matchedFile = findMatchingFile(pendingFiles, aiExp.sourceFileName);
                   if (matchedFile) {
                       try {
                           await handleAttachFile(newId, matchedFile);
-                          console.log(`[Magic Drop] ✅ Auto-attaché: ${matchedFile.name} → frais ${newId}`);
+                          console.log(`[Magic Drop] ✅ Auto-attaché: "${matchedFile.name}" (source: "${aiExp.sourceFileName}") → frais ${newId}`);
                       } catch (err) {
                           console.warn(`[Magic Drop] ❌ Échec auto-attach pour ${matchedFile.name}:`, err);
                       }
+                  } else {
+                      console.warn(`[Magic Drop] ⚠️ Aucun fichier ne matche "${aiExp.sourceFileName}". Fichiers disponibles:`, pendingFiles.map(f => f.name));
                   }
               }
           }

@@ -23,7 +23,7 @@ const getFileIcon = (file) => {
 const GlobalAiAssistant = () => {
     const {
         isAiModeActive, aiConfig,
-        processJsonData, setPendingAiData
+        setPendingAiData
     } = useContext(ExpertiseContext);
 
     const [files, setFiles] = useState([]);
@@ -89,18 +89,36 @@ const GlobalAiAssistant = () => {
             );
 
             if (result.success && result.data) {
-                // Feed the result into processJsonData which will populate pendingAiData
-                processJsonData(JSON.stringify(result.data));
-                
-                // Inject extracted files (from MSG attachments) + original files as pendingFiles for Magic Drop
-                const allPendingFiles = [...(result.extractedFiles || []), ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))];
-                if (allPendingFiles.length > 0) {
-                    // Use setTimeout to ensure processJsonData has set pendingAiData first
-                    setTimeout(() => {
-                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
-                    }, 0);
-                }
-                
+                // v5.4.0 Magic Drop: Feed directly into pendingAiData (NOT processJsonData which bypasses the Sas)
+                const aiData = result.data;
+
+                // Ensure occupants have UUIDs
+                const occupants = (aiData.occupants || []).map(o => ({
+                    ...o,
+                    id: o.id || crypto.randomUUID()
+                }));
+
+                // Ensure expenses have UUIDs
+                const expenses = (aiData.expenses || []).map(e => ({
+                    ...e,
+                    id: e.id || crypto.randomUUID(),
+                    compteDe: e.compteDe || 'unassigned'
+                }));
+
+                // Build pendingFiles: extracted MSG attachments + original non-MSG files
+                const allPendingFiles = [
+                    ...(result.extractedFiles || []),
+                    ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
+                ];
+
+                // Single synchronous call — no race condition
+                setPendingAiData({
+                    formData: aiData.formData || null,
+                    occupants,
+                    expenses,
+                    pendingFiles: allPendingFiles
+                });
+
                 // Clear the form on success
                 setFiles([]);
                 setRawText('');
