@@ -206,18 +206,27 @@ const PrintPVE = ({ onBack }) => {
                 {Object.entries(financialSummary).map(([occId, data]) => {
                   const montantValide = data.totalPrincipale + data.totalComplementaire;
                   return (
-                    <tr key={occId} className="border-b">
-                      <td className="border p-2 font-bold">{data.etage ? `${data.etage} - ` : ''}{data.nom || 'Non attribué'}</td>
-                      <td className="border p-2 text-right">{montantValide > 0 ? montantValide.toFixed(2) + ' €' : '-'}</td>
-                      <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
-                      <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
-                      <td className="border p-2 text-right font-bold text-lg text-emerald-700">{data.totalNet.toFixed(2)} €</td>
-                      {showPremierPaiementCol && (
-                        <td className="border p-2 text-right font-bold text-lg text-indigo-700 bg-indigo-50">
-                          {data.premierPaiement !== null ? data.premierPaiement.toFixed(2) + ' €' : '-'}
-                        </td>
+                    <React.Fragment key={occId}>
+                      {data.pertesIndirectes > 0 && (
+                        <tr className="text-sm text-slate-600 italic bg-slate-50">
+                          <td colSpan="3" className="border p-2 text-right">Pertes Indirectes</td>
+                          <td className="border p-2 text-right">{data.pertesIndirectes.toFixed(2)} €</td>
+                          <td colSpan={showPremierPaiementCol ? "2" : "1"} className="border p-2"></td>
+                        </tr>
                       )}
-                    </tr>
+                      <tr className="border-b">
+                        <td className="border p-2 font-bold">{data.etage ? `${data.etage} - ` : ''}{data.nom || 'Non attribué'}</td>
+                        <td className="border p-2 text-right">{montantValide > 0 ? montantValide.toFixed(2) + ' €' : '-'}</td>
+                        <td className="border p-2 text-right text-red-600 font-bold">{data.franchiseMontant < 0 ? data.franchiseMontant.toFixed(2) + ' €' : '-'}</td>
+                        <td className="border p-2 text-right text-purple-600">{data.pertesIndirectes > 0 ? '+' + data.pertesIndirectes.toFixed(2) + ' €' : '-'}</td>
+                        <td className="border p-2 text-right font-bold text-lg text-emerald-700">{data.totalNet.toFixed(2)} €</td>
+                        {showPremierPaiementCol && (
+                          <td className="border p-2 text-right font-bold text-lg text-indigo-700 bg-indigo-50">
+                            {data.premierPaiement !== null ? data.premierPaiement.toFixed(2) + ' €' : '-'}
+                          </td>
+                        )}
+                      </tr>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
