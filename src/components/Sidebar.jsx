@@ -257,6 +257,21 @@ const Sidebar = () => {
         const aiModel = aiConfig.model;
 
         try {
+            if (!isAiModeActive) {
+                const file = files[0];
+                if (file.name.toLowerCase().endsWith('.msg')) {
+                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    if (extractedFiles.length === 0) {
+                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                        return;
+                    }
+                    extractedFiles.forEach(f => handleAttachFile('doc_rapport_cause', f));
+                } else {
+                    handleAttachFile('doc_rapport_cause', file);
+                }
+                return;
+            }
+
             const result = await extractDataFromDocument(files, 'cause', aiProvider, aiModel, aiConfig.apiKey);
             if (result.success && result.data && result.data.cause) {
                 setFormData(prev => ({
@@ -420,10 +435,10 @@ const Sidebar = () => {
                                 ➕ New
                             </button>
                             <div
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(true); }}
-                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
                                 onDrop={(e) => {
-                                    e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(false);
+                                    e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(false);
                                     const files = Array.from(e.dataTransfer.files);
                                     const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg'));
                                     if (msgFile) {
@@ -434,13 +449,15 @@ const Sidebar = () => {
                                         setShowAiDossierPrompt(true);
                                     }
                                 }}
-                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
-                                    isDraggingOverMagic
-                                        ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40'
-                                        : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50'
+                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 ${
+                                    !isAiModeActive
+                                        ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500'
+                                        : isDraggingOverMagic
+                                            ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40 cursor-pointer'
+                                            : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50 cursor-pointer'
                                 }`}
-                                title="Glissez un e-mail .msg ici pour créer un dossier via IA"
-                                onClick={() => setShowAiDossierPrompt(true)}
+                                title={!isAiModeActive ? "Mode IA désactivé" : "Glissez un e-mail .msg ici pour créer un dossier via IA"}
+                                onClick={() => { if (!isAiModeActive) return; setShowAiDossierPrompt(true); }}
                             >
                                 {isDraggingOverMagic ? '📥' : '🪄'}
                             </div>
@@ -574,7 +591,9 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        <GlobalAiAssistant />
+                        <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all" : "transition-all"}>
+                            <GlobalAiAssistant />
+                        </div>
 
                         <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
                             <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
@@ -1245,22 +1264,35 @@ const Sidebar = () => {
                                     setCurrentDossierId(newId);
                                     
                                     if (droppedMsgFile) {
-                                        // Lancer extraction IA directe
-                                        const result = await extractDataFromDocument(
-                                            [droppedMsgFile],
-                                            'dossier_global',
-                                            aiConfig.provider,
-                                            aiConfig.model,
-                                            aiConfig.apiKey
-                                        );
-                                        if (result.success && result.data) {
-                                            processJsonData(JSON.stringify(result.data));
-                                            // Inject pendingFiles for Magic Drop auto-attach
-                                            const allPendingFiles = [...(result.extractedFiles || [])];
-                                            if (allPendingFiles.length > 0) {
-                                                setTimeout(() => {
-                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
-                                                }, 50);
+                                        if (!isAiModeActive) {
+                                            if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
+                                                const extractedFiles = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                                if (extractedFiles.length > 0) {
+                                                    setTimeout(() => {
+                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });
+                                                    }, 50);
+                                                } else {
+                                                    alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                                                }
+                                            }
+                                        } else {
+                                            // Lancer extraction IA directe
+                                            const result = await extractDataFromDocument(
+                                                [droppedMsgFile],
+                                                'dossier_global',
+                                                aiConfig.provider,
+                                                aiConfig.model,
+                                                aiConfig.apiKey
+                                            );
+                                            if (result.success && result.data) {
+                                                processJsonData(JSON.stringify(result.data));
+                                                // Inject pendingFiles for Magic Drop auto-attach
+                                                const allPendingFiles = [...(result.extractedFiles || [])];
+                                                if (allPendingFiles.length > 0) {
+                                                    setTimeout(() => {
+                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                                    }, 50);
+                                                }
                                             }
                                         }
                                     } else {
@@ -1306,20 +1338,33 @@ const Sidebar = () => {
                                 setCurrentDossierId(newId);
                                 
                                 if (droppedMsgFile) {
-                                    const result = await extractDataFromDocument(
-                                        [droppedMsgFile],
-                                        'dossier_global',
-                                        aiConfig.provider,
-                                        aiConfig.model,
-                                        aiConfig.apiKey
-                                    );
-                                    if (result.success && result.data) {
-                                        processJsonData(JSON.stringify(result.data));
-                                        const allPendingFiles = [...(result.extractedFiles || [])];
-                                        if (allPendingFiles.length > 0) {
-                                            setTimeout(() => {
-                                                setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
-                                            }, 50);
+                                    if (!isAiModeActive) {
+                                        if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
+                                            const extractedFiles = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                            if (extractedFiles.length > 0) {
+                                                setTimeout(() => {
+                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });
+                                                }, 50);
+                                            } else {
+                                                alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
+                                            }
+                                        }
+                                    } else {
+                                        const result = await extractDataFromDocument(
+                                            [droppedMsgFile],
+                                            'dossier_global',
+                                            aiConfig.provider,
+                                            aiConfig.model,
+                                            aiConfig.apiKey
+                                        );
+                                        if (result.success && result.data) {
+                                            processJsonData(JSON.stringify(result.data));
+                                            const allPendingFiles = [...(result.extractedFiles || [])];
+                                            if (allPendingFiles.length > 0) {
+                                                setTimeout(() => {
+                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                                }, 50);
+                                            }
                                         }
                                     }
                                 } else {

@@ -1,4 +1,4 @@
-import { useFinanceStore } from "../store/financeStore";
+import { useFinanceStore, cleanAmount } from "../store/financeStore";
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
@@ -495,9 +495,9 @@ export const ExpertiseProvider = ({ children }) => {
           const rankA = occOrder.hasOwnProperty(a.compteDe) ? occOrder[a.compteDe] : -1;
           const rankB = occOrder.hasOwnProperty(b.compteDe) ? occOrder[b.compteDe] : -1;
           if (rankA !== rankB) return rankA - rankB; 
-          const valA = parseFloat((a.montantReclame || a.montant || '0').toString().replace(',', '.'));
-          const valB = parseFloat((b.montantReclame || b.montant || '0').toString().replace(',', '.'));
-          return (isNaN(valA) ? 0 : valA) - (isNaN(valB) ? 0 : valB);
+          const valA = cleanAmount(a.montantReclame || a.montant || '0');
+          const valB = cleanAmount(b.montantReclame || b.montant || '0');
+          return valA - valB;
       });
       financeStore.setExpenses(sorted);
   };

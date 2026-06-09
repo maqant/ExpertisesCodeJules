@@ -3,10 +3,40 @@ import { create } from 'zustand';
 // Utilitaire pour la génération d'ID sécurisée
 const generateId = () => crypto.randomUUID();
 
-// Utilitaire pour parser un montant textuel en nombre
-const parseMontant = (val) => {
-  if (typeof val === 'number') return val;
-  return parseFloat(String(val || '0').replace(',', '.')) || 0;
+export const cleanAmount = (val) => {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return val;
+    let str = String(val).trim().replace(/\s/g, ''); // Enlève les espaces
+
+    if (str.includes('.') && str.includes(',')) {
+        // Ex: 2.700,50 ou 2,700.50
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastComma > lastDot) {
+            str = str.replace(/\./g, '').replace(',', '.'); // Format EU
+        } else {
+            str = str.replace(/,/g, ''); // Format US
+        }
+    } else if (str.includes(',')) {
+        // Ex: 2700,50 ou 2,700
+        if (/(,\d{3})$/.test(str) && str.indexOf(',') === str.lastIndexOf(',')) {
+            str = str.replace(',', ''); // Séparateur de milliers US (2,700)
+        } else {
+            str = str.replace(/,/g, '.'); // Décimale FR (2700,50 -> 2700.50)
+        }
+    } else if (str.includes('.')) {
+        // Ex: 2.700 ou 2.50
+        // Si le point est suivi EXACTEMENT de 3 chiffres à la fin du mot, c'est un millier !
+        if (/(\.\d{3})$/.test(str) && str.indexOf('.') === str.lastIndexOf('.')) {
+            str = str.replace('.', ''); // 2.700 -> 2700
+        } else if (str.split('.').length > 2) {
+            str = str.replace(/\./g, ''); // 2.700.000 -> 2700000
+        }
+        // Sinon, c'est une décimale (2.50), on n'y touche pas.
+    }
+
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
 };
 
 export const useFinanceStore = create((set, get) => ({
@@ -137,8 +167,8 @@ export const useFinanceStore = create((set, get) => ({
         // Ne pas écraser si l'utilisateur a explicitement fourni montantValide (modification manuelle en mode Terrain)
         // Ne pas recalculer pour les frais de franchise (montant négatif fixe)
         else if (!state.metier.isPVEClosed && expenseData.montantValide === undefined && !updated.isFranchise) {
-          const reclame = parseFloat(String(updated.montantReclame || "0").replace(',', '.')) || 0;
-          let vetuste = parseFloat(updated.pourcentageVetuste) || 0;
+          const reclame = cleanAmount(updated.montantReclame);
+          let vetuste = cleanAmount(updated.pourcentageVetuste);
 
           // Calcul mathématique avec vétusté
           const valide = reclame * (1 - (vetuste / 100));
@@ -258,7 +288,7 @@ export const useFinanceStore = create((set, get) => ({
   getTotalPVE: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseMontant(exp.montantValide || exp.montantReclame || exp.montant);
+      const val = cleanAmount(exp.montantValide || exp.montantReclame || exp.montant);
       return sum + val;
     }, 0);
     return total;
@@ -267,7 +297,7 @@ export const useFinanceStore = create((set, get) => ({
   getTotalReclame: () => {
     const expenses = get().metier.expenses;
     const total = expenses.reduce((sum, exp) => {
-      const val = parseMontant(exp.montantReclame || exp.montant);
+      const val = cleanAmount(exp.montantReclame || exp.montant);
       return sum + val;
     }, 0);
     return total;
@@ -290,7 +320,7 @@ export const useFinanceStore = create((set, get) => ({
           (f.month === month || f.mois === month)
         );
         if (matchingRef && matchingRef.montant) {
-          franchiseBrute = parseMontant(matchingRef.montant);
+          franchiseBrute = cleanAmount(matchingRef.montant);
           foundInRef = true;
         }
       }
@@ -300,11 +330,11 @@ export const useFinanceStore = create((set, get) => ({
       const franchiseStr = String(formData?.franchise || '').trim();
       const matchEuro = franchiseStr.match(/([\d.,]+)\s*€/);
       if (matchEuro) {
-        franchiseBrute = parseFloat(matchEuro[1].replace(',', '.'));
+        franchiseBrute = cleanAmount(matchEuro[1]);
       } else {
         const numbers = franchiseStr.match(/[\d.,]+/g);
         if (numbers && numbers.length > 0) {
-           franchiseBrute = parseFloat(numbers[numbers.length - 1].replace(',', '.'));
+           franchiseBrute = cleanAmount(numbers[numbers.length - 1]);
         }
       }
     }
@@ -319,7 +349,7 @@ export const useFinanceStore = create((set, get) => ({
     const franchiseOccId = state.metier.franchiseOccId;
 
     // Parser le taux PI depuis formData (ex: "10%" → 10)
-    const tauxPI = parseFloat(String(formData?.pertesIndirectes || '0').replace('%', '')) || 0;
+    const tauxPI = cleanAmount(String(formData?.pertesIndirectes || '0').replace('%', ''));
 
     // Utilisation du sélecteur unifié
     const franchiseBrute = get().getFranchiseMontant();
@@ -363,7 +393,7 @@ export const useFinanceStore = create((set, get) => ({
         };
       }
 
-      const val = parseMontant(exp.montantValide || exp.montantReclame || exp.montant);
+      const val = cleanAmount(exp.montantValide || exp.montantReclame || exp.montant);
       const entry = summary[exp.compteDe];
 
       if (exp.isFranchise) {
@@ -446,7 +476,7 @@ export const useFinanceStore = create((set, get) => ({
       if (p.ventilations && Array.isArray(p.ventilations)) {
         p.ventilations.forEach(v => {
           if (v.expenseId === expenseId) {
-            const m = parseFloat(v.montantAlloue) || 0;
+            const m = cleanAmount(v.montantAlloue);
             if (v.typeAllocation === 'HTVA') totalHTVA += m;
             else if (v.typeAllocation === 'TVA') totalTVA += m;
             else totalForfait += m;
