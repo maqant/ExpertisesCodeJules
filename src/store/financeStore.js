@@ -128,10 +128,15 @@ export const useFinanceStore = create((set, get) => ({
 
         const updated = { ...e, ...expenseData, compteDe: cleanCompteDe };
 
+        // Sécurisation des frais "Forfait"
+        if (updated.typeMontant === 'Forfait') {
+          updated.montantValide = updated.montantReclame;
+          updated.pourcentageVetuste = 0;
+        } 
         // Phase 2.3.2 : Calcul automatique si on modifie des données de facturation (et que l'expertise n'est pas close)
         // Ne pas écraser si l'utilisateur a explicitement fourni montantValide (modification manuelle en mode Terrain)
         // Ne pas recalculer pour les frais de franchise (montant négatif fixe)
-        if (!state.metier.isPVEClosed && expenseData.montantValide === undefined && !updated.isFranchise) {
+        else if (!state.metier.isPVEClosed && expenseData.montantValide === undefined && !updated.isFranchise) {
           const reclame = parseFloat(String(updated.montantReclame || "0").replace(',', '.')) || 0;
           let vetuste = parseFloat(updated.pourcentageVetuste) || 0;
 
@@ -293,6 +298,8 @@ export const useFinanceStore = create((set, get) => ({
         nom: `${o.nom || ''} ${o.prenom || ''}`.trim(),
         etage: o.etage || '',
         totalPrincipale: 0,
+        totalPrincipaleForfait: 0,
+        totalPrincipaleHorsForfait: 0,
         totalComplementaire: 0,
         franchiseMontant: 0,
         pertesIndirectes: 0,
@@ -311,6 +318,8 @@ export const useFinanceStore = create((set, get) => ({
           nom: exp.compteDe,
           etage: '',
           totalPrincipale: 0,
+          totalPrincipaleForfait: 0,
+          totalPrincipaleHorsForfait: 0,
           totalComplementaire: 0,
           franchiseMontant: 0,
           pertesIndirectes: 0,
@@ -332,6 +341,11 @@ export const useFinanceStore = create((set, get) => ({
         // Comptabilité à 100% — toujours le montant validé intégral
         if (cat === 'Principale') {
           entry.totalPrincipale += val;
+          if (exp.typeMontant === 'Forfait') {
+            entry.totalPrincipaleForfait += val;
+          } else {
+            entry.totalPrincipaleHorsForfait += val;
+          }
         } else {
           entry.totalComplementaire += val;
         }
@@ -356,17 +370,18 @@ export const useFinanceStore = create((set, get) => ({
       // Hors AXA, PI = % de (100% Principale - franchise)
       // PI ne s'applique JAMAIS sur la Complémentaire
       if (isAxa) {
-        const base80 = entry.totalPrincipale * 0.8;
-        const franchiseSurBase80 = Math.min(absFranchise, base80);
-        const apresfranchise80 = base80 - franchiseSurBase80;
+        // Le 1er paiement compte les Forfaits à 100% et le reste à 80%
+        const base1erPaiementPrincipale = (entry.totalPrincipaleHorsForfait * 0.8) + entry.totalPrincipaleForfait;
+        const franchiseSurBase = Math.min(absFranchise, base1erPaiementPrincipale);
+        const apresfranchise = base1erPaiementPrincipale - franchiseSurBase;
 
         // PI sur l'argent reçu au 1er paiement
-        if (tauxPI > 0 && apresfranchise80 > 0) {
-          entry.pertesIndirectes = apresfranchise80 * (tauxPI / 100);
+        if (tauxPI > 0 && apresfranchise > 0) {
+          entry.pertesIndirectes = apresfranchise * (tauxPI / 100);
         }
 
         // Indemnisation = ce que la personne va effectivement toucher au 1er paiement
-        entry.totalNet = apresfranchise80 + entry.pertesIndirectes + entry.totalComplementaire;
+        entry.totalNet = apresfranchise + entry.pertesIndirectes + entry.totalComplementaire;
         // Le premierPaiement est identique à totalNet chez AXA
         entry.premierPaiement = entry.totalNet;
       } else {
