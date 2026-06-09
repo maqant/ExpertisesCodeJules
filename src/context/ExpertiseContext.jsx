@@ -222,7 +222,7 @@ export const ExpertiseProvider = ({ children }) => {
       setFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
-      setAttachedFiles({}); setAttachedPhotos({}); setCurrentDossierId(null);
+      setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
   };
 
   const handleChange = (e) => financeStore.updateFormData({ [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
