@@ -325,7 +325,7 @@ FORMAT JSON ATTENDU :
   "formData": { "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", "adresse": "", "cause": "" },
   "experts": [ { "nom": "", "tel": "" } ],
   "occupants": [ { "etage": "", "statut": "Locataire", "nom": "", "tel": "", "email": "", "rc": "Non", "rcPolice": "", "secAssurance": "Non", "secType": "", "secPolice": "", "secCie": "" } ],
-  "expenses": [ { "prestataire": "", "type": "Facture", "ref": "", "desc": "", "compteDe": "unassigned", "montant": "", "typeMontant": "HTVA", "sourceFileName": "" } ]
+  "expenses": [ { "prestataire": "", "type": "Facture", "ref": "", "desc": "", "compteDe": "Nom exact de la personne facturée (ou laisse vide si inconnu)", "montant": "", "typeMontant": "HTVA", "sourceFileName": "" } ]
 }`;
                 }
                 // Default: facture/devis/contrat

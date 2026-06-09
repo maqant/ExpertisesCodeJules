@@ -70,7 +70,20 @@ const GlobalValidationModal = () => {
     // Initialize when pendingAiData arrives
     if (pendingAiData && !initialized) {
         const cleanOccs = deduplicateOccupants(pendingAiData.occupants || []);
-        const cleanExps = deduplicateExpenses(pendingAiData.expenses || []);
+        const rawExps = deduplicateExpenses(pendingAiData.expenses || []);
+        
+        // Ticket D: Matching Intelligent du compteDe
+        const cleanExps = rawExps.map(exp => {
+            let matchedCompteDe = exp.compteDe || 'unassigned';
+            if (matchedCompteDe !== 'unassigned' && matchedCompteDe.trim() !== '') {
+                const searchName = matchedCompteDe.toLowerCase().trim();
+                const match = occupants.find(o => o.nom && (searchName.includes(o.nom.toLowerCase().trim()) || o.nom.toLowerCase().trim().includes(searchName)));
+                if (match) {
+                    matchedCompteDe = match.id;
+                }
+            }
+            return { ...exp, compteDe: matchedCompteDe };
+        });
         
         setEditableData({
             formData: pendingAiData.formData ? { ...pendingAiData.formData } : null,
@@ -329,6 +342,11 @@ const GlobalValidationModal = () => {
                                                 <span className="text-sm font-bold text-white truncate">{exp.prestataire || 'Inconnu'}</span>
                                                 <span className="text-xs text-emerald-400 font-bold shrink-0">{exp.montant || exp.montantReclame || '?'}</span>
                                                 <span className="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded shrink-0">{exp.typeMontant || 'HTVA'}</span>
+                                                {exp.compteDe && exp.compteDe !== 'unassigned' && occupants.find(o => o.id === exp.compteDe) && (
+                                                    <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold border border-purple-500/30 shrink-0" title="Bénéficiaire assigné par l'IA">
+                                                        👤 {occupants.find(o => o.id === exp.compteDe).nom}
+                                                    </span>
+                                                )}
                                                 {matchedFile && (
                                                     <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold border border-blue-500/30 shrink-0" title={matchedFile.name}>
                                                         📎 {matchedFile.name.length > 20 ? matchedFile.name.slice(0, 20) + '…' : matchedFile.name}
