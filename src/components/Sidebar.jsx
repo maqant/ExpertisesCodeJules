@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion } from '../services/aiManager';
+import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
@@ -181,7 +181,8 @@ const Sidebar = () => {
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
         processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
-        toggleExpenseType
+        toggleExpenseType,
+        intervenantsList, setIntervenantsList
     } = context;
 
 
@@ -193,6 +194,8 @@ const Sidebar = () => {
     const [showAiDossierPrompt, setShowAiDossierPrompt] = useState(false);
     const [aiDossierRef, setAiDossierRef] = useState('');
     const [droppedMsgFile, setDroppedMsgFile] = useState(null);
+    // v5.6.2 - Refining state pour la Sidebar
+    const [refiningCause, setRefiningCause] = useState(false);
     const [isDraggingOverMagic, setIsDraggingOverMagic] = useState(false);
     const [isAiDossierLoading, setIsAiDossierLoading] = useState(false);
 
@@ -817,6 +820,49 @@ const Sidebar = () => {
                                         <p className="text-[10px] text-slate-500 italic text-center py-2">Aucune note ou rapport.</p>
                                     )}
                                 </div>
+
+                                {/* v5.6.2 - Textarea Cause + Boutons Refining */}
+                                <div className="mt-3 border-t border-slate-700 pt-3">
+                                    <label className="text-xs font-bold text-slate-300 mb-1 block">Cause & Description</label>
+                                    <textarea
+                                        value={formData.cause || ''}
+                                        onChange={(e) => handleChange('cause', e.target.value)}
+                                        rows={4}
+                                        placeholder="Décrivez la cause du sinistre..."
+                                        className="input-field mb-0 text-xs resize-y min-h-[60px]"
+                                    />
+                                    {formData.cause && formData.cause.length > 10 && (
+                                        <div className="flex gap-1.5 mt-1.5">
+                                            {[
+                                                { directive: 'DEVELOP', icon: '+', label: 'Développer', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' },
+                                                { directive: 'SUMMARIZE', icon: '−', label: 'Résumer', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20' },
+                                                { directive: 'TECH_FOCUS', icon: '🔧', label: 'Technique', cls: 'bg-violet-500/10 text-violet-400 border-violet-500/30 hover:bg-violet-500/20' },
+                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' }
+                                            ].map(btn => (
+                                                <button
+                                                    key={btn.directive}
+                                                    disabled={refiningCause}
+                                                    onClick={async (e) => {
+                                                        e.preventDefault();
+                                                        setRefiningCause(true);
+                                                        const result = await refineText(formData.cause, btn.directive, aiConfig?.apiKey);
+                                                        if (result.success) {
+                                                            handleChange('cause', result.text);
+                                                        }
+                                                        setRefiningCause(false);
+                                                    }}
+                                                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-all cursor-pointer ${
+                                                        refiningCause
+                                                            ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-wait'
+                                                            : btn.cls
+                                                    }`}
+                                                >
+                                                    {refiningCause ? '⏳' : btn.icon} {btn.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </details>
 
@@ -897,6 +943,31 @@ const Sidebar = () => {
                                     </div>
                                 )})}
                                 <button id="add-occ-btn" onClick={addOcc} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une partie impliquée</button>
+
+                                {/* v5.6.2 - Liste des Intervenants validés */}
+                                {intervenantsList && intervenantsList.length > 0 && (
+                                    <div className="mt-3 border-t border-slate-700 pt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-xs font-bold text-amber-300">🤝 Autres Intervenants ({intervenantsList.length})</label>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {intervenantsList.map(inter => (
+                                                <div key={inter.id} className="flex items-center gap-2 p-2 bg-amber-900/10 border border-amber-500/20 rounded">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-xs font-bold text-white">{inter.nom} {inter.prenom}</span>
+                                                        {inter.role && <span className="text-[10px] text-amber-400 ml-1">({inter.role})</span>}
+                                                        {inter.societe && <span className="text-[10px] text-slate-400 ml-1">— {inter.societe}</span>}
+                                                    </div>
+                                                    <div className="flex gap-2 shrink-0 text-[10px] text-slate-400">
+                                                        {inter.tel && <span>📞 {inter.tel}</span>}
+                                                        {inter.email && <span>✉️ {inter.email}</span>}
+                                                    </div>
+                                                    <button onClick={() => setIntervenantsList(prev => prev.filter(i => i.id !== inter.id))} className="text-red-400 hover:text-red-300 text-xs shrink-0" title="Supprimer">✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </details>
 

@@ -1202,9 +1202,10 @@ RÈGLES ABSOLUES :
    - "ACP" ← Pour l'Association des Copropriétaires
 3. TOUTE personne qui n'est PAS un occupant ou un ACP doit aller dans le tableau \"intervenants\". Exemples : syndic, courtier, plombier, expert privé, père/mère de, conjoint, etc.
 4. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau \"experts\" du tableau \"intervenants\".
-   - Un \"expert\" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa, Bureau Péchard).
+   - Un \"expert\" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa).
    - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans \"intervenants\".
-5. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
+5. EXCLUSION ABSOLUE : Le Bureau Péchard (ou Bureau Yves Péchard) et ses employés NE SONT JAMAIS des experts ni des intervenants. C'est le bureau de gestion mandaté. Tu dois impérativement les IGNORER et les EXCLURE de tous les tableaux (experts, occupants, intervenants).
+6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
@@ -1293,8 +1294,7 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
             success: true,
             data: {
                 cause: "Fuite d'eau suite à la rupture d'une canalisation encastrée dans le mur de la salle de bain.",
-                divers: "Présence de moisissures constatée. Locataire coopératif.",
-                compteRendu: "Visite sur place à 10h. Constat des dégâts dans la salle de bain et le couloir adjacent. Prise de mesures d'humidité."
+                divers: "Présence de moisissures constatée. Locataire coopératif."
             }
         };
     }
@@ -1351,8 +1351,7 @@ RÈGLES ABSOLUES :
 Voici le format EXACT attendu :
 {
   "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées.",
-  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas dans la cause.",
-  "compteRendu": "Compte-rendu chronologique factuel de la visite ou de la succession des événements."
+  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas dans la cause."
 }`;
 
         const payload = {
@@ -1632,8 +1631,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             formData: {
                 ...(adminRes.data?.formData || {}),
                 cause: narrativeRes.data?.cause || "",
-                divers: narrativeRes.data?.divers || "",
-                compteRendu: narrativeRes.data?.compteRendu || ""
+                divers: narrativeRes.data?.divers || ""
             },
             references: adminRes.data?.references || [],
             experts: socialRes.data?.experts || [],

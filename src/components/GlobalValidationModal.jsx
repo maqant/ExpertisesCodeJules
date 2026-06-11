@@ -262,7 +262,7 @@ const GlobalValidationModal = () => {
                                     const isIdentical = currentVal === aiVal;
                                     const label = FORM_FIELD_LABELS[key] || key;
                                     // v5.6.1 - Détecter les champs narratifs pour le Refining
-                                    const isNarrativeField = ['cause', 'divers', 'compteRendu'].includes(key);
+                                    const isNarrativeField = ['cause', 'divers'].includes(key);
                                     return (
                                         <label key={key} className={`flex items-start gap-2.5 p-2 rounded transition-colors ${isIdentical ? 'opacity-40' : 'hover:bg-slate-700/50'}`}>
                                             <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => toggleFormField(key)} disabled={isIdentical}
