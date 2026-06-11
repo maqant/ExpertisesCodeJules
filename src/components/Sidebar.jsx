@@ -284,9 +284,9 @@ const Sidebar = () => {
             const result = await extractNarrativeData(files, aiConfig.apiKey, setAiStatus, aiConfig.model, formData.cause || '');
             if (result.success && result.data && result.data.cause) {
                 // Mettre à jour formData.cause directement (persistance immédiate)
-                handleChange('cause', result.data.cause);
+                setFormData(prev => ({ ...prev, cause: result.data.cause }));
                 if (result.data.divers) {
-                    handleChange('divers', (formData.divers ? formData.divers + '\n\n' : '') + result.data.divers);
+                    setFormData(prev => ({ ...prev, divers: (prev.divers ? prev.divers + '\n\n' : '') + result.data.divers }));
                 }
                 addCauseTimelineItem('text', "Synthèse IA : " + result.data.cause);
                 for (const f of files) {
@@ -815,20 +815,20 @@ const Sidebar = () => {
                                             try {
                                                 const result = await refineCauseWithInput(formData.cause || '', val, aiConfig.apiKey);
                                                 if (result.success) {
-                                                    handleChange('cause', result.cause);
+                                                    setFormData(prev => ({ ...prev, cause: result.cause }));
                                                 }
                                             } catch (err) {
                                                 console.error('[Sidebar] Erreur affinage cause:', err);
                                                 // Fallback : concaténation simple
                                                 const currentCause = formData.cause || '';
-                                                handleChange('cause', currentCause ? currentCause + '\n\n' + val : val);
+                                                setFormData(prev => ({ ...prev, cause: currentCause ? currentCause + '\n\n' + val : val }));
                                             } finally {
                                                 setIsRefiningNote(false);
                                             }
                                         } else {
                                             // Sans IA : concaténation simple
                                             const currentCause = formData.cause || '';
-                                            handleChange('cause', currentCause ? currentCause + '\n\n' + val : val);
+                                            setFormData(prev => ({ ...prev, cause: currentCause ? currentCause + '\n\n' + val : val }));
                                         }
                                     }} className={`px-3 rounded text-xs font-bold shadow transition-all ${isRefiningNote ? 'bg-amber-600 text-white animate-pulse cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>{isRefiningNote ? '⏳' : '+'}</button>
                                 </div>
@@ -863,7 +863,7 @@ const Sidebar = () => {
                                     <label className="text-xs font-bold text-slate-300 mb-1 block">Cause & Description</label>
                                     <textarea
                                         value={formData.cause || ''}
-                                        onChange={(e) => handleChange('cause', e.target.value)}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, cause: e.target.value }))}
                                         rows={4}
                                         placeholder="Décrivez la cause du sinistre..."
                                         className="input-field mb-0 text-xs resize-y min-h-[60px]"
@@ -884,7 +884,7 @@ const Sidebar = () => {
                                                         setRefiningCause(true);
                                                         const result = await refineText(formData.cause, btn.directive, aiConfig?.apiKey);
                                                         if (result.success) {
-                                                            handleChange('cause', result.text);
+                                                            setFormData(prev => ({ ...prev, cause: result.text }));
                                                         }
                                                         setRefiningCause(false);
                                                     }}
