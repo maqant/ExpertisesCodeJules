@@ -1007,6 +1007,7 @@ RÈGLES ABSOLUES :
       - "Anglaise" si le texte mentionne "franchise anglaise" ou "english deductible".
       - "" si aucune franchise n'est mentionnée.
 6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
+7. ANTI-HALLUCINATION refPechard : Le champ \"refPechard\" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte explicitement dans les documents, renvoie IMPÉRATIVEMENT une chaîne vide \"\". N'invente AUCUN numéro et ne confonds pas avec les numéros de police, de sinistre ou d'autres références.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
@@ -1282,7 +1283,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
  * Extrait et synthétise les données textuelles (cause, compte rendu, divers) 
  * à partir des fichiers taggués "RECITS".
  */
-export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', existingCause = '') => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
@@ -1333,6 +1334,14 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
             contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
         }
 
+        // v5.6.3 - Prompt incrémental : l'IA accumule les faits au lieu d'écraser
+        const existingCauseBlock = existingCause && existingCause.trim()
+            ? `\n\nCONTEXTE EXISTANT :\nVoici la cause actuelle rédigée jusqu'ici :\n"""\n${existingCause.trim()}\n"""\n\nRÈGLES D'ACCUMULATION :\n1. Si les nouveaux documents ne contiennent AUCUNE information technique pertinente, renvoie la cause actuelle À L'IDENTIQUE dans le champ "cause".
+2. Si les documents apportent des précisions, INTÈGRE-LES de manière fluide dans la cause existante sans détruire l'information précédente.
+3. Si les documents CONTREDISENT la cause actuelle, CONSERVE le constat initial ET fais état de la contradiction (ex: "Cependant, un second rapport de [intervenant] indique que...").
+4. Tu es un ACCUMULATEUR DE FAITS : tu ne supprimes JAMAIS d'informations valides.`
+            : '';
+
         const systemPrompt = `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
 Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
 
@@ -1347,6 +1356,7 @@ RÈGLES ABSOLUES :
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
 5. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
 6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
+${existingCauseBlock}
 
 Voici le format EXACT attendu :
 {

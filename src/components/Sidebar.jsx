@@ -278,9 +278,14 @@ const Sidebar = () => {
                 return;
             }
 
-            // v5.5.6 - Utilisation du nouvel Agent Récits
-            const result = await extractNarrativeData(files, aiConfig.apiKey, setAiStatus, aiConfig.model);
+            // v5.6.3 - Logique incrémentale : passe la cause existante pour accumulation
+            const result = await extractNarrativeData(files, aiConfig.apiKey, setAiStatus, aiConfig.model, formData.cause || '');
             if (result.success && result.data && result.data.cause) {
+                // Mettre à jour formData.cause directement (persistance immédiate)
+                handleChange('cause', result.data.cause);
+                if (result.data.divers) {
+                    handleChange('divers', (formData.divers ? formData.divers + '\n\n' : '') + result.data.divers);
+                }
                 addCauseTimelineItem('text', "Synthèse IA : " + result.data.cause);
                 for (const f of files) {
                     const arrayBuffer = await f.arrayBuffer();

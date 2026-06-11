@@ -1255,6 +1255,13 @@ export const ExpertiseProvider = ({ children }) => {
                   updates[key] = data.formData[key];
               }
           });
+          // v5.6.4 - Auto-fill refPechard : si l'IA renvoie vide, utiliser le nom du dossier courant
+          if (!updates.refPechard && !formData.refPechard) {
+              const currentDossier = savedDossiers.find(d => d.id === currentDossierId);
+              if (currentDossier?.name) {
+                  updates.refPechard = currentDossier.name;
+              }
+          }
           if (Object.keys(updates).length > 0) {
               setFormData(prev => ({ ...prev, ...updates }));
           }

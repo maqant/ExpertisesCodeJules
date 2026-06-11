@@ -9,7 +9,8 @@ const PrintPreview = () => {
     const {
         setIsPreviewMode, formData, blockTitles, references, occupants, expenses,
         blocksVisible, customBlocks, positions, styles, showSubtotals, orgaAdvancedMode,
-        getSortedBlocks, getPaginationInfo, causeTimeline
+        getSortedBlocks, getPaginationInfo, causeTimeline,
+        intervenantsList
     } = context;
 
     const totalFrais = expenses.reduce((acc, curr) => {
@@ -152,6 +153,23 @@ const PrintPreview = () => {
                             ))}
                             {occupants.length === 0 && <li className="italic opacity-50">Aucune partie impliquée.</li>}
                         </ul>
+                        {/* v5.6.3 - Intervenants dans le rendu d'impression */}
+                        {intervenantsList && intervenantsList.length > 0 && (
+                            <div className="mt-3 pt-2 border-t border-slate-200">
+                                <p className="font-bold text-[0.95em] mb-1">Autres intervenants :</p>
+                                <ul className="list-none space-y-1">
+                                    {intervenantsList.map(inter => (
+                                        <li key={inter.id} className="leading-snug ml-4">
+                                            <strong>{inter.nom} {inter.prenom}</strong>
+                                            {inter.role && <span className="italic"> — {inter.role}</span>}
+                                            {inter.societe && <span> ({inter.societe})</span>}
+                                            {inter.tel && <span className="ml-2 text-[0.9em]">(Tél: {inter.tel})</span>}
+                                            {inter.email && <span className="ml-2 text-[0.9em]">(Email: {inter.email})</span>}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -329,14 +347,6 @@ const PrintPreview = () => {
                         ))}
                     </div>
                     {renderBlocksInOrder()}
-                    {formData.compteRendu && (
-                        <div className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.cause?.fontSize || 12}px`, color: styles.cause?.color || '#000', fontFamily: styles.cause?.fontFamily || 'Arial', textAlign: styles.cause?.textAlign || 'left' }}>
-                            <div className={`${styles.cause?.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
-                                <p className="font-bold underline mb-1" style={{ fontSize: `${(styles.cause?.fontSize || 12) + 2}px` }}>COMPTE RENDU D'EXPERTISE</p>
-                                <p className="whitespace-pre-wrap break-words">{formData.compteRendu}</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
