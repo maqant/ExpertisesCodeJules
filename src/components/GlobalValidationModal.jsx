@@ -31,6 +31,36 @@ const deduplicateOccupants = (occupants) => {
     });
 };
 
+const PhotoPreview = ({ photo, currentAssign, onChange, occupantAnalysis, occActions }) => {
+    const [url, setUrl] = useState(null);
+    useEffect(() => {
+        const objectUrl = URL.createObjectURL(photo);
+        setUrl(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [photo]);
+
+    return (
+        <div className="bg-slate-900 border border-slate-700 rounded overflow-hidden flex flex-col">
+            <div className="aspect-video bg-black flex items-center justify-center overflow-hidden">
+                {url && <img src={url} alt={photo.name} className="max-w-full max-h-full object-contain" />}
+            </div>
+            <div className="p-2 space-y-2">
+                <div className="text-[9px] text-slate-400 truncate" title={photo.name}>{photo.name}</div>
+                <select
+                    value={currentAssign}
+                    onChange={onChange}
+                    className="w-full bg-slate-800 border border-slate-600 text-[10px] text-white rounded px-1.5 py-1 focus:border-indigo-500 outline-none"
+                >
+                    <option value="unassigned">Général (Non assigné)</option>
+                    {occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').map(o => (
+                        <option key={o.id} value={o.id}>👤 {o.nom}</option>
+                    ))}
+                </select>
+            </div>
+        </div>
+    );
+};
+
 const GlobalValidationModal = () => {
     const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises } = useContext(ExpertiseContext);
 
@@ -47,6 +77,8 @@ const GlobalValidationModal = () => {
     const [selectedExperts, setSelectedExperts] = useState(new Set());
     // v5.6.0 - Intervenants (tous DÉCOCHÉS par défaut)
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
+    // State for assignments
+    const [photoAssignments, setPhotoAssignments] = useState(new Map());
     // v5.6.1 - Refining state
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
     const [attachedCpFile, setAttachedCpFile] = useState(null);
@@ -192,7 +224,8 @@ const GlobalValidationModal = () => {
                 .filter(([, action]) => action !== 'ignore')
                 .map(([id]) => id),
             // v5.6.0 - Intervenants sélectionnés (cochés manuellement)
-            intervenants: Array.from(selectedIntervenants)
+            intervenants: Array.from(selectedIntervenants),
+            photoAssignments: Object.fromEntries(photoAssignments)
         };
 
         // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
@@ -227,8 +260,15 @@ const GlobalValidationModal = () => {
 
     // Pending files for Magic Drop badges
     const pendingFiles = pendingAiData.pendingFiles || [];
-    // Count pending photos (images not matched to expenses)
-    const pendingPhotoCount = pendingFiles.filter(f => f.type && f.type.startsWith('image/')).length;
+    const matchedFileNames = new Set();
+    expenseAnalysis.forEach(exp => {
+        if (exp.sourceFileName) matchedFileNames.add(exp.sourceFileName.toLowerCase());
+    });
+    const unmatchedPhotos = pendingFiles.filter(f => {
+        const name = (f.name || '').toLowerCase();
+        return f.type && f.type.startsWith('image/') && !matchedFileNames.has(name);
+    });
+    const pendingPhotoCount = unmatchedPhotos.length;
 
     const toggleExpert = (name) => {
         setSelectedExperts(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
@@ -625,6 +665,34 @@ const GlobalValidationModal = () => {
                                                 </div>
                                             )}
                                         </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Section 5: Photos & Annexes */}
+                    {unmatchedPhotos.length > 0 && (
+                        <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
+                            <div className="p-3 bg-slate-800 border-b border-slate-700">
+                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">
+                                    📸 Photos & Annexes <span className="text-[10px] font-normal text-slate-400">({unmatchedPhotos.length} en attente)</span>
+                                </h3>
+                            </div>
+                            <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {unmatchedPhotos.map((photo, idx) => {
+                                    const currentAssign = photoAssignments.get(photo.name) || 'unassigned';
+                                    return (
+                                        <PhotoPreview
+                                            key={idx}
+                                            photo={photo}
+                                            currentAssign={currentAssign}
+                                            onChange={(e) => {
+                                                setPhotoAssignments(prev => new Map(prev).set(photo.name, e.target.value));
+                                            }}
+                                            occupantAnalysis={occupantAnalysis}
+                                            occActions={occActions}
+                                        />
                                     );
                                 })}
                             </div>
