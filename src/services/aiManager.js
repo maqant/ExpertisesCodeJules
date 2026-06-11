@@ -806,6 +806,108 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
 };
 
 /**
+ * [v5.6.5] Agent d'Affinage Intelligent de la Cause
+ * Tunnel d'entrée de données pour le fil chronologique.
+ * Compare une nouvelle donnée brute (note, mail copié-collé, observation terrain)
+ * à la cause existante et décide intelligemment quoi en faire :
+ * - Rien de pertinent → retourne la cause inchangée
+ * - Affine/précise → fusionne intelligemment
+ * - Contredit → mentionne le constat initial ET la contradiction
+ * 
+ * @param {string} existingCause - Le texte actuel de la cause
+ * @param {string} newInput - Le nouveau texte brut (note, email, observation)
+ * @param {string|null} providedApiKey - Clé API
+ * @returns {Promise<{success: boolean, cause?: string, changed?: boolean, error?: string}>}
+ */
+export const refineCauseWithInput = async (existingCause, newInput, providedApiKey = null) => {
+    if (!newInput || newInput.trim() === '') {
+        return { success: true, cause: existingCause || '', changed: false };
+    }
+
+    // Si pas de cause existante, le nouveau texte DEVIENT la cause brute
+    if (!existingCause || existingCause.trim() === '') {
+        return { success: true, cause: newInput.trim(), changed: true };
+    }
+
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+        // Fallback sans IA : simple concaténation
+        return { success: true, cause: existingCause + '\n\n' + newInput.trim(), changed: true };
+    }
+
+    try {
+        const systemPrompt = `Tu es un agent d'affinage de dossier d'expertise sinistre. Tu travailles sur le champ "Cause et description du sinistre" d'un rapport.
+
+CONTEXTE :
+Un gestionnaire de dossier reçoit des informations au fil de l'eau (emails, notes de terrain, rapports, appels téléphoniques). Chaque nouvelle information doit être comparée à la cause existante pour décider si et comment elle la modifie.
+
+VOICI LA CAUSE ACTUELLEMENT RÉDIGÉE :
+"""
+${existingCause.trim()}
+"""
+
+VOICI LA NOUVELLE INFORMATION REÇUE :
+"""
+${newInput.trim()}
+"""
+
+RÈGLES DE DÉCISION (applique-les dans cet ordre) :
+
+1. FILTRAGE : Si la nouvelle information ne contient RIEN de pertinent pour la cause du sinistre (formules de politesse, rendez-vous, questions administratives, signatures, logos, disclaimers email, discussions de planning), tu DOIS renvoyer la cause EXACTEMENT telle quelle, sans aucune modification. Champ "changed" = false.
+
+2. AFFINAGE : Si la nouvelle information apporte des précisions, des détails supplémentaires ou des compléments sur l'origine, la localisation, les conséquences ou les réparations du sinistre, INTÈGRE ces informations de manière fluide dans le texte existant. Ne duplique pas les informations déjà présentes. Retravaille les phrases pour un résultat cohérent et naturel. Champ "changed" = true.
+
+3. CONTRADICTION : Si la nouvelle information CONTREDIT la cause existante (ex: un second rapport pointe une origine différente), tu DOIS conserver le constat initial ET ajouter la nuance ou la contradiction. Utilise des formulations comme : "Cependant, un rapport ultérieur de [source] indique que..." ou "À noter qu'un second avis mentionne plutôt...". Champ "changed" = true.
+
+4. ACCUMULATION PURE : Tu ne supprimes JAMAIS d'informations valides de la cause existante. Tu es un accumulateur et affineur, pas un remplaçant.
+
+5. STYLE : Garde un ton technique, professionnel, factuel. Pas d'introduction, pas de conclusion. Juste les faits.
+
+RENVOIE STRICTEMENT un objet JSON valide :
+{
+  "cause": "Le texte de la cause (identique si rien de pertinent, ou affiné/complété)",
+  "changed": true ou false
+}`;
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: "Analyse la nouvelle information et affine la cause si nécessaire." }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.15,
+                max_tokens: 2000
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsed = JSON.parse(data.choices[0].message.content);
+        return {
+            success: true,
+            cause: (parsed.cause || existingCause).trim(),
+            changed: parsed.changed === true
+        };
+
+    } catch (error) {
+        console.error("[aiManager] refineCauseWithInput error:", error);
+        // Fallback en cas d'erreur : concaténation simple
+        return { success: true, cause: existingCause + '\n\n' + newInput.trim(), changed: true };
+    }
+};
+
+/**
  * [v5.5.11] Étape 1 : Le Routeur (Triage Multi-Catégories)
  * Classe un ensemble de documents dans 1 ou PLUSIEURS catégories : ADMIN, SOCIAL, RECITS, FINANCIER.
  * Un document mixte (ex: email contenant des noms ET un récit) peut être classé dans ["SOCIAL", "RECITS"].

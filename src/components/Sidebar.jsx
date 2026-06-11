@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText } from '../services/aiManager';
+import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
@@ -196,6 +196,8 @@ const Sidebar = () => {
     const [droppedMsgFile, setDroppedMsgFile] = useState(null);
     // v5.6.2 - Refining state pour la Sidebar
     const [refiningCause, setRefiningCause] = useState(false);
+    // v5.6.5 - État de chargement pour l'affinage intelligent des notes
+    const [isRefiningNote, setIsRefiningNote] = useState(false);
     const [isDraggingOverMagic, setIsDraggingOverMagic] = useState(false);
     const [isAiDossierLoading, setIsAiDossierLoading] = useState(false);
 
@@ -792,19 +794,49 @@ const Sidebar = () => {
                                     <label className="text-xs font-bold text-slate-300">Fil Chronologique</label>
                                 </div>
                                 <div className="flex gap-2 mb-3">
-                                    <input type="text" id="newCauseNote" placeholder="Ajouter une note ou coller un mail..." className="input-field mb-0 flex-1 text-xs" onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
+                                    <textarea id="newCauseNote" placeholder="Coller un mail, ajouter une note, une observation terrain..." className="input-field mb-0 flex-1 text-xs resize-y min-h-[32px] max-h-[120px]" rows={1} disabled={isRefiningNote} onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
-                                            const val = e.target.value;
-                                            if(val.trim()) { addCauseTimelineItem('text', val); e.target.value = ''; }
+                                            document.getElementById('causeNoteSubmitBtn')?.click();
                                         }
                                     }} />
-                                    <button onClick={(e) => {
+                                    <button id="causeNoteSubmitBtn" disabled={isRefiningNote} onClick={async (e) => {
                                         e.preventDefault();
                                         const input = document.getElementById('newCauseNote');
-                                        if(input.value.trim()) { addCauseTimelineItem('text', input.value); input.value = ''; }
-                                    }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded text-xs font-bold shadow">+</button>
+                                        const val = input.value.trim();
+                                        if(!val) return;
+                                        
+                                        addCauseTimelineItem('text', val);
+                                        input.value = '';
+                                        
+                                        // v5.6.5 - Affinage intelligent via IA
+                                        if (isAiModeActive && aiConfig.apiKey) {
+                                            setIsRefiningNote(true);
+                                            try {
+                                                const result = await refineCauseWithInput(formData.cause || '', val, aiConfig.apiKey);
+                                                if (result.success) {
+                                                    handleChange('cause', result.cause);
+                                                }
+                                            } catch (err) {
+                                                console.error('[Sidebar] Erreur affinage cause:', err);
+                                                // Fallback : concaténation simple
+                                                const currentCause = formData.cause || '';
+                                                handleChange('cause', currentCause ? currentCause + '\n\n' + val : val);
+                                            } finally {
+                                                setIsRefiningNote(false);
+                                            }
+                                        } else {
+                                            // Sans IA : concaténation simple
+                                            const currentCause = formData.cause || '';
+                                            handleChange('cause', currentCause ? currentCause + '\n\n' + val : val);
+                                        }
+                                    }} className={`px-3 rounded text-xs font-bold shadow transition-all ${isRefiningNote ? 'bg-amber-600 text-white animate-pulse cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>{isRefiningNote ? '⏳' : '+'}</button>
                                 </div>
+                                {isRefiningNote && (
+                                    <div className="text-[9px] text-amber-400 italic mb-2 flex items-center gap-1">
+                                        <span className="animate-spin inline-block">⚙️</span> Affinage intelligent en cours...
+                                    </div>
+                                )}
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {causeTimeline && causeTimeline.length > 0 ? causeTimeline.map(item => (
                                         <div key={item.id} className={`p-2 rounded border ${item.type === 'file' ? 'border-blue-500/30 bg-blue-900/20' : 'border-amber-500/30 bg-amber-900/20'}`}>
