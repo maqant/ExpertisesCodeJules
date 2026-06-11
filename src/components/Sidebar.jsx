@@ -633,7 +633,7 @@ const Sidebar = () => {
                                     
                                     setAiStatus('processing_doc');
                                     try {
-                                        const result = await processGlobalIngestion([msgFile], aiConfig.apiKey, setAiStatus, aiConfig.model);
+                                        const result = await processGlobalIngestion([msgFile], aiConfig.apiKey, setAiStatus, aiConfig.model, { cause: formData.cause });
                                         if (result.success && result.data) {
                                             const aiData = result.data;
                                             const safeOccupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));

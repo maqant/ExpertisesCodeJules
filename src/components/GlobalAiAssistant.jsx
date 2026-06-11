@@ -22,7 +22,7 @@ const getFileIcon = (file) => {
 
 const GlobalAiAssistant = () => {
     const {
-        isAiModeActive, aiConfig,
+        isAiModeActive, aiConfig, formData,
         setPendingAiData
     } = useContext(ExpertiseContext);
 
@@ -85,7 +85,8 @@ const GlobalAiAssistant = () => {
                 inputArray,
                 aiConfig.apiKey,
                 null,
-                aiConfig.model
+                aiConfig.model,
+                { cause: formData?.cause }
             );
 
             if (result.success && result.data) {

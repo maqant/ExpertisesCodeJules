@@ -1656,7 +1656,7 @@ Format EXACT attendu :
  * Orchestre l'ingestion globale de fichiers via le Routeur, distribue aux agents spécialisés,
  * et assemble le JSON final pour la modale globale.
  */
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', existingContext = {}) => {
     try {
         if (onStatusChange) onStatusChange('routing');
         
@@ -1725,7 +1725,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             : Promise.resolve({ success: true, data: {} });
             
         const narrativePromise = narrativeFiles.length > 0
-            ? extractNarrativeData(narrativeFiles, providedApiKey, null, model)
+            ? extractNarrativeData(narrativeFiles, providedApiKey, null, model, existingContext.cause || '')
             : Promise.resolve({ success: true, data: {} });
             
         const socialPromise = socialFiles.length > 0
