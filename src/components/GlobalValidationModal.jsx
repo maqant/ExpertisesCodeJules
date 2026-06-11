@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useCallback } from 'react';
+import React, { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData } from '../services/aiManager';
 
