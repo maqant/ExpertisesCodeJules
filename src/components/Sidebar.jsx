@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument, extractValidAttachmentsFromMsg } from '../services/aiManager';
+import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
@@ -275,7 +275,8 @@ const Sidebar = () => {
                 return;
             }
 
-            const result = await extractDataFromDocument(files, 'cause', aiConfig.provider, aiConfig.model, aiConfig.apiKey, setAiStatus);
+            // v5.5.6 - Utilisation du nouvel Agent Récits
+            const result = await extractNarrativeData(files, aiConfig.apiKey, setAiStatus, aiConfig.model);
             if (result.success && result.data && result.data.cause) {
                 addCauseTimelineItem('text', "Synthèse IA : " + result.data.cause);
                 for (const f of files) {
@@ -321,9 +322,10 @@ const Sidebar = () => {
             }
 
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(file, 'contrat', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
-                if (result.success && result.data) {
-                    openIngestion(file, 'cp', result.data);
+                // v5.5.6 - Utilisation du nouvel Agent Administratif
+                const result = await extractAdministrativeData([file], aiConfig.apiKey, setAiStatus, aiModel);
+                if (result.success && result.data && result.data.formData) {
+                    openIngestion(file, 'cp', result.data.formData);
                 } else {
                     alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
                     openIngestion(file, 'cp');
@@ -364,7 +366,8 @@ const Sidebar = () => {
             }
 
             if (isAiModeActive) {
-                const result = await extractDataFromDocument(file, 'facture', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
+                // v5.5.6 - Utilisation du nouvel Agent Financier
+                const result = await extractFinancialData([file], occupants, aiConfig.apiKey, setAiStatus, aiModel);
                 if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
                     openIngestion(file, 'frais', result.data.expenses[0], existingId);
                 } else {
