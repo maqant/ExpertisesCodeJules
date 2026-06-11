@@ -233,6 +233,11 @@ const GlobalValidationModal = () => {
         setSelectedExperts(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
     };
 
+    // v5.6.6 - Condition d'alerte pour Franchise et Pertes Indirectes
+    const isFranchiseMissing = !(editableData?.formData?.franchise || formData?.franchise);
+    const isPertesMissing = !(editableData?.formData?.pertesIndirectes || formData?.pertesIndirectes);
+    const showMissingWarning = isFranchiseMissing || isPertesMissing;
+
     return (
         <div className="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 w-full max-w-[750px] max-h-[90vh] flex flex-col overflow-hidden">
@@ -248,6 +253,14 @@ const GlobalValidationModal = () => {
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                    {/* Warning v5.6.6 */}
+                    {showMissingWarning && (
+                        <div className="bg-orange-100 border-l-4 border-orange-500 p-3 rounded-r text-orange-800 text-xs shadow-sm mb-4">
+                            <strong>⚠️ Attention :</strong> Des données contractuelles importantes semblent manquer (
+                            {[isFranchiseMissing && 'Franchise', isPertesMissing && 'Pertes indirectes'].filter(Boolean).join(' et ')}
+                            ). Pensez à les vérifier ou les demander.
+                        </div>
+                    )}
                     {/* Section 1: FormData */}
                     {hasFormData && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
