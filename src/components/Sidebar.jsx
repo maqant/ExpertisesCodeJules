@@ -377,9 +377,24 @@ const Sidebar = () => {
 
             if (isAiModeActive) {
                 // v5.5.6 - Utilisation du nouvel Agent Financier
-                const result = await extractFinancialData([file], occupants, aiConfig.apiKey, setAiStatus, aiModel);
+                // v5.7.3 - Fix signature (occupants n'est plus passé à extractFinancialData directement)
+                const result = await extractFinancialData([file], aiConfig.apiKey, setAiStatus, aiModel);
                 if (result.success && result.data && result.data.expenses && result.data.expenses.length > 0) {
-                    openIngestion(file, 'frais', result.data.expenses[0], existingId);
+                    let exp = result.data.expenses[0];
+                    // Mapping local avec la liste des occupants
+                    if (exp.destinataireFacture && exp.destinataireFacture.trim() !== '') {
+                        const destLower = exp.destinataireFacture.toLowerCase();
+                        const matchedOcc = occupants.find(o => {
+                            const nom = (o.nom || '').toLowerCase();
+                            const prenom = (o.prenom || '').toLowerCase();
+                            return destLower.includes(nom) || nom.includes(destLower) || 
+                                   (prenom && (destLower.includes(prenom) || prenom.includes(destLower)));
+                        });
+                        if (matchedOcc) {
+                            exp.compteDe = matchedOcc.id;
+                        }
+                    }
+                    openIngestion(file, 'frais', exp, existingId);
                 } else {
                     alert("Erreur lors de l'extraction : " + (result.error || "Format invalide"));
                     openIngestion(file, 'frais', null, existingId);
