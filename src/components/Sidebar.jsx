@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData } from '../services/aiManager';
+import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant';
 import { Eye } from 'lucide-react';
@@ -1383,22 +1383,28 @@ const Sidebar = () => {
                                                 }
                                             }
                                         } else {
-                                            // Lancer extraction IA directe
-                                            const result = await extractDataFromDocument(
-                                                [droppedMsgFile],
-                                                'dossier_global',
-                                                aiConfig.provider,
-                                                aiConfig.model,
+                                            // v5.5.6 - Lancer extraction IA via le Chef d'Orchestre
+                                            let filesToProcess = [droppedMsgFile];
+                                            let extractedAttachments = [];
+                                            
+                                            if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
+                                                extractedAttachments = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                                filesToProcess = [...filesToProcess, ...extractedAttachments];
+                                            }
+
+                                            const result = await processGlobalIngestion(
+                                                filesToProcess,
                                                 aiConfig.apiKey,
-                                                setAiStatus
+                                                setAiStatus,
+                                                aiConfig.model
                                             );
+                                            
                                             if (result.success && result.data) {
                                                 processJsonData(JSON.stringify(result.data));
                                                 // Inject pendingFiles for Magic Drop auto-attach
-                                                const allPendingFiles = [...(result.extractedFiles || [])];
-                                                if (allPendingFiles.length > 0) {
+                                                if (extractedAttachments.length > 0) {
                                                     setTimeout(() => {
-                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedAttachments } : prev);
                                                     }, 50);
                                                 }
                                             }
