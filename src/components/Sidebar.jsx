@@ -607,9 +607,6 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all" : "transition-all"}>
-                            <GlobalAiAssistant />
-                        </div>
 
                         <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
                             <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
@@ -619,44 +616,9 @@ const Sidebar = () => {
                     </div>
                 ) : (
                     <div>
-                        {currentDossierId && isAiModeActive && (
-                            <div 
-                                className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer flex flex-col items-center justify-center gap-2 ${isDraggingOverMagic ? 'border-indigo-400 bg-indigo-500/20' : 'border-slate-600 bg-slate-800/50 hover:border-indigo-500 hover:bg-slate-800'}`}
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(true); }}
-                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
-                                onDrop={async (e) => {
-                                    e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(false);
-                                    if (!isAiModeActive) return;
-                                    const files = Array.from(e.dataTransfer.files);
-                                    if (files.length === 0) return;
-                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg')) || files[0];
-                                    
-                                    setAiStatus('processing_doc');
-                                    try {
-                                        const result = await processGlobalIngestion([msgFile], aiConfig.apiKey, setAiStatus, aiConfig.model, { cause: formData.cause });
-                                        if (result.success && result.data) {
-                                            const aiData = result.data;
-                                            const safeOccupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
-                                            const safeExpenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
-                                            const allPendingFiles = result.extractedFiles || [];
-                                            setPendingAiData({ formData: aiData.formData || null, experts: aiData.experts || [], occupants: safeOccupants, intervenants: aiData.intervenants || [], expenses: safeExpenses, pendingFiles: allPendingFiles });
-                                        } else {
-                                            alert("Erreur IA : " + (result.error || "Réponse invalide"));
-                                        }
-                                    } catch (err) {
-                                        alert("Erreur : " + err.message);
-                                    } finally {
-                                        setAiStatus('idle');
-                                    }
-                                }}
-                            >
-                                <span className="text-3xl">🪄</span>
-                                <div>
-                                    <p className="text-sm font-bold text-indigo-300">SAS IA (Magic Drop)</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">Glissez vos e-mails (.msg) ou documents PDF ici pour extraire automatiquement les informations dans ce dossier.</p>
-                                </div>
-                            </div>
-                        )}
+                        <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all mb-4" : "transition-all mb-4"}>
+                            <GlobalAiAssistant />
+                        </div>
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
