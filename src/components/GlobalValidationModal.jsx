@@ -255,10 +255,55 @@ const GlobalValidationModal = () => {
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
                     {/* Warning v5.6.6 */}
                     {showMissingWarning && (
-                        <div className="bg-orange-100 border-l-4 border-orange-500 p-3 rounded-r text-orange-800 text-xs shadow-sm mb-4">
+                        <div className="bg-orange-100 border-l-4 border-orange-500 p-4 rounded-r text-orange-800 text-xs shadow-sm mb-4">
                             <strong>⚠️ Attention :</strong> Des données contractuelles importantes semblent manquer (
                             {[isFranchiseMissing && 'Franchise', isPertesMissing && 'Pertes indirectes'].filter(Boolean).join(' et ')}
-                            ). Pensez à les vérifier ou les demander.
+                            ). Veuillez les insérer :
+
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-orange-800 mb-1">Franchise</label>
+                                    <input 
+                                        type="text" 
+                                        value={editableData?.formData?.franchise || ''} 
+                                        onChange={(e) => {
+                                            updateFormField('franchise', e.target.value);
+                                            if (e.target.value) setSelectedFormFields(prev => new Set(prev).add('franchise'));
+                                        }}
+                                        className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none" 
+                                        placeholder="Ex: Légale, 250€..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-orange-800 mb-1">Pertes indirectes</label>
+                                    <select 
+                                        value={editableData?.formData?.pertesIndirectes || ''} 
+                                        onChange={(e) => {
+                                            updateFormField('pertesIndirectes', e.target.value);
+                                            if (e.target.value) setSelectedFormFields(prev => new Set(prev).add('pertesIndirectes'));
+                                        }}
+                                        className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none"
+                                    >
+                                        <option value="">Sélectionner...</option>
+                                        <option value="0%">0%</option>
+                                        <option value="5%">5%</option>
+                                        <option value="10%">10%</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-orange-800 mb-1">Joindre le document des Conditions Particulières (CP) :</label>
+                                    <input 
+                                        type="file" 
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files.length > 0) {
+                                                handleAttachFile('doc_cond_part', e.target.files[0]);
+                                                alert("Fichier joint avec succès !");
+                                            }
+                                        }}
+                                        className="w-full text-xs file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
                     {/* Section 1: FormData */}
