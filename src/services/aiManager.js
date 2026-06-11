@@ -743,12 +743,14 @@ Utilise ce format exact pour la restitution :
 
 // v5.6.1 - Mini-Agent de Refining (Affinage de texte assisté par IA)
 // Utilisé dans le SAS pour affiner les champs narratifs (cause, divers, compteRendu)
+const ANTI_HALLUCINATION_DATES = "RÈGLE ABSOLUE : NE JAMAIS inventer de dates (jours, mois, années). Si aucune date n'est explicitement fournie dans le texte d'origine, n'en invente absolument aucune.";
+
 const REFINE_DIRECTIVES = {
-    DEVELOP: `Tu reçois un texte technique d'expertise sinistre. Développe-le : allonge-le, rends-le plus rédigé, explicatif et professionnel. Conserve tous les faits, ajoute des transitions et des précisions techniques. Ne change pas le sens. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`,
-    SUMMARIZE: `Tu reçois un texte technique d'expertise sinistre. Résume-le drastiquement : va droit au but, élimine les redondances. Tu peux utiliser des tirets/bullet points. Conserve les faits critiques (cause, localisation, montants). Renvoie UNIQUEMENT le texte résumé, sans introduction ni commentaire.`,
-    TECH_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le dans un ton hyper-factuel et technique. Utilise le vocabulaire du bâtiment et de l'assurance (infiltration, désordre, sinistre, dommages consécutifs, vétusté, etc.). Élimine toute émotion, contexte humain inutile ou formule de politesse. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`,
-    CONTEXT_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le en mettant l'accent sur la chronologie des événements, les raisons de l'intervention et le contexte circonstanciel. Précise les dates, les intervenants et l'enchaînement des faits. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`,
-    REWRITE: `Tu reçois un texte d'expertise sinistre (probablement issu de l'accumulation de plusieurs notes ou rapports). Ton objectif est de le RÉÉCRIRE COMPLÈTEMENT de manière globale. Fusionne les idées de façon naturelle et fluide. Le résultat final doit se lire comme un seul récit structuré et cohérent, comme si tu avais eu toutes les informations dès le départ. N'ajoute aucune information qui n'est pas dans le texte original, mais restructure-le totalement pour la lisibilité. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`
+    DEVELOP: `Tu reçois un texte technique d'expertise sinistre. Développe-le : allonge-le, rends-le plus rédigé, explicatif et professionnel. Conserve tous les faits, ajoute des transitions et des précisions techniques. Ne change pas le sens. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
+    SUMMARIZE: `Tu reçois un texte technique d'expertise sinistre. Résume-le drastiquement : va droit au but, élimine les redondances. Tu peux utiliser des tirets/bullet points. Conserve les faits critiques (cause, localisation, montants). Renvoie UNIQUEMENT le texte résumé, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
+    TECH_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le dans un ton hyper-factuel et technique. Utilise le vocabulaire du bâtiment et de l'assurance (infiltration, désordre, sinistre, dommages consécutifs, vétusté, etc.). Élimine toute émotion, contexte humain inutile ou formule de politesse. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
+    CONTEXT_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le en mettant l'accent sur la chronologie des événements, les raisons de l'intervention et le contexte circonstanciel. Précise les dates, les intervenants et l'enchaînement des faits. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
+    REWRITE: `Tu reçois un texte d'expertise sinistre (probablement issu de l'accumulation de plusieurs notes ou rapports). Ton objectif est de le RÉÉCRIRE COMPLÈTEMENT de manière globale. Fusionne les idées de façon naturelle et fluide. Le résultat final doit se lire comme un seul récit structuré et cohérent, comme si tu avais eu toutes les informations dès le départ. N'ajoute aucune information qui n'est pas dans le texte original, mais restructure-le totalement pour la lisibilité. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`
 };
 
 /**
@@ -786,7 +788,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
                     { role: "system", content: systemPrompt },
                     { role: "user", content: currentText }
                 ],
-                temperature: 0.3,
+                temperature: 0.0,
                 max_tokens: 2000
             })
         });
@@ -864,6 +866,8 @@ RÈGLES DE DÉCISION (applique-les dans cet ordre) :
 
 5. STYLE : Garde un ton technique, professionnel, factuel. Pas d'introduction, pas de conclusion. Juste les faits.
 
+6. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (ex: "le 1er mars 2023", "en mai", etc.) n'est explicitement fournie, n'en ajoute absolument aucune. Ne présume rien.
+
 RENVOIE STRICTEMENT un objet JSON valide :
 {
   "cause": "Le texte de la cause (identique si rien de pertinent, ou affiné/complété)",
@@ -883,7 +887,7 @@ RENVOIE STRICTEMENT un objet JSON valide :
                     { role: "user", content: "Analyse la nouvelle information et affine la cause si nécessaire." }
                 ],
                 response_format: { type: "json_object" },
-                temperature: 0.15,
+                temperature: 0.0,
                 max_tokens: 2000
             })
         });
@@ -1461,7 +1465,8 @@ RÈGLES ABSOLUES :
    c) Quelles sont les conséquences matérielles directes constatées ?
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
 5. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
-6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
+6. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (jour, mois, année) n'est explicitement fournie dans les documents analysés, tu ne dois en inventer aucune sous aucun prétexte.
+7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
 ${existingCauseBlock}
 
 Voici le format EXACT attendu :
@@ -1477,7 +1482,7 @@ Voici le format EXACT attendu :
                 { role: "user", content: contentArray }
             ],
             response_format: { type: "json_object" },
-            temperature: 0.2 // Légèrement plus haut (0.2) pour permettre une rédaction fluide, tout en restant factuel
+            temperature: 0.0 // 0.0 obligatoire pour éviter toute hallucination (surtout de dates)
         };
 
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
