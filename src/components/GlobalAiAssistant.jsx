@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { extractDataFromDocument } from '../services/aiManager';
+import { processGlobalIngestion } from '../services/aiManager';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg'];
 const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -80,12 +80,12 @@ const GlobalAiAssistant = () => {
                 inputArray.push(rawText.trim());
             }
 
-            const result = await extractDataFromDocument(
+            // v5.5.5 - Utilisation du Chef d'Orchestre multi-agents
+            const result = await processGlobalIngestion(
                 inputArray,
-                'dossier_global',
-                aiConfig.provider,
-                aiConfig.model,
-                aiConfig.apiKey
+                aiConfig.apiKey,
+                null,
+                aiConfig.model
             );
 
             if (result.success && result.data) {
