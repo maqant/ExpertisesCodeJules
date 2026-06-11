@@ -1365,11 +1365,8 @@ export const ExpertiseProvider = ({ children }) => {
           if (unmatchedPhotos.length > 0) {
               for (const photo of unmatchedPhotos) {
                   try {
-                      const assignTo = selections.photoAssignments && selections.photoAssignments[photo.name] 
-                                        ? selections.photoAssignments[photo.name] 
-                                        : 'unassigned';
-                      await handleAttachPhoto(assignTo, photo);
-                      console.log(`[Magic Drop] 📸 Photo "${photo.name}" → ${assignTo}`);
+                      await handleAttachPhoto('unassigned', photo);
+                      console.log(`[Magic Drop] 📸 Photo en attente : "${photo.name}" → unassigned`);
                   } catch (err) {
                       console.warn(`[Magic Drop] ❌ Échec stockage photo "${photo.name}":`, err);
                   }
