@@ -450,33 +450,6 @@ const Sidebar = () => {
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <div
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(true); }}
-                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
-                                onDrop={(e) => {
-                                    e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(false);
-                                    const files = Array.from(e.dataTransfer.files);
-                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg'));
-                                    if (msgFile) {
-                                        setDroppedMsgFile(msgFile);
-                                        setShowAiDossierPrompt(true);
-                                    } else if (files.length > 0) {
-                                        setDroppedMsgFile(files[0]);
-                                        setShowAiDossierPrompt(true);
-                                    }
-                                }}
-                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 ${
-                                    !isAiModeActive
-                                        ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500'
-                                        : isDraggingOverMagic
-                                            ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40 cursor-pointer'
-                                            : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50 cursor-pointer'
-                                }`}
-                                title={!isAiModeActive ? "Mode IA désactivé" : "Glissez un e-mail .msg ici pour créer un dossier via IA"}
-                                onClick={() => { if (!isAiModeActive) return; setShowAiDossierPrompt(true); }}
-                            >
-                                {isDraggingOverMagic ? '📥' : '🪄'}
-                            </div>
                             <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
@@ -619,6 +592,44 @@ const Sidebar = () => {
                     </div>
                 ) : (
                     <div>
+                        {currentDossierId && isAiModeActive && (
+                            <div 
+                                className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer flex flex-col items-center justify-center gap-2 ${isDraggingOverMagic ? 'border-indigo-400 bg-indigo-500/20' : 'border-slate-600 bg-slate-800/50 hover:border-indigo-500 hover:bg-slate-800'}`}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
+                                onDrop={async (e) => {
+                                    e.preventDefault(); e.stopPropagation(); setIsDraggingOverMagic(false);
+                                    if (!isAiModeActive) return;
+                                    const files = Array.from(e.dataTransfer.files);
+                                    if (files.length === 0) return;
+                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg')) || files[0];
+                                    
+                                    setAiStatus('processing_doc');
+                                    try {
+                                        const result = await processGlobalIngestion([msgFile], aiConfig.apiKey, setAiStatus, aiConfig.model);
+                                        if (result.success && result.data) {
+                                            const aiData = result.data;
+                                            const safeOccupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
+                                            const safeExpenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
+                                            const allPendingFiles = result.extractedFiles || [];
+                                            setPendingAiData({ formData: aiData.formData || null, experts: aiData.experts || [], occupants: safeOccupants, intervenants: aiData.intervenants || [], expenses: safeExpenses, pendingFiles: allPendingFiles });
+                                        } else {
+                                            alert("Erreur IA : " + (result.error || "Réponse invalide"));
+                                        }
+                                    } catch (err) {
+                                        alert("Erreur : " + err.message);
+                                    } finally {
+                                        setAiStatus('idle');
+                                    }
+                                }}
+                            >
+                                <span className="text-3xl">🪄</span>
+                                <div>
+                                    <p className="text-sm font-bold text-indigo-300">SAS IA (Magic Drop)</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">Glissez vos e-mails (.msg) ou documents PDF ici pour extraire automatiquement les informations dans ce dossier.</p>
+                                </div>
+                            </div>
+                        )}
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
