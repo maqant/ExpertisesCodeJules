@@ -1,6 +1,6 @@
 import React, { useContext, useState, useMemo, useCallback } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { refineText } from '../services/aiManager';
+import { refineText, extractAdministrativeData } from '../services/aiManager';
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
@@ -32,7 +32,7 @@ const deduplicateOccupants = (occupants) => {
 };
 
 const GlobalValidationModal = () => {
-    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig } = useContext(ExpertiseContext);
+    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises } = useContext(ExpertiseContext);
 
     // Editable deep copy of pendingAiData
     const [editableData, setEditableData] = useState(null);
@@ -49,6 +49,7 @@ const GlobalValidationModal = () => {
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
     // v5.6.1 - Refining state
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
+    const [isCpLoading, setIsCpLoading] = useState(false);
     const [initialized, setInitialized] = useState(false);
 
     // Analyze occupant conflicts
@@ -270,9 +271,13 @@ const GlobalValidationModal = () => {
                                             updateFormField('franchise', e.target.value);
                                             if (e.target.value) setSelectedFormFields(prev => new Set(prev).add('franchise'));
                                         }}
+                                        list="franchise-list-warning"
                                         className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none" 
                                         placeholder="Ex: Légale, 250€..."
                                     />
+                                    <datalist id="franchise-list-warning">
+                                        {(franchises || []).map((f, idx) => <option key={idx} value={f} />)}
+                                    </datalist>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-orange-800 mb-1">Pertes indirectes</label>
@@ -292,16 +297,39 @@ const GlobalValidationModal = () => {
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-bold text-orange-800 mb-1">Joindre le document des Conditions Particulières (CP) :</label>
-                                    <input 
-                                        type="file" 
-                                        onChange={(e) => {
-                                            if (e.target.files && e.target.files.length > 0) {
-                                                handleAttachFile('doc_cond_part', e.target.files[0]);
-                                                alert("Fichier joint avec succès !");
-                                            }
-                                        }}
-                                        className="w-full text-xs file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer"
-                                    />
+                                    {isCpLoading ? (
+                                        <div className="text-xs text-orange-800 font-bold animate-pulse">⏳ Analyse IA en cours...</div>
+                                    ) : (
+                                        <input 
+                                            type="file" 
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                setIsCpLoading(true);
+                                                try {
+                                                    const result = await extractAdministrativeData([file], aiConfig.apiKey, null, aiConfig.model);
+                                                    if (result.success && result.data && result.data.formData) {
+                                                        const fd = result.data.formData;
+                                                        ['franchise', 'pertesIndirectes', 'numConditionsGenerales', 'nomCie', 'nomContrat', 'numPolice'].forEach(k => {
+                                                            if (fd[k]) {
+                                                                updateFormField(k, fd[k]);
+                                                                setSelectedFormFields(prev => new Set(prev).add(k));
+                                                            }
+                                                        });
+                                                        alert("Document scanné avec succès ! Les données contractuelles trouvées ont été ajoutées.");
+                                                    } else {
+                                                        alert("Aucune donnée contractuelle trouvée dans ce document.");
+                                                    }
+                                                } catch (err) {
+                                                    alert("Erreur lors de l'analyse IA : " + err.message);
+                                                } finally {
+                                                    await handleAttachFile('doc_cond_part', file);
+                                                    setIsCpLoading(false);
+                                                }
+                                            }}
+                                            className="w-full text-xs file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer"
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>
