@@ -315,7 +315,7 @@ export const ExpertiseProvider = ({ children }) => {
           if (!name) return;
       }
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
       
       let updated;
       if (currentDossierId) {
@@ -335,7 +335,7 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
@@ -378,6 +378,7 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.attachedPhotos) setAttachedPhotos(d.attachedPhotos); else setAttachedPhotos({});
       if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
       if(d.causeTimeline) setCauseTimeline(d.causeTimeline); else setCauseTimeline([]);
+      if(d.intervenantsList) setIntervenantsList(d.intervenantsList); else setIntervenantsList([]);
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };

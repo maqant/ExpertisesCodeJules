@@ -162,7 +162,8 @@ const Workspace = () => {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
         fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes, dynamicFreeAnnexes,
-        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo, causeTimeline
+        getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo, causeTimeline,
+        intervenantsList
     } = context;
 
     const isExpenseExcludedFromMain = (exp) => {
@@ -305,6 +306,23 @@ const Workspace = () => {
                         ))}
                         {occupants.length === 0 && <li className="italic opacity-50">Aucune partie impliquée.</li>}
                     </ul>
+                    {/* v5.6.4 - Intervenants dans le rendu live */}
+                    {intervenantsList && intervenantsList.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-slate-200">
+                            <p className="font-bold text-[0.95em] mb-1">Autres intervenants :</p>
+                            <ul className="list-none space-y-1">
+                                {intervenantsList.map(inter => (
+                                    <li key={inter.id} className="leading-snug ml-4">
+                                        <strong>{inter.nom} {inter.prenom}</strong>
+                                        {inter.role && <span className="italic"> — {inter.role}</span>}
+                                        {inter.societe && <span> ({inter.societe})</span>}
+                                        {inter.tel && <span className="ml-2 text-[0.9em]">(Tél: {inter.tel})</span>}
+                                        {inter.email && <span className="ml-2 text-[0.9em]">(Email: {inter.email})</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </BlockContainer>
             );
             if (key === 'frais') return (
