@@ -80,11 +80,11 @@ const parseMsgFile = async (file) => {
 };
 
 // Utilitaire pour extraire les pages d'un PDF sous forme d'images Base64
-const pdfToBase64Images = async (file) => {
+const pdfToBase64Images = async (file, maxPagesOverride = 20) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const images = [];
-    const maxPages = Math.min(pdf.numPages, 20); // Limite de sécurité à 20 pages
+    const maxPages = Math.min(pdf.numPages, maxPagesOverride); // Limite de sécurité à 20 pages par défaut
 
     for (let i = 1; i <= maxPages; i++) {
         const page = await pdf.getPage(i);
@@ -520,5 +520,114 @@ Utilise ce format exact pour la restitution :
             success: false,
             error: error.message || "Erreur lors du formatage du compte rendu."
         };
+    }
+};
+
+/**
+ * [v5.5.0] Étape 1 : Le Routeur (Triage)
+ * Classe un ensemble de documents dans 4 catégories : ADMIN, SOCIAL, RECITS, FINANCIER.
+ * Utilise gpt-4o-mini pour analyser rapidement un extrait ou la première page.
+ */
+export const routeDocuments = async (files, providedApiKey = null, onStatusChange = null) => {
+    const fileArray = Array.isArray(files) ? files : [files];
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const mode = apiKey ? 'live' : 'mock';
+
+    if (mode === 'mock') {
+        if (onStatusChange) onStatusChange('routing');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const mockResult = {};
+        fileArray.forEach(f => {
+            mockResult[f.name || 'document_sans_nom'] = 'ADMIN';
+        });
+        return { success: true, data: mockResult };
+    }
+
+    try {
+        if (onStatusChange) onStatusChange('routing');
+        const contentArray = [{ type: "text", text: "Voici les documents à classifier." }];
+        
+        for (const item of fileArray) {
+            const fileName = item.name || 'document_sans_nom';
+            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
+            
+            if (typeof item === 'string') {
+                 // Si on a passé du texte brut
+                 contentArray.push({ type: "text", text: item.substring(0, 1500) });
+            } else {
+                const fileNameLower = fileName.toLowerCase();
+                if (fileNameLower.endsWith('.msg')) {
+                    try {
+                        const { bodyText } = await parseMsgFile(item);
+                        // Extrait rapide pour l'email
+                        contentArray.push({ type: "text", text: bodyText.substring(0, 1500) });
+                    } catch (e) {
+                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
+                    }
+                } else if (item.type === 'application/pdf') {
+                    // Pour la classification, la première page suffit souvent (et ça coûte beaucoup moins cher)
+                    const base64Images = await pdfToBase64Images(item, 1);
+                    for (const img of base64Images) {
+                        contentArray.push({ type: "image_url", image_url: { url: img } });
+                    }
+                } else if (item.type && item.type.startsWith('image/')) {
+                    const base64Image = await fileToBase64(item);
+                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
+                } else {
+                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
+                }
+            }
+            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
+        }
+
+        const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
+Tu dois classer CHAQUE document fourni dans l'une des 4 catégories suivantes, et STRICTEMENT celles-ci :
+- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture.
+- "SOCIAL" : Emails de syndic listant des noms, cartes d'identité, documents d'assurance personnels ou échanges informels.
+- "RECITS" : Rapports d'intervention, constats pompiers, chronologies des faits, déclarations circonstanciées.
+- "FINANCIER" : Devis, factures, tickets de caisse, justificatifs de paiement.
+
+Analyse l'extrait (texte ou 1ère page) de chaque document et détermine sa catégorie.
+
+Tu dois renvoyer STRICTEMENT un objet JSON valide qui mappe le nom exact de chaque fichier à sa catégorie.
+Format attendu :
+{
+  "nomDuFichier1.pdf": "ADMIN",
+  "email_syndic.msg": "SOCIAL",
+  "facture_plombier.jpg": "FINANCIER"
+}
+Ne renvoie aucun autre texte, juste le JSON.`;
+
+        const payload = {
+            model: "gpt-4o-mini", // Modèle rapide, peu coûteux et pertinent pour le triage
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: contentArray }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.1
+        };
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsedData = JSON.parse(data.choices[0].message.content);
+        return { success: true, data: parsedData };
+
+    } catch (error) {
+        console.error("[aiManager] routeDocuments error :", error);
+        return { success: false, error: error.message || "Erreur lors du routage des documents." };
     }
 };
