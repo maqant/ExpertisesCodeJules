@@ -874,7 +874,8 @@ const Sidebar = () => {
                                                 { directive: 'DEVELOP', icon: '+', label: 'Développer', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' },
                                                 { directive: 'SUMMARIZE', icon: '−', label: 'Résumer', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20' },
                                                 { directive: 'TECH_FOCUS', icon: '🔧', label: 'Technique', cls: 'bg-violet-500/10 text-violet-400 border-violet-500/30 hover:bg-violet-500/20' },
-                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' }
+                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' },
+                                                { directive: 'REWRITE', icon: '🔄', label: 'Réécriture', cls: 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20' }
                                             ].map(btn => (
                                                 <button
                                                     key={btn.directive}
