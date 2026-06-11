@@ -1067,3 +1067,252 @@ Voici le format EXACT attendu, avec tous les champs présents :
         return { success: false, error: error.message || "Erreur lors de l'extraction sociale." };
     }
 };
+
+// v5.5.3
+/**
+ * Étape 4 : L'Agent Récits (Texte libre)
+ * Extrait et synthétise les données textuelles (cause, compte rendu, divers) 
+ * à partir des fichiers taggués "RECITS".
+ */
+export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+    const fileArray = Array.isArray(files) ? files : [files];
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const mode = apiKey ? 'live' : 'mock';
+
+    if (mode === 'mock') {
+        if (onStatusChange) onStatusChange('extracting');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return {
+            success: true,
+            data: {
+                cause: "Fuite d'eau suite à la rupture d'une canalisation encastrée dans le mur de la salle de bain.",
+                divers: "Présence de moisissures constatée. Locataire coopératif.",
+                compteRendu: "Visite sur place à 10h. Constat des dégâts dans la salle de bain et le couloir adjacent. Prise de mesures d'humidité."
+            }
+        };
+    }
+
+    try {
+        if (onStatusChange) onStatusChange('extracting');
+        const contentArray = [{ type: "text", text: "Voici les documents (récits, rapports, chronologies) à synthétiser." }];
+        
+        for (const item of fileArray) {
+            const fileName = item.name || 'document_sans_nom';
+            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
+            
+            if (typeof item === 'string') {
+                 contentArray.push({ type: "text", text: item });
+            } else {
+                const fileNameLower = fileName.toLowerCase();
+                if (fileNameLower.endsWith('.msg')) {
+                    try {
+                        const { bodyText } = await parseMsgFile(item);
+                        contentArray.push({ type: "text", text: bodyText });
+                    } catch (e) {
+                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
+                    }
+                } else if (item.type === 'application/pdf') {
+                    const base64Images = await pdfToBase64Images(item); 
+                    for (const img of base64Images) {
+                        contentArray.push({ type: "image_url", image_url: { url: img } });
+                    }
+                } else if (item.type && item.type.startsWith('image/')) {
+                    const base64Image = await fileToBase64(item);
+                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
+                } else {
+                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
+                }
+            }
+            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
+        }
+
+        const systemPrompt = `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
+Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une synthèse professionnelle, claire et factuelle.
+
+RÈGLES ABSOLUES :
+1. Reste 100% neutre et objectif. Ne fais aucune supposition.
+2. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
+3. Ne casse pas la logique métier : la cause doit être technique et précise. Le compte rendu doit refléter l'ordre des événements ou la chronologie de la visite.
+4. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown autre que la structure demandée.
+
+Voici le format EXACT attendu :
+{
+  "cause": "Paragraphe expliquant l'origine technique et la description des dommages (ex: rupture de canalisation, engorgement).",
+  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas ailleurs.",
+  "compteRendu": "Compte-rendu chronologique factuel de la visite ou de la succession des événements."
+}`;
+
+        const payload = {
+            model: model, // gpt-4o recommandé pour la rédaction et la synthèse de texte
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: contentArray }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.2 // Légèrement plus haut (0.2) pour permettre une rédaction fluide, tout en restant factuel
+        };
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsedData = JSON.parse(data.choices[0].message.content);
+        return { success: true, data: parsedData };
+
+    } catch (error) {
+        console.error("[aiManager] extractNarrativeData error :", error);
+        return { success: false, error: error.message || "Erreur lors de l'extraction narrative." };
+    }
+};
+
+// v5.5.4
+/**
+ * Étape 5 : L'Agent Financier
+ * Extrait les données financières (devis, factures) et les rattache aux occupants.
+ * Ne reçoit que les documents taggués "FINANCIER".
+ */
+export const extractFinancialData = async (files, occupantsList = [], providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+    const fileArray = Array.isArray(files) ? files : [files];
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const mode = apiKey ? 'live' : 'mock';
+
+    if (mode === 'mock') {
+        if (onStatusChange) onStatusChange('extracting');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return {
+            success: true,
+            data: {
+                expenses: [{
+                    id: crypto.randomUUID(),
+                    prestataire: "Plombier Mock", type: "Devis", ref: "DEV-MOCK-001", desc: "Recherche de fuite",
+                    compteDe: "unassigned", montantReclame: "450.00", montantValide: "450.00",
+                    typeMontant: "HTVA", categorieGarantie: "Principale", tauxTVA: 21,
+                    factureRecue: false, pourcentageVetuste: 0, motifRefus: "", avisCouverture: "Oui", noteCouverture: "",
+                    montantDevis: "450.00", refDevis: "DEV-MOCK-001", prestataireDevis: "Plombier Mock", descDevis: "Recherche de fuite",
+                    montantFacture: "", refFacture: "", prestataireFacture: "", descFacture: "",
+                    sourceFileName: fileArray[0]?.name || "document.pdf"
+                }]
+            }
+        };
+    }
+
+    try {
+        if (onStatusChange) onStatusChange('extracting');
+        const contentArray = [{ type: "text", text: "Voici les documents financiers (devis, factures) à analyser." }];
+        const validFileNames = [];
+        
+        for (const item of fileArray) {
+            const fileName = item.name || 'document_sans_nom';
+            validFileNames.push(fileName);
+            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
+            
+            if (typeof item === 'string') {
+                 contentArray.push({ type: "text", text: item });
+            } else {
+                const fileNameLower = fileName.toLowerCase();
+                if (fileNameLower.endsWith('.msg')) {
+                    try {
+                        const { bodyText } = await parseMsgFile(item);
+                        contentArray.push({ type: "text", text: bodyText });
+                    } catch (e) {
+                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
+                    }
+                } else if (item.type === 'application/pdf') {
+                    const base64Images = await pdfToBase64Images(item); 
+                    for (const img of base64Images) {
+                        contentArray.push({ type: "image_url", image_url: { url: img } });
+                    }
+                } else if (item.type && item.type.startsWith('image/')) {
+                    const base64Image = await fileToBase64(item);
+                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
+                } else {
+                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
+                }
+            }
+            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
+        }
+
+        const occupantsContext = occupantsList.map(o => `Nom/Prénom: ${o.nom} ${o.prenom} | ID: ${o.id}`).join('\\n');
+
+        const systemPrompt = `Tu es un Agent Financier expert en comptabilité et expertise sinistres.
+Ton rôle est d'analyser des documents financiers (devis, factures, tickets) et d'extraire les réclamations financières.
+
+RÈGLES ABSOLUES :
+1. RÈGLE DU HTVA STRICT : TOUS les montants extraits (montantReclame, montantDevis, montantFacture, montantValide) DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement avec le taux de TVA indiqué. Formate les montants sous forme de texte avec un point (ex: "450.00").
+2. "typeMontant" DOIT TOUJOURS être "HTVA".
+3. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
+4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier parmi cette liste : [${validFileNames.join(', ')}]. Il est interdit d'inventer un nom.
+5. COMPTE DE (DESTINATAIRE) : Essaie de trouver à qui est adressée la facture parmi cette liste de personnes : 
+${occupantsContext ? occupantsContext : "(Aucun occupant fourni)"}
+Si tu trouves une correspondance claire, mets l'ID exact de cette personne dans "compteDe". Sinon, écris STRICTEMENT "unassigned".
+6. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction, ni markdown.
+
+Format EXACT attendu :
+{
+  "expenses": [
+    {
+      "prestataire": "", "type": "Devis ou Facture", "ref": "", "desc": "", 
+      "compteDe": "UUID_DE_L_OCCUPANT_MATCHÉ (ou unassigned)", "montantReclame": "", "montantValide": "", 
+      "typeMontant": "HTVA", "categorieGarantie": "Principale ou Complémentaire", "tauxTVA": 0, 
+      "factureRecue": false, "pourcentageVetuste": 0, "motifRefus": "", "avisCouverture": "Oui", "noteCouverture": "",
+      "montantDevis": "", "refDevis": "", "prestataireDevis": "", "descDevis": "",
+      "montantFacture": "", "refFacture": "", "prestataireFacture": "", "descFacture": "",
+      "sourceFileName": "NOM_EXACT_DU_FICHIER"
+    }
+  ]
+}`;
+
+        const payload = {
+            model: model, // gpt-4o recommandé pour les calculs mathématiques HTVA
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: contentArray }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.1
+        };
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsedData = JSON.parse(data.choices[0].message.content);
+
+        // Ajout OBLIGATOIRE du UUID via crypto.randomUUID() pour chaque ligne de frais
+        if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
+            parsedData.expenses = parsedData.expenses.map(exp => ({
+                ...exp,
+                id: crypto.randomUUID(),
+                compteDe: exp.compteDe || "unassigned"
+            }));
+        }
+
+        return { success: true, data: parsedData };
+
+    } catch (error) {
+        console.error("[aiManager] extractFinancialData error :", error);
+        return { success: false, error: error.message || "Erreur lors de l'extraction financière." };
+    }
+};
