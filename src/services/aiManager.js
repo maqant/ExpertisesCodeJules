@@ -1404,8 +1404,7 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
         return {
             success: true,
             data: {
-                cause: "Fuite d'eau suite à la rupture d'une canalisation encastrée dans le mur de la salle de bain.",
-                divers: "Présence de moisissures constatée. Locataire coopératif."
+                cause: "Fuite d'eau suite à la rupture d'une canalisation encastrée dans le mur de la salle de bain."
             }
         };
     }
@@ -1471,8 +1470,7 @@ ${existingCauseBlock}
 
 Voici le format EXACT attendu :
 {
-  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées.",
-  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas dans la cause."
+  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées."
 }`;
 
         const payload = {
