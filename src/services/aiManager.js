@@ -1543,12 +1543,13 @@ export const extractFinancialData = async (files, occupantsList = [], providedAp
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = [{ type: "text", text: "Voici les documents financiers (devis, factures) à analyser." }];
-        const validFileNames = [];
         
-        for (const item of fileArray) {
+        const occupantsContext = occupantsList.map(o => `Nom/Prénom: ${o.nom} ${o.prenom} | ID: ${o.id}`).join('\\n');
+
+        // v5.7.0 - Parallélisation massive : 1 micro-agent par fichier
+        const promises = fileArray.map(async (item) => {
             const fileName = item.name || 'document_sans_nom';
-            validFileNames.push(fileName);
+            const contentArray = [{ type: "text", text: "Voici le document financier à analyser." }];
             contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
             
             if (typeof item === 'string') {
@@ -1575,18 +1576,15 @@ export const extractFinancialData = async (files, occupantsList = [], providedAp
                 }
             }
             contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
-        }
 
-        const occupantsContext = occupantsList.map(o => `Nom/Prénom: ${o.nom} ${o.prenom} | ID: ${o.id}`).join('\\n');
-
-        const systemPrompt = `Tu es un Agent Financier expert en comptabilité et expertise sinistres.
+            const systemPrompt = `Tu es un Agent Financier expert en comptabilité et expertise sinistres.
 Ton rôle est d'analyser des documents financiers (devis, factures, tickets) et d'extraire les réclamations financières.
 
 RÈGLES ABSOLUES :
 1. RÈGLE DU HTVA STRICT : TOUS les montants extraits (montantReclame, montantDevis, montantFacture, montantValide) DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement avec le taux de TVA indiqué. Formate les montants sous forme de texte avec un point (ex: "450.00").
 2. "typeMontant" DOIT TOUJOURS être "HTVA".
 3. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
-4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier parmi cette liste : [${validFileNames.join(', ')}]. Il est interdit d'inventer un nom.
+4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
 5. COMPTE DE (DESTINATAIRE) : Essaie de trouver à qui est adressée la facture parmi cette liste de personnes : 
 ${occupantsContext ? occupantsContext : "(Aucun occupant fourni)"}
 Si tu trouves une correspondance claire, mets l'ID exact de cette personne dans "compteDe". Sinon, écris STRICTEMENT "unassigned".
@@ -1602,48 +1600,63 @@ Format EXACT attendu :
       "factureRecue": false, "pourcentageVetuste": 0, "motifRefus": "", "avisCouverture": "Oui", "noteCouverture": "",
       "montantDevis": "", "refDevis": "", "prestataireDevis": "", "descDevis": "",
       "montantFacture": "", "refFacture": "", "prestataireFacture": "", "descFacture": "",
-      "sourceFileName": "NOM_EXACT_DU_FICHIER"
+      "sourceFileName": "${fileName}"
     }
   ]
 }`;
 
-        const payload = {
-            model: model, // gpt-4o recommandé pour les calculs mathématiques HTVA
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: contentArray }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.1
-        };
+            const payload = {
+                model: model, // gpt-4o recommandé pour les calculs mathématiques HTVA
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.1
+            };
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
+            try {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error(`[Agent Financier] Erreur API pour le fichier ${fileName}:`, errorData);
+                    return { expenses: [] }; // On ne casse pas Promise.all pour un fichier échoué
+                }
+
+                const data = await response.json();
+                return JSON.parse(data.choices[0].message.content);
+            } catch (err) {
+                console.error(`[Agent Financier] Erreur d'analyse pour le fichier ${fileName}:`, err);
+                return { expenses: [] };
+            }
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        // Attente de la résolution de tous les micro-agents
+        const results = await Promise.all(promises);
+
+        // Fusion des résultats
+        let allExpenses = [];
+        for (const res of results) {
+            if (res && res.expenses && Array.isArray(res.expenses)) {
+                res.expenses.forEach(exp => {
+                    allExpenses.push({
+                        ...exp,
+                        id: crypto.randomUUID(),
+                        compteDe: exp.compteDe || "unassigned"
+                    });
+                });
+            }
         }
 
-        const data = await response.json();
-        const parsedData = JSON.parse(data.choices[0].message.content);
-
-        // Ajout OBLIGATOIRE du UUID via crypto.randomUUID() pour chaque ligne de frais
-        if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
-            parsedData.expenses = parsedData.expenses.map(exp => ({
-                ...exp,
-                id: crypto.randomUUID(),
-                compteDe: exp.compteDe || "unassigned"
-            }));
-        }
-
-        return { success: true, data: parsedData };
+        return { success: true, data: { expenses: allExpenses } };
 
     } catch (error) {
         console.error("[aiManager] extractFinancialData error :", error);
