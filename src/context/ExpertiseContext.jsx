@@ -1304,6 +1304,7 @@ export const ExpertiseProvider = ({ children }) => {
               financeStore.addExpense({
                   ...aiExp,
                   id: newId,
+                  montant: aiExp.montant || aiExp.montantReclame || '',
                   montantReclame: aiExp.montant || aiExp.montantReclame || '',
                   montantValide: aiExp.montant || aiExp.montantReclame || '',
                   compteDe: aiExp.compteDe || 'unassigned'

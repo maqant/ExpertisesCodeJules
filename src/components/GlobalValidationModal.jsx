@@ -603,8 +603,9 @@ const GlobalValidationModal = () => {
                                                     </span>
                                                 )}
                                                 {matchedFile && (
-                                                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold border border-blue-500/30 shrink-0" title={matchedFile.name}>
+                                                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold border border-blue-500/30 shrink-0 flex items-center gap-1" title={matchedFile.name}>
                                                         📎 {matchedFile.name.length > 20 ? matchedFile.name.slice(0, 20) + '…' : matchedFile.name}
+                                                        <button onClick={(e) => { e.stopPropagation(); window.open(URL.createObjectURL(matchedFile)); }} className="hover:text-white cursor-pointer ml-1" title="Voir la pièce jointe">👁️</button>
                                                     </span>
                                                 )}
                                                 {exp.isDuplicate && (
@@ -634,6 +635,7 @@ const GlobalValidationModal = () => {
                                                         <div className="col-span-2 bg-blue-900/20 border border-blue-500/30 rounded p-2 flex items-center gap-2">
                                                             <span className="text-sm">📎</span>
                                                             <span className="text-[10px] text-blue-300 font-medium">Pièce jointe : {matchedFile.name}</span>
+                                                            <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(matchedFile)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
                                                             <span className="text-[9px] text-slate-500 ml-auto">Sera attachée automatiquement</span>
                                                         </div>
                                                     )}
