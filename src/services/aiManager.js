@@ -1132,11 +1132,34 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
     try {
         if (onStatusChange) onStatusChange('routing');
         
-        // 1. Triage via le Routeur
-        const routeResult = await routeDocuments(files, providedApiKey, onStatusChange);
+        // On convertit les `files` en Array
+        let rawFiles = Array.isArray(files) ? files : Array.from(files);
+        
+        let allExtractedFiles = [];
+        let filesToRoute = [];
+        let msgFiles = [];
+
+        // Extraction automatique des PJ des fichiers MSG
+        for (const file of rawFiles) {
+            if (file.name && file.name.toLowerCase().endsWith('.msg')) {
+                msgFiles.push(file);
+                try {
+                    const attachments = await extractValidAttachmentsFromMsg(file);
+                    allExtractedFiles.push(...attachments);
+                    filesToRoute.push(...attachments);
+                } catch (e) {
+                    console.error("Erreur extraction PJ MSG:", e);
+                }
+            } else {
+                filesToRoute.push(file);
+            }
+        }
+
+        // 1. Triage via le Routeur (uniquement pour les fichiers non-MSG)
+        const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
-        const routeMap = routeResult.data; // { "fichier1.pdf": "ADMIN", ... }
+        const routeMap = routeResult.data;
 
         // 2. Séparation des fichiers
         const adminFiles = [];
@@ -1144,12 +1167,16 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         const narrativeFiles = [];
         const financialFiles = [];
 
-        // On convertit les `files` (qui peut être un FileList) en Array pour l'itération
-        const fileArray = Array.isArray(files) ? files : Array.from(files);
+        // Les fichiers MSG contiennent souvent de TOUT (contrat, occupants, récit). On les force dans les 3 agents principaux.
+        for (const msgFile of msgFiles) {
+            adminFiles.push(msgFile);
+            socialFiles.push(msgFile);
+            narrativeFiles.push(msgFile);
+        }
 
-        for (const file of fileArray) {
+        for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
-            const category = routeMap[fileName] || 'ADMIN'; // Par défaut ADMIN si non reconnu ou ignoré
+            const category = routeMap[fileName] || 'ADMIN';
             
             if (category === 'ADMIN') adminFiles.push(file);
             else if (category === 'SOCIAL') socialFiles.push(file);
@@ -1187,13 +1214,15 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             financialRes = await extractFinancialData(financialFiles, occupants, providedApiKey, null, model);
         }
 
-        // 6. Fusionner tous les objets en un seul grand JSON final
+        // 6. Fusion et assemblage
         const finalJson = {
-            formData: adminRes.data?.formData || {},
+            formData: {
+                ...(adminRes.data?.formData || {}),
+                cause: narrativeRes.data?.cause || "",
+                divers: narrativeRes.data?.divers || "",
+                compteRendu: narrativeRes.data?.compteRendu || ""
+            },
             references: adminRes.data?.references || [],
-            cause: narrativeRes.data?.cause || "",
-            divers: narrativeRes.data?.divers || "",
-            compteRendu: narrativeRes.data?.compteRendu || "",
             experts: socialRes.data?.experts || [],
             occupants: occupants,
             expenses: financialRes.data?.expenses || []
