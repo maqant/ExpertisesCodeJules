@@ -176,11 +176,12 @@ const Sidebar = () => {
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
-        attachedFiles, attachedPhotos, attachedFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
+        attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
-        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem
+        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
+        toggleExpenseType
     } = context;
 
 
@@ -201,6 +202,8 @@ const Sidebar = () => {
         setIsDraggingOverCause(false);
         setIsDraggingOverAnnexes(false);
     };
+
+
 
     const [aiStatus, setAiStatus] = useState('idle');
     const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
@@ -999,8 +1002,74 @@ const Sidebar = () => {
                                                     </select>
                                                 </div>
                                                 {exp.typeMontant !== 'Forfait' && <>
-                                                    <div><label>Type</label><select value={exp.type || 'Devis'} onChange={e=>updateExpense(exp.id, 'type', e.target.value)} className="input-field mb-0"><option>Devis</option><option>Facture</option></select></div>
-                                                    <div><label>Réf</label><input type="text" value={exp.ref} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} placeholder="Réf" className="input-field mb-0" /></div>
+                                                    {/* Si un seul document ou aucun, on remet l'affichage classique sans toggle encombrant */}
+                                                    {(!attachedFiles[exp.id] || attachedFiles[exp.id].length <= 1) ? (
+                                                        <>
+                                                            <div>
+                                                                <label className="text-[9px] text-slate-500 uppercase">Type</label>
+                                                                <select 
+                                                                    value={exp.type || 'Devis'} 
+                                                                    onChange={e => updateExpense(exp.id, 'type', e.target.value)} 
+                                                                    className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none"
+                                                                >
+                                                                    <option value="Devis">Devis</option>
+                                                                    <option value="Facture">Facture</option>
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] text-slate-500 uppercase">Référence</label>
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={exp.ref || ''} 
+                                                                    onChange={e => updateExpense(exp.id, 'ref', e.target.value)} 
+                                                                    placeholder="Réf..." 
+                                                                    className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" 
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        /* Si et seulement si on a injecté un deuxième document, l'interface Dual-State s'active */
+                                                        <div className="col-span-2 bg-slate-800/80 p-2.5 rounded-lg border border-slate-700 flex flex-col gap-2 mt-1 animate-fadeIn">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex flex-col">
+                                                                    <label className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Mode Multi-Documents Détecté</label>
+                                                                    <span className="text-[9px] text-slate-400">Sélectionnez le document actif à envoyer au PVE</span>
+                                                                </div>
+                                                                <div className="flex bg-slate-900 rounded-md border border-slate-600 overflow-hidden shadow-inner">
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.preventDefault(); toggleExpenseType(exp.id, 'Devis'); }}
+                                                                        className={`px-4 py-1 text-[10px] font-bold transition-all ${exp.type !== 'Facture' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700 hover:text-slate-300'}`}
+                                                                    >
+                                                                        Devis Actif
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.preventDefault(); toggleExpenseType(exp.id, 'Facture'); }}
+                                                                        className={`px-4 py-1 text-[10px] font-bold transition-all ${exp.type === 'Facture' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700 hover:text-slate-300'}`}
+                                                                    >
+                                                                        Facture Active
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="grid grid-cols-2 gap-3 mt-1">
+                                                                <div>
+                                                                    <label className="text-[9px] text-slate-500 uppercase">{exp.type === 'Facture' ? 'Réf. Facture' : 'Réf. Devis'}</label>
+                                                                    <input type="text" value={exp.ref || ''} onChange={e=>updateExpense(exp.id, 'ref', e.target.value)} placeholder="Référence..." className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[9px] text-slate-500 uppercase">{exp.type === 'Facture' ? 'Montant Devis (Historique)' : 'Montant Facture (Attente)'}</label>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={exp.type === 'Facture' ? (exp.montantDevis || '') : (exp.montantFacture || '')} 
+                                                                        disabled 
+                                                                        className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-xs text-slate-500 outline-none cursor-not-allowed" 
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     <div className="col-span-2"><label>Prestataire</label><input type="text" value={exp.prestataire} onChange={e=>updateExpense(exp.id, 'prestataire', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExpense(); } }} list="prestataires-list" className="input-field mb-0" /></div>
                                                 </>}
                                                 
@@ -1160,20 +1229,20 @@ const Sidebar = () => {
                                     <DropZone onFiles={(files) => handleAnnexMagicDrop(files)} label="➕" />
                                 </div>
                                 <div className="space-y-2">
-                                    {attachedFreeAnnexes.map(file => (
-                                        <div key={file.id} className="bg-slate-900 border border-slate-700 p-2 rounded relative group">
+                                    {dynamicFreeAnnexes.map(file => (
+                                        <div key={file.id} className={`bg-slate-900 border ${file.isVirtual ? 'border-indigo-500 border-dashed' : 'border-slate-700'} p-2 rounded relative group`}>
                                             <div className="absolute top-1 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(file.dbKey, file.isPdf); }} className="text-blue-400 hover:text-blue-300 text-xs" title="Ouvrir">👁️</button>
-                                                <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="text-red-500 text-xs" title="Supprimer">✕</button>
+                                                {!file.isVirtual && <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="text-red-500 text-xs" title="Supprimer">✕</button>}
                                             </div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-lg">{file.isPdf ? '📄' : '🖼️'}</span>
-                                                <input type="text" value={file.customName} onChange={(e) => handleUpdateFreeAnnex(file.id, 'customName', e.target.value)} className="bg-transparent border-b border-slate-700 text-xs text-white focus:border-indigo-500 outline-none flex-1" placeholder="Nom du fichier..." />
+                                                <input type="text" value={file.customName} onChange={(e) => !file.isVirtual && handleUpdateFreeAnnex(file.id, 'customName', e.target.value)} disabled={file.isVirtual} className="bg-transparent border-b border-slate-700 text-xs text-white focus:border-indigo-500 outline-none flex-1 disabled:opacity-70" placeholder="Nom du fichier..." />
                                             </div>
-                                            <textarea value={file.desc} onChange={(e) => handleUpdateFreeAnnex(file.id, 'desc', e.target.value)} className="w-full bg-slate-800 text-[10px] text-slate-300 p-1 rounded border border-slate-700 mt-1 resize-none h-10" placeholder="Description courte (facultatif)..." />
+                                            <textarea value={file.desc} onChange={(e) => !file.isVirtual && handleUpdateFreeAnnex(file.id, 'desc', e.target.value)} disabled={file.isVirtual} className="w-full bg-slate-800 text-[10px] text-slate-300 p-1 rounded border border-slate-700 mt-1 resize-none h-10 disabled:opacity-70" placeholder="Description courte (facultatif)..." />
                                         </div>
                                     ))}
-                                    {attachedFreeAnnexes.length === 0 && <p className="text-[10px] text-slate-500 italic text-center">Aucune annexe libre.</p>}
+                                    {dynamicFreeAnnexes.length === 0 && <p className="text-[10px] text-slate-500 italic text-center">Aucune annexe libre.</p>}
                                 </div>
                             </div>
                         </details>

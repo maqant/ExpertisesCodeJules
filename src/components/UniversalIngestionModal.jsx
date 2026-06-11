@@ -82,6 +82,7 @@ const UniversalIngestionModal = () => {
                     ? (isNaN(parseFloat(String(localData.montantReclame).replace(',', '.'))) ? '' : String(parseFloat(String(localData.montantReclame).replace(',', '.'))))
                     : (localData.montant || '');
                 if (existingId) {
+                    const existingExpense = expenses.find(e => e.id === existingId) || {};
                     const updates = {
                         prestataire: localData.prestataire || '',
                         type: localData.type || '',
@@ -97,8 +98,22 @@ const UniversalIngestionModal = () => {
                         avisCouverture: localData.avisCouverture || 'Oui',
                         noteCouverture: localData.noteCouverture || ''
                     };
+
+                    // Stash previous data if the document type changes
+                    if (existingExpense.type === 'Devis' && updates.type === 'Facture') {
+                        updates.montantDevis = existingExpense.montant || existingExpense.montantReclame || '';
+                        updates.refDevis = existingExpense.ref || '';
+                        updates.prestataireDevis = existingExpense.prestataire || '';
+                        updates.descDevis = existingExpense.desc || '';
+                    } else if (existingExpense.type === 'Facture' && updates.type === 'Devis') {
+                        updates.montantFacture = existingExpense.montant || existingExpense.montantReclame || '';
+                        updates.refFacture = existingExpense.ref || '';
+                        updates.prestataireFacture = existingExpense.prestataire || '';
+                        updates.descFacture = existingExpense.desc || '';
+                    }
+
                     Object.keys(updates).forEach(key => { updateExpense(existingId, key, updates[key]); });
-                    if (file) await handleAttachFile(existingId, file);
+                    if (file) await handleAttachFile(existingId, file, updates.type);
                 } else {
                     const newExpId = crypto.randomUUID();
                     const newExp = {
@@ -118,7 +133,7 @@ const UniversalIngestionModal = () => {
                         noteCouverture: localData.noteCouverture || ''
                     };
                     addExpense(newExp);
-                    if (file) await handleAttachFile(newExpId, file);
+                    if (file) await handleAttachFile(newExpId, file, newExp.type);
                 }
             } else if (type === 'annexe') {
                 if (file) await handleAttachFreeAnnex(file, localData.customName, localData.desc);

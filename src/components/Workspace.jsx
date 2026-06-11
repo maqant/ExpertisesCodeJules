@@ -161,7 +161,7 @@ const Workspace = () => {
     const {
         formData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
-        fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes,
+        fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes, dynamicFreeAnnexes,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo, causeTimeline
     } = context;
 
@@ -424,14 +424,14 @@ const Workspace = () => {
                 <BlockContainer key="annexes_libres" id="annexes_libres">
                     <p className="font-bold underline mb-2" style={{ fontSize: `${styles.annexes_libres?.fontSize + 2 || 14}px` }}>{blockTitles.annexes_libres || "Annexes supplémentaires"}</p>
                     <div className="space-y-4">
-                        {attachedFreeAnnexes.map(file => (
+                        {dynamicFreeAnnexes.map(file => (
                             <div key={file.id} className="break-inside-avoid">
                                 <p className="font-bold text-[1.1em]">{file.customName || file.name}</p>
                                 {file.desc && <p className="italic text-[0.9em] mb-1">{file.desc}</p>}
                                 <p className="text-[0.85em] text-slate-500 italic">Voir annexe n°{getPaginationInfo(file.id, file.customName || file.name)?.num} (Page {getPaginationInfo(file.id, file.customName || file.name)?.startPage})</p>
                             </div>
                         ))}
-                        {attachedFreeAnnexes.length === 0 && <p className="italic text-[0.9em]">Aucune annexe supplémentaire.</p>}
+                        {dynamicFreeAnnexes.length === 0 && <p className="italic text-[0.9em]">Aucune annexe supplémentaire.</p>}
                     </div>
                 </BlockContainer>
             );

@@ -1,5 +1,5 @@
 import { useFinanceStore, cleanAmount } from "../store/financeStore";
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import html2canvas from 'html2canvas';
@@ -505,7 +505,7 @@ export const ExpertiseProvider = ({ children }) => {
       financeStore.setExpenses(sorted);
   };
 
-  const handleAttachFile = async (expenseId, file) => {
+  const handleAttachFile = async (expenseId, file, expenseType = null) => {
       if (!file) return;
       
       try {
@@ -529,7 +529,7 @@ export const ExpertiseProvider = ({ children }) => {
           const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
-          const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type };
+          const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type, expenseType };
           setAttachedFiles(prev => {
               const current = prev[expenseId] || [];
               return { ...prev, [expenseId]: [...current, fileObj] };
@@ -666,6 +666,41 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
 
+  const isExpenseExcludedFromMain = (exp) => {
+      if (exp.avisCouverture === 'Non') return true;
+      const matchedOcc = occupants.find(o => o.id === exp.compteDe);
+      if (matchedOcc && matchedOcc.contreExpert) return true;
+      return false;
+  };
+
+  const dynamicFreeAnnexes = useMemo(() => {
+      let annexes = [...attachedFreeAnnexes];
+      
+      expenses.forEach(exp => {
+          const files = attachedFiles[exp.id] || [];
+          const inactive = files.filter(f => f.expenseType && f.expenseType !== exp.type);
+          
+          if (inactive.length > 0) {
+              const mainExpIndex = expenses.filter(e => !isExpenseExcludedFromMain(e)).findIndex(e => e.id === exp.id);
+              const expIndexText = mainExpIndex !== -1 ? ` #${mainExpIndex + 1}` : ` (Exclue)`;
+
+              inactive.forEach(f => {
+                  annexes.push({
+                      id: `inactive_${exp.id}_${f.dbKey}`,
+                      dbKey: f.dbKey,
+                      name: f.name,
+                      customName: `${f.expenseType} relatif à la ligne de frais${expIndexText} (${exp.prestataire || 'Frais'})`,
+                      desc: 'Document conservé pour historique',
+                      isPdf: f.isPdf,
+                      pages: f.pages,
+                      isVirtual: true
+                  });
+              });
+          }
+      });
+      return annexes;
+  }, [attachedFreeAnnexes, expenses, attachedFiles, occupants]);
+
   const generateMasterIndex = useCallback((baseCoverPages, selOverride = undefined) => {
       const sel = selOverride !== undefined ? selOverride : printSelection;
       let currentPage = baseCoverPages + 1;
@@ -710,11 +745,15 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
-      expenses.forEach(exp => processDoc(exp.id, exp.prestataire || 'Frais', attachedFiles[exp.id]));
+      expenses.forEach(exp => {
+          const files = attachedFiles[exp.id] || [];
+          const activeFiles = files.filter(f => !f.expenseType || f.expenseType === exp.type);
+          processDoc(exp.id, exp.prestataire || 'Frais', activeFiles);
+      });
       processDoc('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
       processDoc('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
 
-      attachedFreeAnnexes.forEach(file => {
+      dynamicFreeAnnexes.forEach(file => {
           if (!sel || sel.has(`free::${file.id}`)) {
               if (file.pages > 0) {
                   masterIndex.push({ id: file.id, label: file.customName || file.name, annexeIndex, startPage: currentPage, endPage: currentPage + file.pages - 1 });
@@ -725,7 +764,7 @@ export const ExpertiseProvider = ({ children }) => {
       });
 
       return masterIndex;
-  }, [attachedFiles, attachedPhotos, attachedFreeAnnexes, occupants, expenses, printSelection]);
+  }, [attachedFiles, attachedPhotos, attachedFreeAnnexes, occupants, expenses, printSelection, dynamicFreeAnnexes]);
 
   const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
       if (hideAnnexIndex) return null;
@@ -758,11 +797,15 @@ export const ExpertiseProvider = ({ children }) => {
               list.push({ id: 'doc_photos_occ_' + occ.id, label: `Photos/docs de ${occ.nom || 'Inconnu'}`, isPhotos: true, occupantId: occ.id, count: pList.length, totalPages });
           }
       }
-      for (const exp of expenses) addEntry(exp.id, exp.prestataire || 'Frais', attachedFiles[exp.id]);
+      for (const exp of expenses) {
+          const files = attachedFiles[exp.id] || [];
+          const activeFiles = files.filter(f => !f.expenseType || f.expenseType === exp.type);
+          addEntry(exp.id, exp.prestataire || 'Frais', activeFiles);
+      }
       addEntry('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
       addEntry('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
 
-      attachedFreeAnnexes.forEach(f => list.push({ id: f.id, label: f.customName || f.name, file: f, isFree: true }));
+      dynamicFreeAnnexes.forEach(f => list.push({ id: f.id, label: f.customName || f.name, file: f, isFree: true }));
 
       return list;
   };
@@ -804,10 +847,15 @@ export const ExpertiseProvider = ({ children }) => {
               }
           };
 
-          const appendPdfFiles = async (id) => {
+          const appendPdfFiles = async (id, onlyActiveForExpType = null) => {
               let files = attachedFiles[id];
               if (!files) return;
               if (!Array.isArray(files)) files = [files];
+              
+              if (onlyActiveForExpType) {
+                  files = files.filter(f => !f.expenseType || f.expenseType === onlyActiveForExpType);
+              }
+
               for (const f of files) {
                   const key = `${id}::${f.dbKey}`;
                   if (selectedKeys.has(key)) await appendDoc(f);
@@ -856,14 +904,14 @@ export const ExpertiseProvider = ({ children }) => {
           }
 
           for (const exp of expenses) {
-              await appendPdfFiles(exp.id);
+              await appendPdfFiles(exp.id, exp.type);
           }
 
           await appendPdfFiles('doc_cond_part');
           await appendPdfFiles('doc_cond_gen');
 
           // --- Annexes Libres ---
-          for (const file of attachedFreeAnnexes) {
+          for (const file of dynamicFreeAnnexes) {
               if (selectedKeys.has(`free::${file.id}`)) {
                   const bytes = await localforage.getItem(file.dbKey);
                   if (!bytes) continue;
@@ -1025,10 +1073,15 @@ export const ExpertiseProvider = ({ children }) => {
               } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }
           };
 
-          const appendPdfFiles = async (id) => {
+          const appendPdfFiles = async (id, onlyActiveForExpType = null) => {
               let files = attachedFiles[id];
               if (!files) return;
               if (!Array.isArray(files)) files = [files];
+              
+              if (onlyActiveForExpType) {
+                  files = files.filter(f => !f.expenseType || f.expenseType === onlyActiveForExpType);
+              }
+
               for (const f of files) {
                   if (!selectedKeys || selectedKeys.has(`${id}::${f.dbKey}`)) {
                       await appendDoc(f);
@@ -1071,12 +1124,12 @@ export const ExpertiseProvider = ({ children }) => {
               }
           }
 
-          for (const exp of expenses) await appendPdfFiles(exp.id);
+          for (const exp of expenses) await appendPdfFiles(exp.id, exp.type);
           await appendPdfFiles('doc_cond_part');
           await appendPdfFiles('doc_cond_gen');
 
           // 3.5 Annexes Libres
-          for (const file of attachedFreeAnnexes) {
+          for (const file of dynamicFreeAnnexes) {
               if (!selectedKeys || selectedKeys.has(`free::${file.id}`)) await appendDoc(file);
           }
 
@@ -1330,6 +1383,33 @@ Voici le format JSON :
       }]);
   };
 
+  const toggleExpenseType = (id, targetType) => {
+      const exp = expenses.find(e => e.id === id);
+      if (!exp || exp.type === targetType) return; // Introuvable ou déjà dans le bon état
+
+      const isMovingToFacture = targetType === 'Facture';
+      
+      financeStore.updateExpense(id, {
+          type: targetType,
+          // Si on passe en Facture, on stash l'actuel dans Devis et on charge la Facture
+          montantDevis: isMovingToFacture ? exp.montant : exp.montantDevis,
+          refDevis: isMovingToFacture ? exp.ref : exp.refDevis,
+          prestataireDevis: isMovingToFacture ? exp.prestataire : exp.prestataireDevis,
+          descDevis: isMovingToFacture ? exp.desc : exp.descDevis,
+
+          montant: isMovingToFacture ? (exp.montantFacture || '') : (exp.montantDevis || ''),
+          ref: isMovingToFacture ? (exp.refFacture || '') : (exp.refDevis || ''),
+          prestataire: isMovingToFacture ? (exp.prestataireFacture || '') : (exp.prestataireDevis || ''),
+          desc: isMovingToFacture ? (exp.descFacture || '') : (exp.descDevis || ''),
+          
+          // Si on repasse en Devis, on stash l'actuel dans Facture et on charge le Devis
+          montantFacture: !isMovingToFacture ? exp.montant : exp.montantFacture,
+          refFacture: !isMovingToFacture ? exp.ref : exp.refFacture,
+          prestataireFacture: !isMovingToFacture ? exp.prestataire : exp.prestataireFacture,
+          descFacture: !isMovingToFacture ? exp.desc : exp.descFacture,
+      });
+  };
+
   const contextValue = {
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
@@ -1349,6 +1429,7 @@ Voici le format JSON :
       handleAttachPhoto, handleRemovePhoto,
       attachedFreeAnnexes, setAttachedFreeAnnexes,
       handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
+      isExpenseExcludedFromMain, dynamicFreeAnnexes,
       isMerging,
       getPaginationInfo, downloadSelectedPDF, downloadDossierPDF, getAnnexList,
       hideAnnexIndex, setHideAnnexIndex,
@@ -1363,7 +1444,8 @@ Voici le format JSON :
       handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
       pendingAiData, setPendingAiData, commitPendingAiData,
-      causeTimeline, setCauseTimeline, addCauseTimelineItem
+      causeTimeline, setCauseTimeline, addCauseTimelineItem,
+      toggleExpenseType
   };
 
   return (
