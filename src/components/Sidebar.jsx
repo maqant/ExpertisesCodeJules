@@ -1432,30 +1432,43 @@ const Sidebar = () => {
                                                 }
                                             }
                                         } else {
-                                            // v5.5.6 - Lancer extraction IA via le Chef d'Orchestre
-                                            let filesToProcess = [droppedMsgFile];
-                                            let extractedAttachments = [];
-                                            
-                                            if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
-                                                extractedAttachments = (await extractValidAttachmentsFromMsg(droppedMsgFile)).files;
-                                                filesToProcess = [...filesToProcess, ...extractedAttachments];
-                                            }
-
+                                            // v5.5.15 - Chef d'Orchestre via SAS (corrigé : plus de processJsonData)
                                             const result = await processGlobalIngestion(
-                                                filesToProcess,
+                                                [droppedMsgFile],
                                                 aiConfig.apiKey,
                                                 setAiStatus,
                                                 aiConfig.model
                                             );
                                             
                                             if (result.success && result.data) {
-                                                processJsonData(JSON.stringify(result.data));
-                                                // Inject pendingFiles for Magic Drop auto-attach
-                                                if (extractedAttachments.length > 0) {
-                                                    setTimeout(() => {
-                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedAttachments } : prev);
-                                                    }, 50);
-                                                }
+                                                const aiData = result.data;
+
+                                                // Sécuriser les UUIDs des occupants
+                                                const safeOccupants = (aiData.occupants || []).map(o => ({
+                                                    ...o,
+                                                    id: o.id || crypto.randomUUID()
+                                                }));
+
+                                                // Sécuriser les UUIDs des expenses
+                                                const safeExpenses = (aiData.expenses || []).map(e => ({
+                                                    ...e,
+                                                    id: e.id || crypto.randomUUID(),
+                                                    compteDe: e.compteDe || 'unassigned'
+                                                }));
+
+                                                // Construire pendingFiles à partir des PJ extraites par le Chef d'Orchestre
+                                                const allPendingFiles = result.extractedFiles || [];
+
+                                                // Passer par le SAS de validation
+                                                setPendingAiData({
+                                                    formData: aiData.formData || null,
+                                                    experts: aiData.experts || [],
+                                                    occupants: safeOccupants,
+                                                    expenses: safeExpenses,
+                                                    pendingFiles: allPendingFiles
+                                                });
+                                            } else {
+                                                alert("Erreur IA : " + (result.error || "Réponse invalide"));
                                             }
                                         }
                                     } else {

@@ -24,6 +24,42 @@ const fileToBase64 = (file) => {
 const MIME_MAP = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', msg: 'application/vnd.ms-outlook' };
 const getMimeType = (filename) => { const ext = (filename || '').split('.').pop().toLowerCase(); return MIME_MAP[ext] || 'application/octet-stream'; };
 
+// v5.5.15 - Table de référence des franchises légales (IPC/ABEX Belgique)
+// Clé = "YYYY" (année), valeur = montant de la franchise légale pour cette année.
+// Pour une résolution mensuelle plus fine, on pourra étendre avec "YYYY-MM" comme clé.
+// Source : indices officiels publiés par le SPF Économie / Assuralia.
+// ⚠️ À COMPLÉTER avec les montants exacts de votre référentiel métier.
+const FRANCHISE_LEGALE_INDEX = {
+    '2020': 282.77,
+    '2021': 289.48,
+    '2022': 297.47,
+    '2023': 322.23,
+    '2024': 328.14,
+    '2025': 335.87,
+    '2026': 341.52,
+};
+
+/**
+ * Résout le montant exact de la franchise légale à partir d'une date de sinistre (YYYY-MM-DD).
+ * Retourne le montant (number) ou null si la date est hors index.
+ */
+const _resolveFranchiseLegale = (dateSinistreStr) => {
+    try {
+        const date = new Date(dateSinistreStr);
+        if (isNaN(date.getTime())) return null;
+        const year = String(date.getFullYear());
+        // D'abord chercher par année-mois (pour une résolution mensuelle future)
+        const monthKey = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (FRANCHISE_LEGALE_INDEX[monthKey]) return FRANCHISE_LEGALE_INDEX[monthKey];
+        // Sinon par année
+        if (FRANCHISE_LEGALE_INDEX[year]) return FRANCHISE_LEGALE_INDEX[year];
+        return null;
+    } catch (e) {
+        console.warn('[aiManager] Erreur résolution franchise légale:', e);
+        return null;
+    }
+};
+
 // v5.5.13 - Extraction RÉCURSIVE des pièces jointes d'un fichier .msg (Outlook)
 // Fix: détection des sous-mails via OLE magic bytes (D0 CF 11 E0) + attachMethod === 5
 // Inclut les images inline (CID) > 20KB, génère des noms pour les PJ sans nom.
@@ -845,7 +881,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
                 formData: {
                     dateExp: "2026-06-15", heureExp: "10:00", nomResidence: "Copropriété Les Acacias", adresse: "12 rue de la Paix, Paris", refPechard: "DOSS-2026-001", expertInfos: "M. Dupont", bureau: "Bureau Péchard",
                     dateSinistre: "2026-06-01", dateDeclaration: "2026-06-02", declarant: "Syndic ABC", nomCie: "AXA Belgium", nomContrat: "Top Habitation", numPolice: "POL-123", numSinistreCie: "SIN-999", 
-                    numConditionsGenerales: "CG-2022", franchise: "250", pertesIndirectes: "10%", isAxa: true,
+                    numConditionsGenerales: "CG-2022", franchise: "Légale", pertesIndirectes: "10%", isAxa: true,
                     isContradictoire: false, cieContradictoire: "", bureauContradictoire: "", expertContradictoire: "", compteDeContradictoire: ""
                 },
                 references: [ { nom: "M. Martin", ref: "Réf Client 789" } ]
@@ -891,12 +927,21 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
         const systemPrompt = `Tu es un Agent Administratif expert en assurances et expertises sinistres. 
 Ton rôle est d'analyser attentivement les documents fournis (polices d'assurance, conditions particulières, convocations, correspondances) et d'en extraire les informations contractuelles, les coordonnées de l'expertise et les références.
 
+CONTEXTE IMPORTANT :
+- "Bureau Péchard" est le bureau de gestion de sinistres / courtier en charge du dossier. Ce n'est PAS un bureau d'expertise externe. Si le document ne mentionne pas d'autre bureau, utilise "Bureau Péchard" comme valeur par défaut.
+
 RÈGLES ABSOLUES :
 1. N'invente AUCUNE information. Si l'information n'est pas explicitement présente dans le document, renvoie une chaîne vide "".
 2. Remplis les champs avec précision.
 3. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
-4. "bureau" doit être "Bureau Péchard" par défaut si non spécifié, mais respecte la valeur si elle existe.
-5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou "" si non trouvé.
+4. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou "" si non trouvé.
+5. FRANCHISE - Tu dois extraire DEUX informations distinctes :
+   a) "franchiseBrute" : le montant ou texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "600€", "indice 119", "franchise anglaise de 500€", "franchise x3").
+   b) "typeFranchise" : déduis le TYPE de franchise selon ces règles :
+      - "Legale" si le montant est inférieur à 400€ OU s'il y a une référence à un indice IPC/abex (ex: "indice 119", "franchise légale").
+      - "Speciale" si c'est un gros forfait (600€, 1000€, etc.) OU un multiplicateur ("franchise x3", "triple franchise").
+      - "Anglaise" si le texte mentionne "franchise anglaise" ou "english deductible".
+      - "" si aucune franchise n'est mentionnée.
 6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
 
 Voici le format EXACT attendu, avec tous les champs présents :
@@ -904,7 +949,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "formData": {
     "dateExp": "", "heureExp": "", "nomResidence": "", "adresse": "", "refPechard": "", "expertInfos": "", "bureau": "Bureau Péchard",
     "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", 
-    "numConditionsGenerales": "", "franchise": "", "pertesIndirectes": "", "isAxa": false,
+    "numConditionsGenerales": "", "franchiseBrute": "", "typeFranchise": "", "pertesIndirectes": "", "isAxa": false,
     "isContradictoire": false, "cieContradictoire": "", "bureauContradictoire": "", "expertContradictoire": "", "compteDeContradictoire": ""
   },
   "references": [ 
@@ -948,6 +993,59 @@ Voici le format EXACT attendu, avec tous les champs présents :
                     parsedData.formData[field] = normalizeDate(val);
                 }
             });
+
+            // v5.5.15 - Post-traitement ROBUSTE de la franchise (try-catch pour éviter les crashs silencieux)
+            try {
+                const typeFranchise = (parsedData.formData.typeFranchise || '').trim();
+                const franchiseBrute = (parsedData.formData.franchiseBrute || '').trim();
+                
+                if (typeFranchise && franchiseBrute) {
+                    if (typeFranchise === 'Legale') {
+                        // v5.5.15 - Résolution de la franchise légale via la dateSinistre
+                        const dateSinistre = parsedData.formData.dateSinistre;
+                        if (dateSinistre && dateSinistre.trim() !== '') {
+                            // Tenter de résoudre via la table IPC/ABEX intégrée
+                            const resolved = _resolveFranchiseLegale(dateSinistre);
+                            if (resolved !== null) {
+                                parsedData.formData.franchise = `${resolved}€`;
+                                console.log(`[aiManager] 🏛️ Franchise légale résolue : ${resolved}€ (date: ${dateSinistre})`);
+                            } else {
+                                // Date trouvée mais pas dans l'index → marquer comme légale pour résolution manuelle
+                                parsedData.formData.franchise = 'Légale';
+                                console.log(`[aiManager] 🏛️ Franchise légale détectée mais date hors index (${dateSinistre}). Résolution manuelle requise.`);
+                            }
+                        } else {
+                            parsedData.formData.franchise = '⚠️ À calculer (Date de sinistre requise)';
+                            console.warn(`[aiManager] ⚠️ Franchise légale détectée mais dateSinistre absente !`);
+                        }
+                    } else if (typeFranchise === 'Speciale') {
+                        const montantMatch = franchiseBrute.match(/[\d.,]+/);
+                        const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
+                        parsedData.formData.franchise = `Spéciale : ${montantStr}€`;
+                        console.log(`[aiManager] ⚠️ Franchise spéciale : ${parsedData.formData.franchise}`);
+                    } else if (typeFranchise === 'Anglaise') {
+                        const montantMatch = franchiseBrute.match(/[\d.,]+/);
+                        const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
+                        parsedData.formData.franchise = `${montantStr}€ Anglaise`;
+                        console.log(`[aiManager] 🇬🇧 Franchise anglaise : ${parsedData.formData.franchise}`);
+                    } else {
+                        parsedData.formData.franchise = franchiseBrute;
+                    }
+                } else if (franchiseBrute && !typeFranchise) {
+                    parsedData.formData.franchise = franchiseBrute;
+                } else {
+                    // Aucune franchise détectée — on ne met rien
+                    parsedData.formData.franchise = parsedData.formData.franchise || '';
+                }
+            } catch (franchiseErr) {
+                console.error('[aiManager] ❌ Erreur dans le post-traitement franchise (non bloquante):', franchiseErr);
+                // Fallback : conserver la valeur brute ou vide
+                parsedData.formData.franchise = parsedData.formData.franchiseBrute || parsedData.formData.franchise || '';
+            }
+            
+            // Nettoyage : supprimer les champs intermédiaires (l'UI n'utilise que "franchise")
+            delete parsedData.formData.franchiseBrute;
+            delete parsedData.formData.typeFranchise;
         }
         
         return { success: true, data: parsedData };
@@ -1138,18 +1236,24 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
         }
 
         const systemPrompt = `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
-Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une synthèse professionnelle, claire et factuelle.
+Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
 
 RÈGLES ABSOLUES :
-1. Reste 100% neutre et objectif. Ne fais aucune supposition.
-2. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
-3. Ne casse pas la logique métier : la cause doit être technique et précise. Le compte rendu doit refléter l'ordre des événements ou la chronologie de la visite.
-4. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown autre que la structure demandée.
+1. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
+2. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
+3. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant (ex: "Rapport 1 (Entreprise Dubois) :\n...").
+4. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
+   a) Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
+   b) Où est-elle localisée avec précision ?
+   c) Quelles sont les conséquences matérielles directes constatées ?
+   d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
+5. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
+6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
 
 Voici le format EXACT attendu :
 {
-  "cause": "Paragraphe expliquant l'origine technique et la description des dommages (ex: rupture de canalisation, engorgement).",
-  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas ailleurs.",
+  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées.",
+  "divers": "Remarques diverses, points d'attention particuliers, ou informations qui ne rentrent pas dans la cause.",
   "compteRendu": "Compte-rendu chronologique factuel de la visite ou de la succession des événements."
 }`;
 
