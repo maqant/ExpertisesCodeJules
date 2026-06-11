@@ -10,12 +10,23 @@ import MsgReader from '@kenjiuno/msgreader';
 // Configurer le worker PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
+// Cache v5.7.2 - Accélère considérablement la préparation des fichiers partagés entre agents
+const _pdfCache = new Map();
+const _msgCache = new Map();
+const _imgCache = new Map();
+
 // Utilitaire de conversion File -> Base64
-const fileToBase64 = (file) => {
+const fileToBase64 = async (file) => {
+    const cacheKey = file.name + "_" + file.size;
+    if (_imgCache.has(cacheKey)) return _imgCache.get(cacheKey);
+
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => {
+            _imgCache.set(cacheKey, reader.result);
+            resolve(reader.result);
+        };
         reader.onerror = error => reject(error);
     });
 };
@@ -247,6 +258,9 @@ export const extractValidAttachmentsFromMsg = async (msgFile, _depth = 0) => {
 
 // v5.5.12 - parseMsgFile délègue toute l'extraction à _extractMsgRecursive
 const parseMsgFile = async (file) => {
+    const cacheKey = file.name + "_" + file.size;
+    if (_msgCache.has(cacheKey)) return _msgCache.get(cacheKey);
+
     const arrayBuffer = await file.arrayBuffer();
 
     // Extraire le texte du mail principal
@@ -270,11 +284,16 @@ const parseMsgFile = async (file) => {
     // Exclure le texte du niveau 0 (déjà dans parts) car _extractMsgRecursive ne l'ajoute pas pour depth=0
     const bodyText = [...parts, ...nestedTexts].join('\n');
 
-    return { bodyText, attachments };
+    const result = { bodyText, attachments };
+    _msgCache.set(cacheKey, result);
+    return result;
 };
 
 // Utilitaire pour extraire les pages d'un PDF sous forme d'images Base64
 const pdfToBase64Images = async (file, maxPagesOverride = 20) => {
+    const cacheKey = file.name + "_" + file.size + "_" + maxPagesOverride;
+    if (_pdfCache.has(cacheKey)) return _pdfCache.get(cacheKey);
+
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const images = [];
@@ -297,6 +316,8 @@ const pdfToBase64Images = async (file, maxPagesOverride = 20) => {
         // Convertir en base64
         images.push(canvas.toDataURL('image/jpeg', 0.8));
     }
+    
+    _pdfCache.set(cacheKey, images);
     return images;
 };
 
@@ -322,6 +343,50 @@ const normalizeDate = (raw) => {
     
     // Fallback: retourner tel quel
     return s;
+};
+
+// v5.7.2 - Helper pour paralléliser la préparation (PDF->Base64, MSG->texte) des fichiers
+const buildContentArrayParallel = async (files, introductoryText, options = {}) => {
+    const { maxPdfPages = 20, maxTextLength = undefined } = options;
+    const contentArray = [{ type: "text", text: introductoryText }];
+    
+    const promises = files.map(async (item) => {
+        const localContent = [];
+        const fileName = item.name || 'document_sans_nom';
+        localContent.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
+        
+        if (typeof item === 'string') {
+             const textToPush = maxTextLength ? item.substring(0, maxTextLength) : item;
+             localContent.push({ type: "text", text: textToPush });
+        } else {
+            const fileNameLower = fileName.toLowerCase();
+            if (fileNameLower.endsWith('.msg')) {
+                try {
+                    const { bodyText } = await parseMsgFile(item);
+                    const textToPush = maxTextLength ? bodyText.substring(0, maxTextLength) : bodyText;
+                    localContent.push({ type: "text", text: textToPush });
+                } catch (e) {
+                    localContent.push({ type: "text", text: "[Fichier MSG illisible]" });
+                }
+            } else if (item.type === 'application/pdf') {
+                const base64Images = await pdfToBase64Images(item, maxPdfPages); 
+                for (const img of base64Images) {
+                    localContent.push({ type: "image_url", image_url: { url: img } });
+                }
+            } else if (item.type && item.type.startsWith('image/')) {
+                const base64Image = await fileToBase64(item);
+                localContent.push({ type: "image_url", image_url: { url: base64Image } });
+            } else {
+                localContent.push({ type: "text", text: "[Format non supporté pour la vision]" });
+            }
+        }
+        localContent.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
+        return localContent;
+    });
+
+    const results = await Promise.all(promises);
+    results.forEach(res => contentArray.push(...res));
+    return contentArray;
 };
 
 /**
@@ -935,40 +1000,8 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
 
     try {
         if (onStatusChange) onStatusChange('routing');
-        const contentArray = [{ type: "text", text: "Voici les documents à classifier." }];
         
-        for (const item of fileArray) {
-            const fileName = item.name || 'document_sans_nom';
-            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
-            
-            if (typeof item === 'string') {
-                 // v5.5.11 - Limite augmentée à 15000 caractères pour le texte brut
-                 contentArray.push({ type: "text", text: item.substring(0, 15000) });
-            } else {
-                const fileNameLower = fileName.toLowerCase();
-                if (fileNameLower.endsWith('.msg')) {
-                    try {
-                        const { bodyText } = await parseMsgFile(item);
-                        // v5.5.11 - Limite augmentée de 1500 à 15000 caractères
-                        contentArray.push({ type: "text", text: bodyText.substring(0, 15000) });
-                    } catch (e) {
-                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
-                    }
-                } else if (item.type === 'application/pdf') {
-                    // v5.5.11 - Lecture des 3 premières pages pour une classification plus précise
-                    const base64Images = await pdfToBase64Images(item, 3);
-                    for (const img of base64Images) {
-                        contentArray.push({ type: "image_url", image_url: { url: img } });
-                    }
-                } else if (item.type && item.type.startsWith('image/')) {
-                    const base64Image = await fileToBase64(item);
-                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
-                } else {
-                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
-                }
-            }
-            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
-        }
+        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents à classifier.", { maxPdfPages: 3, maxTextLength: 15000 });
 
         const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
 Tu dois classer CHAQUE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
@@ -1062,38 +1095,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = [{ type: "text", text: "Voici les documents administratifs à analyser." }];
-        
-        for (const item of fileArray) {
-            const fileName = item.name || 'document_sans_nom';
-            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
-            
-            if (typeof item === 'string') {
-                 contentArray.push({ type: "text", text: item });
-            } else {
-                const fileNameLower = fileName.toLowerCase();
-                if (fileNameLower.endsWith('.msg')) {
-                    try {
-                        const { bodyText } = await parseMsgFile(item);
-                        contentArray.push({ type: "text", text: bodyText });
-                    } catch (e) {
-                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
-                    }
-                } else if (item.type === 'application/pdf') {
-                    // Pour l'agent administratif on analyse tout le PDF car les infos peuvent être éparpillées
-                    const base64Images = await pdfToBase64Images(item); 
-                    for (const img of base64Images) {
-                        contentArray.push({ type: "image_url", image_url: { url: img } });
-                    }
-                } else if (item.type && item.type.startsWith('image/')) {
-                    const base64Image = await fileToBase64(item);
-                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
-                } else {
-                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
-                }
-            }
-            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
-        }
+        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents administratifs à analyser.");
 
         const systemPrompt = `Tu es un Agent Administratif expert en assurances et expertises sinistres. 
 Ton rôle est d'analyser attentivement les documents fournis (polices d'assurance, conditions particulières, convocations, correspondances) et d'en extraire les informations contractuelles, les coordonnées de l'expertise et les références.
@@ -1258,37 +1260,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = [{ type: "text", text: "Voici les documents sociaux à analyser." }];
-        
-        for (const item of fileArray) {
-            const fileName = item.name || 'document_sans_nom';
-            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
-            
-            if (typeof item === 'string') {
-                 contentArray.push({ type: "text", text: item });
-            } else {
-                const fileNameLower = fileName.toLowerCase();
-                if (fileNameLower.endsWith('.msg')) {
-                    try {
-                        const { bodyText } = await parseMsgFile(item);
-                        contentArray.push({ type: "text", text: bodyText });
-                    } catch (e) {
-                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
-                    }
-                } else if (item.type === 'application/pdf') {
-                    const base64Images = await pdfToBase64Images(item); 
-                    for (const img of base64Images) {
-                        contentArray.push({ type: "image_url", image_url: { url: img } });
-                    }
-                } else if (item.type && item.type.startsWith('image/')) {
-                    const base64Image = await fileToBase64(item);
-                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
-                } else {
-                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
-                }
-            }
-            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
-        }
+        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents sociaux à analyser.");
 
         const systemPrompt = `Tu es un Agent Social expert dans l'analyse de documents liés aux expertises immobilières.
 Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'identifier TOUTES les personnes mentionnées.
@@ -1414,37 +1386,7 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = [{ type: "text", text: "Voici les documents (récits, rapports, chronologies) à synthétiser." }];
-        
-        for (const item of fileArray) {
-            const fileName = item.name || 'document_sans_nom';
-            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
-            
-            if (typeof item === 'string') {
-                 contentArray.push({ type: "text", text: item });
-            } else {
-                const fileNameLower = fileName.toLowerCase();
-                if (fileNameLower.endsWith('.msg')) {
-                    try {
-                        const { bodyText } = await parseMsgFile(item);
-                        contentArray.push({ type: "text", text: bodyText });
-                    } catch (e) {
-                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
-                    }
-                } else if (item.type === 'application/pdf') {
-                    const base64Images = await pdfToBase64Images(item); 
-                    for (const img of base64Images) {
-                        contentArray.push({ type: "image_url", image_url: { url: img } });
-                    }
-                } else if (item.type && item.type.startsWith('image/')) {
-                    const base64Image = await fileToBase64(item);
-                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
-                } else {
-                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
-                }
-            }
-            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
-        }
+        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents (récits, rapports, chronologies) à synthétiser.");
 
         // v5.6.3 - Prompt incrémental : l'IA accumule les faits au lieu d'écraser
         const existingCauseBlock = existingCause && existingCause.trim()
