@@ -1316,7 +1316,55 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
-      // 4. Nettoyer APRÈS tous les attachements
+      // 4. Experts — ajouter les nouveaux à la base de données (v5.5.10)
+      if (selections.experts && selections.experts.length > 0 && data.experts) {
+          const newExperts = [];
+          selections.experts.forEach(expertName => {
+              const aiExpert = data.experts.find(e => (e.nom || '').trim() === expertName);
+              if (!aiExpert) return;
+              // Anti-doublons par nom
+              const exists = expertsList.some(e => (e.nom || '').toLowerCase().trim() === (aiExpert.nom || '').toLowerCase().trim());
+              if (!exists && aiExpert.nom) {
+                  newExperts.push({ nom: aiExpert.nom, tel: aiExpert.tel || '' });
+              }
+          });
+          if (newExperts.length > 0) {
+              setExpertsList(prev => [...prev, ...newExperts]);
+          }
+      }
+
+      // 5. Photos en attente d'attribution (v5.5.10)
+      // Les images (jpg/png) extraites des emails qui n'ont pas été matchées à un frais
+      // sont stockées dans attachedPhotos["unassigned"] pour être réattribuées aux occupants
+      if (pendingFiles.length > 0) {
+          const matchedFileNames = new Set();
+          // Récupérer les noms des fichiers déjà matchés aux frais
+          if (data.expenses) {
+              data.expenses.forEach(exp => {
+                  if (exp.sourceFileName) matchedFileNames.add(exp.sourceFileName.toLowerCase());
+              });
+          }
+          
+          const unmatchedPhotos = pendingFiles.filter(f => {
+              const name = (f.name || '').toLowerCase();
+              const isImage = f.type && f.type.startsWith('image/');
+              const isMatched = matchedFileNames.has(name);
+              return isImage && !isMatched;
+          });
+
+          if (unmatchedPhotos.length > 0) {
+              for (const photo of unmatchedPhotos) {
+                  try {
+                      await handleAttachPhoto('unassigned', photo);
+                      console.log(`[Magic Drop] 📸 Photo en attente : "${photo.name}" → unassigned`);
+                  } catch (err) {
+                      console.warn(`[Magic Drop] ❌ Échec stockage photo "${photo.name}":`, err);
+                  }
+              }
+          }
+      }
+
+      // 6. Nettoyer APRÈS tous les attachements
       setPendingAiData(null);
       setActiveTab('builder');
   };

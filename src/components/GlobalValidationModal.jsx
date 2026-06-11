@@ -31,7 +31,7 @@ const deduplicateOccupants = (occupants) => {
 };
 
 const GlobalValidationModal = () => {
-    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile } = useContext(ExpertiseContext);
+    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList } = useContext(ExpertiseContext);
 
     // Editable deep copy of pendingAiData
     const [editableData, setEditableData] = useState(null);
@@ -43,6 +43,7 @@ const GlobalValidationModal = () => {
     const [expActions, setExpActions] = useState(new Map());
     // Selected form fields
     const [selectedFormFields, setSelectedFormFields] = useState(new Set());
+    const [selectedExperts, setSelectedExperts] = useState(new Set());
     const [initialized, setInitialized] = useState(false);
 
     // Analyze occupant conflicts
@@ -102,6 +103,16 @@ const GlobalValidationModal = () => {
         }
         setSelectedFormFields(newFormFields);
 
+        // Experts: select new ones by default (v5.5.10)
+        const aiExperts = pendingAiData.experts || [];
+        const newSelectedExperts = new Set();
+        aiExperts.forEach(exp => {
+            if (exp.nom && !expertsList.some(e => (e.nom || '').toLowerCase().trim() === (exp.nom || '').toLowerCase().trim())) {
+                newSelectedExperts.add((exp.nom || '').trim());
+            }
+        });
+        setSelectedExperts(newSelectedExperts);
+
         // Set default actions
         const newOccActions = new Map();
         cleanOccs.forEach(occ => {
@@ -160,6 +171,7 @@ const GlobalValidationModal = () => {
     const handleValidate = () => {
         const selections = {
             formFields: Array.from(selectedFormFields),
+            experts: Array.from(selectedExperts),
             occupants: Array.from(occActions.entries())
                 .filter(([, action]) => action !== 'ignore')
                 .map(([id, action]) => {
@@ -191,9 +203,17 @@ const GlobalValidationModal = () => {
     const hasFormData = editableData.formData && Object.keys(editableData.formData).some(k => editableData.formData[k] && editableData.formData[k] !== '');
     const hasOccupants = editableData.occupants && editableData.occupants.length > 0;
     const hasExpenses = editableData.expenses && editableData.expenses.length > 0;
+    const aiExperts = pendingAiData.experts || [];
+    const hasExperts = aiExperts.length > 0;
 
     // Pending files for Magic Drop badges
     const pendingFiles = pendingAiData.pendingFiles || [];
+    // Count pending photos (images not matched to expenses)
+    const pendingPhotoCount = pendingFiles.filter(f => f.type && f.type.startsWith('image/')).length;
+
+    const toggleExpert = (name) => {
+        setSelectedExperts(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+    };
 
     return (
         <div className="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -245,7 +265,38 @@ const GlobalValidationModal = () => {
                         </div>
                     )}
 
-                    {/* Section 2: Occupants (Accordion) */}
+                    {/* Section 2: Experts (v5.5.10) */}
+                    {hasExperts && (
+                        <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
+                            <div className="p-3 bg-slate-800 border-b border-slate-700">
+                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">🧑‍💼 Experts <span className="text-[10px] font-normal text-slate-400">({aiExperts.length})</span></h3>
+                            </div>
+                            <div className="p-3 space-y-1.5">
+                                {aiExperts.map((exp, idx) => {
+                                    const name = (exp.nom || '').trim();
+                                    const isAlreadyKnown = expertsList.some(e => (e.nom || '').toLowerCase().trim() === name.toLowerCase());
+                                    return (
+                                        <label key={idx} className={`flex items-center gap-2.5 p-2 rounded transition-colors ${isAlreadyKnown ? 'opacity-40' : 'hover:bg-slate-700/50'}`}>
+                                            <input type="checkbox" checked={selectedExperts.has(name)} onChange={() => toggleExpert(name)} disabled={isAlreadyKnown}
+                                                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 cursor-pointer" />
+                                            <div className="min-w-0 flex-1">
+                                                <span className="text-xs font-bold text-white">{name || 'Sans nom'}</span>
+                                                {exp.tel && <span className="text-[10px] text-slate-400 ml-2">📞 {exp.tel}</span>}
+                                            </div>
+                                            {isAlreadyKnown && (
+                                                <span className="text-[9px] bg-slate-600/30 text-slate-400 px-1.5 py-0.5 rounded border border-slate-600/30 shrink-0">Déjà connu</span>
+                                            )}
+                                            {!isAlreadyKnown && (
+                                                <span className="text-[9px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold border border-green-500/30 shrink-0">✨ Nouveau</span>
+                                            )}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Section 3: Occupants (Accordion) */}
                     {hasOccupants && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-3 bg-slate-800 border-b border-slate-700">
@@ -320,7 +371,7 @@ const GlobalValidationModal = () => {
                         </div>
                     )}
 
-                    {/* Section 3: Expenses (Accordion) */}
+                    {/* Section 4: Expenses (Accordion) */}
                     {hasExpenses && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-3 bg-slate-800 border-b border-slate-700">
@@ -395,7 +446,7 @@ const GlobalValidationModal = () => {
                 {/* Footer */}
                 <div className="p-4 border-t border-slate-700 bg-slate-800 flex items-center justify-between gap-3">
                     <div className="text-[10px] text-slate-500">
-                        {occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais à importer
+                        {selectedExperts.size > 0 ? `${selectedExperts.size} experts · ` : ''}{occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} 📸` : ''} à importer
                     </div>
                     <div className="flex gap-3">
                         <button onClick={handleCancel} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded transition-colors">

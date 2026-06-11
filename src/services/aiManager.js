@@ -1230,7 +1230,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         if (onStatusChange) onStatusChange('attaching'); // Fini
         
-        return { success: true, data: finalJson };
+        return { success: true, data: finalJson, extractedFiles: allExtractedFiles };
 
     } catch (error) {
         console.error("[aiManager] processGlobalIngestion error:", error);
