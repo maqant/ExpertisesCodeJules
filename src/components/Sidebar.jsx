@@ -1174,6 +1174,55 @@ const Sidebar = () => {
                                         </div>
                                     ))
                                 )}
+
+                                {/* v5.5.10 - Photos en attente d'attribution */}
+                                {(attachedPhotos['unassigned'] || []).length > 0 && (
+                                    <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded mt-2">
+                                        <h4 className="text-amber-300 text-xs font-bold mb-2 flex items-center gap-1">📸 Photos en attente d'attribution <span className="text-[9px] font-normal text-amber-400/60">({attachedPhotos['unassigned'].length})</span></h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {attachedPhotos['unassigned'].map(photo => (
+                                                <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-amber-500/30 aspect-video bg-slate-800 flex items-center justify-center">
+                                                    {photo.isPdf ? (
+                                                        <div className="flex flex-col items-center justify-center text-center p-2">
+                                                            <span className="text-2xl">📄</span>
+                                                            <span className="text-[9px] text-slate-300 truncate max-w-full mt-1">{photo.name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
+                                                    )}
+                                                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleRemovePhoto('unassigned', photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
+                                                    </div>
+                                                    {occupants.length > 0 && (
+                                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1">
+                                                            <select 
+                                                                className="w-full bg-slate-800 text-[9px] text-white border border-slate-600 rounded px-1 py-0.5"
+                                                                defaultValue=""
+                                                                onChange={async (e) => {
+                                                                    const targetOccId = e.target.value;
+                                                                    if (!targetOccId) return;
+                                                                    // Récupérer le fichier depuis localforage et recréer un File object
+                                                                    const bytes = await localforage.getItem(photo.dbKey);
+                                                                    if (bytes) {
+                                                                        const mime = photo.isPdf ? 'application/pdf' : 'image/jpeg';
+                                                                        const file = new File([bytes], photo.name, { type: mime });
+                                                                        await handleAttachPhoto(targetOccId, file);
+                                                                        handleRemovePhoto('unassigned', photo.dbKey);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <option value="">→ Attribuer à...</option>
+                                                                {occupants.map(occ => (
+                                                                    <option key={occ.id} value={occ.id}>{occ.nom || 'Inconnu'}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </details>
 

@@ -106,6 +106,30 @@ const pdfToBase64Images = async (file, maxPagesOverride = 20) => {
     return images;
 };
 
+// v5.5.10 - Normalise une date brute (DD/MM/YYYY, MM/YYYY, etc.) vers YYYY-MM-DD pour <input type="date">
+const normalizeDate = (raw) => {
+    if (!raw || typeof raw !== 'string') return '';
+    const s = raw.trim();
+    
+    // Déjà au bon format YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    
+    // DD/MM/YYYY ou DD-MM-YYYY
+    let m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    
+    // MM/YYYY (ex: "06/2026") → 1er du mois
+    m = s.match(/^(\d{1,2})[\/\-.](\d{4})$/);
+    if (m) return `${m[2]}-${m[1].padStart(2,'0')}-01`;
+    
+    // YYYY/MM/DD
+    m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+    if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    
+    // Fallback: retourner tel quel
+    return s;
+};
+
 /**
  * Fonction principale d'extraction de données.
  * @param {File} file Le document (ex: Facture, Devis) sous forme d'objet File
@@ -744,6 +768,18 @@ Voici le format EXACT attendu, avec tous les champs présents :
 
         const data = await response.json();
         const parsedData = JSON.parse(data.choices[0].message.content);
+        
+        // v5.5.10 - Normaliser les dates au format YYYY-MM-DD (requis par <input type="date">)
+        if (parsedData.formData) {
+            const dateFields = ['dateExp', 'dateSinistre', 'dateDeclaration'];
+            dateFields.forEach(field => {
+                const val = parsedData.formData[field];
+                if (val && typeof val === 'string' && val.trim() !== '') {
+                    parsedData.formData[field] = normalizeDate(val);
+                }
+            });
+        }
+        
         return { success: true, data: parsedData };
 
     } catch (error) {
