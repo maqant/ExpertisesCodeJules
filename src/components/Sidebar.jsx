@@ -1465,20 +1465,27 @@ const Sidebar = () => {
                                             }
                                         }
                                     } else {
-                                        const result = await extractDataFromDocument(
-                                            [droppedMsgFile],
-                                            'dossier_global',
-                                            aiConfig.provider,
-                                            aiConfig.model,
+                                        // v5.5.8 - Lancer extraction IA via le Chef d'Orchestre (onClick Valider)
+                                        let filesToProcess = [droppedMsgFile];
+                                        let extractedAttachments = [];
+                                        
+                                        if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
+                                            extractedAttachments = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                            filesToProcess = [...filesToProcess, ...extractedAttachments];
+                                        }
+
+                                        const result = await processGlobalIngestion(
+                                            filesToProcess,
                                             aiConfig.apiKey,
-                                            setAiStatus
+                                            setAiStatus,
+                                            aiConfig.model
                                         );
+                                        
                                         if (result.success && result.data) {
                                             processJsonData(JSON.stringify(result.data));
-                                            const allPendingFiles = [...(result.extractedFiles || [])];
-                                            if (allPendingFiles.length > 0) {
+                                            if (extractedAttachments.length > 0) {
                                                 setTimeout(() => {
-                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: allPendingFiles } : prev);
+                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedAttachments } : prev);
                                                 }, 50);
                                             }
                                         }
