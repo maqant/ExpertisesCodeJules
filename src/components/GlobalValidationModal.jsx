@@ -1,5 +1,6 @@
 import React, { useContext, useState, useMemo, useCallback } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { refineText } from '../services/aiManager';
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
@@ -31,7 +32,7 @@ const deduplicateOccupants = (occupants) => {
 };
 
 const GlobalValidationModal = () => {
-    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList } = useContext(ExpertiseContext);
+    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig } = useContext(ExpertiseContext);
 
     // Editable deep copy of pendingAiData
     const [editableData, setEditableData] = useState(null);
@@ -46,6 +47,8 @@ const GlobalValidationModal = () => {
     const [selectedExperts, setSelectedExperts] = useState(new Set());
     // v5.6.0 - Intervenants (tous DÉCOCHÉS par défaut)
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
+    // v5.6.1 - Refining state
+    const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
     const [initialized, setInitialized] = useState(false);
 
     // Analyze occupant conflicts
@@ -258,6 +261,8 @@ const GlobalValidationModal = () => {
                                     const currentVal = formData[key] || '';
                                     const isIdentical = currentVal === aiVal;
                                     const label = FORM_FIELD_LABELS[key] || key;
+                                    // v5.6.1 - Détecter les champs narratifs pour le Refining
+                                    const isNarrativeField = ['cause', 'divers', 'compteRendu'].includes(key);
                                     return (
                                         <label key={key} className={`flex items-start gap-2.5 p-2 rounded transition-colors ${isIdentical ? 'opacity-40' : 'hover:bg-slate-700/50'}`}>
                                             <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => toggleFormField(key)} disabled={isIdentical}
@@ -268,9 +273,51 @@ const GlobalValidationModal = () => {
                                                     {currentVal && (
                                                         <div className="text-[10px] text-red-400/70 line-through mb-0.5">{currentVal}</div>
                                                     )}
-                                                    <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
-                                                        onChange={(e) => updateFormField(key, e.target.value)}
-                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
+                                                    {isNarrativeField ? (
+                                                        <textarea value={aiVal}
+                                                            onChange={(e) => updateFormField(key, e.target.value)}
+                                                            rows={3}
+                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none resize-y" />
+                                                    ) : (
+                                                        <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
+                                                            onChange={(e) => updateFormField(key, e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
+                                                    )}
+                                                    {/* v5.6.1 - Boutons de Refining pour les champs narratifs */}
+                                                    {isNarrativeField && aiVal && aiVal.length > 10 && (
+                                                        <div className="flex gap-1.5 mt-1.5">
+                                                            {[
+                                                                { directive: 'DEVELOP', icon: '+', label: 'Développer', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' },
+                                                                { directive: 'SUMMARIZE', icon: '−', label: 'Résumer', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20' },
+                                                                { directive: 'TECH_FOCUS', icon: '🔧', label: 'Technique', cls: 'bg-violet-500/10 text-violet-400 border-violet-500/30 hover:bg-violet-500/20' },
+                                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' }
+                                                            ].map(btn => (
+                                                                <button
+                                                                    key={btn.directive}
+                                                                    disabled={refiningField !== null}
+                                                                    onClick={async (e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setRefiningField(key);
+                                                                        const result = await refineText(aiVal, btn.directive, aiConfig?.apiKey);
+                                                                        if (result.success) {
+                                                                            updateFormField(key, result.text);
+                                                                        } else {
+                                                                            console.warn(`[Refine] Échec ${btn.directive}:`, result.error);
+                                                                        }
+                                                                        setRefiningField(null);
+                                                                    }}
+                                                                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-all cursor-pointer ${
+                                                                        refiningField === key
+                                                                            ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-wait'
+                                                                            : btn.cls
+                                                                    } ${refiningField !== null && refiningField !== key ? 'opacity-50' : ''}`}
+                                                                >
+                                                                    {refiningField === key ? '⏳' : btn.icon} {btn.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </label>

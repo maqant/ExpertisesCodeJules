@@ -741,6 +741,70 @@ Utilise ce format exact pour la restitution :
     }
 };
 
+// v5.6.1 - Mini-Agent de Refining (Affinage de texte assisté par IA)
+// Utilisé dans le SAS pour affiner les champs narratifs (cause, divers, compteRendu)
+const REFINE_DIRECTIVES = {
+    DEVELOP: `Tu reçois un texte technique d'expertise sinistre. Développe-le : allonge-le, rends-le plus rédigé, explicatif et professionnel. Conserve tous les faits, ajoute des transitions et des précisions techniques. Ne change pas le sens. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`,
+    SUMMARIZE: `Tu reçois un texte technique d'expertise sinistre. Résume-le drastiquement : va droit au but, élimine les redondances. Tu peux utiliser des tirets/bullet points. Conserve les faits critiques (cause, localisation, montants). Renvoie UNIQUEMENT le texte résumé, sans introduction ni commentaire.`,
+    TECH_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le dans un ton hyper-factuel et technique. Utilise le vocabulaire du bâtiment et de l'assurance (infiltration, désordre, sinistre, dommages consécutifs, vétusté, etc.). Élimine toute émotion, contexte humain inutile ou formule de politesse. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`,
+    CONTEXT_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le en mettant l'accent sur la chronologie des événements, les raisons de l'intervention et le contexte circonstanciel. Précise les dates, les intervenants et l'enchaînement des faits. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.`
+};
+
+/**
+ * [v5.6.1] Mini-Agent Refine : affine un texte selon une directive.
+ * @param {string} currentText - Le texte à affiner
+ * @param {'DEVELOP'|'SUMMARIZE'|'TECH_FOCUS'|'CONTEXT_FOCUS'} directive - La directive d'affinage
+ * @param {string|null} providedApiKey - Clé API optionnelle
+ * @returns {Promise<{success: boolean, text?: string, error?: string}>}
+ */
+export const refineText = async (currentText, directive, providedApiKey = null) => {
+    if (!currentText || currentText.trim() === '') {
+        return { success: false, error: "Aucun texte à affiner." };
+    }
+
+    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+        return { success: false, error: "Clé API non configurée." };
+    }
+
+    const systemPrompt = REFINE_DIRECTIVES[directive];
+    if (!systemPrompt) {
+        return { success: false, error: `Directive inconnue : ${directive}` };
+    }
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: currentText }
+                ],
+                temperature: 0.3,
+                max_tokens: 2000
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const refinedText = data.choices[0].message.content.trim();
+        return { success: true, text: refinedText };
+
+    } catch (error) {
+        console.error("[aiManager] refineText error:", error);
+        return { success: false, error: error.message || "Erreur lors de l'affinage." };
+    }
+};
+
 /**
  * [v5.5.11] Étape 1 : Le Routeur (Triage Multi-Catégories)
  * Classe un ensemble de documents dans 1 ou PLUSIEURS catégories : ADMIN, SOCIAL, RECITS, FINANCIER.
