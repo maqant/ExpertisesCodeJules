@@ -134,9 +134,18 @@ const GlobalValidationModal = () => {
         const newFormFields = new Set();
         if (pendingAiData.formData) {
             Object.keys(pendingAiData.formData).forEach(key => {
-                const aiVal = pendingAiData.formData[key];
+                const aiVal = pendingAiData.formData[key] || '';
                 const currentVal = formData[key] || '';
-                if (aiVal && aiVal !== '' && aiVal !== currentVal) newFormFields.add(key);
+                
+                if (aiVal.trim() !== '') {
+                    if (currentVal.trim() === '') {
+                        // New value
+                        newFormFields.add(key);
+                    } else if (aiVal.trim() !== currentVal.trim()) {
+                        // Modified value
+                        newFormFields.add(key);
+                    }
+                }
             });
         }
         setSelectedFormFields(newFormFields);
@@ -399,9 +408,9 @@ const GlobalValidationModal = () => {
                                     // v5.6.1 - Détecter les champs narratifs pour le Refining
                                     const isNarrativeField = ['cause', 'divers'].includes(key);
                                     return (
-                                        <label key={key} className={`flex items-start gap-2.5 p-2 rounded transition-colors ${isIdentical ? 'opacity-40' : 'hover:bg-slate-700/50'}`}>
-                                            <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => toggleFormField(key)} disabled={isIdentical}
-                                                className="mt-1 w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 cursor-pointer" />
+                                        <div key={key} onClick={() => !isIdentical && toggleFormField(key)} className={`flex items-start gap-2.5 p-2 rounded transition-colors ${isIdentical ? 'opacity-40' : 'hover:bg-slate-700/50 cursor-pointer'}`}>
+                                            <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => {}} disabled={isIdentical}
+                                                className="mt-1 w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 pointer-events-none" />
                                             <div className="min-w-0 flex-1">
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
                                                 <div className="mt-0.5">
@@ -410,11 +419,13 @@ const GlobalValidationModal = () => {
                                                     )}
                                                     {isNarrativeField ? (
                                                         <textarea value={aiVal}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             onChange={(e) => updateFormField(key, e.target.value)}
-                                                            rows={3}
+                                                            rows={key === 'cause' ? 6 : 3}
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none resize-y" />
                                                     ) : (
                                                         <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             onChange={(e) => updateFormField(key, e.target.value)}
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
                                                     )}
@@ -456,7 +467,7 @@ const GlobalValidationModal = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                        </label>
+                                        </div>
                                     );
                                 })}
                             </div>
