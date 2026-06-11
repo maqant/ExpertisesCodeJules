@@ -450,6 +450,33 @@ const Sidebar = () => {
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
+                                onDrop={(e) => {
+                                    e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(false);
+                                    const files = Array.from(e.dataTransfer.files);
+                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg'));
+                                    if (msgFile) {
+                                        setDroppedMsgFile(msgFile);
+                                        setShowAiDossierPrompt(true);
+                                    } else if (files.length > 0) {
+                                        setDroppedMsgFile(files[0]);
+                                        setShowAiDossierPrompt(true);
+                                    }
+                                }}
+                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 ${
+                                    !isAiModeActive
+                                        ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500'
+                                        : isDraggingOverMagic
+                                            ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40 cursor-pointer'
+                                            : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50 cursor-pointer'
+                                }`}
+                                title={!isAiModeActive ? "Mode IA désactivé" : "Glissez un e-mail .msg ici pour créer un nouveau dossier via IA"}
+                                onClick={() => { if (!isAiModeActive) return; setShowAiDossierPrompt(true); }}
+                            >
+                                {isDraggingOverMagic ? '📥' : '🪄'}
+                            </div>
                             <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
