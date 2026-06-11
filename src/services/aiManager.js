@@ -1076,6 +1076,9 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
                 occupants: [{
                     id: crypto.randomUUID(), nom: "Locataire Mock", prenom: "Jean", etage: "1er", statut: "Locataire", tel: "0499 88 88 88", email: "jean@mock.com",
                     rc: false, rcPolice: "", secAssurance: false, secCie: "", secPolice: "", secType: "", contreExpert: false
+                }],
+                intervenants: [{
+                    id: crypto.randomUUID(), nom: "Plombier Mock", prenom: "Pierre", role: "Plombier", societe: "ABC Plomberie", email: "", tel: "0470 00 00 00"
                 }]
             }
         };
@@ -1116,12 +1119,28 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
         }
 
         const systemPrompt = `Tu es un Agent Social expert dans l'analyse de documents liés aux expertises immobilières.
-Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'en extraire TOUS les intervenants (experts et occupants).
+Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'identifier TOUTES les personnes mentionnées.
+
+MÉTHODE DE TRAVAIL (Chain of Thought) :
+Avant de formater le JSON, réfléchis en suivant ces étapes :
+1. Liste mentalement TOUTES les personnes physiques et morales mentionnées dans les documents.
+2. Pour chaque personne, détermine son RÔLE exact : est-ce un occupant du bien (locataire, propriétaire) ou un intervenant extérieur (plombier, syndic, courtier, expert, proche, etc.) ?
+3. Pour les propriétaires : est-il EXPLICITEMENT dit qu'il occupe le bien ("propriétaire occupant", "habite sur place") ou qu'il ne l'occupe pas ("propriétaire bailleur", "ne réside pas") ? Si rien n'est précisé, utilise "Propriétaire (occupation inconnue)".
+4. Classe chaque personne dans le bon tableau (occupants OU intervenants) puis formate le JSON.
 
 RÈGLES ABSOLUES :
 1. N'invente AUCUNE information. Si l'information n'est pas présente, renvoie une chaîne vide "" ou false pour les booléens.
-2. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces valeurs exactes : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", ou "Autre". 
-3. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
+2. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces 5 valeurs EXACTES :
+   - "Locataire"
+   - "Propriétaire occupant"
+   - "Propriétaire non occupant"
+   - "Propriétaire (occupation inconnue)" ← SI le document dit juste "propriétaire" sans préciser s'il habite sur place
+   - "ACP" ← Pour l'Association des Copropriétaires
+3. TOUTE personne qui n'est PAS un occupant ou un ACP doit aller dans le tableau \"intervenants\". Exemples : syndic, courtier, plombier, expert privé, père/mère de, conjoint, etc.
+4. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau \"experts\" du tableau \"intervenants\".
+   - Un \"expert\" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa, Bureau Péchard).
+   - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans \"intervenants\".
+5. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
@@ -1130,6 +1149,11 @@ Voici le format EXACT attendu, avec tous les champs présents :
     {
       "nom": "", "prenom": "", "etage": "", "statut": "Locataire", "tel": "", "email": "",
       "rc": false, "rcPolice": "", "secAssurance": false, "secCie": "", "secPolice": "", "secType": "", "contreExpert": false
+    }
+  ],
+  "intervenants": [
+    {
+      "nom": "", "prenom": "", "role": "", "societe": "", "email": "", "tel": ""
     }
   ]
 }`;
@@ -1167,6 +1191,16 @@ Voici le format EXACT attendu, avec tous les champs présents :
                 ...occ,
                 id: crypto.randomUUID()
             }));
+        }
+
+        // v5.6.0 - Ajout UUID pour chaque intervenant
+        if (parsedData.intervenants && Array.isArray(parsedData.intervenants)) {
+            parsedData.intervenants = parsedData.intervenants.map(inter => ({
+                ...inter,
+                id: crypto.randomUUID()
+            }));
+        } else {
+            parsedData.intervenants = [];
         }
 
         return { success: true, data: parsedData };
@@ -1512,7 +1546,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             
         const socialPromise = socialFiles.length > 0
             ? extractSocialData(socialFiles, providedApiKey, null, model)
-            : Promise.resolve({ success: true, data: { occupants: [], experts: [] } });
+            : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
         // On attend la résolution des premiers agents
         const [adminRes, narrativeRes, socialRes] = await Promise.all([adminPromise, narrativePromise, socialPromise]);
@@ -1540,6 +1574,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             references: adminRes.data?.references || [],
             experts: socialRes.data?.experts || [],
             occupants: occupants,
+            intervenants: socialRes.data?.intervenants || [],
             expenses: financialRes.data?.expenses || []
         };
 

@@ -166,6 +166,8 @@ export const ExpertiseProvider = ({ children }) => {
   const [dossierSearch, setDossierSearch] = useState('');
   const [expertsList, setExpertsList] = useState([]);
   const [franchises, setFranchises] = useState([]);
+  // v5.6.0 - Liste des intervenants externes (plombiers, syndics, courtiers, etc.)
+  const [intervenantsList, setIntervenantsList] = useState([]);
   const [showExpertDropdown, setShowExpertDropdown] = useState(false);
   const [showExpertDropdownContradictoire, setShowExpertDropdownContradictoire] = useState(false);
   const [showFranchiseDropdown, setShowFranchiseDropdown] = useState(false); 
@@ -1364,7 +1366,36 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
-      // 6. Nettoyer APRÈS tous les attachements
+      // 6. Intervenants — ajouter les intervenants cochés (v5.6.0)
+      if (selections.intervenants && selections.intervenants.length > 0 && data.intervenants) {
+          const newIntervenants = [];
+          selections.intervenants.forEach(intervenantId => {
+              const aiInter = data.intervenants.find(i => i.id === intervenantId);
+              if (!aiInter) return;
+              // Anti-doublons par nom
+              const exists = intervenantsList.some(i => 
+                  (i.nom || '').toLowerCase().trim() === (aiInter.nom || '').toLowerCase().trim() &&
+                  (i.prenom || '').toLowerCase().trim() === (aiInter.prenom || '').toLowerCase().trim()
+              );
+              if (!exists && aiInter.nom) {
+                  newIntervenants.push({
+                      id: crypto.randomUUID(),
+                      nom: aiInter.nom || '',
+                      prenom: aiInter.prenom || '',
+                      role: aiInter.role || '',
+                      societe: aiInter.societe || '',
+                      email: aiInter.email || '',
+                      tel: aiInter.tel || ''
+                  });
+              }
+          });
+          if (newIntervenants.length > 0) {
+              setIntervenantsList(prev => [...prev, ...newIntervenants]);
+              console.log(`[commitPendingAiData] 🤝 ${newIntervenants.length} intervenants ajoutés`);
+          }
+      }
+
+      // 7. Nettoyer APRÈS tous les attachements
       setPendingAiData(null);
       setActiveTab('builder');
   };
@@ -1468,6 +1499,7 @@ Voici le format JSON :
       expertsList, setExpertsList, franchises, setFranchises,
       showExpertDropdown, setShowExpertDropdown, showExpertDropdownContradictoire, setShowExpertDropdownContradictoire,
       showFranchiseDropdown, setShowFranchiseDropdown, prestatairesList, setPrestatairesList, handleAddPrestataire,
+      intervenantsList, setIntervenantsList,
       formData, setFormData, blockTitles, setBlockTitles, references, setReferences,
       occupants, setOccupants,
       expenses, setExpenses, blocksVisible, setBlocksVisible,

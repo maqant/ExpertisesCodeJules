@@ -1464,6 +1464,7 @@ const Sidebar = () => {
                                                     formData: aiData.formData || null,
                                                     experts: aiData.experts || [],
                                                     occupants: safeOccupants,
+                                                    intervenants: aiData.intervenants || [],
                                                     expenses: safeExpenses,
                                                     pendingFiles: allPendingFiles
                                                 });
@@ -1560,6 +1561,7 @@ const Sidebar = () => {
                                                 formData: aiData.formData || null,
                                                 experts: aiData.experts || [],
                                                 occupants: safeOccupants,
+                                                intervenants: aiData.intervenants || [],
                                                 expenses: safeExpenses,
                                                 pendingFiles: allPendingFiles
                                             });

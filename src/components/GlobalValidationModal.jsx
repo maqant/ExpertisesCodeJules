@@ -7,7 +7,7 @@ const FORM_FIELD_LABELS = {
     numSinistreCie: 'N° Sinistre Cie', adresse: 'Adresse', cause: 'Cause'
 };
 
-const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Syndic / Autre'];
+const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Propriétaire (occupation inconnue)', 'ACP'];
 
 // Deduplicate strict AI duplicates (same prestataire + same montant + same ref)
 const deduplicateExpenses = (expenses) => {
@@ -44,6 +44,8 @@ const GlobalValidationModal = () => {
     // Selected form fields
     const [selectedFormFields, setSelectedFormFields] = useState(new Set());
     const [selectedExperts, setSelectedExperts] = useState(new Set());
+    // v5.6.0 - Intervenants (tous DÉCOCHÉS par défaut)
+    const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
     const [initialized, setInitialized] = useState(false);
 
     // Analyze occupant conflicts
@@ -132,12 +134,16 @@ const GlobalValidationModal = () => {
         });
         setExpActions(newExpActions);
 
+        // v5.6.0 - Intervenants : TOUS décochés par défaut
+        setSelectedIntervenants(new Set());
+
         setInitialized(true);
     }
 
     if (!pendingAiData && initialized) {
         setInitialized(false);
         setEditableData(null);
+        setSelectedIntervenants(new Set());
     }
 
     if (!pendingAiData || !editableData) return null;
@@ -180,13 +186,16 @@ const GlobalValidationModal = () => {
                 }),
             expenses: Array.from(expActions.entries())
                 .filter(([, action]) => action !== 'ignore')
-                .map(([id]) => id)
+                .map(([id]) => id),
+            // v5.6.0 - Intervenants sélectionnés (cochés manuellement)
+            intervenants: Array.from(selectedIntervenants)
         };
 
         // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
         const mergedData = {
-            ...pendingAiData,               // preserves pendingFiles, experts, etc.
+            ...pendingAiData,               // preserves pendingFiles, experts, intervenants, etc.
             ...editableData,                // overwrites formData, occupants, expenses with edited versions
+            intervenants: pendingAiData.intervenants || [],  // preserve original intervenants
             pendingFiles: pendingAiData.pendingFiles || []  // explicit safety net
         };
         setPendingAiData(mergedData);
@@ -205,6 +214,12 @@ const GlobalValidationModal = () => {
     const hasExpenses = editableData.expenses && editableData.expenses.length > 0;
     const aiExperts = pendingAiData.experts || [];
     const hasExperts = aiExperts.length > 0;
+    // v5.6.0 - Intervenants
+    const aiIntervenants = pendingAiData.intervenants || [];
+    const hasIntervenants = aiIntervenants.length > 0;
+    const toggleIntervenant = (id) => {
+        setSelectedIntervenants(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    };
 
     // Pending files for Magic Drop badges
     const pendingFiles = pendingAiData.pendingFiles || [];
@@ -371,6 +386,37 @@ const GlobalValidationModal = () => {
                         </div>
                     )}
 
+                    {/* Section 3.5: Intervenants (v5.6.0) — DÉCOCHÉS par défaut */}
+                    {hasIntervenants && (
+                        <div className="bg-slate-800/50 rounded-lg border border-amber-700/50 overflow-hidden">
+                            <div className="p-3 bg-slate-800 border-b border-amber-700/50">
+                                <h3 className="text-sm font-bold text-amber-300 flex items-center gap-1.5">
+                                    🤝 Autres Intervenants <span className="text-[10px] font-normal text-slate-400">({aiIntervenants.length})</span>
+                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30 ml-auto">⚠️ Cochez pour conserver</span>
+                                </h3>
+                            </div>
+                            <div className="p-3 space-y-1.5">
+                                {aiIntervenants.map(inter => {
+                                    const isChecked = selectedIntervenants.has(inter.id);
+                                    return (
+                                        <label key={inter.id} className={`flex items-center gap-2.5 p-2 rounded transition-colors hover:bg-slate-700/50 ${isChecked ? '' : 'opacity-60'}`}>
+                                            <input type="checkbox" checked={isChecked} onChange={() => toggleIntervenant(inter.id)}
+                                                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-0 shrink-0 cursor-pointer" />
+                                            <div className="min-w-0 flex-1">
+                                                <span className="text-xs font-bold text-white">{inter.nom || ''} {inter.prenom || ''}</span>
+                                                {inter.role && <span className="text-[10px] text-amber-400 ml-2">({inter.role})</span>}
+                                                {inter.societe && <span className="text-[10px] text-slate-400 ml-1">— {inter.societe}</span>}
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                {inter.tel && <span className="text-[10px] text-slate-400">📞 {inter.tel}</span>}
+                                                {inter.email && <span className="text-[10px] text-slate-400">✉️ {inter.email}</span>}
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     {/* Section 4: Expenses (Accordion) */}
                     {hasExpenses && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
@@ -446,7 +492,7 @@ const GlobalValidationModal = () => {
                 {/* Footer */}
                 <div className="p-4 border-t border-slate-700 bg-slate-800 flex items-center justify-between gap-3">
                     <div className="text-[10px] text-slate-500">
-                        {selectedExperts.size > 0 ? `${selectedExperts.size} experts · ` : ''}{occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} 📸` : ''} à importer
+                        {selectedExperts.size > 0 ? `${selectedExperts.size} experts · ` : ''}{occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants{selectedIntervenants.size > 0 ? ` · ${selectedIntervenants.size} intervenants` : ''} · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} 📸` : ''} à importer
                     </div>
                     <div className="flex gap-3">
                         <button onClick={handleCancel} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded transition-colors">
