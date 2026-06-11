@@ -1316,3 +1316,90 @@ Format EXACT attendu :
         return { success: false, error: error.message || "Erreur lors de l'extraction financière." };
     }
 };
+
+// v5.5.5
+/**
+ * Étape 6 : Le Chef d'Orchestre & Dropzones
+ * Orchestre l'ingestion globale de fichiers via le Routeur, distribue aux agents spécialisés,
+ * et assemble le JSON final pour la modale globale.
+ */
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+    try {
+        if (onStatusChange) onStatusChange('routing');
+        
+        // 1. Triage via le Routeur
+        const routeResult = await routeDocuments(files, providedApiKey, onStatusChange);
+        if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
+        
+        const routeMap = routeResult.data; // { "fichier1.pdf": "ADMIN", ... }
+
+        // 2. Séparation des fichiers
+        const adminFiles = [];
+        const socialFiles = [];
+        const narrativeFiles = [];
+        const financialFiles = [];
+
+        // On convertit les `files` (qui peut être un FileList) en Array pour l'itération
+        const fileArray = Array.isArray(files) ? files : Array.from(files);
+
+        for (const file of fileArray) {
+            const fileName = file.name || 'document_sans_nom';
+            const category = routeMap[fileName] || 'ADMIN'; // Par défaut ADMIN si non reconnu ou ignoré
+            
+            if (category === 'ADMIN') adminFiles.push(file);
+            else if (category === 'SOCIAL') socialFiles.push(file);
+            else if (category === 'RECITS') narrativeFiles.push(file);
+            else if (category === 'FINANCIER') financialFiles.push(file);
+        }
+
+        if (onStatusChange) onStatusChange('extracting');
+
+        // 3. Lancer les agents indépendants en parallèle
+        const adminPromise = adminFiles.length > 0 
+            ? extractAdministrativeData(adminFiles, providedApiKey, null, model)
+            : Promise.resolve({ success: true, data: {} });
+            
+        const narrativePromise = narrativeFiles.length > 0
+            ? extractNarrativeData(narrativeFiles, providedApiKey, null, model)
+            : Promise.resolve({ success: true, data: {} });
+            
+        const socialPromise = socialFiles.length > 0
+            ? extractSocialData(socialFiles, providedApiKey, null, model)
+            : Promise.resolve({ success: true, data: { occupants: [], experts: [] } });
+
+        // On attend la résolution des premiers agents
+        const [adminRes, narrativeRes, socialRes] = await Promise.all([adminPromise, narrativePromise, socialPromise]);
+
+        // 4. Récupérer les occupants (pour l'agent financier)
+        let occupants = [];
+        if (socialRes.success && socialRes.data && socialRes.data.occupants) {
+            occupants = socialRes.data.occupants;
+        }
+
+        // 5. Lancer l'agent financier avec la liste des occupants injectée
+        let financialRes = { success: true, data: { expenses: [] } };
+        if (financialFiles.length > 0) {
+            financialRes = await extractFinancialData(financialFiles, occupants, providedApiKey, null, model);
+        }
+
+        // 6. Fusionner tous les objets en un seul grand JSON final
+        const finalJson = {
+            formData: adminRes.data?.formData || {},
+            references: adminRes.data?.references || [],
+            cause: narrativeRes.data?.cause || "",
+            divers: narrativeRes.data?.divers || "",
+            compteRendu: narrativeRes.data?.compteRendu || "",
+            experts: socialRes.data?.experts || [],
+            occupants: occupants,
+            expenses: financialRes.data?.expenses || []
+        };
+
+        if (onStatusChange) onStatusChange('attaching'); // Fini
+        
+        return { success: true, data: finalJson };
+
+    } catch (error) {
+        console.error("[aiManager] processGlobalIngestion error:", error);
+        return { success: false, error: error.message || "Erreur lors de l'ingestion globale." };
+    }
+};
