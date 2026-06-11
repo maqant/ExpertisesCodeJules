@@ -225,7 +225,7 @@ const Sidebar = () => {
             const file = files[0];
             if (!isAiModeActive) {
                 if (file.name.toLowerCase().endsWith('.msg')) {
-                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
                     if (extractedFiles.length === 0) {
                         alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
                         return;
@@ -263,7 +263,7 @@ const Sidebar = () => {
         try {
             if (!isAiModeActive) {
                 const file = files[0];
-                const filesToProcess = file.name.toLowerCase().endsWith('.msg') ? await extractValidAttachmentsFromMsg(file) : [file];
+                const filesToProcess = file.name.toLowerCase().endsWith('.msg') ? (await extractValidAttachmentsFromMsg(file)).files : [file];
                 if (filesToProcess.length === 0) return alert("Aucune pièce jointe valide trouvée.");
                 
                 for (const f of filesToProcess) {
@@ -307,7 +307,7 @@ const Sidebar = () => {
             const file = files[0];
             if (!isAiModeActive) {
                 if (file.name.toLowerCase().endsWith('.msg')) {
-                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
                     if (extractedFiles.length === 0) {
                         alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
                         return;
@@ -351,7 +351,7 @@ const Sidebar = () => {
             const file = files[0];
             if (!isAiModeActive) {
                 if (file.name.toLowerCase().endsWith('.msg')) {
-                    const extractedFiles = await extractValidAttachmentsFromMsg(file);
+                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
                     if (extractedFiles.length === 0) {
                         alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
                         return;
@@ -1422,7 +1422,7 @@ const Sidebar = () => {
                                     if (droppedMsgFile) {
                                         if (!isAiModeActive) {
                                             if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
-                                                const extractedFiles = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                                const { files: extractedFiles } = await extractValidAttachmentsFromMsg(droppedMsgFile);
                                                 if (extractedFiles.length > 0) {
                                                     setTimeout(() => {
                                                         setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });
@@ -1437,7 +1437,7 @@ const Sidebar = () => {
                                             let extractedAttachments = [];
                                             
                                             if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
-                                                extractedAttachments = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                                extractedAttachments = (await extractValidAttachmentsFromMsg(droppedMsgFile)).files;
                                                 filesToProcess = [...filesToProcess, ...extractedAttachments];
                                             }
 
@@ -1504,7 +1504,7 @@ const Sidebar = () => {
                                 if (droppedMsgFile) {
                                     if (!isAiModeActive) {
                                         if (droppedMsgFile.name.toLowerCase().endsWith('.msg')) {
-                                            const extractedFiles = await extractValidAttachmentsFromMsg(droppedMsgFile);
+                                            const { files: extractedFiles } = await extractValidAttachmentsFromMsg(droppedMsgFile);
                                             if (extractedFiles.length > 0) {
                                                 setTimeout(() => {
                                                     setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });

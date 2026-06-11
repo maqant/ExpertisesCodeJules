@@ -21,60 +21,218 @@ const fileToBase64 = (file) => {
 };
 
 // Utilitaire d'extraction du texte + pièces jointes d'un fichier .msg (Outlook)
-const MIME_MAP = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+const MIME_MAP = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', tiff: 'image/tiff', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', msg: 'application/vnd.ms-outlook' };
 const getMimeType = (filename) => { const ext = (filename || '').split('.').pop().toLowerCase(); return MIME_MAP[ext] || 'application/octet-stream'; };
 
-export const extractValidAttachmentsFromMsg = async (msgFile) => {
-    const arrayBuffer = await msgFile.arrayBuffer();
-    const msgReader = new MsgReader(arrayBuffer);
-    const fileData = msgReader.getFileData();
-    const validFilesArray = [];
+// v5.5.13 - Extraction RÉCURSIVE des pièces jointes d'un fichier .msg (Outlook)
+// Fix: détection des sous-mails via OLE magic bytes (D0 CF 11 E0) + attachMethod === 5
+// Inclut les images inline (CID) > 20KB, génère des noms pour les PJ sans nom.
 
-    if (fileData.attachments && fileData.attachments.length > 0) {
-        for (let i = 0; i < fileData.attachments.length; i++) {
-            const att = fileData.attachments[i];
-            const attName = att.fileName || att.name || `attachment_${i}`;
-            const ext = attName.split('.').pop().toLowerCase();
+const MIN_INLINE_IMAGE_SIZE = 20 * 1024; // 20 KB — en-dessous c'est un logo de signature
 
-            if (['doc', 'docx', 'xls', 'xlsx'].includes(ext)) {
-                console.warn(`Le fichier ${attName} a été ignoré car seuls les PDF et Images sont supportés.`);
+// OLE Compound Document magic bytes : D0 CF 11 E0 A1 B1 1A E1
+const isOleCompoundDoc = (bytes) => {
+    if (!bytes || bytes.length < 8) return false;
+    return bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0;
+};
+
+/**
+ * Détecte si une pièce jointe est un email imbriqué (sous-mail).
+ * Vérifie : extension .msg, attachMethod === 5 (OLE embedded), ou magic bytes OLE.
+ */
+const isEmbeddedMsg = (att, ext, contentBytes) => {
+    // 1. Extension explicite
+    if (ext === 'msg') return true;
+    // 2. attachMethod === 5 (ATTACH_EMBEDDED_MSG dans la spec MAPI)
+    if (att.attachMethod === 5) return true;
+    // 3. MIME type explicite
+    const attMime = (att.mimeType || att.contentType || '').toLowerCase();
+    if (attMime.includes('ms-outlook') || attMime.includes('rfc822')) return true;
+    // 4. OLE magic bytes dans le contenu
+    if (contentBytes && isOleCompoundDoc(contentBytes)) return true;
+    return false;
+};
+
+let _inlineImageCounter = 0; // Compteur global pour nommer les images inline sans nom
+
+/**
+ * Fonction interne récursive qui opère sur un ArrayBuffer brut.
+ * Retourne { files: File[], nestedTexts: string[] }
+ */
+const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
+    const result = { files: [], nestedTexts: [] };
+    const prefix = `[${'  '.repeat(depth)}MSG Parser depth:${depth}]`;
+
+    console.log(`${prefix} 📧 Entrée dans MSG "${parentName}" (profondeur: ${depth})`);
+
+    if (depth > 5) {
+        console.warn(`${prefix} ⛔ Profondeur max (5) atteinte, arrêt récursion.`);
+        return result;
+    }
+
+    let msgReader, fileData;
+    try {
+        msgReader = new MsgReader(rawBuffer);
+        fileData = msgReader.getFileData();
+    } catch (e) {
+        console.warn(`${prefix} ❌ Impossible de parser le MSG "${parentName}":`, e);
+        return result;
+    }
+
+    console.log(`${prefix} ✅ MSG parsé : sujet="${fileData.subject || '(vide)'}", expéditeur="${fileData.senderName || '(vide)'}"`);
+
+    // Extraire le texte du mail courant (pour les niveaux imbriqués uniquement)
+    if (depth > 0) {
+        const parts = [];
+        if (fileData.subject) parts.push(`[Email imbriqué niv.${depth}] Sujet: ${fileData.subject}`);
+        if (fileData.senderName) parts.push(`De: ${fileData.senderName}`);
+        if (fileData.body) parts.push(fileData.body);
+        if (parts.length > 0) result.nestedTexts.push(parts.join('\n'));
+    }
+
+    if (!fileData.attachments || fileData.attachments.length === 0) {
+        console.log(`${prefix} 📭 Aucune pièce jointe trouvée dans ce MSG.`);
+        return result;
+    }
+
+    console.log(`${prefix} 📎 ${fileData.attachments.length} pièce(s) jointe(s) trouvée(s) :`);
+    
+    // Log détaillé de TOUTES les PJ brutes avant traitement
+    fileData.attachments.forEach((att, idx) => {
+        const name = att.fileName || att.name || '(SANS NOM)';
+        const method = att.attachMethod !== undefined ? att.attachMethod : '?';
+        const cid = att.pidContentId || att.contentId || '';
+        const mime = att.mimeType || att.contentType || '';
+        console.log(`${prefix}   #${idx}: nom="${name}" | method=${method} | CID="${cid}" | mime="${mime}"`);
+    });
+
+    for (let i = 0; i < fileData.attachments.length; i++) {
+        const att = fileData.attachments[i];
+        let attName = att.fileName || att.name || '';
+        const ext = attName ? attName.split('.').pop().toLowerCase() : '';
+
+        // Ignorer les formats bureautiques non supportés
+        if (['doc', 'docx', 'xls', 'xlsx'].includes(ext)) {
+            console.log(`${prefix}   #${i} ❌ Rejeté (format bureautique non supporté) : "${attName}"`);
+            continue;
+        }
+
+        let attData;
+        try {
+            attData = msgReader.getAttachment(i);
+        } catch (e) {
+            console.warn(`${prefix}   #${i} ❌ Rejeté (impossible d'extraire le contenu) : "${attName}"`, e);
+            continue;
+        }
+
+        if (!attData || !attData.content) {
+            console.log(`${prefix}   #${i} ❌ Rejeté (contenu vide/null) : "${attName}"`);
+            continue;
+        }
+
+        const contentBytes = new Uint8Array(attData.content);
+        const sizeKB = (contentBytes.byteLength / 1024).toFixed(1);
+
+        console.log(`${prefix}   #${i} 📦 Contenu extrait : ${sizeKB} KB, ${contentBytes.byteLength} bytes`);
+
+        // --- Cas récursif : la PJ est un email imbriqué (OLE / .msg / attachMethod 5) ---
+        if (isEmbeddedMsg(att, ext, contentBytes)) {
+            console.log(`${prefix}   #${i} 📧➡️ SOUS-MAIL DÉTECTÉ (ext="${ext}", method=${att.attachMethod}, OLE=${isOleCompoundDoc(contentBytes)}) → Récursion...`);
+            const nested = _extractMsgRecursive(attData.content, attName || `sous-mail_${i}`, depth + 1);
+            console.log(`${prefix}   #${i} ↩️ Récursion terminée : ${nested.files.length} fichier(s) remontés, ${nested.nestedTexts.length} texte(s)`);
+            result.files.push(...nested.files);
+            result.nestedTexts.push(...nested.nestedTexts);
+            continue;
+        }
+
+        // --- Déterminer le MIME et le type ---
+        const mime = getMimeType(attName || 'unknown.bin');
+        const isImage = mime.startsWith('image/');
+        const isPdf = mime === 'application/pdf';
+
+        // --- Gestion des PJ sans nom ---
+        if (!attName || attName === '' || attName.startsWith('attachment_')) {
+            if (isImage || (contentBytes.byteLength > MIN_INLINE_IMAGE_SIZE)) {
+                // Générer un nom par défaut pour les images inline sans nom
+                _inlineImageCounter++;
+                const guessedExt = mime.split('/')[1] || 'png';
+                attName = `image_inline_${_inlineImageCounter}.${guessedExt}`;
+                console.log(`${prefix}   #${i} 🏷️ Nom généré pour image sans nom : "${attName}" (${sizeKB} KB)`);
+            } else {
+                console.log(`${prefix}   #${i} ❌ Rejeté (pas de nom, pas une image, ou trop petit) : taille=${sizeKB}KB, mime="${mime}"`);
                 continue;
             }
+        }
 
-            try {
-                const attData = msgReader.getAttachment(i);
-                if (attData && attData.content) {
-                    const mime = getMimeType(attName);
-                    // On ne convertit que si c'est un pdf ou image
-                    if (mime === 'application/pdf' || mime.startsWith('image/')) {
-                        const blob = new Blob([new Uint8Array(attData.content)], { type: mime });
-                        const extractedFile = new File([blob], attName, { type: mime });
-                        validFilesArray.push(extractedFile);
-                    }
-                }
-            } catch (e) {
-                console.warn(`[aiManager] Impossible d'extraire la pièce jointe ${attName}:`, e);
+        if (!isPdf && !isImage) {
+            console.log(`${prefix}   #${i} ❌ Rejeté (ni PDF ni image) : "${attName}", mime="${mime}"`);
+            continue;
+        }
+
+        // --- Filtrage des micro-images inline (logos de signature < 20KB) ---
+        if (isImage && contentBytes.byteLength < MIN_INLINE_IMAGE_SIZE) {
+            const hasCid = att.pidContentId || att.contentId;
+            const hasGenericName = /^image\d{3,}/i.test(attName) || attName.startsWith('image_inline_');
+            if (hasCid || hasGenericName) {
+                console.log(`${prefix}   #${i} 🚫 Rejeté (image inline < 20KB = logo/signature) : "${attName}" (${sizeKB} KB)`);
+                continue;
             }
+        }
+
+        // --- Créer le File object à partir du buffer brut ---
+        try {
+            const blob = new Blob([contentBytes], { type: mime });
+            const extractedFile = new File([blob], attName, { type: mime });
+            result.files.push(extractedFile);
+            console.log(`${prefix}   #${i} ✅ ACCEPTÉ : "${attName}" (${sizeKB} KB, ${mime})`);
+        } catch (e) {
+            console.warn(`${prefix}   #${i} ❌ Rejeté (échec création File) : "${attName}"`, e);
         }
     }
 
-    return validFilesArray;
+    console.log(`${prefix} 📊 Résultat final pour "${parentName}" : ${result.files.length} fichier(s), ${result.nestedTexts.length} texte(s) imbriqué(s)`);
+    return result;
 };
 
+/**
+ * Fonction publique exportée : accepte un File .msg, retourne { files: File[], nestedTexts: string[] }
+ * Compatible avec tous les callers existants (Sidebar, processGlobalIngestion).
+ */
+export const extractValidAttachmentsFromMsg = async (msgFile, _depth = 0) => {
+    _inlineImageCounter = 0; // Reset compteur à chaque appel top-level
+    try {
+        const arrayBuffer = await msgFile.arrayBuffer();
+        return _extractMsgRecursive(arrayBuffer, msgFile.name || 'email.msg', _depth);
+    } catch (e) {
+        console.error(`[MSG Parser] ❌ Fatal error:`, e);
+        return { files: [], nestedTexts: [] };
+    }
+};
+
+// v5.5.12 - parseMsgFile délègue toute l'extraction à _extractMsgRecursive
 const parseMsgFile = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
-    const msgReader = new MsgReader(arrayBuffer);
-    const fileData = msgReader.getFileData();
-    
-    // Extract text body
+
+    // Extraire le texte du mail principal
+    let msgReader, fileData;
+    try {
+        msgReader = new MsgReader(arrayBuffer);
+        fileData = msgReader.getFileData();
+    } catch (e) {
+        return { bodyText: '[Fichier MSG illisible]', attachments: [] };
+    }
+
     const parts = [];
     if (fileData.subject) parts.push(`Sujet: ${fileData.subject}`);
     if (fileData.senderName) parts.push(`De: ${fileData.senderName}`);
     if (fileData.body) parts.push(fileData.body);
-    const bodyText = parts.join('\n');
 
-    // Extract attachments as File objects using the new function
-    const attachments = await extractValidAttachmentsFromMsg(file);
+    // Extraction récursive (texte des sous-mails + PJ de tous les niveaux)
+    const { files: attachments, nestedTexts } = _extractMsgRecursive(arrayBuffer, file.name, 0);
+
+    // Fusionner le texte principal + texte des sous-mails
+    // Exclure le texte du niveau 0 (déjà dans parts) car _extractMsgRecursive ne l'ajoute pas pour depth=0
+    const bodyText = [...parts, ...nestedTexts].join('\n');
 
     return { bodyText, attachments };
 };
@@ -548,9 +706,10 @@ Utilise ce format exact pour la restitution :
 };
 
 /**
- * [v5.5.0] Étape 1 : Le Routeur (Triage)
- * Classe un ensemble de documents dans 4 catégories : ADMIN, SOCIAL, RECITS, FINANCIER.
- * Utilise gpt-4o-mini pour analyser rapidement un extrait ou la première page.
+ * [v5.5.11] Étape 1 : Le Routeur (Triage Multi-Catégories)
+ * Classe un ensemble de documents dans 1 ou PLUSIEURS catégories : ADMIN, SOCIAL, RECITS, FINANCIER.
+ * Un document mixte (ex: email contenant des noms ET un récit) peut être classé dans ["SOCIAL", "RECITS"].
+ * Utilise gpt-4o-mini pour analyser rapidement un extrait ou les 3 premières pages.
  */
 export const routeDocuments = async (files, providedApiKey = null, onStatusChange = null) => {
     const fileArray = Array.isArray(files) ? files : [files];
@@ -562,7 +721,7 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
         await new Promise(resolve => setTimeout(resolve, 1000));
         const mockResult = {};
         fileArray.forEach(f => {
-            mockResult[f.name || 'document_sans_nom'] = 'ADMIN';
+            mockResult[f.name || 'document_sans_nom'] = ['ADMIN'];
         });
         return { success: true, data: mockResult };
     }
@@ -576,21 +735,21 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
             contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
             
             if (typeof item === 'string') {
-                 // Si on a passé du texte brut
-                 contentArray.push({ type: "text", text: item.substring(0, 1500) });
+                 // v5.5.11 - Limite augmentée à 15000 caractères pour le texte brut
+                 contentArray.push({ type: "text", text: item.substring(0, 15000) });
             } else {
                 const fileNameLower = fileName.toLowerCase();
                 if (fileNameLower.endsWith('.msg')) {
                     try {
                         const { bodyText } = await parseMsgFile(item);
-                        // Extrait rapide pour l'email
-                        contentArray.push({ type: "text", text: bodyText.substring(0, 1500) });
+                        // v5.5.11 - Limite augmentée de 1500 à 15000 caractères
+                        contentArray.push({ type: "text", text: bodyText.substring(0, 15000) });
                     } catch (e) {
                         contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
                     }
                 } else if (item.type === 'application/pdf') {
-                    // Pour la classification, la première page suffit souvent (et ça coûte beaucoup moins cher)
-                    const base64Images = await pdfToBase64Images(item, 1);
+                    // v5.5.11 - Lecture des 3 premières pages pour une classification plus précise
+                    const base64Images = await pdfToBase64Images(item, 3);
                     for (const img of base64Images) {
                         contentArray.push({ type: "image_url", image_url: { url: img } });
                     }
@@ -605,20 +764,23 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
         }
 
         const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
-Tu dois classer CHAQUE document fourni dans l'une des 4 catégories suivantes, et STRICTEMENT celles-ci :
+Tu dois classer CHAQUE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
 - "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture.
 - "SOCIAL" : Emails de syndic listant des noms, cartes d'identité, documents d'assurance personnels ou échanges informels.
 - "RECITS" : Rapports d'intervention, constats pompiers, chronologies des faits, déclarations circonstanciées.
 - "FINANCIER" : Devis, factures, tickets de caisse, justificatifs de paiement.
 
-Analyse l'extrait (texte ou 1ère page) de chaque document et détermine sa catégorie.
+RÈGLES :
+1. Analyse l'extrait (texte ou premières pages) de chaque document et détermine ses catégories.
+2. Si un document contient des informations relevant de PLUSIEURS catégories (ex: un email qui liste des noms ET décrit les circonstances du sinistre), tu DOIS retourner un TABLEAU contenant toutes les catégories pertinentes.
+3. Si un document ne relève que d'une seule catégorie, retourne quand même un tableau à 1 élément.
 
-Tu dois renvoyer STRICTEMENT un objet JSON valide qui mappe le nom exact de chaque fichier à sa catégorie.
+Tu dois renvoyer STRICTEMENT un objet JSON valide qui mappe le nom exact de chaque fichier à un TABLEAU de catégories.
 Format attendu :
 {
-  "nomDuFichier1.pdf": "ADMIN",
-  "email_syndic.msg": "SOCIAL",
-  "facture_plombier.jpg": "FINANCIER"
+  "police_axa.pdf": ["ADMIN"],
+  "email_syndic.msg": ["SOCIAL", "RECITS"],
+  "facture_plombier.jpg": ["FINANCIER"]
 }
 Ne renvoie aucun autre texte, juste le JSON.`;
 
@@ -648,6 +810,14 @@ Ne renvoie aucun autre texte, juste le JSON.`;
 
         const data = await response.json();
         const parsedData = JSON.parse(data.choices[0].message.content);
+        
+        // v5.5.11 - Normaliser : si l'IA renvoie un string au lieu d'un tableau, le convertir
+        for (const key of Object.keys(parsedData)) {
+            if (typeof parsedData[key] === 'string') {
+                parsedData[key] = [parsedData[key]];
+            }
+        }
+        
         return { success: true, data: parsedData };
 
     } catch (error) {
@@ -1180,7 +1350,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             if (file.name && file.name.toLowerCase().endsWith('.msg')) {
                 msgFiles.push(file);
                 try {
-                    const attachments = await extractValidAttachmentsFromMsg(file);
+                    const { files: attachments } = await extractValidAttachmentsFromMsg(file);
                     allExtractedFiles.push(...attachments);
                     filesToRoute.push(...attachments);
                 } catch (e) {
@@ -1210,14 +1380,19 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             narrativeFiles.push(msgFile);
         }
 
+        // v5.5.11 - Dispatch multi-catégories : un fichier peut aller dans PLUSIEURS agents
         for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
-            const category = routeMap[fileName] || 'ADMIN';
+            const categories = routeMap[fileName] || ['ADMIN'];
+            // categories est un tableau (ex: ["SOCIAL", "RECITS"])
+            const cats = Array.isArray(categories) ? categories : [categories];
             
-            if (category === 'ADMIN') adminFiles.push(file);
-            else if (category === 'SOCIAL') socialFiles.push(file);
-            else if (category === 'RECITS') narrativeFiles.push(file);
-            else if (category === 'FINANCIER') financialFiles.push(file);
+            for (const cat of cats) {
+                if (cat === 'ADMIN') adminFiles.push(file);
+                else if (cat === 'SOCIAL') socialFiles.push(file);
+                else if (cat === 'RECITS') narrativeFiles.push(file);
+                else if (cat === 'FINANCIER') financialFiles.push(file);
+            }
         }
 
         if (onStatusChange) onStatusChange('extracting');
