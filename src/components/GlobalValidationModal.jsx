@@ -134,14 +134,17 @@ const GlobalValidationModal = () => {
         const newFormFields = new Set();
         if (pendingAiData.formData) {
             Object.keys(pendingAiData.formData).forEach(key => {
-                const aiVal = pendingAiData.formData[key] || '';
-                const currentVal = formData[key] || '';
+                const aiVal = pendingAiData.formData[key] ?? '';
+                const currentVal = formData[key] ?? '';
                 
-                if (aiVal.trim() !== '') {
-                    if (currentVal.trim() === '') {
+                const aiValStr = String(aiVal);
+                const currentValStr = String(currentVal);
+                
+                if (aiValStr.trim() !== '') {
+                    if (currentValStr.trim() === '') {
                         // New value
                         newFormFields.add(key);
-                    } else if (aiVal.trim() !== currentVal.trim()) {
+                    } else if (aiValStr.trim() !== currentValStr.trim()) {
                         // Modified value
                         newFormFields.add(key);
                     }
