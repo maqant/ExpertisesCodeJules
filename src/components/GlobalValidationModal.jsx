@@ -49,7 +49,7 @@ const GlobalValidationModal = () => {
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
     // v5.6.1 - Refining state
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
-    const [isCpLoading, setIsCpLoading] = useState(false);
+    const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
 
     // Analyze occupant conflicts
@@ -273,7 +273,7 @@ const GlobalValidationModal = () => {
                                         }}
                                         list="franchise-list-warning"
                                         className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none" 
-                                        placeholder="Ex: Légale, 250€..."
+                                        placeholder="Ex: Légale..."
                                     />
                                     <datalist id="franchise-list-warning">
                                         {(franchises || []).map((f, idx) => <option key={idx} value={f} />)}
@@ -297,39 +297,48 @@ const GlobalValidationModal = () => {
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-bold text-orange-800 mb-1">Joindre le document des Conditions Particulières (CP) :</label>
-                                    {isCpLoading ? (
-                                        <div className="text-xs text-orange-800 font-bold animate-pulse">⏳ Analyse IA en cours...</div>
-                                    ) : (
-                                        <input 
-                                            type="file" 
-                                            onChange={async (e) => {
-                                                const file = e.target.files?.[0];
-                                                if (!file) return;
-                                                setIsCpLoading(true);
-                                                try {
-                                                    const result = await extractAdministrativeData([file], aiConfig.apiKey, null, aiConfig.model);
-                                                    if (result.success && result.data && result.data.formData) {
-                                                        const fd = result.data.formData;
-                                                        ['franchise', 'pertesIndirectes', 'numConditionsGenerales', 'nomCie', 'nomContrat', 'numPolice'].forEach(k => {
-                                                            if (fd[k]) {
-                                                                updateFormField(k, fd[k]);
-                                                                setSelectedFormFields(prev => new Set(prev).add(k));
-                                                            }
-                                                        });
-                                                        alert("Document scanné avec succès ! Les données contractuelles trouvées ont été ajoutées.");
-                                                    } else {
-                                                        alert("Aucune donnée contractuelle trouvée dans ce document.");
-                                                    }
-                                                } catch (err) {
-                                                    alert("Erreur lors de l'analyse IA : " + err.message);
-                                                } finally {
-                                                    await handleAttachFile('doc_cond_part', file);
-                                                    setIsCpLoading(false);
-                                                }
-                                            }}
-                                            className="w-full text-xs file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer"
-                                        />
-                                    )}
+                                    <div 
+                                        className={`border-2 border-dashed border-orange-300 rounded p-3 bg-orange-50/50 flex items-center justify-between transition-colors ${attachedCpFile ? 'border-green-400 bg-green-50' : 'hover:border-orange-500'}`}
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={(e) => {
+                                            e.preventDefault(); e.stopPropagation();
+                                            const file = e.dataTransfer.files?.[0];
+                                            if (file) {
+                                                handleAttachFile('doc_cond_part', file);
+                                                setAttachedCpFile(file);
+                                            }
+                                        }}
+                                    >
+                                        {!attachedCpFile ? (
+                                            <div className="w-full flex items-center justify-between">
+                                                <span className="text-xs text-orange-700/70">Glisser le fichier ici ou</span>
+                                                <input 
+                                                    type="file" 
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            handleAttachFile('doc_cond_part', file);
+                                                            setAttachedCpFile(file);
+                                                        }
+                                                    }}
+                                                    className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer w-auto"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full flex items-center justify-between">
+                                                <span className="text-xs font-bold text-green-700 truncate max-w-[80%] flex items-center gap-2">
+                                                    ✅ {attachedCpFile.name}
+                                                </span>
+                                                <button 
+                                                    onClick={() => window.open(URL.createObjectURL(attachedCpFile), '_blank')}
+                                                    className="bg-slate-800 hover:bg-slate-700 text-white p-1.5 rounded flex items-center justify-center transition-colors shadow"
+                                                    title="Ouvrir pour voir"
+                                                >
+                                                    👁️
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
