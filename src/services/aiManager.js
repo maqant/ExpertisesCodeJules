@@ -855,9 +855,9 @@ RÈGLES DE DÉCISION (applique-les dans cet ordre) :
 
 1. FILTRAGE : Si la nouvelle information ne contient RIEN de pertinent pour la cause du sinistre (formules de politesse, rendez-vous, questions administratives, signatures, logos, disclaimers email, discussions de planning), tu DOIS renvoyer la cause EXACTEMENT telle quelle, sans aucune modification. Champ "changed" = false.
 
-2. AFFINAGE : Si la nouvelle information apporte des précisions, des détails supplémentaires ou des compléments sur l'origine, la localisation, les conséquences ou les réparations du sinistre, INTÈGRE ces informations de manière fluide dans le texte existant. Ne duplique pas les informations déjà présentes. Retravaille les phrases pour un résultat cohérent et naturel. Champ "changed" = true.
+2. AFFINAGE ET RÉÉCRITURE GLOBALE : Si la nouvelle information apporte des précisions, RÉÉCRIS COMPLÈTEMENT le texte de la cause pour intégrer ces nouvelles données. Le résultat doit se lire de manière fluide, comme si tu avais eu toutes les informations dès le départ. Ne te contente PAS d'ajouter une phrase à la fin. Fusionne les idées. Champ "changed" = true.
 
-3. CONTRADICTION : Si la nouvelle information CONTREDIT la cause existante (ex: un second rapport pointe une origine différente), tu DOIS conserver le constat initial ET ajouter la nuance ou la contradiction. Utilise des formulations comme : "Cependant, un rapport ultérieur de [source] indique que..." ou "À noter qu'un second avis mentionne plutôt...". Champ "changed" = true.
+3. CONTRADICTION : Si la nouvelle information CONTREDIT la cause existante, réécris le texte pour exposer la situation de manière chronologique ou logique (ex: "Initialement, le sinistre semblait causé par X. Cependant, un rapport ultérieur de Y a démontré que..."). Le texte final doit être un seul bloc narratif cohérent. Champ "changed" = true.
 
 4. ACCUMULATION PURE : Tu ne supprimes JAMAIS d'informations valides de la cause existante. Tu es un accumulateur et affineur, pas un remplaçant.
 
@@ -1303,10 +1303,13 @@ RÈGLES ABSOLUES :
    - "Propriétaire non occupant"
    - "Propriétaire (occupation inconnue)" ← SI le document dit juste "propriétaire" sans préciser s'il habite sur place
    - "ACP" ← Pour l'Association des Copropriétaires
-3. TOUTE personne qui n'est PAS un occupant ou un ACP doit aller dans le tableau \"intervenants\". Exemples : syndic, courtier, plombier, expert privé, père/mère de, conjoint, etc.
-4. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau \"experts\" du tableau \"intervenants\".
-   - Un \"expert\" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa).
-   - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans \"intervenants\".
+3. SÉPARATION STRICTE DES TABLEAUX : Les tableaux "occupants", "intervenants" et "experts" sont MUTUELLEMENT EXCLUSIFS. 
+   - Une personne ne peut exister QUE DANS UN SEUL tableau.
+   - Si une personne est propriétaire, locataire ou ACP, elle va dans "occupants" et NE DOIT ABSOLUMENT PAS se retrouver dans "intervenants".
+   - TOUTE autre personne (syndic, plombier, courtier, proche, etc.) va dans "intervenants".
+4. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau "experts" du tableau "intervenants".
+   - Un "expert" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa).
+   - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans "intervenants".
 5. EXCLUSION ABSOLUE : Le Bureau Péchard (ou Bureau Yves Péchard) et ses employés NE SONT JAMAIS des experts ni des intervenants. C'est le bureau de gestion mandaté. Tu dois impérativement les IGNORER et les EXCLURE de tous les tableaux (experts, occupants, intervenants).
 6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
 
