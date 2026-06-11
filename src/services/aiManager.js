@@ -1316,7 +1316,10 @@ RÈGLES ABSOLUES :
    - Un "expert" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa).
    - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans "intervenants".
 5. EXCLUSION ABSOLUE : Le Bureau Péchard (ou Bureau Yves Péchard) et ses employés NE SONT JAMAIS des experts ni des intervenants. C'est le bureau de gestion mandaté. Tu dois impérativement les IGNORER et les EXCLURE de tous les tableaux (experts, occupants, intervenants).
-6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
+6. PRÉCISION DU RÔLE ET DE L'IDENTITÉ :
+   - Pour les gestionnaires, agences immobilières ou syndics, le champ "role" doit préciser EXACTEMENT de quel appartement/lot/propriétaire ils s'occupent. Par exemple, au lieu de juste "Gestionnaire", écris "Gestionnaire (appartement de M. Dupont)" ou "Agence immobilière (représente le proprio du 3ème)".
+   - Si une civilité est précisée (M., Mme, Monsieur, Madame), inclus-la avec le nom de famille (ex: "Mme Borremans"). N'invente pas le genre, mais s'il est connu, précise-le.
+7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
