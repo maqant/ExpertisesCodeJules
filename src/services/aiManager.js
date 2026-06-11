@@ -1516,7 +1516,7 @@ Voici le format EXACT attendu :
  * Extrait les données financières (devis, factures) et les rattache aux occupants.
  * Ne reçoit que les documents taggués "FINANCIER".
  */
-export const extractFinancialData = async (files, occupantsList = [], providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
@@ -1530,7 +1530,7 @@ export const extractFinancialData = async (files, occupantsList = [], providedAp
                 expenses: [{
                     id: crypto.randomUUID(),
                     prestataire: "Plombier Mock", type: "Devis", ref: "DEV-MOCK-001", desc: "Recherche de fuite",
-                    compteDe: "unassigned", montantReclame: "450.00", montantValide: "450.00",
+                    compteDe: "unassigned", destinataireFacture: "Locataire Mock", montantReclame: "450.00", montantValide: "450.00",
                     typeMontant: "HTVA", categorieGarantie: "Principale", tauxTVA: 21,
                     factureRecue: false, pourcentageVetuste: 0, motifRefus: "", avisCouverture: "Oui", noteCouverture: "",
                     montantDevis: "450.00", refDevis: "DEV-MOCK-001", prestataireDevis: "Plombier Mock", descDevis: "Recherche de fuite",
@@ -1543,8 +1543,6 @@ export const extractFinancialData = async (files, occupantsList = [], providedAp
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        
-        const occupantsContext = occupantsList.map(o => `Nom/Prénom: ${o.nom} ${o.prenom} | ID: ${o.id}`).join('\\n');
 
         // v5.7.0 - Parallélisation massive : 1 micro-agent par fichier
         const promises = fileArray.map(async (item) => {
@@ -1585,9 +1583,7 @@ RÈGLES ABSOLUES :
 2. "typeMontant" DOIT TOUJOURS être "HTVA".
 3. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
 4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
-5. COMPTE DE (DESTINATAIRE) : Essaie de trouver à qui est adressée la facture parmi cette liste de personnes : 
-${occupantsContext ? occupantsContext : "(Aucun occupant fourni)"}
-Si tu trouves une correspondance claire, mets l'ID exact de cette personne dans "compteDe". Sinon, écris STRICTEMENT "unassigned".
+5. DESTINATAIRE : Extrait le NOM et PRÉNOM EXACT de la personne ou l'entité à qui la facture est adressée (le client facturé). S'il s'agit du nom de la copropriété, écris-le. Si tu ne trouves personne, laisse une chaîne vide "". Remplis cela dans le champ "destinataireFacture".
 6. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction, ni markdown.
 
 Format EXACT attendu :
@@ -1595,7 +1591,7 @@ Format EXACT attendu :
   "expenses": [
     {
       "prestataire": "", "type": "Devis ou Facture", "ref": "", "desc": "", 
-      "compteDe": "UUID_DE_L_OCCUPANT_MATCHÉ (ou unassigned)", "montantReclame": "", "montantValide": "", 
+      "destinataireFacture": "Nom du destinataire", "montantReclame": "", "montantValide": "", 
       "typeMontant": "HTVA", "categorieGarantie": "Principale ou Complémentaire", "tauxTVA": 0, 
       "factureRecue": false, "pourcentageVetuste": 0, "motifRefus": "", "avisCouverture": "Oui", "noteCouverture": "",
       "montantDevis": "", "refDevis": "", "prestataireDevis": "", "descDevis": "",
@@ -1650,7 +1646,8 @@ Format EXACT attendu :
                     allExpenses.push({
                         ...exp,
                         id: crypto.randomUUID(),
-                        compteDe: exp.compteDe || "unassigned"
+                        compteDe: "unassigned", // Sera résolu par le Chef d'Orchestre
+                        destinataireFacture: exp.destinataireFacture || ""
                     });
                 });
             }
@@ -1733,7 +1730,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         if (onStatusChange) onStatusChange('extracting');
 
-        // 3. Lancer les agents indépendants en parallèle
+        // 3. Lancer les 4 agents indépendants en PARALLÈLE (v5.7.1)
         const adminPromise = adminFiles.length > 0 
             ? extractAdministrativeData(adminFiles, providedApiKey, null, model)
             : Promise.resolve({ success: true, data: {} });
@@ -1746,19 +1743,39 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             ? extractSocialData(socialFiles, providedApiKey, null, model)
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
-        // On attend la résolution des premiers agents
-        const [adminRes, narrativeRes, socialRes] = await Promise.all([adminPromise, narrativePromise, socialPromise]);
+        const financialPromise = financialFiles.length > 0
+            ? extractFinancialData(financialFiles, providedApiKey, null, model)
+            : Promise.resolve({ success: true, data: { expenses: [] } });
 
-        // 4. Récupérer les occupants (pour l'agent financier)
+        // Attente simultanée des 4 agents (Temps total = temps de l'agent le plus lent)
+        const [adminRes, narrativeRes, socialRes, financialRes] = await Promise.all([
+            adminPromise, narrativePromise, socialPromise, financialPromise
+        ]);
+
+        // 4. Récupérer les occupants
         let occupants = [];
         if (socialRes.success && socialRes.data && socialRes.data.occupants) {
             occupants = socialRes.data.occupants;
         }
 
-        // 5. Lancer l'agent financier avec la liste des occupants injectée
-        let financialRes = { success: true, data: { expenses: [] } };
-        if (financialFiles.length > 0) {
-            financialRes = await extractFinancialData(financialFiles, occupants, providedApiKey, null, model);
+        // 5. Post-traitement : Rattacher les frais financiers aux occupants
+        let expenses = financialRes.data?.expenses || [];
+        if (expenses.length > 0 && occupants.length > 0) {
+            expenses.forEach(exp => {
+                if (exp.destinataireFacture && exp.destinataireFacture.trim() !== '') {
+                    const destLower = exp.destinataireFacture.toLowerCase();
+                    // Recherche d'une correspondance dans les noms/prénoms des occupants
+                    const matchedOcc = occupants.find(o => {
+                        const nom = (o.nom || '').toLowerCase();
+                        const prenom = (o.prenom || '').toLowerCase();
+                        return destLower.includes(nom) || nom.includes(destLower) || 
+                               (prenom && (destLower.includes(prenom) || prenom.includes(destLower)));
+                    });
+                    if (matchedOcc) {
+                        exp.compteDe = matchedOcc.id;
+                    }
+                }
+            });
         }
 
         // 6. Fusion et assemblage
@@ -1772,7 +1789,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             experts: socialRes.data?.experts || [],
             occupants: occupants,
             intervenants: socialRes.data?.intervenants || [],
-            expenses: financialRes.data?.expenses || []
+            expenses: expenses
         };
 
         if (onStatusChange) onStatusChange('attaching'); // Fini
