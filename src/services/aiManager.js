@@ -1019,7 +1019,7 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
 
         // v5.5.5 - Batching & Scalabilité : lots de 10 fichiers en parallèle
         const processBatch = async (batchFiles) => {
-            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents à classifier.", { maxPdfPages: 3, maxTextLength: 15000 });
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents à classifier.", { maxPdfPages: 1, maxTextLength: 5000 });
 
             const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
 Tu dois classer CHAQUE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
@@ -1043,7 +1043,7 @@ Format attendu :
 Ne renvoie aucun autre texte, juste le JSON.`;
 
             const payload = {
-                model: "gpt-4o-mini",
+                model: "gpt-4o",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }
@@ -1243,7 +1243,18 @@ Voici le format EXACT attendu, avec tous les champs présents :
 
         const batchResults = await processInParallelBatches(fileArray, 8, processBatch);
 
-        // Fusion intelligente : garder la première valeur non-vide pour chaque champ
+        // v5.9.0 - Fusion intelligente : "plus spécifique gagne" pour les champs critiques
+        const PRIORITY_FIELDS = new Set(['franchise', 'pertesIndirectes', 'numPolice', 'numSinistreCie', 'numConditionsGenerales', 'nomContrat']);
+        const isMoreSpecific = (newVal, existingVal) => {
+            if (!existingVal || existingVal === '') return true;
+            if (!newVal || newVal === '') return false;
+            const newHasNumbers = /\d/.test(String(newVal));
+            const existingHasNumbers = /\d/.test(String(existingVal));
+            if (newHasNumbers && !existingHasNumbers) return true;
+            if (String(newVal).length > String(existingVal).length * 1.5) return true;
+            return false;
+        };
+
         let mergedFormData = {};
         let mergedReferences = [];
 
@@ -1251,8 +1262,15 @@ Voici le format EXACT attendu, avec tous les champs présents :
             if (res.formData) {
                 for (const key of Object.keys(res.formData)) {
                     const val = res.formData[key];
-                    // Garder la première valeur non-vide rencontrée
-                    if (val && val !== '' && val !== false && !mergedFormData[key]) {
+                    if (!val || val === '' || val === false) continue;
+                    
+                    if (PRIORITY_FIELDS.has(key)) {
+                        // Champs critiques : la valeur la plus spécifique (avec chiffres, plus longue) gagne
+                        if (isMoreSpecific(val, mergedFormData[key])) {
+                            mergedFormData[key] = val;
+                        }
+                    } else if (!mergedFormData[key]) {
+                        // Autres champs : premier non-vide gagne
                         mergedFormData[key] = val;
                     }
                 }
@@ -1404,6 +1422,33 @@ Voici le format EXACT attendu, avec tous les champs présents :
             if (res.intervenants && Array.isArray(res.intervenants)) mergedIntervenants = mergedIntervenants.concat(res.intervenants);
         }
 
+        // v5.9.0 - Déduplication par nom (case-insensitive) avec fusion des champs non-vides
+        const deduplicateByName = (items) => {
+            const seen = new Map();
+            const result = [];
+            for (const item of items) {
+                const key = (item.nom || '').toLowerCase().trim();
+                if (!key) { result.push(item); continue; }
+                if (seen.has(key)) {
+                    const existing = seen.get(key);
+                    Object.keys(item).forEach(k => {
+                        if (k !== 'id' && item[k] && item[k] !== '' && item[k] !== false && (!existing[k] || existing[k] === '' || existing[k] === false)) {
+                            existing[k] = item[k];
+                        }
+                    });
+                } else {
+                    seen.set(key, item);
+                    result.push(item);
+                }
+            }
+            return result;
+        };
+
+        mergedOccupants = deduplicateByName(mergedOccupants);
+        mergedExperts = deduplicateByName(mergedExperts);
+        mergedIntervenants = deduplicateByName(mergedIntervenants);
+        console.log(`[aiManager] 👥 Social dédupliqué: ${mergedOccupants.length} occupants, ${mergedExperts.length} experts, ${mergedIntervenants.length} intervenants`);
+
         return { success: true, data: { experts: mergedExperts, occupants: mergedOccupants, intervenants: mergedIntervenants } };
 
     } catch (error) {
@@ -1527,10 +1572,15 @@ Voici le format EXACT attendu :
  * Extrait les données financières (devis, factures) et les rattache aux occupants.
  * Ne reçoit que les documents taggués "FINANCIER".
  */
-export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', occupantsList = []) => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
+
+    // v5.9.0 - Construire le contexte occupants pour le rattachement des factures
+    const occupantsContext = occupantsList.length > 0
+        ? `\nLISTE DES OCCUPANTS CONNUS (avec leurs UUID) :\n${occupantsList.map(o => `Nom/Prénom: ${o.nom || ''} ${o.prenom || ''} | Étage: ${o.etage || '?'} | ID: ${o.id}`).join('\n')}\n\nPour le champ "compteDe", si la facture est adressée à l'un de ces occupants, utilise son ID exact. Sinon, écris "unassigned".`
+        : '';
 
     if (mode === 'mock') {
         if (onStatusChange) onStatusChange('extracting');
@@ -1594,14 +1644,14 @@ RÈGLES ABSOLUES :
 2. "typeMontant" DOIT TOUJOURS être "HTVA".
 3. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
 4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
-5. DESTINATAIRE : Extrait le NOM et PRÉNOM EXACT de la personne ou l'entité à qui la facture est adressée (le client facturé). S'il s'agit du nom de la copropriété, écris-le. Si tu ne trouves personne, laisse une chaîne vide "". Remplis cela dans le champ "destinataireFacture".
+5. DESTINATAIRE & RATTACHEMENT : Extrait le NOM et PRÉNOM EXACT de la personne à qui la facture est adressée dans "destinataireFacture".${occupantsContext}
 6. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction, ni markdown.
 
 Format EXACT attendu :
 {
   "expenses": [
     {
-      "prestataire": "", "type": "Devis ou Facture", "ref": "", "desc": "", 
+      "prestataire": "", "type": "Devis ou Facture", "ref": "", "desc": "", "compteDe": "ID_OCCUPANT ou unassigned", 
       "destinataireFacture": "Nom du destinataire", "montantReclame": "", "montantValide": "", 
       "typeMontant": "HTVA", "categorieGarantie": "Principale ou Complémentaire", "tauxTVA": 0, 
       "factureRecue": false, "pourcentageVetuste": 0, "motifRefus": "", "avisCouverture": "Oui", "noteCouverture": "",
@@ -1756,7 +1806,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         if (onStatusChange) onStatusChange('extracting');
 
-        // 3. Lancer les 4 agents indépendants en PARALLÈLE (v5.7.1)
+        // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE (v5.9.0 — cascade)
         const adminPromise = adminFiles.length > 0 
             ? extractAdministrativeData(adminFiles, providedApiKey, null, model)
             : Promise.resolve({ success: true, data: {} });
@@ -1769,14 +1819,19 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             ? extractSocialData(socialFiles, providedApiKey, null, model)
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
-        const financialPromise = financialFiles.length > 0
-            ? extractFinancialData(financialFiles, providedApiKey, null, model)
-            : Promise.resolve({ success: true, data: { expenses: [] } });
-
-        // Attente simultanée des 4 agents (Temps total = temps de l'agent le plus lent)
-        const [adminRes, narrativeRes, socialRes, financialRes] = await Promise.all([
-            adminPromise, narrativePromise, socialPromise, financialPromise
+        // Attente des 3 agents de Phase 1
+        const [adminRes, narrativeRes, socialRes] = await Promise.all([
+            adminPromise, narrativePromise, socialPromise
         ]);
+
+        // 4. Phase 2 : Agent Financier AVEC la liste des occupants (cascade v5.9.0)
+        // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
+        const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
+        console.log(`[aiManager] 💰 Agent Financier: ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
+        
+        const financialRes = financialFiles.length > 0
+            ? await extractFinancialData(financialFiles, providedApiKey, null, model, occupantsForFinancial)
+            : { success: true, data: { expenses: [] } };
 
         // 4. Récupérer les occupants
         let occupants = [];
