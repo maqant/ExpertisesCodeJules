@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
 import TerrainView from './components/Pendant/TerrainView';
 import GlobalValidationModal from './components/GlobalValidationModal';
+import DebugConsole from './components/DebugConsole';
 import { useState } from 'react';
 
 import packageJson from '../package.json';
@@ -55,6 +56,9 @@ function App() {
         <div className="fixed bottom-2 right-3 text-[10px] text-slate-400/60 font-bold tracking-wider pointer-events-none z-50 print:hidden uppercase">
           v{packageJson.version}
         </div>
+
+        {/* Console de débogage v6.2.0 */}
+        <DebugConsole />
       </div>
     </ExpertiseProvider>
   );

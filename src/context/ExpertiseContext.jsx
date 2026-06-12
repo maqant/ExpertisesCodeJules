@@ -121,6 +121,24 @@ export const ExpertiseProvider = ({ children }) => {
   const [showSubtotals, setShowSubtotals] = useState(false);
   const [causeTimeline, setCauseTimeline] = useState([]);
 
+  // v6.2.0 - Debug Logs System
+  const [isDebugMode, setIsDebugMode] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
+
+  const addDebugLog = (step, status, data = null, error = null) => {
+      setDebugLogs(prevLogs => [...prevLogs, {
+          id: Date.now() + Math.random(),
+          time: new Date().toLocaleTimeString(),
+          step,    // ex: "ROUTEUR", "AGENT_ADMIN", "UPLOAD"
+          status,  // 'INFO', 'SUCCESS', 'ERROR', 'WARNING'
+          data,    // Le JSON ou le texte retourné
+          error    // L'erreur éventuelle
+      }]);
+  };
+
+  const toggleDebugMode = () => setIsDebugMode(prev => !prev);
+  const clearDebugLogs = () => setDebugLogs([]);
+
   // AI Mode Config
   const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
   const [aiConfig, setAiConfig] = useState(() => ({
@@ -1560,7 +1578,8 @@ Voici le format JSON :
       toggleExpenseType,
       aiStatus, setAiStatus,
       rawContexts, setRawContexts,
-      bridgeFiles, setBridgeFiles  // v6.1.0 - Smart Bridge file queue
+      bridgeFiles, setBridgeFiles,  // v6.1.0 - Smart Bridge file queue
+      isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs // v6.2.0
   };
 
   return (

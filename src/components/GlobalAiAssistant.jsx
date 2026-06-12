@@ -30,7 +30,8 @@ const GlobalAiAssistant = () => {
     const {
         isAiModeActive, aiConfig, formData,
         setPendingAiData, setAiStatus, setRawContexts,
-        bridgeFiles: files, setBridgeFiles: setFiles  // v6.1.0 - persisté dans le contexte
+        bridgeFiles: files, setBridgeFiles: setFiles,  // v6.1.0 - persisté dans le contexte
+        addDebugLog
     } = useContext(ExpertiseContext);
 
     const [rawText, setRawText] = useState('');
@@ -95,7 +96,8 @@ const GlobalAiAssistant = () => {
                 aiConfig.apiKey,
                 setAiStatus,
                 aiConfig.model,
-                { cause: formData?.cause }
+                { cause: formData?.cause },
+                addDebugLog
             );
 
             if (result.success && result.data) {

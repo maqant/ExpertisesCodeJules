@@ -613,8 +613,46 @@ RÈGLES :
  * et assemble le JSON final pour la modale globale.
  */
 // v6.1.0 - Modèle par défaut mis à jour vers gpt-5.4 (spécialistes)
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}) => {
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}, addDebugLog = null) => {
+    let originalConsole = null;
+    
+    // Interception des logs F12 pour les envoyer dans la Console Développeur
+    if (addDebugLog) {
+        originalConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+        const createInterceptor = (type) => (...args) => {
+            originalConsole[type](...args); // Conserver le log original F12
+            
+            const message = args.map(a => {
+                if (a instanceof Error) return a.message || String(a);
+                if (typeof a === 'object') {
+                    try { return JSON.stringify(a); } catch(e) { return String(a); }
+                }
+                return String(a);
+            }).join(' ');
+
+            let status = type === 'error' ? 'ERROR' : (type === 'warn' ? 'WARNING' : 'INFO');
+            if (message.includes('✅') || message.includes('SUCCESS') || message.includes('✅')) status = 'SUCCESS';
+            if (message.includes('❌') || message.includes('Erreur') || message.includes('fatal')) status = 'ERROR';
+
+            let step = 'SYSTEM';
+            if (message.includes('[MSG Parser]') || message.includes('MSG')) step = 'EXTRACTOR_MSG';
+            else if (message.includes('[PDF')) step = 'EXTRACTOR_PDF';
+            else if (message.includes('[Smart Bridge]')) step = 'SMART_BRIDGE';
+            else if (message.includes('[aiHelpers]')) step = 'AI_HELPER';
+            else if (message.includes('[aiManager]')) step = 'ORCHESTRATOR';
+            else step = 'LOG';
+
+            addDebugLog(step, status, message);
+        };
+
+        console.log = createInterceptor('log');
+        console.warn = createInterceptor('warn');
+        console.error = createInterceptor('error');
+        console.info = createInterceptor('info');
+    }
+
     try {
+        if (addDebugLog) addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${Array.from(files).length} fichier(s).`);
         if (onStatusChange) onStatusChange('routing');
         
         // On convertit les `files` en Array
@@ -641,10 +679,12 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         }
 
         // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
+        if (addDebugLog) addDebugLog('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
         const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
         const routeMap = routeResult.data;
+        if (addDebugLog) addDebugLog('ROUTEUR', 'SUCCESS', routeMap);
 
         // 2. Séparation des fichiers
         const adminFiles = [];
@@ -705,37 +745,56 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         if (onStatusChange) onStatusChange('extracting');
 
         // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE (v5.9.0 — cascade)
+        if (addDebugLog) addDebugLog('PHASE_1_AGENTS', 'INFO', 'Lancement Admin, Social, Récits en parallèle...');
         // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
         // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
         const adminPromise = adminFiles.length > 0
             ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null, model))
-                .catch(err => { console.error('[aiManager] ❌ Agent Admin KO après retries:', err); return { success: false, data: {} }; })
+                .catch(err => { 
+                    console.error('[aiManager] ❌ Agent Admin KO après retries:', err); 
+                    if (addDebugLog) addDebugLog('AGENT_ADMIN', 'ERROR', null, err.message);
+                    return { success: false, data: {} }; 
+                })
             : Promise.resolve({ success: true, data: {} });
 
         const narrativePromise = narrativeFiles.length > 0
             ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, model, existingContext.cause || ''))
-                .catch(err => { console.error('[aiManager] ❌ Agent Récits KO après retries:', err); return { success: false, data: {} }; })
+                .catch(err => { 
+                    console.error('[aiManager] ❌ Agent Récits KO après retries:', err); 
+                    if (addDebugLog) addDebugLog('AGENT_RECITS', 'ERROR', null, err.message);
+                    return { success: false, data: {} }; 
+                })
             : Promise.resolve({ success: true, data: {} });
 
         const socialPromise = socialFiles.length > 0
             ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null, model))
-                .catch(err => { console.error('[aiManager] ❌ Agent Social KO après retries:', err); return { success: false, data: { occupants: [], experts: [], intervenants: [] } }; })
+                .catch(err => { 
+                    console.error('[aiManager] ❌ Agent Social KO après retries:', err); 
+                    if (addDebugLog) addDebugLog('AGENT_SOCIAL', 'ERROR', null, err.message);
+                    return { success: false, data: { occupants: [], experts: [], intervenants: [] } }; 
+                })
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
         // Attente des 3 agents de Phase 1
         const [adminRes, narrativeRes, socialRes] = await Promise.all([
             adminPromise, narrativePromise, socialPromise
         ]);
+        if (addDebugLog) addDebugLog('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
 
         // 4. Phase 2 : Agent Financier AVEC la liste des occupants (cascade v5.9.0)
         // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
         const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
         console.log(`[aiManager] 💰 Agent Financier: ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
+        if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'INFO', `Lancement Financier (${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus)`);
 
         // v5.9.3 - Smart Retry & Résilience
         const financialRes = financialFiles.length > 0
             ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, model, occupantsForFinancial))
-                .catch(err => { console.error('[aiManager] ❌ Agent Financier KO après retries:', err); return { success: false, data: { expenses: [] } }; })
+                .catch(err => { 
+                    console.error('[aiManager] ❌ Agent Financier KO après retries:', err); 
+                    if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'ERROR', null, err.message);
+                    return { success: false, data: { expenses: [] } }; 
+                })
             : { success: true, data: { expenses: [] } };
 
         // 4. Récupérer les occupants
@@ -781,10 +840,19 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         if (onStatusChange) onStatusChange('attaching'); // Fini
         
+        if (addDebugLog) addDebugLog('PIPELINE_GLOBAL', 'SUCCESS', 'Fusion et assemblage terminés.');
         return { success: true, data: finalJson, extractedFiles: allExtractedFiles };
 
     } catch (error) {
         console.error("[aiManager] processGlobalIngestion error:", error);
+        if (addDebugLog) addDebugLog('PIPELINE_GLOBAL', 'ERROR', null, error.message || "Erreur inconnue");
         return { success: false, error: error.message || "Erreur lors de l'ingestion globale." };
+    } finally {
+        if (originalConsole) {
+            console.log = originalConsole.log;
+            console.warn = originalConsole.warn;
+            console.error = originalConsole.error;
+            console.info = originalConsole.info;
+        }
     }
 };

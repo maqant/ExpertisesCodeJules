@@ -190,7 +190,8 @@ const Sidebar = () => {
         intervenantsList, setIntervenantsList,
         aiStatus, setAiStatus,
         rawContexts, setRawContexts,
-        bridgeFiles, setBridgeFiles  // v6.1.1 - Smart Bridge file queue
+        bridgeFiles, setBridgeFiles,  // v6.1.1 - Smart Bridge file queue
+        isDebugMode, toggleDebugMode, addDebugLog  // v6.2.0 - Debug Mode
     } = context;
 
 
@@ -254,7 +255,8 @@ const Sidebar = () => {
                 aiConfig.apiKey,
                 setAiStatus,
                 aiConfig.model,
-                { cause: formData?.cause }
+                { cause: formData?.cause },
+                addDebugLog
             );
 
             if (result.success && result.data) {
@@ -543,7 +545,7 @@ const Sidebar = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* AI Controls */}
+                        {/* AI Controls & Dev Mode */}
                         <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                             <button
                                 onClick={toggleAiMode}
@@ -552,7 +554,14 @@ const Sidebar = () => {
                             >
                                 <span className={isAiModeActive ? 'animate-pulse' : ''}>✨</span> IA
                             </button>
-
+                            <div className="w-px h-3 bg-slate-700 mx-0.5"></div>
+                            <button
+                                onClick={toggleDebugMode}
+                                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isDebugMode ? 'bg-red-900/50 text-red-400' : 'text-slate-500 hover:text-slate-400'}`}
+                                title="Console Développeur"
+                            >
+                                🦂
+                            </button>
                         </div>
                         <div className="flex gap-1.5">
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
@@ -634,7 +643,7 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
                             <div className="flex gap-2 mb-3">
                                 <button onClick={saveDossier} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow">💾 Sauvegarder</button>
@@ -1554,6 +1563,7 @@ const Sidebar = () => {
                 )}
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
+            
             <div className="p-4 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
                 <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-800 p-2 rounded border border-slate-700">
                     <span>Nb pages rapport principal :</span>
@@ -1578,6 +1588,7 @@ const Sidebar = () => {
                         >
                             🪲 Bug / Suggestion
                         </a>
+
                         <span className="text-[10px] text-slate-600 font-mono font-bold select-none cursor-default" title="Version actuelle">v{packageInfo.version}</span>
                     </div>
                     {showPrintMenu && !isMerging && (
@@ -1665,7 +1676,9 @@ const Sidebar = () => {
                                                 [droppedMsgFile],
                                                 aiConfig.apiKey,
                                                 setAiStatus,
-                                                aiConfig.model
+                                                aiConfig.model,
+                                                { cause: formData?.cause },
+                                                addDebugLog
                                             );
                                             
                                             if (result.success && result.data) {
@@ -1763,7 +1776,9 @@ const Sidebar = () => {
                                             [droppedMsgFile],
                                             aiConfig.apiKey,
                                             setAiStatus,
-                                            aiConfig.model
+                                            aiConfig.model,
+                                            { cause: formData?.cause },
+                                            addDebugLog
                                         );
                                         
                                         if (result.success && result.data) {
