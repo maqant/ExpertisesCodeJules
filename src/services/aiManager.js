@@ -1241,7 +1241,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
             return parsedData;
         };
 
-        const batchResults = await processInParallelBatches(fileArray, 5, processBatch);
+        const batchResults = await processInParallelBatches(fileArray, 8, processBatch);
 
         // Fusion intelligente : garder la première valeur non-vide pour chaque champ
         let mergedFormData = {};
@@ -1391,7 +1391,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
             return parsedData;
         };
 
-        const batchResults = await processInParallelBatches(fileArray, 5, processBatch);
+        const batchResults = await processInParallelBatches(fileArray, 8, processBatch);
 
         // Fusion : concaténer tous les tableaux
         let mergedExperts = [];
@@ -1442,9 +1442,9 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
         let currentCause = existingCause;
         let allTechnicalFiles = [];
 
-        for (let i = 0; i < fileArray.length; i += 5) {
-            const batchFiles = fileArray.slice(i, i + 5);
-            console.log(`[aiManager] 📝 Agent Récits: lot ${Math.floor(i/5) + 1}/${Math.ceil(fileArray.length/5)} (${batchFiles.length} fichiers)`);
+        for (let i = 0; i < fileArray.length; i += 8) {
+            const batchFiles = fileArray.slice(i, i + 8);
+            console.log(`[aiManager] 📝 Agent Récits: lot ${Math.floor(i/8) + 1}/${Math.ceil(fileArray.length/8)} (${batchFiles.length} fichiers)`);
             
             const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents (récits, rapports, chronologies) à synthétiser.");
 
@@ -1717,28 +1717,42 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         const narrativeFiles = [];
         const financialFiles = [];
 
-        // v5.5.5 - Dispatch multi-catégories via le routeur pour TOUS les fichiers (MSG inclus)
+        // v5.8.1 - Dispatch multi-catégories + logs détaillés + MSG toujours SOCIAL
+        const dispatchLog = { ADMIN: [], SOCIAL: [], RECITS: [], FINANCIER: [] };
         for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
+            const isMsg = fileName.toLowerCase().endsWith('.msg');
             let categories = routeMap[fileName];
             
-            // Fallback : si le routeur n'a pas classé un MSG, on le force dans ADMIN+SOCIAL+RECITS
-            if (!categories && fileName.toLowerCase().endsWith('.msg')) {
+            if (!categories && isMsg) {
                 categories = ['ADMIN', 'SOCIAL', 'RECITS'];
-                console.warn(`[aiManager] ⚠️ MSG "${fileName}" non classé par le routeur → fallback ADMIN+SOCIAL+RECITS`);
+                console.warn(`[aiManager] ⚠️ MSG "${fileName}" non classé → fallback ADMIN+SOCIAL+RECITS`);
             } else if (!categories) {
                 categories = ['ADMIN'];
+                console.warn(`[aiManager] ⚠️ "${fileName}" non classé → fallback ADMIN`);
             }
-            // categories est un tableau (ex: ["SOCIAL", "RECITS"])
+            
             const cats = Array.isArray(categories) ? categories : [categories];
             
+            // v5.8.1 - Les MSG contiennent des noms de personnes → toujours forcer SOCIAL
+            if (isMsg && !cats.includes('SOCIAL')) {
+                cats.push('SOCIAL');
+                console.log(`[aiManager] 📌 MSG "${fileName}" → SOCIAL forcé (noms possibles)`);
+            }
+            
             for (const cat of cats) {
-                if (cat === 'ADMIN') adminFiles.push(file);
-                else if (cat === 'SOCIAL') socialFiles.push(file);
-                else if (cat === 'RECITS') narrativeFiles.push(file);
-                else if (cat === 'FINANCIER') financialFiles.push(file);
+                if (cat === 'ADMIN') { adminFiles.push(file); dispatchLog.ADMIN.push(fileName); }
+                else if (cat === 'SOCIAL') { socialFiles.push(file); dispatchLog.SOCIAL.push(fileName); }
+                else if (cat === 'RECITS') { narrativeFiles.push(file); dispatchLog.RECITS.push(fileName); }
+                else if (cat === 'FINANCIER') { financialFiles.push(file); dispatchLog.FINANCIER.push(fileName); }
             }
         }
+        
+        console.log(`[aiManager] 📊 Dispatch final:`);
+        console.log(`  ADMIN (${dispatchLog.ADMIN.length}):`, dispatchLog.ADMIN);
+        console.log(`  SOCIAL (${dispatchLog.SOCIAL.length}):`, dispatchLog.SOCIAL);
+        console.log(`  RECITS (${dispatchLog.RECITS.length}):`, dispatchLog.RECITS);
+        console.log(`  FINANCIER (${dispatchLog.FINANCIER.length}):`, dispatchLog.FINANCIER);
 
         if (onStatusChange) onStatusChange('extracting');
 
