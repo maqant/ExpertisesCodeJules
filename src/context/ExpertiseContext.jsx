@@ -1327,14 +1327,14 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
-      // 3.5 Magic Drop Cause: Auto-attach technical files to Annexes Libres
+      // 3.5 Magic Drop Cause: Auto-attach technical files to Cause block
       if (data.technicalFilesToAttach && data.technicalFilesToAttach.length > 0 && pendingFiles.length > 0) {
           for (const fileName of data.technicalFilesToAttach) {
               const matchedFile = findMatchingFile(pendingFiles, fileName);
               if (matchedFile) {
                   try {
-                      await handleAttachFreeAnnex(matchedFile, `[Automatique] ${matchedFile.name}`, "Document technique identifié par l'IA");
-                      console.log(`[Magic Drop Cause] ✅ Auto-attaché: "${matchedFile.name}" → Annexes Libres`);
+                      await handleAttachFile('doc_rapport_cause', matchedFile);
+                      console.log(`[Magic Drop Cause] ✅ Auto-attaché: "${matchedFile.name}" → doc_rapport_cause`);
                   } catch (err) {
                       console.warn(`[Magic Drop Cause] ❌ Échec auto-attach:`, err);
                   }
