@@ -86,6 +86,43 @@ export const processInParallelBatches = async (files, batchSize, processFunction
     return await Promise.all(batchPromises);
 };
 
+// v5.9.3 - Smart Retry & Résilience
+/**
+ * Enveloppe une fonction async avec une logique de retry automatique.
+ * Gère les erreurs transitoires (429 Rate Limit, 500 Server Error, timeout réseau).
+ *
+ * @param {() => Promise<any>} asyncFn - La fonction à tenter (sans arguments, utilisez une closure)
+ * @param {number} maxRetries - Nombre de tentatives supplémentaires après l'échec initial (défaut: 1)
+ * @param {number} delayMs - Délai en ms avant chaque retry, doublé à chaque tentative (défaut: 2000)
+ * @returns {Promise<any>} - Le résultat de la fonction si succès
+ * @throws {Error} - Relance l'erreur finale si tous les retries sont épuisés
+ *
+ * @example
+ * const result = await withRetry(() => extractAdministrativeData(files, apiKey), 1, 2000);
+ */
+export const withRetry = async (asyncFn, maxRetries = 1, delayMs = 2000) => {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await asyncFn();
+        } catch (err) {
+            lastError = err;
+            const isLastAttempt = attempt === maxRetries;
+            if (isLastAttempt) break;
+
+            // Délai exponentiel : 2s, 4s, 8s...
+            const waitMs = delayMs * Math.pow(2, attempt);
+            console.warn(
+                `[withRetry] ⚠️ Tentative ${attempt + 1}/${maxRetries + 1} échouée — ` +
+                `Retry dans ${waitMs}ms. Erreur: ${err.message || err}`
+            );
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+    }
+    console.error(`[withRetry] ❌ Toutes les tentatives épuisées (${maxRetries + 1}/${maxRetries + 1}). Erreur finale:`, lastError);
+    throw lastError;
+};
+
 // v5.7.2 - Helper pour paralléliser la préparation (PDF->Base64, MSG->texte) des fichiers
 // v5.5.5 - maxTextLength=30000 par défaut (sécurité anti-crash, un seul MSG géant ne peut plus faire exploser le contexte)
 // v5.9.1 - Optimisation Hybride PDF : les PDFs textuels sont extraits en texte brut (forceVision=false par défaut)

@@ -21,7 +21,7 @@
 // Utils
 export { fileToBase64, pdfToBase64Images, pdfExtractHybrid } from './utils/pdfUtils.js';
 export { extractValidAttachmentsFromMsg, parseMsgFile } from './utils/msgUtils.js';
-export { normalizeDate, processInParallelBatches, buildContentArrayParallel, resolveFranchiseLegale } from './utils/aiHelpers.js';
+export { normalizeDate, processInParallelBatches, buildContentArrayParallel, resolveFranchiseLegale, withRetry } from './utils/aiHelpers.js';
 
 // Agents spécialisés
 export { routeDocuments } from './agents/router.js';
@@ -690,16 +690,21 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         if (onStatusChange) onStatusChange('extracting');
 
         // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE (v5.9.0 — cascade)
-        const adminPromise = adminFiles.length > 0 
-            ? extractAdministrativeData(adminFiles, providedApiKey, null, model)
+        // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
+        // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
+        const adminPromise = adminFiles.length > 0
+            ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null, model))
+                .catch(err => { console.error('[aiManager] ❌ Agent Admin KO après retries:', err); return { success: false, data: {} }; })
             : Promise.resolve({ success: true, data: {} });
-            
+
         const narrativePromise = narrativeFiles.length > 0
-            ? extractNarrativeData(narrativeFiles, providedApiKey, null, model, existingContext.cause || '')
+            ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, model, existingContext.cause || ''))
+                .catch(err => { console.error('[aiManager] ❌ Agent Récits KO après retries:', err); return { success: false, data: {} }; })
             : Promise.resolve({ success: true, data: {} });
-            
+
         const socialPromise = socialFiles.length > 0
-            ? extractSocialData(socialFiles, providedApiKey, null, model)
+            ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null, model))
+                .catch(err => { console.error('[aiManager] ❌ Agent Social KO après retries:', err); return { success: false, data: { occupants: [], experts: [], intervenants: [] } }; })
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
         // Attente des 3 agents de Phase 1
@@ -711,9 +716,11 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
         const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
         console.log(`[aiManager] 💰 Agent Financier: ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
-        
+
+        // v5.9.3 - Smart Retry & Résilience
         const financialRes = financialFiles.length > 0
-            ? await extractFinancialData(financialFiles, providedApiKey, null, model, occupantsForFinancial)
+            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, model, occupantsForFinancial))
+                .catch(err => { console.error('[aiManager] ❌ Agent Financier KO après retries:', err); return { success: false, data: { expenses: [] } }; })
             : { success: true, data: { expenses: [] } };
 
         // 4. Récupérer les occupants
