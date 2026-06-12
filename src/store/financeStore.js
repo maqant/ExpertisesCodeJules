@@ -102,12 +102,20 @@ export const useFinanceStore = create((set, get) => ({
   // --- Occupants (PII) ---
   addOccupant: (occupant) => set((state) => {
     const id = occupant.id || generateId();
-    return { pii: { ...state.pii, occupants: [...state.pii.occupants, { id, ...occupant }] } };
+    const formattedOcc = { ...occupant, nom: occupant.nom ? String(occupant.nom).toUpperCase() : '' };
+    return { pii: { ...state.pii, occupants: [...state.pii.occupants, { id, ...formattedOcc }] } };
   }),
   updateOccupant: (id, occupantData) => set((state) => ({
     pii: {
       ...state.pii,
-      occupants: state.pii.occupants.map(o => o.id === id ? { ...o, ...occupantData } : o)
+      occupants: state.pii.occupants.map(o => {
+          if (o.id === id) {
+              const updated = { ...o, ...occupantData };
+              if (updated.nom) updated.nom = String(updated.nom).toUpperCase();
+              return updated;
+          }
+          return o;
+      })
     }
   })),
   removeOccupant: (id) => set((state) => ({

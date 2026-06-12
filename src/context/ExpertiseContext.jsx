@@ -450,7 +450,7 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const sortOccupantsByFloor = () => {
-      const statusOrder = { "Propriétaire occupant": 1, "Propriétaire non occupant": 2, "Autre": 3, "Locataire": 4 };
+      const statusOrder = { "Propriétaire occupant": 1, "Propriétaire non occupant": 2, "Propriétaire (occupation inconnue)": 3, "ACP": 4, "Locataire": 5 };
       const sorted = [...occupants].sort((a, b) => {
           const etageA = (a.etage || '').trim();
           const etageB = (b.etage || '').trim();
