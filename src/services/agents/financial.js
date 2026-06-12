@@ -112,7 +112,7 @@ Format EXACT attendu :
 }`;
 
             const payload = {
-                model: model, // gpt-4o recommandé pour les calculs mathématiques HTVA
+                model: model, // gpt-5.4 recommandé pour les calculs mathématiques HTVA
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }

@@ -54,7 +54,7 @@ import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Rés
  * @param {string} documentType Le type de document ("facture", "devis", "contrat")
  * @returns {Promise<Object>} Un objet JSON formaté pour financeStore.js
  */
-export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-4o', providedApiKey = null, onStatusChange = null) => {
+export const extractDataFromDocument = async (files, documentType = 'facture', provider = 'openai', model = 'gpt-5.4', providedApiKey = null, onStatusChange = null) => {
     // Ensure files is an array
     const fileArray = Array.isArray(files) ? files : [files];
 
@@ -303,7 +303,7 @@ Il t'est STRICTEMENT INTERDIT d'inventer un nom de fichier, de croiser les sourc
 Si l'information que tu extrais provient du texte encadré par [DÉBUT DE LA PIÈCE JOINTE : X], alors \`sourceFileName\` doit être EXACTEMENT "X".
 Si l'information se trouve dans l'email principal et pas dans une pièce jointe, laisse \`sourceFileName\` totalement vide ("").`;
 
-            // Payload générique pour un modèle multimodal (ex: gpt-4o)
+            // Payload générique pour un modèle multimodal (ex: gpt-5.4)
             const payload = {
                 model: model,
                 messages: [
@@ -392,7 +392,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
 /**
  * Reformate les notes brutes du courtier en un compte rendu structuré.
  */
-export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-4o', providedApiKey = null) => {
+export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-5.4', providedApiKey = null) => {
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     
     if (!apiKey) {
@@ -508,7 +508,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
+                model: "gpt-5.4-nano",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: currentText }
@@ -550,7 +550,7 @@ export const refineCauseWithInput = async (existingCause, newInput, providedApiK
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
+                model: "gpt-5.4-nano",
                 messages: [
                     {
                         role: "system",
