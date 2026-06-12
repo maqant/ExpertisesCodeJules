@@ -41,6 +41,7 @@ import { extractAdministrativeData } from './agents/admin.js';
 import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
+import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 
 // ═══════════════════════════════════════════════════════════════
 // FONCTIONS LOCALES — Legacy extractor, refine, orchestrateur
