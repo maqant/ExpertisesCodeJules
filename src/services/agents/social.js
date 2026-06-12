@@ -1,8 +1,9 @@
-// v5.9.2 - Modularisation aiManager
+// v6.1.0 - Pipeline Hardening
 /**
  * social.js — Agent Social (Générateur d'UUID)
  * Étape 3 du pipeline : extraction des personnes (occupants, experts, intervenants).
  * Ne reçoit que les documents taggués "SOCIAL".
+ * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
  */
 
 import { processInParallelBatches, buildContentArrayParallel } from '../utils/aiHelpers.js';
@@ -12,7 +13,7 @@ import { processInParallelBatches, buildContentArrayParallel } from '../utils/ai
  * Étape 3 : L'Agent Social (Générateur d'UUID)
  * Extrait les données sociales (experts, occupants) à partir des fichiers taggués "SOCIAL".
  */
-export const extractSocialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const extractSocialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4') => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';

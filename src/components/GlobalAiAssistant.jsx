@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 
+// v6.1.1 - Smart Bridge redesign : compact file chips + accumulation persistée
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg'];
 const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
 
@@ -12,7 +13,7 @@ const isAcceptedFile = (file) => {
     return false;
 };
 
-const getFileIcon = (file) => {
+const getFileEmoji = (file) => {
     const name = (file.name || '').toLowerCase();
     if (name.endsWith('.msg')) return '📧';
     if (name.endsWith('.pdf')) return '📄';
@@ -20,19 +21,23 @@ const getFileIcon = (file) => {
     return '📎';
 };
 
+const formatSize = (bytes) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
+};
+
 const GlobalAiAssistant = () => {
     const {
         isAiModeActive, aiConfig, formData,
-        setPendingAiData,
-        setAiStatus, // v5.9.4 - Barre de progression globale
-        setRawContexts // v6.0.0 - Context Vault
+        setPendingAiData, setAiStatus, setRawContexts,
+        bridgeFiles: files, setBridgeFiles: setFiles  // v6.1.0 - persisté dans le contexte
     } = useContext(ExpertiseContext);
 
-    const [files, setFiles] = useState([]);
     const [rawText, setRawText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [showTextArea, setShowTextArea] = useState(false);
     const fileInputRef = useRef(null);
 
     const handleAddFiles = (newFiles) => {
@@ -40,8 +45,7 @@ const GlobalAiAssistant = () => {
         const rejectedNames = [];
         for (const f of newFiles) {
             if (isAcceptedFile(f)) {
-                // Avoid duplicates by name
-                if (!files.some(existing => existing.name === f.name && existing.size === f.size)) {
+                if (!files.some(ex => ex.name === f.name && ex.size === f.size)) {
                     validFiles.push(f);
                 }
             } else {
@@ -49,7 +53,8 @@ const GlobalAiAssistant = () => {
             }
         }
         if (rejectedNames.length > 0) {
-            setError(`Fichier(s) non supporté(s) ignoré(s): ${rejectedNames.join(', ')}. Formats acceptés: PDF, images, .msg`);
+            setError(`Format non supporté : ${rejectedNames.join(', ')}`);
+            setTimeout(() => setError(null), 3000);
         }
         if (validFiles.length > 0) {
             setFiles(prev => [...prev, ...validFiles]);
@@ -65,213 +70,241 @@ const GlobalAiAssistant = () => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(false);
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        if (e.dataTransfer.files?.length > 0) {
             handleAddFiles(Array.from(e.dataTransfer.files));
         }
     };
 
+    const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); };
+    const handleDragLeave = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false);
+    };
+
     const handleAnalyze = async () => {
         if (files.length === 0 && !rawText.trim()) return;
-
         setIsLoading(true);
         setError(null);
 
         try {
             const inputArray = [...files];
-            if (rawText.trim()) {
-                inputArray.push(rawText.trim());
-            }
+            if (rawText.trim()) inputArray.push(rawText.trim());
 
-            // v5.5.5 - Utilisation du Chef d'Orchestre multi-agents
             const result = await processGlobalIngestion(
                 inputArray,
                 aiConfig.apiKey,
-                setAiStatus, // v5.9.4 - Barre de progression globale
+                setAiStatus,
                 aiConfig.model,
                 { cause: formData?.cause }
             );
 
             if (result.success && result.data) {
-                // v5.4.0 Magic Drop: Feed directly into pendingAiData (NOT processJsonData which bypasses the Sas)
                 const aiData = result.data;
-
-                // Ensure occupants have UUIDs
-                const occupants = (aiData.occupants || []).map(o => ({
-                    ...o,
-                    id: o.id || crypto.randomUUID()
-                }));
-
-                // Ensure expenses have UUIDs
-                const expenses = (aiData.expenses || []).map(e => ({
-                    ...e,
-                    id: e.id || crypto.randomUUID(),
-                    compteDe: e.compteDe || 'unassigned'
-                }));
-
-                // Build pendingFiles: extracted MSG attachments + original non-MSG files
+                const occupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
+                const expenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
                 const allPendingFiles = [
                     ...(result.extractedFiles || []),
                     ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
-
-                // Single synchronous call — no race condition
-                setPendingAiData({
-                    formData: aiData.formData || null,
-                    occupants,
-                    expenses,
-                    pendingFiles: allPendingFiles
-                });
-
-                // v6.0.0 - Context Vault : stocker les synthèses IA + texte brut collé
+                setPendingAiData({ formData: aiData.formData || null, occupants, expenses, pendingFiles: allPendingFiles });
                 const newContexts = [];
                 if (rawText.trim()) newContexts.push(rawText.trim());
                 if (aiData.formData?.cause) newContexts.push(aiData.formData.cause);
                 if (aiData.formData?.divers) newContexts.push(aiData.formData.divers);
-                if (newContexts.length > 0) {
-                    setRawContexts(prev => [...prev, ...newContexts]);
-                    console.log(`[Context Vault] +${newContexts.length} contexte(s) ajouté(s)`);
-                }
-
-                // Clear the form on success
+                if (newContexts.length > 0) setRawContexts(prev => [...prev, ...newContexts]);
                 setFiles([]);
                 setRawText('');
             } else {
-                setError(result.error || "L'IA n'a pas pu extraire les données. Réessayez avec des documents plus clairs.");
+                setError(result.error || "L'IA n'a pas pu extraire les données.");
             }
         } catch (err) {
-            console.error("[GlobalAiAssistant] Error:", err);
-            setError("Erreur inattendue : " + err.message);
+            console.error('[GlobalAiAssistant] Error:', err);
+            setError('Erreur : ' + err.message);
         } finally {
             setIsLoading(false);
-            setAiStatus('idle'); // v5.9.4
+            setAiStatus('idle');
         }
     };
 
-    const canAnalyze = (files.length > 0 || rawText.trim()) && !isLoading;
+    const totalFiles = files.length;
+    const canAnalyze = (totalFiles > 0 || rawText.trim()) && !isLoading;
     const hasApiKey = !!(aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY);
+    const hasFiles = totalFiles > 0;
 
     return (
-        <div className="bg-gradient-to-br from-slate-800 via-indigo-900/30 to-slate-800 p-4 rounded-lg border border-indigo-500/30 shadow-lg">
-            <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-1.5">
-                <span className="text-base">🧠</span> Assistant IA Global
-            </h3>
-            <p className="text-[10px] text-indigo-200/80 mb-3 leading-tight">
-                Glissez vos documents (PDF, images, emails .msg) et/ou collez vos notes brutes. L'IA analysera le tout et vous proposera les données à importer.
-            </p>
+        <div className="bg-gradient-to-br from-slate-800 via-indigo-900/30 to-slate-800 rounded-lg border border-indigo-500/30 shadow-lg overflow-hidden">
 
-            {/* Dropzone */}
-            <div
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
-                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false); }}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-all duration-200 mb-3 ${
-                    isDragOver
-                        ? 'border-indigo-400 bg-indigo-500/20 scale-[1.01]'
-                        : 'border-slate-600 hover:border-indigo-400/60 bg-slate-800/50 hover:bg-slate-800/70'
-                }`}
-            >
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,.msg"
-                    onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
-                    className="hidden"
-                />
-                <div className="pointer-events-none">
-                    <div className="text-2xl mb-1">{isDragOver ? '📥' : '📁'}</div>
-                    <p className="text-xs font-bold text-slate-300">
-                        {isDragOver ? 'Relâchez pour ajouter' : 'Glisser-déposer ou cliquer'}
-                    </p>
-                    <p className="text-[9px] text-slate-500 mt-0.5">PDF, Images, Emails (.msg)</p>
-                </div>
+            {/* Header compact */}
+            <div className="px-3.5 pt-3 pb-2.5 border-b border-indigo-500/15">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>🧠</span> Assistant IA Global
+                    {hasFiles && !isLoading && (
+                        <span className="ml-auto text-[9px] font-normal text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
+                            {totalFiles} en file
+                        </span>
+                    )}
+                </h3>
             </div>
 
-            {/* File list */}
-            {files.length > 0 && (
-                <div className="mb-3 space-y-1">
-                    {files.map((file, index) => (
-                        <div
-                            key={`${file.name}-${index}`}
-                            className="flex items-center gap-2 bg-slate-800 rounded px-2.5 py-1.5 border border-slate-700 group"
-                        >
-                            <span className="text-sm shrink-0">{getFileIcon(file)}</span>
-                            <span className="text-xs text-white font-medium truncate flex-1" title={file.name}>
-                                {file.name}
-                            </span>
-                            <span className="text-[9px] text-slate-500 shrink-0">
-                                {(file.size / 1024).toFixed(0)} Ko
-                            </span>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleRemoveFile(index); }}
-                                className="text-slate-500 hover:text-red-400 transition-colors text-xs shrink-0 opacity-0 group-hover:opacity-100"
-                                title="Retirer"
+            <div className="p-3 space-y-2">
+
+                {/* === ÉTAT VIDE : grande dropzone invitante === */}
+                {!hasFiles && !isLoading && (
+                    <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 py-6 text-center ${
+                            isDragOver
+                                ? 'border-indigo-400 bg-indigo-500/20 scale-[1.02]'
+                                : 'border-slate-600 hover:border-indigo-400/60 bg-slate-800/40 hover:bg-slate-800/60'
+                        }`}
+                    >
+                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.msg"
+                            onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
+                            className="hidden"
+                        />
+                        <div className="text-2xl mb-1">{isDragOver ? '📥' : '📁'}</div>
+                        <p className="text-xs font-semibold text-slate-300">
+                            {isDragOver ? 'Relâchez ici' : 'Glisser-déposer ou cliquer'}
+                        </p>
+                        <p className="text-[9px] text-slate-500 mt-0.5">PDF · Images · Emails .msg</p>
+                    </div>
+                )}
+
+                {/* === ÉTAT CHARGÉ : chips compacts + dropzone miniature === */}
+                {hasFiles && !isLoading && (
+                    <div>
+                        {/* Chips des fichiers */}
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                            {files.map((file, index) => (
+                                <div
+                                    key={`${file.name}-${index}`}
+                                    className="group flex items-center gap-1 bg-slate-900/70 border border-slate-700/60 rounded-lg px-2 py-1 text-[10px] max-w-full"
+                                    title={`${file.name} — ${formatSize(file.size)}`}
+                                >
+                                    <span className="shrink-0 text-xs">{getFileEmoji(file)}</span>
+                                    <span className="text-slate-300 truncate" style={{ maxWidth: '120px' }}>
+                                        {file.name.replace(/\.msg$|\.pdf$/i, '')}
+                                    </span>
+                                    <span className="text-slate-600 shrink-0">{formatSize(file.size)}</span>
+                                    <button
+                                        onClick={() => handleRemoveFile(index)}
+                                        className="text-slate-600 hover:text-red-400 transition-colors shrink-0 ml-0.5 opacity-0 group-hover:opacity-100"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+
+                            {/* Chip "+ Ajouter" discret */}
+                            <div
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`flex items-center gap-1 border border-dashed rounded-lg px-2 py-1 text-[10px] cursor-pointer transition-all duration-150 ${
+                                    isDragOver
+                                        ? 'border-indigo-400 bg-indigo-500/20 text-indigo-300'
+                                        : 'border-slate-600 text-slate-500 hover:border-indigo-400/60 hover:text-indigo-400 bg-slate-800/30'
+                                }`}
                             >
-                                ✕
+                                <span>＋</span>
+                                <span>{isDragOver ? 'Déposer' : 'Ajouter'}</span>
+                            </div>
+                        </div>
+
+                        {/* Lien "tout effacer" très discret */}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => setFiles([])}
+                                className="text-[9px] text-slate-600 hover:text-red-400 transition-colors"
+                            >
+                                Tout effacer
                             </button>
                         </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                )}
 
-            {/* Textarea */}
-            <textarea
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                placeholder="Collez ici vos notes brutes, copier-coller d'emails, informations du dossier..."
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs font-mono leading-relaxed resize-y h-20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-500 mb-3"
-                disabled={isLoading}
-            />
-
-            {/* Error message */}
-            {error && (
-                <div className="bg-red-900/30 border border-red-500/40 text-red-300 text-[10px] p-2 rounded mb-3 leading-tight">
-                    ❌ {error}
-                </div>
-            )}
-
-            {/* Warning: no API key */}
-            {!hasApiKey && isAiModeActive && (
-                <div className="bg-orange-900/30 border border-orange-500/40 text-orange-300 text-[10px] p-2 rounded mb-3 leading-tight">
-                    ⚠️ Aucune clé API configurée. L'analyse fonctionnera en mode simulation (mock).
-                </div>
-            )}
-
-            {/* Analyze button */}
-            <button
-                onClick={handleAnalyze}
-                disabled={!canAnalyze}
-                className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
-                    canAnalyze
-                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30'
-                        : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                }`}
-            >
-                {isLoading ? (
-                    <>
-                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                {/* En cours d'analyse : mini spinner inline */}
+                {isLoading && (
+                    <div className="flex items-center gap-2 py-2">
+                        <svg className="animate-spin h-3.5 w-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <span>Analyse en cours...</span>
-                    </>
-                ) : (
-                    <>
-                        <span>🔍</span>
-                        <span>Analyser avec l'IA</span>
-                    </>
-                )}
-            </button>
-
-            {isLoading && (
-                <div className="mt-2">
-                    <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full animate-pulse" style={{ width: '100%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        <div className="flex-1">
+                            <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500 rounded-full animate-pulse w-full" />
+                            </div>
+                            <p className="text-[9px] text-slate-500 mt-0.5">Pipeline IA en cours… (5–20 sec)</p>
+                        </div>
                     </div>
-                    <p className="text-[9px] text-slate-400 text-center mt-1">L'analyse multimodale peut prendre 5 à 15 secondes...</p>
+                )}
+
+                {/* Zone texte optionnelle */}
+                <div>
+                    <button
+                        onClick={() => setShowTextArea(p => !p)}
+                        className="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1"
+                    >
+                        <span>{showTextArea ? '▾' : '▸'}</span> Coller du texte brut (optionnel)
+                    </button>
+                    {showTextArea && (
+                        <textarea
+                            value={rawText}
+                            onChange={(e) => setRawText(e.target.value)}
+                            placeholder="Collez ici vos notes brutes, emails copiés-collés…"
+                            className="w-full mt-1.5 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs font-mono leading-relaxed resize-y h-16 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-500"
+                            disabled={isLoading}
+                        />
+                    )}
                 </div>
-            )}
+
+                {/* Erreurs */}
+                {error && (
+                    <div className="bg-red-900/30 border border-red-500/40 text-red-300 text-[10px] p-2 rounded leading-tight">
+                        ❌ {error}
+                    </div>
+                )}
+                {!hasApiKey && isAiModeActive && (
+                    <div className="bg-orange-900/30 border border-orange-500/40 text-orange-300 text-[10px] p-2 rounded leading-tight">
+                        ⚠️ Aucune clé API — mode simulation.
+                    </div>
+                )}
+
+                {/* Bouton principal */}
+                <button
+                    onClick={handleAnalyze}
+                    disabled={!canAnalyze}
+                    className={`w-full py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                        canAnalyze
+                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-[1.01]'
+                            : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                    }`}
+                >
+                    <span>🔍</span>
+                    <span>
+                        {isLoading
+                            ? 'Analyse en cours…'
+                            : totalFiles > 0
+                                ? `Analyser ${totalFiles} fichier${totalFiles > 1 ? 's' : ''}`
+                                : rawText.trim() ? 'Analyser le texte' : 'Analyser avec l\'IA'
+                        }
+                    </span>
+                </button>
+            </div>
+
+            {/* Input caché réutilisé partout */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.msg"
+                onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
+                className="hidden"
+            />
         </div>
     );
 };

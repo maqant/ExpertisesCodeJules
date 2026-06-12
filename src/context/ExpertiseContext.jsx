@@ -114,6 +114,8 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Pending AI data — "sas" de validation avant import
   const [pendingAiData, setPendingAiData] = useState(null);
+  // v6.1.0 - Bridge Files : persisté dans le contexte pour survivre aux re-renders de la Sidebar
+  const [bridgeFiles, setBridgeFiles] = useState([]);
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -1557,7 +1559,8 @@ Voici le format JSON :
       causeTimeline, setCauseTimeline, addCauseTimelineItem,
       toggleExpenseType,
       aiStatus, setAiStatus,
-      rawContexts, setRawContexts
+      rawContexts, setRawContexts,
+      bridgeFiles, setBridgeFiles  // v6.1.0 - Smart Bridge file queue
   };
 
   return (

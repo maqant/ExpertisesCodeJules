@@ -189,7 +189,8 @@ const Sidebar = () => {
         toggleExpenseType,
         intervenantsList, setIntervenantsList,
         aiStatus, setAiStatus,
-        rawContexts, setRawContexts
+        rawContexts, setRawContexts,
+        bridgeFiles, setBridgeFiles  // v6.1.1 - Smart Bridge file queue
     } = context;
 
 
@@ -216,32 +217,40 @@ const Sidebar = () => {
     const [generatedText, setGeneratedText] = useState(null);
     const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
 
-    const handleSmartBridgeDrop = (file) => {
-        if (!file) return;
-        setCurrentBridgeFile(file);
-        const match = findMatchingDossier(file.name, savedDossiers);
+    // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
+    const handleSmartBridgeDrop = (filesArray) => {
+        if (!filesArray || filesArray.length === 0) return;
+        setCurrentBridgeFile(filesArray); // stocke le tableau complet
+        // Matching sur le premier .msg trouvé (ou le premier fichier)
+        const msgFile = filesArray.find(f => f.name.toLowerCase().endsWith('.msg')) || filesArray[0];
+        const match = findMatchingDossier(msgFile.name, savedDossiers);
         setBridgeMatchResult(match);
         setIsBridgeModalOpen(true);
     };
 
-    // v5.9.4 - Smart Bridge (Fix SAS Trigger)
-    // Réplique exacte de GlobalAiAssistant pour pousser le document dans le SAS IA Global
-    const triggerSmartBridgeAnalysis = async (file) => {
-        if (!file) return;
+    // v6.1.1 - Smart Bridge : analyse TOUS les fichiers d'un coup
+    const triggerSmartBridgeAnalysis = async (filesArray) => {
+        const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
+        if (allFiles.length === 0) return;
         setIsAiDossierLoading(true);
         try {
             if (!isAiModeActive) {
-                if (file.name.toLowerCase().endsWith('.msg')) {
-                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
-                    setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles: extractedFiles });
-                } else {
-                    setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles: [file] });
+                // Mode non-IA : extraire les PJ des MSGs
+                const pendingFiles = [];
+                for (const file of allFiles) {
+                    if (file.name.toLowerCase().endsWith('.msg')) {
+                        const { files: extracted } = await extractValidAttachmentsFromMsg(file);
+                        pendingFiles.push(...extracted);
+                    } else {
+                        pendingFiles.push(file);
+                    }
                 }
+                setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles });
                 return;
             }
 
             const result = await processGlobalIngestion(
-                [file],
+                allFiles,
                 aiConfig.apiKey,
                 setAiStatus,
                 aiConfig.model,
@@ -254,7 +263,7 @@ const Sidebar = () => {
                 const expenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
                 const allPendingFiles = [
                     ...(result.extractedFiles || []),
-                    ...(file.name.toLowerCase().endsWith('.msg') ? [] : [file])
+                    ...allFiles.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
 
                 setPendingAiData({
@@ -281,6 +290,8 @@ const Sidebar = () => {
         } finally {
             setIsAiDossierLoading(false);
             setAiStatus('idle');
+            // v6.1.1 - Vider la file du Smart Bridge après analyse
+            setBridgeFiles([]);
         }
     };
 

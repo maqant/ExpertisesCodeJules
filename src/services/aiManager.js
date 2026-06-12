@@ -1,4 +1,4 @@
-// v5.9.2 - Modularisation aiManager
+// v6.1.0 - Pipeline Hardening
 /**
  * aiManager.js — Orchestrateur & Barrel File
  * 
@@ -612,7 +612,8 @@ RÈGLES :
  * Orchestre l'ingestion globale de fichiers via le Routeur, distribue aux agents spécialisés,
  * et assemble le JSON final pour la modale globale.
  */
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', existingContext = {}) => {
+// v6.1.0 - Modèle par défaut mis à jour vers gpt-5.4 (spécialistes)
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}) => {
     try {
         if (onStatusChange) onStatusChange('routing');
         
@@ -651,27 +652,40 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         const narrativeFiles = [];
         const financialFiles = [];
 
-        // v5.8.1 - Dispatch multi-catégories + logs détaillés + MSG toujours SOCIAL
+        // v6.1.0 - Pipeline Hardening : dispatch avec forçage intelligent
         const dispatchLog = { ADMIN: [], SOCIAL: [], RECITS: [], FINANCIER: [] };
         for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
             const isMsg = fileName.toLowerCase().endsWith('.msg');
+            // v6.1.0 - Détecter les PJ extraites des MSG (pas dans les fichiers originaux)
+            const isExtractedFromMsg = !rawFiles.includes(file) && file.type === 'application/pdf';
             let categories = routeMap[fileName];
             
             if (!categories && isMsg) {
                 categories = ['ADMIN', 'SOCIAL', 'RECITS'];
-                console.warn(`[aiManager] ⚠️ MSG "${fileName}" non classé → fallback ADMIN+SOCIAL+RECITS`);
+                console.warn(`[aiManager v6.1.0] ⚠️ MSG "${fileName}" non classé → fallback ADMIN+SOCIAL+RECITS`);
             } else if (!categories) {
                 categories = ['ADMIN'];
-                console.warn(`[aiManager] ⚠️ "${fileName}" non classé → fallback ADMIN`);
+                console.warn(`[aiManager v6.1.0] ⚠️ "${fileName}" non classé → fallback ADMIN`);
             }
             
             const cats = Array.isArray(categories) ? categories : [categories];
             
-            // v5.8.1 - Les MSG contiennent des noms de personnes → toujours forcer SOCIAL
-            if (isMsg && !cats.includes('SOCIAL')) {
-                cats.push('SOCIAL');
-                console.log(`[aiManager] 📌 MSG "${fileName}" → SOCIAL forcé (noms possibles)`);
+            // v6.1.0 - Les MSG contiennent quasi toujours ADMIN + SOCIAL + RECITS
+            // (données contractuelles, noms, et circonstances du sinistre)
+            if (isMsg) {
+                ['ADMIN', 'SOCIAL', 'RECITS'].forEach(c => {
+                    if (!cats.includes(c)) {
+                        cats.push(c);
+                        console.log(`[aiManager v6.1.0] 📌 MSG "${fileName}" → ${c} forcé`);
+                    }
+                });
+            }
+
+            // v6.1.0 - Les PJ PDF extraites d'un MSG sont très probablement des factures/devis
+            if (isExtractedFromMsg && !cats.includes('FINANCIER')) {
+                cats.push('FINANCIER');
+                console.log(`[aiManager v6.1.0] 💶 PJ PDF "${fileName}" extraite de MSG → FINANCIER forcé`);
             }
             
             for (const cat of cats) {

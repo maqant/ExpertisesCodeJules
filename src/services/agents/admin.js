@@ -1,8 +1,9 @@
-// v5.9.2 - Modularisation aiManager
+// v6.1.0 - Pipeline Hardening
 /**
  * admin.js — Agent Administratif
  * Étape 2 du pipeline : extraction des données contractuelles, coordonnées, franchise.
  * Ne reçoit que les documents taggués "ADMIN".
+ * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
  */
 
 import { processInParallelBatches, buildContentArrayParallel, normalizeDate, resolveFranchiseLegale } from '../utils/aiHelpers.js';
@@ -12,7 +13,7 @@ import { processInParallelBatches, buildContentArrayParallel, normalizeDate, res
  * Extrait les données administratives, contractuelles et les coordonnées.
  * Ne reçoit que les documents taggués "ADMIN".
  */
-export const extractAdministrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o') => {
+export const extractAdministrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4') => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';

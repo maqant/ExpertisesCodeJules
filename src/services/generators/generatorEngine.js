@@ -19,10 +19,10 @@ const TEMPLATES = {
  * @param {string} type - Le type de document à générer (ex: 'declaration')
  * @param {Object} dossierState - { formData, rawContexts, references }
  * @param {string} apiKey - Clé API OpenAI
- * @param {string} [model='gpt-4o'] - Modèle à utiliser
+ * @param {string} [model='gpt-5.4'] - Modèle à utiliser (v6.1.0 : gpt-5.4)
  * @returns {Promise<string>} Le texte généré
  */
-export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-4o') => {
+export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-5.4') => {
     const builder = TEMPLATES[type];
     if (!builder) {
         throw new Error(`[Generator] Template inconnu : "${type}". Templates disponibles : ${Object.keys(TEMPLATES).join(', ')}`);

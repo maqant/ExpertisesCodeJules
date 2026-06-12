@@ -1,9 +1,10 @@
-// v5.9.2 - Modularisation aiManager
+// v6.1.0 - Pipeline Hardening
 /**
  * narrative.js — Agent Récits
  * Étape 4 du pipeline : extraction et synthèse du récit (cause, localisation, réparations).
  * Ne reçoit que les documents taggués "RECITS".
  * Traitement SÉQUENTIEL par lots avec accumulation incrémentale de la cause.
+ * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
  */
 
 import { buildContentArrayParallel } from '../utils/aiHelpers.js';
@@ -14,7 +15,7 @@ import { buildContentArrayParallel } from '../utils/aiHelpers.js';
  * Extrait et synthétise les données textuelles (cause, compte rendu, divers) 
  * à partir des fichiers taggués "RECITS".
  */
-export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', existingCause = '') => {
+export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingCause = '') => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';

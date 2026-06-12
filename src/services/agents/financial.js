@@ -1,9 +1,10 @@
-// v5.9.2 - Modularisation aiManager
+// v6.1.0 - Pipeline Hardening
 /**
  * financial.js — Agent Financier
  * Étape 5 du pipeline : extraction des données financières (devis, factures).
  * Ne reçoit que les documents taggués "FINANCIER".
  * Parallélisation massive : 1 micro-agent par fichier.
+ * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
  */
 
 import { fileToBase64, pdfExtractHybrid } from '../utils/pdfUtils.js';
@@ -15,7 +16,7 @@ import { parseMsgFile } from '../utils/msgUtils.js';
  * Extrait les données financières (devis, factures) et les rattache aux occupants.
  * Ne reçoit que les documents taggués "FINANCIER".
  */
-export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-4o', occupantsList = []) => {
+export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', occupantsList = []) => {
     const fileArray = Array.isArray(files) ? files : [files];
     const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
