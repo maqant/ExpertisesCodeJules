@@ -54,24 +54,25 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
 Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
 
 RÈGLES ABSOLUES :
-1. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
-2. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
-3. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant (ex: "Rapport 1 (Entreprise Dubois) :\\n...").
-4. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
+1. RÈGLE D'EXHAUSTIVITÉ : Si aucune information pertinente n'est trouvée pour la cause, renvoie null. Si aucun document technique n'est à attacher, renvoie un tableau vide [].
+2. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
+3. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
+4. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant.
+5. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
    a) Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
    b) Où est-elle localisée avec précision ?
    c) Quelles sont les conséquences matérielles directes constatées ?
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
-5. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources qui sont spécifiquement des "rapports de recherche de fuite", "rapports d'intervention pompiers" ou des "emails contenant des explications techniques détaillées". Renvoie la liste EXACTE de leurs noms (tels qu'ils apparaissent dans [FIN DOCUMENT : X]) dans le tableau "technicalFilesToAttach". Ne liste PAS les photos, factures, devis, ou contrats. Si aucun document technique n'est présent, renvoie un tableau vide [].
-6. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
-7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (jour, mois, année) n'est explicitement fournie dans les documents analysés, tu ne dois en inventer aucune sous aucun prétexte.
-8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
+6. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources techniques. Renvoie la liste EXACTE de leurs noms dans "technicalFilesToAttach". Si aucun, renvoie [].
+7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
 ${existingCauseBlock}
 
 Voici le format EXACT attendu :
 {
-  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées.",
-  "technicalFilesToAttach": ["nom_fichier_1.pdf", "nom_fichier_2.msg"]
+  "_raisonnement": "Analyse étape par étape des documents pour identifier l'origine, la localisation, les conséquences et les réparations.",
+  "cause": null,
+  "technicalFilesToAttach": []
 }`;
 
             const payload = {

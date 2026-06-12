@@ -47,45 +47,34 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'identifier TOUTES les personnes mentionnées.
 
 MÉTHODE DE TRAVAIL (Chain of Thought) :
-Avant de formater le JSON, réfléchis en suivant ces étapes :
-1. Liste mentalement TOUTES les personnes physiques et morales mentionnées dans les documents.
-2. Pour chaque personne, détermine son RÔLE exact : est-ce un occupant du bien (locataire, propriétaire) ou un intervenant extérieur (plombier, syndic, courtier, expert, proche, etc.) ?
-3. Pour les propriétaires : est-il EXPLICITEMENT dit qu'il occupe le bien ("propriétaire occupant", "habite sur place") ou qu'il ne l'occupe pas ("propriétaire bailleur", "ne réside pas") ? Si rien n'est précisé, utilise "Propriétaire (occupation inconnue)".
-4. Classe chaque personne dans le bon tableau (occupants OU intervenants) puis formate le JSON.
+Avant de formater le JSON, utilise le champ "_raisonnement" pour :
+1. Lister mentalement TOUTES les personnes physiques et morales mentionnées.
+2. Déterminer leur RÔLE exact (occupant ou intervenant extérieur).
+3. Classer chaque personne dans le bon tableau.
 
 RÈGLES ABSOLUES :
-1. N'invente AUCUNE information. Si l'information n'est pas présente, renvoie une chaîne vide "" ou false pour les booléens.
-2. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces 5 valeurs EXACTES :
-   - "Locataire"
-   - "Propriétaire occupant"
-   - "Propriétaire non occupant"
-   - "Propriétaire (occupation inconnue)" ← SI le document dit juste "propriétaire" sans préciser s'il habite sur place
-   - "ACP" ← Pour l'Association des Copropriétaires
-3. SÉPARATION STRICTE DES TABLEAUX : Les tableaux "occupants", "intervenants" et "experts" sont MUTUELLEMENT EXCLUSIFS. 
-   - Une personne ne peut exister QUE DANS UN SEUL tableau.
-   - Si une personne est propriétaire, locataire ou ACP, elle va dans "occupants" et NE DOIT ABSOLUMENT PAS se retrouver dans "intervenants".
-   - TOUTE autre personne (syndic, plombier, courtier, proche, etc.) va dans "intervenants".
-4. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau "experts" du tableau "intervenants".
-   - Un "expert" est STRICTEMENT un expert interne de compagnie d'assurance ou un membre d'un bureau d'expertise reconnu (ex: CED, Dekra, Ebex, Lexa, Aube Immo, Mosa).
-   - Les entreprises de recherche de fuite (Visiotherm, Verdetec, Polygon), les artisans, courtiers, plombiers, syndics NE SONT ABSOLUMENT PAS des experts et doivent aller dans "intervenants".
-5. EXCLUSION ABSOLUE : Le Bureau Péchard (ou Bureau Yves Péchard) et ses employés NE SONT JAMAIS des experts ni des intervenants. C'est le bureau de gestion mandaté. Tu dois impérativement les IGNORER et les EXCLURE de tous les tableaux (experts, occupants, intervenants).
-6. PRÉCISION DU RÔLE ET DE L'IDENTITÉ :
-   - Pour les gestionnaires, agences immobilières ou syndics, le champ "role" doit préciser EXACTEMENT de quel appartement/lot/propriétaire ils s'occupent. Par exemple, au lieu de juste "Gestionnaire", écris "Gestionnaire (appartement de M. Dupont)" ou "Agence immobilière (représente le proprio du 3ème)".
-   - Si une civilité est précisée (M., Mme, Monsieur, Madame), inclus-la avec le nom de famille (ex: "Mme Borremans"). N'invente pas le genre, mais s'il est connu, précise-le.
-7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
+1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable (ex: pas d'email, pas de téléphone), tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A"). N'omets aucune clé.
+2. N'invente AUCUNE information.
+3. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces 5 valeurs EXACTES : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", "Propriétaire (occupation inconnue)", "ACP".
+4. SÉPARATION STRICTE DES TABLEAUX : Les tableaux "occupants", "intervenants" et "experts" sont MUTUELLEMENT EXCLUSIFS.
+5. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau "experts" du tableau "intervenants".
+6. EXCLUSION ABSOLUE : Le Bureau Péchard et ses employés NE SONT JAMAIS des experts ni des intervenants. Tu dois impérativement les IGNORER.
+7. PRÉCISION DU RÔLE ET DE L'IDENTITÉ : Précise de quel lot/appartement s'occupe un syndic. Inclus la civilité (M., Mme) si elle est connue.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
-  "experts": [ { "nom": "", "tel": "" } ],
+  "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
+  "experts": [ { "nom": null, "tel": null } ],
   "occupants": [
     {
-      "nom": "", "prenom": "", "etage": "", "statut": "Locataire", "tel": "", "email": "",
-      "rc": false, "rcPolice": "", "secAssurance": false, "secCie": "", "secPolice": "", "secType": "", "contreExpert": false
+      "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
+      "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false
     }
   ],
   "intervenants": [
     {
-      "nom": "", "prenom": "", "role": "", "societe": "", "email": "", "tel": ""
+      "nom": null, "prenom": null, "role": null, "societe": null, "email": null, "tel": null
     }
   ]
 }`;

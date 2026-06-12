@@ -49,30 +49,32 @@ CONTEXTE IMPORTANT :
 - "Bureau Péchard" est le bureau de gestion de sinistres / courtier en charge du dossier. Ce n'est PAS un bureau d'expertise externe. Si le document ne mentionne pas d'autre bureau, utilise "Bureau Péchard" comme valeur par défaut.
 
 RÈGLES ABSOLUES :
-1. N'invente AUCUNE information. Si l'information n'est pas explicitement présente dans le document, renvoie une chaîne vide "".
-2. Remplis les champs avec précision.
-3. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
-4. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou "" si non trouvé.
-5. FRANCHISE - Tu dois extraire DEUX informations distinctes :
+1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable dans le texte, tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A", et tu ne dois pas omettre la clé).
+2. N'invente AUCUNE information.
+3. Remplis les champs avec précision.
+4. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
+5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou null si non trouvé.
+6. FRANCHISE - Tu dois extraire DEUX informations distinctes :
    a) "franchiseBrute" : le montant ou texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "600€", "indice 119", "franchise anglaise de 500€", "franchise x3").
    b) "typeFranchise" : déduis le TYPE de franchise selon ces règles :
-      - "Legale" si le montant est inférieur à 400€ OU s'il y a une référence à un indice IPC/abex (ex: "indice 119", "franchise légale").
-      - "Speciale" si c'est un gros forfait (600€, 1000€, etc.) OU un multiplicateur ("franchise x3", "triple franchise").
-      - "Anglaise" si le texte mentionne "franchise anglaise" ou "english deductible".
-      - "" si aucune franchise n'est mentionnée.
-6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
-7. ANTI-HALLUCINATION refPechard : Le champ "refPechard" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte explicitement dans les documents, renvoie IMPÉRATIVEMENT une chaîne vide "". N'invente AUCUN numéro et ne confonds pas avec les numéros de police, de sinistre ou d'autres références.
+      - "Legale" si le montant est inférieur à 400€ OU s'il y a une référence à un indice IPC/abex.
+      - "Speciale" si c'est un gros forfait OU un multiplicateur.
+      - "Anglaise" si le texte mentionne "franchise anglaise".
+      - null si aucune franchise n'est mentionnée.
+7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
+8. ANTI-HALLUCINATION refPechard : Le champ "refPechard" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte, renvoie IMPÉRATIVEMENT null. N'invente AUCUN numéro.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
+  "_raisonnement": "Ta réflexion étape par étape sur les entités, dates et chiffres identifiés avant de remplir le reste du JSON",
   "formData": {
-    "dateExp": "", "heureExp": "", "nomResidence": "", "adresse": "", "refPechard": "", "expertInfos": "", "bureau": "Bureau Péchard",
-    "dateSinistre": "", "dateDeclaration": "", "declarant": "", "nomCie": "", "nomContrat": "", "numPolice": "", "numSinistreCie": "", 
-    "numConditionsGenerales": "", "franchiseBrute": "", "typeFranchise": "", "pertesIndirectes": "", "isAxa": false,
-    "isContradictoire": false, "cieContradictoire": "", "bureauContradictoire": "", "expertContradictoire": "", "compteDeContradictoire": ""
+    "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "refPechard": null, "expertInfos": null, "bureau": "Bureau Péchard",
+    "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
+    "numConditionsGenerales": null, "franchiseBrute": null, "typeFranchise": null, "pertesIndirectes": null, "isAxa": false,
+    "isContradictoire": false, "cieContradictoire": null, "bureauContradictoire": null, "expertContradictoire": null, "compteDeContradictoire": null
   },
   "references": [ 
-    { "nom": "", "ref": "" } 
+    { "nom": null, "ref": null } 
   ]
 }`;
 

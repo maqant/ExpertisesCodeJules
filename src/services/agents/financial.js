@@ -89,23 +89,25 @@ export const extractFinancialData = async (files, providedApiKey = null, onStatu
 Ton rôle est d'analyser des documents financiers (devis, factures, tickets) et d'extraire les réclamations financières.
 
 RÈGLES ABSOLUES :
-1. RÈGLE DU HTVA STRICT : TOUS les montants extraits (montantReclame, montantDevis, montantFacture, montantValide) DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement avec le taux de TVA indiqué. Formate les montants sous forme de texte avec un point (ex: "450.00").
-2. "typeMontant" DOIT TOUJOURS être "HTVA".
-3. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
-4. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
-5. DESTINATAIRE & RATTACHEMENT : Extrait le NOM et PRÉNOM EXACT de la personne à qui la facture est adressée dans "destinataireFacture".${occupantsContext}
-6. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction, ni markdown.
+1. RÈGLE D'EXHAUSTIVITÉ : Si une information (comme une référence, un taux, une description) est introuvable, tu DOIS obligatoirement renvoyer la valeur null au lieu d'une chaîne vide "". N'omets aucune clé.
+2. RÈGLE DU HTVA STRICT : TOUS les montants extraits (montantReclame, montantDevis, montantFacture, montantValide) DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement avec le taux de TVA indiqué. Formate les montants sous forme de texte avec un point (ex: "450.00").
+3. "typeMontant" DOIT TOUJOURS être "HTVA".
+4. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
+5. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
+6. DESTINATAIRE & RATTACHEMENT : Extrait le NOM et PRÉNOM EXACT de la personne à qui la facture est adressée dans "destinataireFacture".${occupantsContext}
+7. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction.
 
 Format EXACT attendu :
 {
+  "_raisonnement": "Ta réflexion sur le type de document, les montants HTVA/TVAC, et l'identification du destinataire avant de remplir le tableau expenses",
   "expenses": [
     {
-      "prestataire": "", "type": "Devis ou Facture", "ref": "", "desc": "", "compteDe": "ID_OCCUPANT ou unassigned", 
-      "destinataireFacture": "Nom du destinataire", "montantReclame": "", "montantValide": "", 
-      "typeMontant": "HTVA", "categorieGarantie": "Principale ou Complémentaire", "tauxTVA": 0, 
-      "factureRecue": false, "pourcentageVetuste": 0, "motifRefus": "", "avisCouverture": "Oui", "noteCouverture": "",
-      "montantDevis": "", "refDevis": "", "prestataireDevis": "", "descDevis": "",
-      "montantFacture": "", "refFacture": "", "prestataireFacture": "", "descFacture": "",
+      "prestataire": null, "type": "Devis ou Facture", "ref": null, "desc": null, "compteDe": "ID_OCCUPANT ou unassigned", 
+      "destinataireFacture": null, "montantReclame": null, "montantValide": null, 
+      "typeMontant": "HTVA", "categorieGarantie": "Principale ou Complémentaire", "tauxTVA": null, 
+      "factureRecue": false, "pourcentageVetuste": null, "motifRefus": null, "avisCouverture": "Oui", "noteCouverture": null,
+      "montantDevis": null, "refDevis": null, "prestataireDevis": null, "descDevis": null,
+      "montantFacture": null, "refFacture": null, "prestataireFacture": null, "descFacture": null,
       "sourceFileName": "${fileName}"
     }
   ]

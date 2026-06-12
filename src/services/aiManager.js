@@ -44,6 +44,45 @@ import { extractFinancialData } from './agents/financial.js';
 import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 
 // ═══════════════════════════════════════════════════════════════
+// AGENT BALAI (Phase 2)
+// ═══════════════════════════════════════════════════════════════
+const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
+    const prompt = `Tu es un Super-Réviseur Premium (Agent Balai). Un premier passage d'extraction a échoué à trouver certaines informations cruciales dans le document ci-dessous.
+
+TA MISSION : 
+Recherche ces informations spécifiques : ${missingKeysList.join(', ')}.
+
+RÈGLES ANTI-HALLUCINATION ABSOLUES :
+1. Utilise le champ "_raisonnement" en premier dans ton JSON pour réfléchir étape par étape. Pour chaque information demandée, cherche une PREUVE exacte dans le texte.
+2. Si tu trouves l'information, extrais-la fidèlement.
+3. Si l'information est absente, déduite, ou incertaine, tu DOIS OBLIGATOIREMENT renvoyer la chaîne "INTROUVABLE". C'est une réponse parfaitement valide et attendue ! N'invente JAMAIS rien.
+4. Renvoie UNIQUEMENT un objet JSON valide. 
+5. Les clés du JSON (en dehors de "_raisonnement") doivent être exactement les noms des informations listées ci-dessus.
+
+Document :
+${documentText.substring(0, 30000)} // Sécurité pour ne pas exploser le contexte
+`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey || process.env.VITE_OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-5.5',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.0,
+            response_format: { type: "json_object" }
+        })
+    });
+
+    if (!response.ok) throw new Error("Erreur API Agent Balai");
+    const data = await response.json();
+    return JSON.parse(data.choices[0].message.content);
+};
+
+// ═══════════════════════════════════════════════════════════════
 // FONCTIONS LOCALES — Legacy extractor, refine, orchestrateur
 // ═══════════════════════════════════════════════════════════════
 
@@ -796,6 +835,49 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
                     return { success: false, data: { expenses: [] } }; 
                 })
             : { success: true, data: { expenses: [] } };
+
+        // --- DÉBUT DU BLOC : AGENT BALAI (Phase 2) ---
+        const missingVitalData = [];
+        
+        // 1. Scanner les données administratives vitales
+        if (adminRes.data?.formData) {
+            if (adminRes.data.formData.numPolice === null) missingVitalData.push('Numéro de Police (numPolice)');
+            if (adminRes.data.formData.dateSinistre === null) missingVitalData.push('Date du Sinistre (dateSinistre)');
+        }
+        
+        // 2. Scanner les causes narratives
+        if (narrativeRes.data && narrativeRes.data.cause === null) missingVitalData.push('Origine technique du sinistre (cause)');
+
+        if (missingVitalData.length > 0) {
+            if (addDebugLog) addDebugLog('AGENT_BALAI', 'WARNING', `Trous détectés : ${missingVitalData.join(', ')}. Lancement de GPT-5.5 en renfort...`);
+            
+            try {
+                // Utilisation du texte complet pour le rattrapage
+                const contentArray = await buildContentArrayParallel(filesToRoute, "");
+                const globalText = contentArray.map(c => c.text || "").join('\\n');
+                
+                const fallbackResults = await runFallbackAgent(globalText, missingVitalData, providedApiKey);
+                if (addDebugLog) addDebugLog('AGENT_BALAI', 'SUCCESS', fallbackResults);
+
+                // Fusion des trouvailles du Balai dans l'objet principal
+                if (fallbackResults['Numéro de Police (numPolice)'] && fallbackResults['Numéro de Police (numPolice)'] !== 'INTROUVABLE') {
+                    if (adminRes.data.formData) adminRes.data.formData.numPolice = fallbackResults['Numéro de Police (numPolice)'];
+                }
+                if (fallbackResults['Date du Sinistre (dateSinistre)'] && fallbackResults['Date du Sinistre (dateSinistre)'] !== 'INTROUVABLE') {
+                    if (adminRes.data.formData) adminRes.data.formData.dateSinistre = fallbackResults['Date du Sinistre (dateSinistre)'];
+                }
+                if (fallbackResults['Origine technique du sinistre (cause)'] && fallbackResults['Origine technique du sinistre (cause)'] !== 'INTROUVABLE') {
+                    if (narrativeRes.data) narrativeRes.data.cause = fallbackResults['Origine technique du sinistre (cause)'];
+                }
+                
+            } catch (fallbackError) {
+                if (addDebugLog) addDebugLog('AGENT_BALAI', 'ERROR', null, fallbackError.message);
+                // On ne throw pas l'erreur ! Si le balai échoue, le dossier continue avec ses trous.
+            }
+        } else {
+            if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', 'Aucune donnée vitale manquante. Passage direct à la fusion.');
+        }
+        // --- FIN DU BLOC : AGENT BALAI ---
 
         // 4. Récupérer les occupants
         let occupants = [];
