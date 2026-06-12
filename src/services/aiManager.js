@@ -345,9 +345,25 @@ const normalizeDate = (raw) => {
     return s;
 };
 
+// v5.5.5 - Batching & Scalabilité : utilitaire de traitement par lots parallèles
+const processInParallelBatches = async (files, batchSize, processFunction) => {
+    if (files.length <= batchSize) {
+        // Pas besoin de batching, on traite directement
+        return [await processFunction(files)];
+    }
+    const batchPromises = [];
+    for (let i = 0; i < files.length; i += batchSize) {
+        const batch = files.slice(i, i + batchSize);
+        batchPromises.push(processFunction(batch));
+    }
+    console.log(`[aiManager] 🔀 Batching: ${files.length} fichiers → ${batchPromises.length} lots de max ${batchSize}`);
+    return await Promise.all(batchPromises);
+};
+
 // v5.7.2 - Helper pour paralléliser la préparation (PDF->Base64, MSG->texte) des fichiers
+// v5.5.5 - maxTextLength=30000 par défaut (sécurité anti-crash, un seul MSG géant ne peut plus faire exploser le contexte)
 const buildContentArrayParallel = async (files, introductoryText, options = {}) => {
-    const { maxPdfPages = 20, maxTextLength = undefined } = options;
+    const { maxPdfPages = 20, maxTextLength = 30000 } = options;
     const contentArray = [{ type: "text", text: introductoryText }];
     
     const promises = files.map(async (item) => {
@@ -1000,10 +1016,12 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
 
     try {
         if (onStatusChange) onStatusChange('routing');
-        
-        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents à classifier.", { maxPdfPages: 3, maxTextLength: 15000 });
 
-        const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
+        // v5.5.5 - Batching & Scalabilité : lots de 10 fichiers en parallèle
+        const processBatch = async (batchFiles) => {
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents à classifier.", { maxPdfPages: 3, maxTextLength: 15000 });
+
+            const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
 Tu dois classer CHAQUE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
 - "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture.
 - "SOCIAL" : Emails de syndic listant des noms, cartes d'identité, documents d'assurance personnels ou échanges informels.
@@ -1024,32 +1042,41 @@ Format attendu :
 }
 Ne renvoie aucun autre texte, juste le JSON.`;
 
-        const payload = {
-            model: "gpt-4o-mini", // Modèle rapide, peu coûteux et pertinent pour le triage
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: contentArray }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.1
+            const payload = {
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.1
+            };
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            return JSON.parse(data.choices[0].message.content);
         };
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        const batchResults = await processInParallelBatches(fileArray, 10, processBatch);
+        
+        // Fusion des résultats de tous les lots
+        let parsedData = {};
+        for (const batchResult of batchResults) {
+            Object.assign(parsedData, batchResult);
         }
-
-        const data = await response.json();
-        const parsedData = JSON.parse(data.choices[0].message.content);
         
         // v5.5.11 - Normaliser : si l'IA renvoie un string au lieu d'un tableau, le convertir
         for (const key of Object.keys(parsedData)) {
@@ -1095,9 +1122,12 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents administratifs à analyser.");
 
-        const systemPrompt = `Tu es un Agent Administratif expert en assurances et expertises sinistres. 
+        // v5.5.5 - Batching & Scalabilité : lots de 5 fichiers en parallèle
+        const processBatch = async (batchFiles) => {
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents administratifs à analyser.");
+
+            const systemPrompt = `Tu es un Agent Administratif expert en assurances et expertises sinistres. 
 Ton rôle est d'analyser attentivement les documents fournis (polices d'assurance, conditions particulières, convocations, correspondances) et d'en extraire les informations contractuelles, les coordonnées de l'expertise et les références.
 
 CONTEXTE IMPORTANT :
@@ -1116,7 +1146,7 @@ RÈGLES ABSOLUES :
       - "Anglaise" si le texte mentionne "franchise anglaise" ou "english deductible".
       - "" si aucune franchise n'est mentionnée.
 6. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, sans formatage markdown additionnel autre que le JSON.
-7. ANTI-HALLUCINATION refPechard : Le champ \"refPechard\" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte explicitement dans les documents, renvoie IMPÉRATIVEMENT une chaîne vide \"\". N'invente AUCUN numéro et ne confonds pas avec les numéros de police, de sinistre ou d'autres références.
+7. ANTI-HALLUCINATION refPechard : Le champ "refPechard" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte explicitement dans les documents, renvoie IMPÉRATIVEMENT une chaîne vide "". N'invente AUCUN numéro et ne confonds pas avec les numéros de police, de sinistre ou d'autres références.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
@@ -1131,98 +1161,108 @@ Voici le format EXACT attendu, avec tous les champs présents :
   ]
 }`;
 
-        const payload = {
-            model: model, // gpt-4o recommandé pour la précision de l'extraction
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: contentArray }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.1
-        };
+            const payload = {
+                model: model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.1
+            };
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        const parsedData = JSON.parse(data.choices[0].message.content);
-        
-        // v5.5.10 - Normaliser les dates au format YYYY-MM-DD (requis par <input type="date">)
-        if (parsedData.formData) {
-            const dateFields = ['dateExp', 'dateSinistre', 'dateDeclaration'];
-            dateFields.forEach(field => {
-                const val = parsedData.formData[field];
-                if (val && typeof val === 'string' && val.trim() !== '') {
-                    parsedData.formData[field] = normalizeDate(val);
-                }
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
             });
 
-            // v5.5.15 - Post-traitement ROBUSTE de la franchise (try-catch pour éviter les crashs silencieux)
-            try {
-                const typeFranchise = (parsedData.formData.typeFranchise || '').trim();
-                const franchiseBrute = (parsedData.formData.franchiseBrute || '').trim();
-                
-                if (typeFranchise && franchiseBrute) {
-                    if (typeFranchise === 'Legale') {
-                        // v5.5.15 - Résolution de la franchise légale via la dateSinistre
-                        const dateSinistre = parsedData.formData.dateSinistre;
-                        if (dateSinistre && dateSinistre.trim() !== '') {
-                            // Tenter de résoudre via la table IPC/ABEX intégrée
-                            const resolved = _resolveFranchiseLegale(dateSinistre);
-                            if (resolved !== null) {
-                                parsedData.formData.franchise = `${resolved}€`;
-                                console.log(`[aiManager] 🏛️ Franchise légale résolue : ${resolved}€ (date: ${dateSinistre})`);
-                            } else {
-                                // Date trouvée mais pas dans l'index → marquer comme légale pour résolution manuelle
-                                parsedData.formData.franchise = 'Légale';
-                                console.log(`[aiManager] 🏛️ Franchise légale détectée mais date hors index (${dateSinistre}). Résolution manuelle requise.`);
-                            }
-                        } else {
-                            parsedData.formData.franchise = '⚠️ À calculer (Date de sinistre requise)';
-                            console.warn(`[aiManager] ⚠️ Franchise légale détectée mais dateSinistre absente !`);
-                        }
-                    } else if (typeFranchise === 'Speciale') {
-                        const montantMatch = franchiseBrute.match(/[\d.,]+/);
-                        const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
-                        parsedData.formData.franchise = `Spéciale : ${montantStr}€`;
-                        console.log(`[aiManager] ⚠️ Franchise spéciale : ${parsedData.formData.franchise}`);
-                    } else if (typeFranchise === 'Anglaise') {
-                        const montantMatch = franchiseBrute.match(/[\d.,]+/);
-                        const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
-                        parsedData.formData.franchise = `${montantStr}€ Anglaise`;
-                        console.log(`[aiManager] 🇬🇧 Franchise anglaise : ${parsedData.formData.franchise}`);
-                    } else {
-                        parsedData.formData.franchise = franchiseBrute;
-                    }
-                } else if (franchiseBrute && !typeFranchise) {
-                    parsedData.formData.franchise = franchiseBrute;
-                } else {
-                    // Aucune franchise détectée — on ne met rien
-                    parsedData.formData.franchise = parsedData.formData.franchise || '';
-                }
-            } catch (franchiseErr) {
-                console.error('[aiManager] ❌ Erreur dans le post-traitement franchise (non bloquante):', franchiseErr);
-                // Fallback : conserver la valeur brute ou vide
-                parsedData.formData.franchise = parsedData.formData.franchiseBrute || parsedData.formData.franchise || '';
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
             }
-            
-            // Nettoyage : supprimer les champs intermédiaires (l'UI n'utilise que "franchise")
-            delete parsedData.formData.franchiseBrute;
-            delete parsedData.formData.typeFranchise;
+
+            const data = await response.json();
+            const parsedData = JSON.parse(data.choices[0].message.content);
+        
+            // Post-traitement des dates et franchise dans le batch
+            if (parsedData.formData) {
+                const dateFields = ['dateExp', 'dateSinistre', 'dateDeclaration'];
+                dateFields.forEach(field => {
+                    const val = parsedData.formData[field];
+                    if (val && typeof val === 'string' && val.trim() !== '') {
+                        parsedData.formData[field] = normalizeDate(val);
+                    }
+                });
+
+                try {
+                    const typeFranchise = (parsedData.formData.typeFranchise || '').trim();
+                    const franchiseBrute = (parsedData.formData.franchiseBrute || '').trim();
+                    
+                    if (typeFranchise && franchiseBrute) {
+                        if (typeFranchise === 'Legale') {
+                            const dateSinistre = parsedData.formData.dateSinistre;
+                            if (dateSinistre && dateSinistre.trim() !== '') {
+                                const resolved = _resolveFranchiseLegale(dateSinistre);
+                                if (resolved !== null) {
+                                    parsedData.formData.franchise = `${resolved}€`;
+                                } else {
+                                    parsedData.formData.franchise = 'Légale';
+                                }
+                            } else {
+                                parsedData.formData.franchise = '⚠️ À calculer (Date de sinistre requise)';
+                            }
+                        } else if (typeFranchise === 'Speciale') {
+                            const montantMatch = franchiseBrute.match(/[\d.,]+/);
+                            const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
+                            parsedData.formData.franchise = `Spéciale : ${montantStr}€`;
+                        } else if (typeFranchise === 'Anglaise') {
+                            const montantMatch = franchiseBrute.match(/[\d.,]+/);
+                            const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
+                            parsedData.formData.franchise = `${montantStr}€ Anglaise`;
+                        } else {
+                            parsedData.formData.franchise = franchiseBrute;
+                        }
+                    } else if (franchiseBrute && !typeFranchise) {
+                        parsedData.formData.franchise = franchiseBrute;
+                    } else {
+                        parsedData.formData.franchise = parsedData.formData.franchise || '';
+                    }
+                } catch (franchiseErr) {
+                    parsedData.formData.franchise = parsedData.formData.franchiseBrute || parsedData.formData.franchise || '';
+                }
+                
+                delete parsedData.formData.franchiseBrute;
+                delete parsedData.formData.typeFranchise;
+            }
+            return parsedData;
+        };
+
+        const batchResults = await processInParallelBatches(fileArray, 5, processBatch);
+
+        // Fusion intelligente : garder la première valeur non-vide pour chaque champ
+        let mergedFormData = {};
+        let mergedReferences = [];
+
+        for (const res of batchResults) {
+            if (res.formData) {
+                for (const key of Object.keys(res.formData)) {
+                    const val = res.formData[key];
+                    // Garder la première valeur non-vide rencontrée
+                    if (val && val !== '' && val !== false && !mergedFormData[key]) {
+                        mergedFormData[key] = val;
+                    }
+                }
+            }
+            if (res.references && Array.isArray(res.references)) {
+                mergedReferences = mergedReferences.concat(res.references);
+            }
         }
         
-        return { success: true, data: parsedData };
+        return { success: true, data: { formData: mergedFormData, references: mergedReferences } };
 
     } catch (error) {
         console.error("[aiManager] extractAdministrativeData error :", error);
@@ -1260,9 +1300,12 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents sociaux à analyser.");
 
-        const systemPrompt = `Tu es un Agent Social expert dans l'analyse de documents liés aux expertises immobilières.
+        // v5.5.5 - Batching & Scalabilité : lots de 5 fichiers en parallèle
+        const processBatch = async (batchFiles) => {
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents sociaux à analyser.");
+
+            const systemPrompt = `Tu es un Agent Social expert dans l'analyse de documents liés aux expertises immobilières.
 Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'identifier TOUTES les personnes mentionnées.
 
 MÉTHODE DE TRAVAIL (Chain of Thought) :
@@ -1309,52 +1352,59 @@ Voici le format EXACT attendu, avec tous les champs présents :
   ]
 }`;
 
-        const payload = {
-            model: model,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: contentArray }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.1
+            const payload = {
+                model: model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.1
+            };
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const parsedData = JSON.parse(data.choices[0].message.content);
+
+            // Ajout UUID pour chaque occupant et intervenant
+            if (parsedData.occupants && Array.isArray(parsedData.occupants)) {
+                parsedData.occupants = parsedData.occupants.map(occ => ({ ...occ, id: crypto.randomUUID() }));
+            }
+            if (parsedData.intervenants && Array.isArray(parsedData.intervenants)) {
+                parsedData.intervenants = parsedData.intervenants.map(inter => ({ ...inter, id: crypto.randomUUID() }));
+            } else {
+                parsedData.intervenants = [];
+            }
+            return parsedData;
         };
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
-        });
+        const batchResults = await processInParallelBatches(fileArray, 5, processBatch);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+        // Fusion : concaténer tous les tableaux
+        let mergedExperts = [];
+        let mergedOccupants = [];
+        let mergedIntervenants = [];
+
+        for (const res of batchResults) {
+            if (res.experts && Array.isArray(res.experts)) mergedExperts = mergedExperts.concat(res.experts);
+            if (res.occupants && Array.isArray(res.occupants)) mergedOccupants = mergedOccupants.concat(res.occupants);
+            if (res.intervenants && Array.isArray(res.intervenants)) mergedIntervenants = mergedIntervenants.concat(res.intervenants);
         }
 
-        const data = await response.json();
-        const parsedData = JSON.parse(data.choices[0].message.content);
-
-        // Ajout OBLIGATOIRE du UUID via crypto.randomUUID() pour chaque occupant
-        if (parsedData.occupants && Array.isArray(parsedData.occupants)) {
-            parsedData.occupants = parsedData.occupants.map(occ => ({
-                ...occ,
-                id: crypto.randomUUID()
-            }));
-        }
-
-        // v5.6.0 - Ajout UUID pour chaque intervenant
-        if (parsedData.intervenants && Array.isArray(parsedData.intervenants)) {
-            parsedData.intervenants = parsedData.intervenants.map(inter => ({
-                ...inter,
-                id: crypto.randomUUID()
-            }));
-        } else {
-            parsedData.intervenants = [];
-        }
-
-        return { success: true, data: parsedData };
+        return { success: true, data: { experts: mergedExperts, occupants: mergedOccupants, intervenants: mergedIntervenants } };
 
     } catch (error) {
         console.error("[aiManager] extractSocialData error :", error);
@@ -1386,29 +1436,36 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
 
     try {
         if (onStatusChange) onStatusChange('extracting');
-        const contentArray = await buildContentArrayParallel(fileArray, "Voici les documents (récits, rapports, chronologies) à synthétiser.");
 
-        // v5.6.3 - Prompt incrémental : l'IA accumule les faits au lieu d'écraser
-        const existingCauseBlock = existingCause && existingCause.trim()
-            ? `\n\nCONTEXTE EXISTANT :\nVoici la cause actuelle rédigée jusqu'ici :\n"""\n${existingCause.trim()}\n"""\n\nRÈGLES D'ACCUMULATION :\n1. Si les nouveaux documents ne contiennent AUCUNE information technique pertinente, renvoie la cause actuelle À L'IDENTIQUE dans le champ "cause".
-2. Si les documents apportent des précisions, INTÈGRE-LES de manière fluide dans la cause existante sans détruire l'information précédente.
-3. Si les documents CONTREDISENT la cause actuelle, CONSERVE le constat initial ET fais état de la contradiction (ex: "Cependant, un second rapport de [intervenant] indique que...").
-4. Tu es un ACCUMULATEUR DE FAITS : tu ne supprimes JAMAIS d'informations valides.`
-            : '';
+        // v5.5.5 - Batching & Scalabilité : traitement SÉQUENTIEL par lots de 5
+        // Chaque lot reçoit la cause du lot précédent comme contexte (prompt incrémental)
+        let currentCause = existingCause;
+        let allTechnicalFiles = [];
 
-        const systemPrompt = `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
+        for (let i = 0; i < fileArray.length; i += 5) {
+            const batchFiles = fileArray.slice(i, i + 5);
+            console.log(`[aiManager] 📝 Agent Récits: lot ${Math.floor(i/5) + 1}/${Math.ceil(fileArray.length/5)} (${batchFiles.length} fichiers)`);
+            
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents (récits, rapports, chronologies) à synthétiser.");
+
+            // Prompt incrémental : au lot 2+, on passe la cause précédente
+            const existingCauseBlock = currentCause && currentCause.trim()
+                ? `\n\nCONTEXTE EXISTANT :\nVoici la cause actuelle rédigée jusqu'ici :\n"""\n${currentCause.trim()}\n"""\n\nRÈGLES D'ACCUMULATION :\n1. Si les nouveaux documents ne contiennent AUCUNE information technique pertinente, renvoie la cause actuelle À L'IDENTIQUE dans le champ "cause".\n2. Si les documents apportent des précisions, INTÈGRE-LES de manière fluide dans la cause existante sans détruire l'information précédente.\n3. Si les documents CONTREDISENT la cause actuelle, CONSERVE le constat initial ET fais état de la contradiction (ex: "Cependant, un second rapport de [intervenant] indique que...").\n4. Tu es un ACCUMULATEUR DE FAITS : tu ne supprimes JAMAIS d'informations valides.`
+                : '';
+
+            const systemPrompt = `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
 Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
 
 RÈGLES ABSOLUES :
 1. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
 2. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
-3. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant (ex: "Rapport 1 (Entreprise Dubois) :\n...").
+3. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant (ex: "Rapport 1 (Entreprise Dubois) :\\n...").
 4. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
    a) Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
    b) Où est-elle localisée avec précision ?
    c) Quelles sont les conséquences matérielles directes constatées ?
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
-5. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources qui sont spécifiquement des "rapports de recherche de fuite", "rapports d'intervention pompiers" ou des "emails contenant des explications techniques détaillées". Renvoie la liste EXACTE de leurs noms (tels qu'ils apparaissent dans [FIN DE LA PIÈCE JOINTE : X]) dans le tableau "technicalFilesToAttach". Ne liste PAS les photos, factures, devis, ou contrats. Si aucun document technique n'est présent, renvoie un tableau vide [].
+5. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources qui sont spécifiquement des "rapports de recherche de fuite", "rapports d'intervention pompiers" ou des "emails contenant des explications techniques détaillées". Renvoie la liste EXACTE de leurs noms (tels qu'ils apparaissent dans [FIN DOCUMENT : X]) dans le tableau "technicalFilesToAttach". Ne liste PAS les photos, factures, devis, ou contrats. Si aucun document technique n'est présent, renvoie un tableau vide [].
 6. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
 7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (jour, mois, année) n'est explicitement fournie dans les documents analysés, tu ne dois en inventer aucune sous aucun prétexte.
 8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
@@ -1416,36 +1473,47 @@ ${existingCauseBlock}
 
 Voici le format EXACT attendu :
 {
-  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées."
+  "cause": "Synthèse technique structurée répondant aux 4 points : origine, localisation, conséquences, réparations préconisées.",
+  "technicalFilesToAttach": ["nom_fichier_1.pdf", "nom_fichier_2.msg"]
 }`;
 
-        const payload = {
-            model: model, // gpt-4o recommandé pour la rédaction et la synthèse de texte
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: contentArray }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.0 // 0.0 obligatoire pour éviter toute hallucination (surtout de dates)
-        };
+            const payload = {
+                model: model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.0
+            };
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
-        });
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
+            });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const parsedData = JSON.parse(data.choices[0].message.content);
+            
+            // Accumuler : la cause de ce lot devient le contexte du lot suivant
+            if (parsedData.cause) {
+                currentCause = parsedData.cause;
+            }
+            if (parsedData.technicalFilesToAttach && Array.isArray(parsedData.technicalFilesToAttach)) {
+                allTechnicalFiles = allTechnicalFiles.concat(parsedData.technicalFilesToAttach);
+            }
         }
 
-        const data = await response.json();
-        const parsedData = JSON.parse(data.choices[0].message.content);
-        return { success: true, data: parsedData };
+        return { success: true, data: { cause: currentCause, technicalFilesToAttach: allTechnicalFiles } };
 
     } catch (error) {
         console.error("[aiManager] extractNarrativeData error :", error);
@@ -1619,12 +1687,12 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         
         let allExtractedFiles = [];
         let filesToRoute = [];
-        let msgFiles = [];
 
         // Extraction automatique des PJ des fichiers MSG
         for (const file of rawFiles) {
             if (file.name && file.name.toLowerCase().endsWith('.msg')) {
-                msgFiles.push(file);
+                // v5.5.5 - Les MSG passent AUSSI par le routeur (au lieu d'être forcés dans 3 agents)
+                filesToRoute.push(file);
                 try {
                     const { files: attachments } = await extractValidAttachmentsFromMsg(file);
                     allExtractedFiles.push(...attachments);
@@ -1637,7 +1705,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             }
         }
 
-        // 1. Triage via le Routeur (uniquement pour les fichiers non-MSG)
+        // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
         const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
@@ -1649,17 +1717,18 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         const narrativeFiles = [];
         const financialFiles = [];
 
-        // Les fichiers MSG contiennent souvent de TOUT (contrat, occupants, récit). On les force dans les 3 agents principaux.
-        for (const msgFile of msgFiles) {
-            adminFiles.push(msgFile);
-            socialFiles.push(msgFile);
-            narrativeFiles.push(msgFile);
-        }
-
-        // v5.5.11 - Dispatch multi-catégories : un fichier peut aller dans PLUSIEURS agents
+        // v5.5.5 - Dispatch multi-catégories via le routeur pour TOUS les fichiers (MSG inclus)
         for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
-            const categories = routeMap[fileName] || ['ADMIN'];
+            let categories = routeMap[fileName];
+            
+            // Fallback : si le routeur n'a pas classé un MSG, on le force dans ADMIN+SOCIAL+RECITS
+            if (!categories && fileName.toLowerCase().endsWith('.msg')) {
+                categories = ['ADMIN', 'SOCIAL', 'RECITS'];
+                console.warn(`[aiManager] ⚠️ MSG "${fileName}" non classé par le routeur → fallback ADMIN+SOCIAL+RECITS`);
+            } else if (!categories) {
+                categories = ['ADMIN'];
+            }
             // categories est un tableau (ex: ["SOCIAL", "RECITS"])
             const cats = Array.isArray(categories) ? categories : [categories];
             
