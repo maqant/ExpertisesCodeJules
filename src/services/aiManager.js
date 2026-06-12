@@ -1408,9 +1408,10 @@ RÈGLES ABSOLUES :
    b) Où est-elle localisée avec précision ?
    c) Quelles sont les conséquences matérielles directes constatées ?
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
-5. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
-6. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (jour, mois, année) n'est explicitement fournie dans les documents analysés, tu ne dois en inventer aucune sous aucun prétexte.
-7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
+5. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources qui sont spécifiquement des "rapports de recherche de fuite", "rapports d'intervention pompiers" ou des "emails contenant des explications techniques détaillées". Renvoie la liste EXACTE de leurs noms (tels qu'ils apparaissent dans [FIN DE LA PIÈCE JOINTE : X]) dans le tableau "technicalFilesToAttach". Ne liste PAS les photos, factures, devis, ou contrats. Si aucun document technique n'est présent, renvoie un tableau vide [].
+6. Si un champ ne peut pas être rempli grâce aux documents fournis, renvoie une chaîne vide "".
+7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates. Si aucune date (jour, mois, année) n'est explicitement fournie dans les documents analysés, tu ne dois en inventer aucune sous aucun prétexte.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction, ni markdown.
 ${existingCauseBlock}
 
 Voici le format EXACT attendu :
@@ -1731,7 +1732,8 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             experts: socialRes.data?.experts || [],
             occupants: occupants,
             intervenants: socialRes.data?.intervenants || [],
-            expenses: expenses
+            expenses: expenses,
+            technicalFilesToAttach: narrativeRes.data?.technicalFilesToAttach || []
         };
 
         if (onStatusChange) onStatusChange('attaching'); // Fini

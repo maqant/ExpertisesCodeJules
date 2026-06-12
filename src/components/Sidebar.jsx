@@ -1590,7 +1590,8 @@ const Sidebar = () => {
                                                     occupants: safeOccupants,
                                                     intervenants: aiData.intervenants || [],
                                                     expenses: safeExpenses,
-                                                    pendingFiles: allPendingFiles
+                                                    pendingFiles: allPendingFiles,
+                                                    technicalFilesToAttach: result.data.technicalFilesToAttach || []
                                                 });
                                             } else {
                                                 alert("Erreur IA : " + (result.error || "Réponse invalide"));

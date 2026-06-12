@@ -1327,6 +1327,21 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
+      // 3.5 Magic Drop Cause: Auto-attach technical files to Annexes Libres
+      if (data.technicalFilesToAttach && data.technicalFilesToAttach.length > 0 && pendingFiles.length > 0) {
+          for (const fileName of data.technicalFilesToAttach) {
+              const matchedFile = findMatchingFile(pendingFiles, fileName);
+              if (matchedFile) {
+                  try {
+                      await handleAttachFreeAnnex(matchedFile, `[Automatique] ${matchedFile.name}`, "Document technique identifié par l'IA");
+                      console.log(`[Magic Drop Cause] ✅ Auto-attaché: "${matchedFile.name}" → Annexes Libres`);
+                  } catch (err) {
+                      console.warn(`[Magic Drop Cause] ❌ Échec auto-attach:`, err);
+                  }
+              }
+          }
+      }
+
       // 4. Experts — ajouter les nouveaux à la base de données (v5.5.10)
       if (selections.experts && selections.experts.length > 0 && data.experts) {
           const newExperts = [];

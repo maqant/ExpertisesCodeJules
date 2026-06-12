@@ -382,11 +382,19 @@ const GlobalValidationModal = () => {
                                                         <div className="text-[10px] text-red-400/70 line-through mb-0.5">{currentVal}</div>
                                                     )}
                                                     {isNarrativeField ? (
-                                                        <textarea value={aiVal}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={(e) => updateFormField(key, e.target.value)}
-                                                            rows={key === 'cause' ? 6 : 3}
-                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none resize-y" />
+                                                        <>
+                                                            <textarea value={aiVal}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={(e) => updateFormField(key, e.target.value)}
+                                                                rows={key === 'cause' ? 6 : 3}
+                                                                className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none resize-y" />
+                                                            {key === 'cause' && pendingAiData.technicalFilesToAttach?.length > 0 && (
+                                                                <div className="mt-2 text-[10px] text-blue-300 bg-blue-900/20 p-1.5 rounded border border-blue-500/30 flex items-center gap-1.5">
+                                                                    <span className="text-sm">📎</span>
+                                                                    <span>{pendingAiData.technicalFilesToAttach.length} document(s) technique(s) identifié(s) par l'IA. Sera(ont) ajouté(s) aux Annexes.</span>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     ) : (
                                                         <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
                                                             onClick={(e) => e.stopPropagation()}
