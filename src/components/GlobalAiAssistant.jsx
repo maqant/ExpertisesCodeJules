@@ -23,7 +23,9 @@ const getFileIcon = (file) => {
 const GlobalAiAssistant = () => {
     const {
         isAiModeActive, aiConfig, formData,
-        setPendingAiData
+        setPendingAiData,
+        setAiStatus, // v5.9.4 - Barre de progression globale
+        setRawContexts // v6.0.0 - Context Vault
     } = useContext(ExpertiseContext);
 
     const [files, setFiles] = useState([]);
@@ -84,7 +86,7 @@ const GlobalAiAssistant = () => {
             const result = await processGlobalIngestion(
                 inputArray,
                 aiConfig.apiKey,
-                null,
+                setAiStatus, // v5.9.4 - Barre de progression globale
                 aiConfig.model,
                 { cause: formData?.cause }
             );
@@ -120,6 +122,16 @@ const GlobalAiAssistant = () => {
                     pendingFiles: allPendingFiles
                 });
 
+                // v6.0.0 - Context Vault : stocker les synthèses IA + texte brut collé
+                const newContexts = [];
+                if (rawText.trim()) newContexts.push(rawText.trim());
+                if (aiData.formData?.cause) newContexts.push(aiData.formData.cause);
+                if (aiData.formData?.divers) newContexts.push(aiData.formData.divers);
+                if (newContexts.length > 0) {
+                    setRawContexts(prev => [...prev, ...newContexts]);
+                    console.log(`[Context Vault] +${newContexts.length} contexte(s) ajouté(s)`);
+                }
+
                 // Clear the form on success
                 setFiles([]);
                 setRawText('');
@@ -131,6 +143,7 @@ const GlobalAiAssistant = () => {
             setError("Erreur inattendue : " + err.message);
         } finally {
             setIsLoading(false);
+            setAiStatus('idle'); // v5.9.4
         }
     };
 

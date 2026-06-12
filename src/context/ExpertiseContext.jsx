@@ -168,6 +168,10 @@ export const ExpertiseProvider = ({ children }) => {
   const [franchises, setFranchises] = useState([]);
   // v5.6.0 - Liste des intervenants externes (plombiers, syndics, courtiers, etc.)
   const [intervenantsList, setIntervenantsList] = useState([]);
+  // v5.9.4 - AI Status global pour la barre de progression
+  const [aiStatus, setAiStatus] = useState('idle');
+  // v6.0.0 - Context Vault : mémoire des textes bruts ingérés
+  const [rawContexts, setRawContexts] = useState([]);
   const [showExpertDropdown, setShowExpertDropdown] = useState(false);
   const [showExpertDropdownContradictoire, setShowExpertDropdownContradictoire] = useState(false);
   const [showFranchiseDropdown, setShowFranchiseDropdown] = useState(false); 
@@ -259,6 +263,7 @@ export const ExpertiseProvider = ({ children }) => {
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
       setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
       setCauseTimeline([]);
+      setRawContexts([]); // v6.0.0 - Context Vault
   };
 
   const handleChange = (e) => financeStore.updateFormData({ [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -315,7 +320,7 @@ export const ExpertiseProvider = ({ children }) => {
           if (!name) return;
       }
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
       
       let updated;
       if (currentDossierId) {
@@ -335,7 +340,7 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
-      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
+      const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
@@ -379,6 +384,7 @@ export const ExpertiseProvider = ({ children }) => {
       if(d.attachedFreeAnnexes) setAttachedFreeAnnexes(d.attachedFreeAnnexes); else setAttachedFreeAnnexes([]);
       if(d.causeTimeline) setCauseTimeline(d.causeTimeline); else setCauseTimeline([]);
       if(d.intervenantsList) setIntervenantsList(d.intervenantsList); else setIntervenantsList([]);
+      if(d.rawContexts) setRawContexts(d.rawContexts); else setRawContexts([]); // v6.0.0 - Context Vault
       setCurrentDossierId(dossier.id);
       setActiveTab('builder');
   };
@@ -1549,7 +1555,9 @@ Voici le format JSON :
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
       pendingAiData, setPendingAiData, commitPendingAiData,
       causeTimeline, setCauseTimeline, addCauseTimelineItem,
-      toggleExpenseType
+      toggleExpenseType,
+      aiStatus, setAiStatus,
+      rawContexts, setRawContexts
   };
 
   return (

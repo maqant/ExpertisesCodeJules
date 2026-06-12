@@ -5,7 +5,9 @@ import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
 import SmartBridgeDropzone from './SmartBridgeDropzone';
 import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
+import GeneratedDocModal from './GeneratedDocModal'; // v6.0.0
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
+import { generateDocument } from '../services/generators/generatorEngine.js'; // v6.0.0
 import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
@@ -186,7 +188,8 @@ const Sidebar = () => {
         processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
         toggleExpenseType,
         intervenantsList, setIntervenantsList,
-        aiStatus, setAiStatus
+        aiStatus, setAiStatus,
+        rawContexts, setRawContexts
     } = context;
 
 
@@ -208,6 +211,10 @@ const Sidebar = () => {
     const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
     const [currentBridgeFile, setCurrentBridgeFile] = useState(null);
     const [bridgeMatchResult, setBridgeMatchResult] = useState(null);
+
+    // v6.0.0 - Generator State
+    const [generatedText, setGeneratedText] = useState(null);
+    const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
 
     const handleSmartBridgeDrop = (file) => {
         if (!file) return;
@@ -256,6 +263,15 @@ const Sidebar = () => {
                     expenses,
                     pendingFiles: allPendingFiles
                 });
+
+                // v6.0.0 - Context Vault
+                const newContexts = [];
+                if (aiData.formData?.cause) newContexts.push(aiData.formData.cause);
+                if (aiData.formData?.divers) newContexts.push(aiData.formData.divers);
+                if (newContexts.length > 0) {
+                    setRawContexts(prev => [...prev, ...newContexts]);
+                    console.log(`[Context Vault] +${newContexts.length} contexte(s) via SmartBridge`);
+                }
             } else {
                 alert("Erreur IA : " + (result.error || "Impossible d'extraire les données."));
             }
@@ -791,6 +807,38 @@ const Sidebar = () => {
                                 <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" onUpload={(files) => handleContractMagicDrop(files)} /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
+                                {/* v6.0.0 - Bouton de génération de déclaration */}
+                                {isAiModeActive && aiConfig.apiKey && (
+                                    <div className="mt-3 pt-2 border-t border-slate-600">
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    setAiStatus('generating');
+                                                    const text = await generateDocument(
+                                                        'declaration',
+                                                        { formData, rawContexts, references, expenses, occupants },
+                                                        aiConfig.apiKey,
+                                                        aiConfig.model
+                                                    );
+                                                    setGeneratedText(text);
+                                                    setIsGeneratorModalOpen(true);
+                                                } catch (err) {
+                                                    console.error('[Generator] Erreur:', err);
+                                                    alert('Erreur de génération : ' + err.message);
+                                                } finally {
+                                                    setAiStatus('idle');
+                                                }
+                                            }}
+                                            disabled={aiStatus !== 'idle'}
+                                            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold py-2 px-3 rounded text-xs transition-all flex items-center justify-center gap-2 shadow"
+                                        >
+                                            🤖 Générer la déclaration (IA)
+                                        </button>
+                                        {rawContexts.length === 0 && (
+                                            <p className="text-[9px] text-amber-400/70 mt-1 italic text-center">Conseil : ingérez d'abord des documents pour enrichir le contexte.</p>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="mt-4 pt-2 border-t border-slate-600">
                                     <div className="flex justify-between items-center mb-2"><label className="text-white mb-0">Références tierces</label><button onClick={addRef} className="bg-slate-600 px-2 py-1 rounded text-[10px]">+ Ajouter</button></div>
                                     {references.map((r) => (
@@ -1763,8 +1811,9 @@ const Sidebar = () => {
             const STAGES = [
                 { key: 'routing',    label: 'Tri des documents',        icon: '🗂️',  pct: 15 },
                 { key: 'extracting', label: 'Agents IA en parallèle',   icon: '🤖',  pct: 55 },
-                { key: 'financial',  label: 'Analyse financière',        icon: '💰',  pct: 80 },
-                { key: 'attaching',  label: 'Assemblage du dossier',     icon: '📋',  pct: 100 },
+                { key: 'financial',  label: 'Analyse financière',       icon: '💰',  pct: 80 },
+                { key: 'attaching',  label: 'Assemblage du dossier',    icon: '📋',  pct: 100 },
+                { key: 'generating', label: 'Génération document',      icon: '📝',  pct: 100 },
             ];
             const currentStage = STAGES.find(s => s.key === aiStatus) || STAGES[0];
             const stageIndex = STAGES.findIndex(s => s.key === aiStatus);
@@ -1850,6 +1899,15 @@ const Sidebar = () => {
                 handleNewDossier();
                 // v5.9.4 - Fix SAS Trigger
                 triggerSmartBridgeAnalysis(currentBridgeFile);
+            }}
+        />
+        {/* v6.0.0 - Generated Doc Modal */}
+        <GeneratedDocModal
+            isOpen={isGeneratorModalOpen}
+            generatedText={generatedText}
+            onClose={() => {
+                setIsGeneratorModalOpen(false);
+                setGeneratedText(null);
             }}
         />
         </>
