@@ -2,7 +2,10 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
-import GlobalAiAssistant from './GlobalAiAssistant';
+import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
+import SmartBridgeDropzone from './SmartBridgeDropzone';
+import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
+import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
 import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
@@ -182,7 +185,8 @@ const Sidebar = () => {
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
         processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
         toggleExpenseType,
-        intervenantsList, setIntervenantsList
+        intervenantsList, setIntervenantsList,
+        aiStatus, setAiStatus
     } = context;
 
 
@@ -196,10 +200,73 @@ const Sidebar = () => {
     const [droppedMsgFile, setDroppedMsgFile] = useState(null);
     // v5.6.2 - Refining state pour la Sidebar
     const [refiningCause, setRefiningCause] = useState(false);
-    // v5.6.5 - État de chargement pour l'affinage intelligent des notes
     const [isRefiningNote, setIsRefiningNote] = useState(false);
     const [isDraggingOverMagic, setIsDraggingOverMagic] = useState(false);
     const [isAiDossierLoading, setIsAiDossierLoading] = useState(false);
+
+    // v5.9.4 - Smart Bridge State
+    const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
+    const [currentBridgeFile, setCurrentBridgeFile] = useState(null);
+    const [bridgeMatchResult, setBridgeMatchResult] = useState(null);
+
+    const handleSmartBridgeDrop = (file) => {
+        if (!file) return;
+        setCurrentBridgeFile(file);
+        const match = findMatchingDossier(file.name, savedDossiers);
+        setBridgeMatchResult(match);
+        setIsBridgeModalOpen(true);
+    };
+
+    // v5.9.4 - Smart Bridge (Fix SAS Trigger)
+    // Réplique exacte de GlobalAiAssistant pour pousser le document dans le SAS IA Global
+    const triggerSmartBridgeAnalysis = async (file) => {
+        if (!file) return;
+        setIsAiDossierLoading(true);
+        try {
+            if (!isAiModeActive) {
+                if (file.name.toLowerCase().endsWith('.msg')) {
+                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
+                    setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles: extractedFiles });
+                } else {
+                    setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles: [file] });
+                }
+                return;
+            }
+
+            const result = await processGlobalIngestion(
+                [file],
+                aiConfig.apiKey,
+                setAiStatus,
+                aiConfig.model,
+                { cause: formData?.cause }
+            );
+
+            if (result.success && result.data) {
+                const aiData = result.data;
+                const occupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
+                const expenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
+                const allPendingFiles = [
+                    ...(result.extractedFiles || []),
+                    ...(file.name.toLowerCase().endsWith('.msg') ? [] : [file])
+                ];
+
+                setPendingAiData({
+                    formData: aiData.formData || null,
+                    occupants,
+                    expenses,
+                    pendingFiles: allPendingFiles
+                });
+            } else {
+                alert("Erreur IA : " + (result.error || "Impossible d'extraire les données."));
+            }
+        } catch (err) {
+            console.error("[SmartBridge] Erreur:", err);
+            alert("Erreur : " + err.message);
+        } finally {
+            setIsAiDossierLoading(false);
+            setAiStatus('idle');
+        }
+    };
 
     const resetAllDragStates = () => {
         setIsDraggingOverFrais(false);
@@ -210,7 +277,6 @@ const Sidebar = () => {
 
 
 
-    const [aiStatus, setAiStatus] = useState('idle');
     const [isAnnexAiLoading, setIsAnnexAiLoading] = useState(false);
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
@@ -465,33 +531,6 @@ const Sidebar = () => {
                             <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <div
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(true); }}
-                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingOverMagic(false); }}
-                                onDrop={(e) => {
-                                    e.preventDefault(); e.stopPropagation(); if (!isAiModeActive) return; setIsDraggingOverMagic(false);
-                                    const files = Array.from(e.dataTransfer.files);
-                                    const msgFile = files.find(f => f.name.toLowerCase().endsWith('.msg'));
-                                    if (msgFile) {
-                                        setDroppedMsgFile(msgFile);
-                                        setShowAiDossierPrompt(true);
-                                    } else if (files.length > 0) {
-                                        setDroppedMsgFile(files[0]);
-                                        setShowAiDossierPrompt(true);
-                                    }
-                                }}
-                                className={`px-1.5 py-1 rounded text-[9px] font-bold border transition-all flex items-center justify-center gap-0.5 ${
-                                    !isAiModeActive
-                                        ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500'
-                                        : isDraggingOverMagic
-                                            ? 'bg-indigo-500 text-white border-indigo-300 scale-110 shadow-lg shadow-indigo-500/40 cursor-pointer'
-                                            : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50 cursor-pointer'
-                                }`}
-                                title={!isAiModeActive ? "Mode IA désactivé" : "Glissez un e-mail .msg ici pour créer un nouveau dossier via IA"}
-                                onClick={() => { if (!isAiModeActive) return; setShowAiDossierPrompt(true); }}
-                            >
-                                {isDraggingOverMagic ? '📥' : '🪄'}
-                            </div>
                             <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
@@ -510,7 +549,12 @@ const Sidebar = () => {
                     </div>
                 )}
 
-                <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg mt-2 border border-slate-700">
+                {/* v5.9.4 - Smart Bridge (Relocation & Restore) - Toujours visible */}
+                <div className="mt-2 mb-2">
+                    <SmartBridgeDropzone onFileDrop={handleSmartBridgeDrop} />
+                </div>
+
+                <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
                 </div>
@@ -631,6 +675,7 @@ const Sidebar = () => {
                     </div>
                 ) : (
                     <div>
+                        {/* v5.9.4 - Relocation & Restore */}
                         <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all mb-4" : "transition-all mb-4"}>
                             <GlobalAiAssistant />
                         </div>
@@ -1713,15 +1758,100 @@ const Sidebar = () => {
                 </div>
             </div>
         )}
-        {aiStatus !== 'idle' && (
-            <div className="fixed bottom-4 right-4 bg-slate-900 border border-indigo-500 p-3 rounded shadow-2xl flex items-center gap-3 text-xs font-bold text-indigo-300 z-[9999]">
-                <span className="animate-spin text-indigo-500">🔄</span>
-                {aiStatus === 'extracting' && "Lecture du fichier..."}
-                {aiStatus === 'sending' && "Envoi au serveur..."}
-                {aiStatus === 'thinking' && "Réflexion de l'IA..."}
-                {aiStatus === 'attaching' && "Attachement des documents..."}
-            </div>
-        )}
+        {/* v5.9.4 - Smart Bridge Progress Overlay (centré, barre réelle) */}
+        {aiStatus !== 'idle' && (() => {
+            const STAGES = [
+                { key: 'routing',    label: 'Tri des documents',        icon: '🗂️',  pct: 15 },
+                { key: 'extracting', label: 'Agents IA en parallèle',   icon: '🤖',  pct: 55 },
+                { key: 'financial',  label: 'Analyse financière',        icon: '💰',  pct: 80 },
+                { key: 'attaching',  label: 'Assemblage du dossier',     icon: '📋',  pct: 100 },
+            ];
+            const currentStage = STAGES.find(s => s.key === aiStatus) || STAGES[0];
+            const stageIndex = STAGES.findIndex(s => s.key === aiStatus);
+
+            return (
+                <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl shadow-2xl shadow-indigo-500/10 p-8 w-[440px] flex flex-col gap-5">
+                        {/* Titre */}
+                        <div className="flex items-center gap-3">
+                            <span className="animate-spin text-2xl">🔄</span>
+                            <div>
+                                <p className="text-white font-bold text-base">Analyse IA en cours…</p>
+                                <p className="text-slate-400 text-xs mt-0.5">Ne fermez pas la fenêtre</p>
+                            </div>
+                        </div>
+
+                        {/* Barre de progression réelle */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-indigo-300 text-sm font-semibold">
+                                    {currentStage.icon} {currentStage.label}
+                                </span>
+                                <span className="text-slate-400 text-xs">{currentStage.pct}%</span>
+                            </div>
+                            <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-700 ease-out"
+                                    style={{ width: `${currentStage.pct}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Étapes visuelles */}
+                        <div className="flex justify-between">
+                            {STAGES.map((stage, idx) => (
+                                <div key={stage.key} className="flex flex-col items-center gap-1 text-center">
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 transition-all ${
+                                        idx < stageIndex  ? 'bg-indigo-600 border-indigo-500 text-white' :
+                                        idx === stageIndex ? 'bg-indigo-500/30 border-indigo-400 text-indigo-300 animate-pulse' :
+                                                             'bg-slate-800 border-slate-600 text-slate-500'
+                                    }`}>
+                                        {idx < stageIndex ? '✓' : stage.icon}
+                                    </div>
+                                    <span className={`text-[9px] leading-tight max-w-[60px] ${idx <= stageIndex ? 'text-indigo-300' : 'text-slate-600'}`}>
+                                        {stage.label}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        })()}
+
+
+        {/* v5.9.4 - Smart Bridge Modal */}
+        <SmartBridgeModal 
+            isOpen={isBridgeModalOpen}
+            matchedDossier={bridgeMatchResult}
+            savedDossiers={savedDossiers}
+            onClose={() => {
+                setIsBridgeModalOpen(false);
+                setCurrentBridgeFile(null);
+                setBridgeMatchResult(null);
+            }}
+            onOpenMatched={() => {
+                if (bridgeMatchResult) {
+                    loadDossier(bridgeMatchResult);
+                }
+                setIsBridgeModalOpen(false);
+                // v5.9.4 - Fix SAS Trigger
+                triggerSmartBridgeAnalysis(currentBridgeFile);
+            }}
+            onManualSelect={(dossier) => {
+                if (dossier) {
+                    loadDossier(dossier);
+                }
+                setIsBridgeModalOpen(false);
+                triggerSmartBridgeAnalysis(currentBridgeFile);
+            }}
+            onCreateNew={() => {
+                setIsBridgeModalOpen(false);
+                handleNewDossier();
+                // v5.9.4 - Fix SAS Trigger
+                triggerSmartBridgeAnalysis(currentBridgeFile);
+            }}
+        />
         </>
     );
 };
