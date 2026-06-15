@@ -163,7 +163,7 @@ const Workspace = () => {
         customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
         fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes, dynamicFreeAnnexes,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo,
-        intervenantsList
+        intervenantsList, saveStatus
     } = context;
 
     const isExpenseExcludedFromMain = (exp) => {
@@ -484,6 +484,13 @@ const Workspace = () => {
                     /* On force les colonnes 50% à rester en ligne à l'impression si besoin, Tailwind 'w-1/2' s'en charge. */
                 }
             `}</style>
+
+            {/* AutoSave Indicator */}
+            <div className="fixed bottom-4 right-4 z-50 print:hidden flex items-center gap-2 bg-slate-800/90 backdrop-blur border border-slate-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-2xl transition-all duration-300">
+                {saveStatus === 'saving' && <><span className="animate-spin text-indigo-400">↻</span> <span className="text-slate-300">Enregistrement...</span></>}
+                {saveStatus === 'saved' && <><span className="text-emerald-400 text-sm">✓</span> <span className="text-emerald-400/90">Sauvegardé</span></>}
+                {saveStatus === 'unsaved' && <><span className="text-amber-400">✎</span> <span className="text-amber-400/90">Non sauvegardé</span></>}
+            </div>
 
         </div>
     );

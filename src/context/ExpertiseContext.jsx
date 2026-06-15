@@ -1586,6 +1586,48 @@ Voici le format JSON :
       });
   };
 
+  // --- Autosave Logic ---
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'unsaved'
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+      if (isInitialMount.current) {
+          isInitialMount.current = false;
+          return;
+      }
+      
+      setSaveStatus('unsaved');
+      const timer = setTimeout(() => {
+          setSaveStatus('saving');
+          
+          let targetId = currentDossierId;
+          let name = formData.refPechard || formData.nomResidence || `Dossier sans nom`;
+          
+          if (!targetId) {
+              targetId = crypto.randomUUID();
+              setCurrentDossierId(targetId);
+          }
+          
+          const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
+
+          setSavedDossiers(prev => {
+              let updated;
+              if (prev.some(d => d.id === targetId)) {
+                  updated = prev.map(d => d.id === targetId ? { ...d, date: new Date().toLocaleString('fr-FR'), data: dossierData, name: d.name || name } : d);
+              } else {
+                  updated = [{ id: targetId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData }, ...prev];
+              }
+              localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+              return updated;
+          });
+          
+          setTimeout(() => setSaveStatus('saved'), 500);
+      }, 3000); // 3 seconds of inactivity
+
+      return () => clearTimeout(timer);
+  }, [formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts, currentDossierId]);
+  // --- End Autosave Logic ---
+
   const contextValue = {
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
@@ -1614,7 +1656,7 @@ Voici le format JSON :
       coverPageCount, setCoverPageCount,
       startResizing, stopResizing, resize, handleReset, handleChange, handleNewDossier,
       ingestionModal, openIngestion, closeIngestion,
-      handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier,
+      handleTitleChange, handleStyleChange, moveBlockUp, moveBlockDown, toggleBlockWidth, saveDossier, saveDossierAs, loadDossier, saveStatus,
       deleteDossier, generatePDF, getSortedBlocks, addRef, updateRef, removeRef,
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
