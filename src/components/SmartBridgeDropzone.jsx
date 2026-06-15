@@ -121,7 +121,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                     </div>
 
                     {/* Chips de fichiers */}
-                    <div className="flex flex-wrap gap-1 mb-2 pointer-events-none">
+                    <div className="flex flex-wrap gap-1 mb-2">
                         {files.map((file, i) => (
                             <div
                                 key={`${file.name}-${i}`}

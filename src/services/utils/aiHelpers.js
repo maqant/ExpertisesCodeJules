@@ -153,7 +153,7 @@ export const buildContentArrayParallel = async (files, introductoryText, options
                     // Mode vision forcé (ex: Agent Financier sur factures potentiellement scannées)
                     const base64Images = await pdfToBase64Images(item, maxPdfPages);
                     for (const img of base64Images) {
-                        localContent.push({ type: "image_url", image_url: { url: img } });
+                        localContent.push({ type: "image_url", image_url: { url: img, detail: "low" } });
                     }
                 } else {
                     // v5.9.1 - Mode hybride : texte si digital, vision si scanné
@@ -163,13 +163,13 @@ export const buildContentArrayParallel = async (files, introductoryText, options
                         localContent.push({ type: "text", text: textToPush });
                     } else {
                         for (const img of (hybrid.images || [])) {
-                            localContent.push({ type: "image_url", image_url: { url: img } });
+                            localContent.push({ type: "image_url", image_url: { url: img, detail: "low" } });
                         }
                     }
                 }
             } else if (item.type && item.type.startsWith('image/')) {
                 const base64Image = await fileToBase64(item);
-                localContent.push({ type: "image_url", image_url: { url: base64Image } });
+                localContent.push({ type: "image_url", image_url: { url: base64Image, detail: "low" } });
             } else {
                 localContent.push({ type: "text", text: "[Format non supporté pour la vision]" });
             }

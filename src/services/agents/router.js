@@ -54,6 +54,13 @@ Ne renvoie aucun autre texte, juste le JSON.`;
         // v6.1.0 - 1 appel par fichier en parallèle (pas de batching, lecture complète)
         const promises = fileArray.map(async (file) => {
             const fileName = file.name || 'document_sans_nom';
+            
+            // v6.3.2 - Skip API pour les images (goulot d'étranglement réseau)
+            if (file.type && file.type.startsWith('image/')) {
+                console.log(`[router v6.3.2] ⚡ Skip vision, routage local "${fileName}" → ["RECITS"]`);
+                return { [fileName]: ['RECITS'] };
+            }
+
             try {
                 // Lecture COMPLÈTE : pas de maxPdfPages, pas de maxTextLength
                 const contentArray = await buildContentArrayParallel([file], `Analyse et classe ce document : ${fileName}`);

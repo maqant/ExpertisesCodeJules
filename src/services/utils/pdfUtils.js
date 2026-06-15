@@ -13,7 +13,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.j
 export const _pdfCache = new Map();
 export const _imgCache = new Map();
 
-// Utilitaire de conversion File -> Base64
+// Utilitaire de conversion File -> Base64 avec compression
 export const fileToBase64 = async (file) => {
     const cacheKey = file.name + "_" + file.size;
     if (_imgCache.has(cacheKey)) return _imgCache.get(cacheKey);
@@ -21,9 +21,36 @@ export const fileToBase64 = async (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => {
-            _imgCache.set(cacheKey, reader.result);
-            resolve(reader.result);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                // Compression: max 1200px
+                const maxDim = 1200;
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.75); // 75% quality
+                _imgCache.set(cacheKey, dataUrl);
+                resolve(dataUrl);
+            };
+            img.onerror = (e) => reject(e);
+            img.src = event.target.result;
         };
         reader.onerror = error => reject(error);
     });
