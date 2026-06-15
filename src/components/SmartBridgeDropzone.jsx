@@ -37,9 +37,13 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
 
     const removeFile = (i) => setFiles(prev => prev.filter((_, idx) => idx !== i));
 
-    const handleDrop = (e) => {
+    const handleDrop = async (e) => {
         e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
-        if (e.dataTransfer.files?.length > 0) addFiles(Array.from(e.dataTransfer.files));
+        if (e.dataTransfer.files?.length > 0) {
+            const { cloneFilesEagerly } = await import('../services/utils/aiHelpers.js');
+            const safeFiles = await cloneFilesEagerly(e.dataTransfer.files);
+            addFiles(safeFiles);
+        }
     };
 
     const handleAnalyze = () => {

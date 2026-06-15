@@ -182,3 +182,27 @@ export const buildContentArrayParallel = async (files, introductoryText, options
     results.forEach(res => contentArray.push(...res));
     return contentArray;
 };
+
+// v6.3.1 - Fix Drag & Drop (DOMException: NotFoundError)
+/**
+ * cloneFileEagerly
+ * Résout le problème des DataTransferItems (drag & drop) qui expirent dans React.
+ * Lit immédiatement le fichier en mémoire vive (ArrayBuffer) et retourne une NOUVELLE 
+ * instance de File, détachée du pointeur système éphémère.
+ */
+export const cloneFileEagerly = async (file) => {
+    if (!file) return file;
+    try {
+        const buffer = await file.arrayBuffer();
+        return new File([buffer], file.name, { type: file.type, lastModified: file.lastModified });
+    } catch (e) {
+        console.warn("[aiHelpers] Erreur lors du clonage de sécurité du fichier:", e);
+        return file; // Fallback sur l'original si échec
+    }
+};
+
+export const cloneFilesEagerly = async (files) => {
+    if (!files) return [];
+    const fileArray = Array.from(files);
+    return await Promise.all(fileArray.map(f => cloneFileEagerly(f)));
+};
