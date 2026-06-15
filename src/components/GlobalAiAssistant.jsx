@@ -30,7 +30,7 @@ const GlobalAiAssistant = () => {
     const {
         isAiModeActive, aiConfig, formData,
         setPendingAiData, setAiStatus, setRawContexts,
-        bridgeFiles: files, setBridgeFiles: setFiles,  // v6.1.0 - persisté dans le contexte
+        globalAssistantFiles: files, setGlobalAssistantFiles: setFiles,  // v6.3.2 - Séparé du Smart Bridge
         addDebugLog
     } = useContext(ExpertiseContext);
 

@@ -116,6 +116,8 @@ export const ExpertiseProvider = ({ children }) => {
   const [pendingAiData, setPendingAiData] = useState(null);
   // v6.1.0 - Bridge Files : persisté dans le contexte pour survivre aux re-renders de la Sidebar
   const [bridgeFiles, setBridgeFiles] = useState([]);
+  // v6.3.2 - Global Assistant Files : séparé du Smart Bridge
+  const [globalAssistantFiles, setGlobalAssistantFiles] = useState([]);
 
   // Paramètres additionnels
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -1584,6 +1586,7 @@ Voici le format JSON :
       aiStatus, setAiStatus,
       rawContexts, setRawContexts,
       bridgeFiles, setBridgeFiles,  // v6.1.0 - Smart Bridge file queue
+      globalAssistantFiles, setGlobalAssistantFiles, // v6.3.2 - SAS file queue
       isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs // v6.2.0
   };
 
