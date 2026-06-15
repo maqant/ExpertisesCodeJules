@@ -423,6 +423,7 @@ const GlobalValidationModal = () => {
                                                                             updateFormField(key, result.text);
                                                                         } else {
                                                                             console.warn(`[Refine] Échec ${btn.directive}:`, result.error);
+                                                                            alert(`Erreur lors de la réécriture : ${result.error}`);
                                                                         }
                                                                         setRefiningField(null);
                                                                     }}

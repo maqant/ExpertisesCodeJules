@@ -547,7 +547,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "gpt-5.4-nano",
+                model: "gpt-5.4-mini",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: currentText }
