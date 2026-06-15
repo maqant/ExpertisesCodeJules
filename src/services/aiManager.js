@@ -46,7 +46,7 @@ import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Rés
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
 // ═══════════════════════════════════════════════════════════════
-const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
+const runFallbackAgent = async (documentText, missingKeysList, apiKey, fallbackModel = 'gpt-5.5') => {
     const prompt = `Tu es un Super-Réviseur Premium (Agent Balai). Un premier passage d'extraction a échoué à trouver certaines informations cruciales dans le document ci-dessous.
 
 TA MISSION : 
@@ -70,7 +70,7 @@ ${documentText.substring(0, 30000)} // Sécurité pour ne pas exploser le contex
             'Authorization': `Bearer ${apiKey || process.env.VITE_OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-            model: 'gpt-5.5',
+            model: fallbackModel,
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.0,
             response_format: { type: "json_object" }
@@ -651,8 +651,13 @@ RÈGLES :
  * Orchestre l'ingestion globale de fichiers via le Routeur, distribue aux agents spécialisés,
  * et assemble le JSON final pour la modale globale.
  */
-// v6.1.0 - Modèle par défaut mis à jour vers gpt-5.4 (spécialistes)
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}, addDebugLog = null) => {
+// v6.3.2 - Mode Lourd vs Mode Rapide via isDeepThinkingMode
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}, addDebugLog = null, isDeepThinkingMode = true) => {
+    
+    // Stratégie de modèles
+    const agentsModel = isDeepThinkingMode ? 'gpt-5.4' : 'gpt-5.4-mini';
+    const fallbackModel = isDeepThinkingMode ? 'gpt-5.5' : 'gpt-5.4';
+
     let originalConsole = null;
     
     // Interception des logs F12 pour les envoyer dans la Console Développeur
@@ -788,7 +793,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
         // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
         const adminPromise = adminFiles.length > 0
-            ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null, model))
+            ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null, agentsModel))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Admin KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_ADMIN', 'ERROR', null, err.message);
@@ -797,7 +802,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             : Promise.resolve({ success: true, data: {} });
 
         const narrativePromise = narrativeFiles.length > 0
-            ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, model, existingContext.cause || ''))
+            ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, agentsModel, existingContext.cause || ''))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Récits KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_RECITS', 'ERROR', null, err.message);
@@ -806,7 +811,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             : Promise.resolve({ success: true, data: {} });
 
         const socialPromise = socialFiles.length > 0
-            ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null, model))
+            ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null, agentsModel))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Social KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_SOCIAL', 'ERROR', null, err.message);
@@ -828,7 +833,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         // v5.9.3 - Smart Retry & Résilience
         const financialRes = financialFiles.length > 0
-            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, model, occupantsForFinancial))
+            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, agentsModel, occupantsForFinancial))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Financier KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'ERROR', null, err.message);
@@ -853,10 +858,13 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             
             try {
                 // Utilisation du texte complet pour le rattrapage
-                const contentArray = await buildContentArrayParallel(filesToRoute, "");
-                const globalText = contentArray.map(c => c.text || "").join('\\n');
+                console.log(`[aiManager] 🧹 Lancement de l'Agent Balai (Fallback)... Mode: ${fallbackModel}`);
+                if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', `Lancement Agent Balai... Modèle: ${fallbackModel}`);
                 
-                const fallbackResults = await runFallbackAgent(globalText, missingVitalData, providedApiKey);
+                const contentArray = await buildContentArrayParallel(filesToRoute, "");
+                const globalText = contentArray.map(c => c.text || "").join('\n');
+                
+                const fallbackResults = await withRetry(() => runFallbackAgent(globalText, missingVitalData, providedApiKey, fallbackModel));
                 if (addDebugLog) addDebugLog('AGENT_BALAI', 'SUCCESS', fallbackResults);
 
                 // Fusion des trouvailles du Balai dans l'objet principal

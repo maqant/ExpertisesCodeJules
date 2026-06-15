@@ -201,7 +201,8 @@ const Sidebar = () => {
         aiStatus, setAiStatus,
         rawContexts, setRawContexts,
         bridgeFiles, setBridgeFiles,  // v6.1.1 - Smart Bridge file queue
-        isDebugMode, toggleDebugMode, addDebugLog  // v6.2.0 - Debug Mode
+        isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
+        isDeepThinkingMode // v6.3.2 - Mode Lourd
     } = context;
 
 
@@ -266,7 +267,8 @@ const Sidebar = () => {
                 setAiStatus,
                 aiConfig.model,
                 { cause: formData?.cause },
-                addDebugLog
+                addDebugLog,
+                isDeepThinkingMode
             );
 
             if (result.success && result.data) {

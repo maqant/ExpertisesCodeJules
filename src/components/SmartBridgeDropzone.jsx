@@ -21,7 +21,7 @@ const emoji = (file) => {
 const formatSize = (b) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} Ko` : `${(b / 1024 / 1024).toFixed(1)} Mo`;
 
 const SmartBridgeDropzone = ({ onFileDrop }) => {
-    const { bridgeFiles: files, setBridgeFiles: setFiles } = useContext(ExpertiseContext);
+    const { bridgeFiles: files, setBridgeFiles: setFiles, isDeepThinkingMode, toggleDeepThinkingMode } = useContext(ExpertiseContext);
     const [isDragOver, setIsDragOver] = useState(false);
     const inputRef = useRef(null);
 
@@ -70,39 +70,58 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                     }`}
                 >
                     <span className="text-xl pointer-events-none">🌉</span>
-                    <div className="flex flex-col items-start pointer-events-none text-left">
-                        <p className="text-[10px] font-bold text-white uppercase tracking-wider leading-tight">Smart Bridge</p>
-                        <p className="text-[9px] leading-tight">Glissez vos mails (.msg) et documents</p>
+                    <div className="flex flex-col items-start text-left w-full">
+                        <div className="flex items-center justify-between w-full">
+                            <p className="text-[10px] font-bold text-white uppercase tracking-wider leading-tight pointer-events-none">Smart Bridge</p>
+                            <label className="flex items-center gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <span className={`text-[8px] font-bold uppercase ${isDeepThinkingMode ? 'text-indigo-300' : 'text-slate-500'}`}>Mode lourd</span>
+                                <input type="checkbox" className="hidden" checked={isDeepThinkingMode} onChange={toggleDeepThinkingMode} />
+                                <div className={`w-6 h-3 rounded-full flex items-center transition-colors ${isDeepThinkingMode ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+                                    <div className={`w-2.5 h-2.5 bg-white rounded-full shadow-sm transform transition-transform ${isDeepThinkingMode ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                                </div>
+                            </label>
+                        </div>
+                        <p className="text-[9px] leading-tight mt-1 pointer-events-none">Glissez vos mails (.msg) et documents</p>
                     </div>
                 </div>
             )}
 
             {/* === ÉTAT CHARGÉ : chips + bouton Analyser === */}
             {hasFiles && (
-                <div className="bg-slate-800/60 border border-indigo-500/30 rounded-lg p-2">
+                <div 
+                    className={`bg-slate-800/60 border rounded-lg p-2 transition-all ${isDragOver ? 'border-indigo-400 bg-indigo-500/20' : 'border-indigo-500/30'}`}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false); }}
+                    onDrop={handleDrop}
+                >
                     {/* Header compact */}
                     <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 pointer-events-none">
                             <span className="text-sm">🌉</span>
                             <span className="text-[10px] font-bold text-white uppercase tracking-wider">Smart Bridge</span>
                             <span className="text-[9px] text-indigo-400 bg-indigo-500/15 px-1.5 py-0.5 rounded-full font-medium">
                                 {files.length}
                             </span>
                         </div>
-                        <button
-                            onClick={() => setFiles([])}
-                            className="text-[9px] text-slate-600 hover:text-red-400 transition-colors"
-                        >
-                            Vider
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                                <span className={`text-[8px] font-bold uppercase ${isDeepThinkingMode ? 'text-indigo-300' : 'text-slate-500'}`}>Mode lourd</span>
+                                <input type="checkbox" className="hidden" checked={isDeepThinkingMode} onChange={toggleDeepThinkingMode} />
+                                <div className={`w-6 h-3 rounded-full flex items-center transition-colors ${isDeepThinkingMode ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+                                    <div className={`w-2.5 h-2.5 bg-white rounded-full shadow-sm transform transition-transform ${isDeepThinkingMode ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                                </div>
+                            </label>
+                            <button
+                                onClick={() => setFiles([])}
+                                className="text-[9px] text-slate-600 hover:text-red-400 transition-colors"
+                            >
+                                Vider
+                            </button>
+                        </div>
                     </div>
 
                     {/* Chips de fichiers */}
-                    <div className="flex flex-wrap gap-1 mb-2"
-                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
-                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false); }}
-                        onDrop={handleDrop}
-                    >
+                    <div className="flex flex-wrap gap-1 mb-2 pointer-events-none">
                         {files.map((file, i) => (
                             <div
                                 key={`${file.name}-${i}`}

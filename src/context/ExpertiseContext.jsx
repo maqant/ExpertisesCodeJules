@@ -155,6 +155,10 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
+  const [isDeepThinkingMode, setIsDeepThinkingMode] = useState(true);
+  const toggleDeepThinkingMode = () => setIsDeepThinkingMode(prev => !prev);
+
+
   const updateAiConfig = (newConfig) => {
       setAiConfig(prev => {
           const next = { ...prev, ...newConfig };
@@ -1573,6 +1577,7 @@ Voici le format JSON :
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
       handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
+      isDeepThinkingMode, toggleDeepThinkingMode,
       pendingAiData, setPendingAiData, commitPendingAiData,
       causeTimeline, setCauseTimeline, addCauseTimelineItem,
       toggleExpenseType,
