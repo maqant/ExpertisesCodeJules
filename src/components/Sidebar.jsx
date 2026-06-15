@@ -1471,7 +1471,7 @@ const Sidebar = () => {
                                                 disabled={isMovingPhotos}
                                             >
                                                 <option value="">Déplacer vers...</option>
-                                                {occupants.map(occ => <option key={occ.id} value={occ.id}>{occ.nom || 'Inconnu'}</option>)}
+                                                {(occupants || []).map(occ => <option key={occ.id} value={occ.id}>{occ.nom || 'Inconnu'}</option>)}
                                             </select>
                                             <button onClick={() => setSelectedPhotos([])} className="text-[10px] text-slate-300 hover:text-white bg-slate-700 px-2 rounded">✕</button>
                                         </div>

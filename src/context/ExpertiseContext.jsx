@@ -1608,7 +1608,13 @@ Voici le format JSON :
               setCurrentDossierId(targetId);
           }
           
-          const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
+          const safePhotos = {};
+          if (attachedPhotos) {
+              for (const [occId, photos] of Object.entries(attachedPhotos)) {
+                  safePhotos[occId] = photos.map(p => ({ ...p, dataUrl: null }));
+              }
+          }
+          const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos: safePhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
 
           setSavedDossiers(prev => {
               let updated;
@@ -1617,7 +1623,11 @@ Voici le format JSON :
               } else {
                   updated = [{ id: targetId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData }, ...prev];
               }
-              localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+              try {
+                  localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+              } catch (err) {
+                  console.error('LocalStorage quota exceeded or save error:', err);
+              }
               return updated;
           });
           
