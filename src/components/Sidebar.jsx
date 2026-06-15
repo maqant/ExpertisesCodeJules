@@ -203,7 +203,7 @@ const Sidebar = () => {
         bridgeFiles, setBridgeFiles,  // v6.1.1 - Smart Bridge file queue
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
         isDeepThinkingMode, // v6.3.2 - Mode Lourd
-        commitLogSession // v6.3.3
+        commitLogSession, clearDebugLogs // v6.3.3
     } = context;
 
 
@@ -246,6 +246,7 @@ const Sidebar = () => {
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         if (allFiles.length === 0) return;
         setIsAiDossierLoading(true);
+        if (typeof clearDebugLogs === 'function') clearDebugLogs();
         try {
             if (!isAiModeActive) {
                 // Mode non-IA : extraire les PJ des MSGs
@@ -1663,6 +1664,7 @@ const Sidebar = () => {
                         onKeyDown={async (e) => {
                             if (e.key === 'Enter' && aiDossierRef.trim() && !isAiDossierLoading) {
                                 // Lancer le workflow
+                                if (typeof clearDebugLogs === 'function') clearDebugLogs();
                                 setIsAiDossierLoading(true);
                                 try {
                                     handleReset();

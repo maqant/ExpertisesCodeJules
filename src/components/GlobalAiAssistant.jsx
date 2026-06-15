@@ -31,7 +31,7 @@ const GlobalAiAssistant = () => {
         isAiModeActive, aiConfig, formData,
         setPendingAiData, setAiStatus, setRawContexts,
         globalAssistantFiles: files, setGlobalAssistantFiles: setFiles,  // v6.3.2 - Séparé du Smart Bridge
-        addDebugLog, commitLogSession
+        addDebugLog, commitLogSession, clearDebugLogs
     } = useContext(ExpertiseContext);
 
     const [rawText, setRawText] = useState('');
@@ -86,6 +86,7 @@ const GlobalAiAssistant = () => {
         if (files.length === 0 && !rawText.trim()) return;
         setIsLoading(true);
         setError(null);
+        if (typeof clearDebugLogs === 'function') clearDebugLogs();
 
         try {
             const inputArray = [...files];
