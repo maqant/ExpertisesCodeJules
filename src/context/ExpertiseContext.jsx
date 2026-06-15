@@ -364,9 +364,9 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const handleNewDossier = () => {
-      if (!window.confirm("Créer un nouveau dossier ? Les données non sauvegardées seront perdues.")) return;
+      if (!window.confirm("Créer un nouveau dossier ? Les données non sauvegardées seront perdues.")) return false;
       const name = window.prompt("Nom du nouveau dossier ?");
-      if (!name) return;
+      if (!name) return false;
       
       handleReset();
       setFormData(prev => ({ ...prev, refPechard: name }));
@@ -378,6 +378,7 @@ export const ExpertiseProvider = ({ children }) => {
       setSavedDossiers(updated);
       localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
       setCurrentDossierId(newId);
+      return true;
   };
 
   const saveDossier = () => {

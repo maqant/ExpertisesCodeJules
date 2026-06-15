@@ -371,7 +371,7 @@ const Sidebar = () => {
     };
 
     // v6.1.1 - Smart Bridge : analyse TOUS les fichiers d'un coup
-    const triggerSmartBridgeAnalysis = async (filesArray) => {
+    const triggerSmartBridgeAnalysis = async (filesArray, ignoreContext = false) => {
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         if (allFiles.length === 0) return;
         setIsAiDossierLoading(true);
@@ -397,7 +397,7 @@ const Sidebar = () => {
                 aiConfig.apiKey,
                 setAiStatus,
                 aiConfig.model,
-                { cause: formData?.cause },
+                ignoreContext ? {} : { cause: formData?.cause },
                 addDebugLog,
                 isDeepThinkingMode
             );
@@ -2113,10 +2113,11 @@ const Sidebar = () => {
                 triggerSmartBridgeAnalysis(currentBridgeFile);
             }}
             onCreateNew={() => {
+                const created = handleNewDossier();
+                if (!created) return;
                 setIsBridgeModalOpen(false);
-                handleNewDossier();
                 // v5.9.4 - Fix SAS Trigger
-                triggerSmartBridgeAnalysis(currentBridgeFile);
+                triggerSmartBridgeAnalysis(currentBridgeFile, true);
             }}
         />
         {/* v6.0.0 - Generated Doc Modal */}
