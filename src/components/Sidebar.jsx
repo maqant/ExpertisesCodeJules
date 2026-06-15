@@ -202,7 +202,8 @@ const Sidebar = () => {
         rawContexts, setRawContexts,
         bridgeFiles, setBridgeFiles,  // v6.1.1 - Smart Bridge file queue
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
-        isDeepThinkingMode // v6.3.2 - Mode Lourd
+        isDeepThinkingMode, // v6.3.2 - Mode Lourd
+        commitLogSession // v6.3.3
     } = context;
 
 
@@ -306,6 +307,7 @@ const Sidebar = () => {
             setAiStatus('idle');
             // v6.1.1 - Vider la file du Smart Bridge après analyse
             setBridgeFiles([]);
+            if (typeof commitLogSession === 'function') commitLogSession();
         }
     };
 
@@ -859,6 +861,7 @@ const Sidebar = () => {
                                                     alert('Erreur de génération : ' + err.message);
                                                 } finally {
                                                     setAiStatus('idle');
+                                                    if (typeof commitLogSession === 'function') commitLogSession();
                                                 }
                                             }}
                                             disabled={aiStatus !== 'idle'}

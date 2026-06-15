@@ -31,7 +31,7 @@ const GlobalAiAssistant = () => {
         isAiModeActive, aiConfig, formData,
         setPendingAiData, setAiStatus, setRawContexts,
         globalAssistantFiles: files, setGlobalAssistantFiles: setFiles,  // v6.3.2 - Séparé du Smart Bridge
-        addDebugLog
+        addDebugLog, commitLogSession
     } = useContext(ExpertiseContext);
 
     const [rawText, setRawText] = useState('');
@@ -125,6 +125,8 @@ const GlobalAiAssistant = () => {
         } finally {
             setIsLoading(false);
             setAiStatus('idle');
+            // v6.3.3 - Sauvegarder l'historique des logs
+            if (typeof commitLogSession === 'function') commitLogSession();
         }
     };
 

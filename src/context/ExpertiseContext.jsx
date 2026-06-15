@@ -141,6 +141,46 @@ export const ExpertiseProvider = ({ children }) => {
   const toggleDebugMode = () => setIsDebugMode(prev => !prev);
   const clearDebugLogs = () => setDebugLogs([]);
 
+  // v6.3.3 - Historique des Logs
+  const [logHistory, setLogHistory] = useState([]);
+
+  useEffect(() => {
+    import('localforage').then(localforage => {
+        localforage.default.getItem('expertise_log_history').then(data => {
+          if (data) setLogHistory(data);
+        });
+    });
+  }, []);
+
+  const commitLogSession = () => {
+    setDebugLogs(currentLogs => {
+      if (currentLogs.length === 0) return currentLogs;
+      
+      const newSession = {
+        id: crypto.randomUUID(),
+        date: new Date().toLocaleString(),
+        logs: currentLogs
+      };
+
+      setLogHistory(prev => {
+        const next = [newSession, ...prev].slice(0, 50); // Garder les 50 dernières sessions
+        import('localforage').then(localforage => {
+            localforage.default.setItem('expertise_log_history', next).catch(console.error);
+        });
+        return next;
+      });
+      
+      return currentLogs;
+    });
+  };
+
+  const clearLogHistory = () => {
+    setLogHistory([]);
+    import('localforage').then(localforage => {
+        localforage.default.removeItem('expertise_log_history');
+    });
+  };
+
   // AI Mode Config
   const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
   const [aiConfig, setAiConfig] = useState(() => ({
@@ -1587,7 +1627,8 @@ Voici le format JSON :
       rawContexts, setRawContexts,
       bridgeFiles, setBridgeFiles,  // v6.1.0 - Smart Bridge file queue
       globalAssistantFiles, setGlobalAssistantFiles, // v6.3.2 - SAS file queue
-      isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs // v6.2.0
+      isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs, // v6.2.0
+      logHistory, commitLogSession, clearLogHistory // v6.3.3
   };
 
   return (

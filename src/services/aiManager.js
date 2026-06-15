@@ -654,6 +654,9 @@ RÈGLES :
 // v6.3.2 - Mode Lourd vs Mode Rapide via isDeepThinkingMode
 export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}, addDebugLog = null, isDeepThinkingMode = true) => {
     
+    // v6.3.3 - Metrics & Chrono
+    const startTime = Date.now();
+
     // Stratégie de modèles
     const agentsModel = isDeepThinkingMode ? 'gpt-5.4' : 'gpt-5.4-mini';
     const fallbackModel = isDeepThinkingMode ? 'gpt-5.5' : 'gpt-5.4';
@@ -697,7 +700,8 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
     try {
         if (addDebugLog) {
-            addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${Array.from(files).length} fichier(s).`);
+            const rawFilesCount = Array.from(files).length;
+            addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${rawFilesCount} fichier(s).`);
             addDebugLog('MODE_STRATEGY', 'INFO', `Mode Lourd (Deep Thinking) : ${isDeepThinkingMode ? 'ACTIF' : 'INACTIF'} | Agents: ${agentsModel} | Balai: ${fallbackModel}`);
         }
         if (onStatusChange) onStatusChange('routing');
@@ -941,6 +945,11 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         if (addDebugLog) addDebugLog('PIPELINE_GLOBAL', 'ERROR', null, error.message || "Erreur inconnue");
         return { success: false, error: error.message || "Erreur lors de l'ingestion globale." };
     } finally {
+        if (addDebugLog) {
+            const endTime = Date.now();
+            const duration = ((endTime - startTime) / 1000).toFixed(1);
+            addDebugLog('INGESTION_END', 'INFO', `⏱️ Traitement terminé en ${duration} secondes.`);
+        }
         if (originalConsole) {
             console.log = originalConsole.log;
             console.warn = originalConsole.warn;
