@@ -696,7 +696,10 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
     }
 
     try {
-        if (addDebugLog) addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${Array.from(files).length} fichier(s).`);
+        if (addDebugLog) {
+            addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${Array.from(files).length} fichier(s).`);
+            addDebugLog('MODE_STRATEGY', 'INFO', `Mode Lourd (Deep Thinking) : ${isDeepThinkingMode ? 'ACTIF' : 'INACTIF'} | Agents: ${agentsModel} | Balai: ${fallbackModel}`);
+        }
         if (onStatusChange) onStatusChange('routing');
         
         // On convertit les `files` en Array
