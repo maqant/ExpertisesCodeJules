@@ -231,6 +231,37 @@ const Sidebar = () => {
     const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
 
     // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
+    const handleCopyResume = async () => {
+        let text = "";
+        
+        if (formData.cause) text += "CAUSE :\n" + formData.cause + "\n\n";
+        if (formData.franchise) text += "FRANCHISE :\n" + formData.franchise + "\n\n";
+        if (formData.pertesIndirectes) text += "PERTES INDIRECTES :\n" + formData.pertesIndirectes + "\n\n";
+        
+        text += "PARTIES :\n";
+        
+        occupants?.forEach(o => {
+            text += `- ${o.statut} : ${[o.nom, o.prenom].filter(Boolean).join(' ')}\n`;
+            if (o.adresse) text += `  Adresse : ${o.adresse}\n`;
+            if (o.email) text += `  Email : ${o.email}\n`;
+            if (o.tel) text += `  Tél : ${o.tel}\n`;
+        });
+        
+        intervenantsList?.forEach(i => {
+            text += `- ${i.role || 'Intervenant'} : ${[i.nom, i.prenom].filter(Boolean).join(' ')}\n`;
+            if (i.adresse) text += `  Adresse : ${i.adresse}\n`;
+            if (i.email) text += `  Email : ${i.email}\n`;
+            if (i.tel) text += `  Tél : ${i.tel}\n`;
+        });
+        
+        try {
+            await navigator.clipboard.writeText(text);
+            alert("Résumé copié dans le presse-papier !");
+        } catch (err) {
+            alert("Erreur lors de la copie.");
+        }
+    };
+
     const handleSmartBridgeDrop = (filesArray) => {
         if (!filesArray || filesArray.length === 0) return;
         setCurrentBridgeFile(filesArray); // stocke le tableau complet
@@ -1596,6 +1627,12 @@ const Sidebar = () => {
                         className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
                     >
                         {isMerging ? '⏳ Génération...' : '🖨️ Imprimer'} <span className="text-xs">▾</span>
+                    </button>
+                    <button
+                        onClick={handleCopyResume}
+                        className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
+                    >
+                        📋 Copier le résumé brut
                     </button>
                     <div className="flex justify-between items-center mt-2 px-1 border-t border-slate-700/50 pt-2">
                         <a 
