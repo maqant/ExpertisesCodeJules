@@ -1600,7 +1600,26 @@ const Sidebar = () => {
                                 {/* v5.5.10 - Photos en attente d'attribution */}
                                 {(attachedPhotos['unassigned'] || []).length > 0 && (
                                     <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded mt-2">
-                                        <h4 className="text-amber-300 text-xs font-bold mb-2 flex items-center gap-1">📸 Photos en attente d'attribution <span className="text-[9px] font-normal text-amber-400/60">({attachedPhotos['unassigned'].length})</span></h4>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="text-amber-300 text-xs font-bold flex items-center gap-1">📸 Photos en attente d'attribution <span className="text-[9px] font-normal text-amber-400/60">({attachedPhotos['unassigned'].length})</span></h4>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    const unassignedKeys = attachedPhotos['unassigned'].map(p => p.dbKey);
+                                                    const allUnassignedSelected = unassignedKeys.every(k => selectedPhotos.includes(k));
+                                                    
+                                                    if (allUnassignedSelected && unassignedKeys.length > 0) {
+                                                        setSelectedPhotos(prev => prev.filter(k => !unassignedKeys.includes(k)));
+                                                    } else {
+                                                        const newSelected = new Set([...selectedPhotos, ...unassignedKeys]);
+                                                        setSelectedPhotos([...newSelected]);
+                                                    }
+                                                }}
+                                                className="text-[9px] text-amber-200 hover:text-white bg-amber-900/50 hover:bg-amber-800 px-2 py-1 rounded transition-colors"
+                                            >
+                                                {attachedPhotos['unassigned'].every(p => selectedPhotos.includes(p.dbKey)) ? "Désélectionner tout" : "Tout sélectionner"}
+                                            </button>
+                                        </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             {attachedPhotos['unassigned'].map(photo => (
                                                 <div key={photo.dbKey} className={`relative group rounded overflow-hidden border ${selectedPhotos.includes(photo.dbKey) ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-amber-500/30'} aspect-video bg-slate-800 flex items-center justify-center`}>
