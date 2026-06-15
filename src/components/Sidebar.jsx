@@ -308,7 +308,7 @@ const Sidebar = () => {
                     montantValide: expenseData.montantValide || expenseData.montantReclame || expenseData.montantDevis || expenseData.montantFacture || '',
                     compteDe: expenseData.compteDe || 'unassigned'
                 };
-                setExpenses(prev => [...prev, newExp]);
+                addExpense(newExp);
                 
                 // Attacher la photo à la nouvelle ligne de frais
                 await handleAttachPhoto(newId, file);
@@ -1594,7 +1594,15 @@ const Sidebar = () => {
                                                             <span className="text-[9px] text-slate-300 truncate max-w-full mt-1">{photo.name}</span>
                                                         </div>
                                                     ) : (
-                                                        <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
+                                                        <img 
+                                                            src={photo.dataUrl} 
+                                                            alt={photo.name} 
+                                                            className="max-w-full max-h-full object-contain cursor-pointer" 
+                                                            onClick={() => {
+                                                                const w = window.open("");
+                                                                w.document.write(`<img src="${photo.dataUrl}" style="max-width: 100%; max-height: 100%; display: block; margin: auto;"/>`);
+                                                            }}
+                                                        />
                                                     )}
                                                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
