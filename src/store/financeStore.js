@@ -98,6 +98,9 @@ export const useFinanceStore = create((set, get) => ({
   updateFormData: (newData) => set((state) => ({
     metier: { ...state.metier, formData: { ...state.metier.formData, ...newData } }
   })),
+  replaceFormData: (newData) => set((state) => ({
+    metier: { ...state.metier, formData: newData }
+  })),
 
   // --- Occupants (PII) ---
   addOccupant: (occupant) => set((state) => {

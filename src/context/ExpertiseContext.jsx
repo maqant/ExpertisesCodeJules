@@ -322,14 +322,18 @@ export const ExpertiseProvider = ({ children }) => {
       localStorage.setItem('expertise_franchises_v2', JSON.stringify(franchises));
   }, [expertsList, franchises]);
 
-  const handleReset = () => {
-      if(!window.confirm("⚠️ Voulez-vous réinitialiser tout le document ? Les données non sauvegardées seront perdues.")) return;
-      setFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
+  const performReset = () => {
+      financeStore.replaceFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
       setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
       setCauseTimeline([]);
       setRawContexts([]); // v6.0.0 - Context Vault
+  };
+
+  const handleReset = () => {
+      if(!window.confirm("⚠️ Voulez-vous réinitialiser tout le document ? Les données non sauvegardées seront perdues.")) return;
+      performReset();
   };
 
   const handleChange = (e) => financeStore.updateFormData({ [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
@@ -368,7 +372,7 @@ export const ExpertiseProvider = ({ children }) => {
       const name = window.prompt("Nom du nouveau dossier ?");
       if (!name) return false;
       
-      handleReset();
+      performReset();
       setFormData(prev => ({ ...prev, refPechard: name }));
       
       const newId = crypto.randomUUID();
