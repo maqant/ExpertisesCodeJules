@@ -3,8 +3,8 @@ import React, { useState, useRef, useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { cloneFilesEagerly } from '../services/utils/aiHelpers.js';
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg'];
-const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
+const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt'];
+const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'];
 
 const isAccepted = (file) => {
     const name = (file.name || '').toLowerCase();
@@ -15,6 +15,7 @@ const emoji = (file) => {
     const n = (file.name || '').toLowerCase();
     if (n.endsWith('.msg')) return '📧';
     if (n.endsWith('.pdf')) return '📄';
+    if (n.endsWith('.txt')) return '📝';
     if (file.type?.startsWith('image/')) return '🖼️';
     return '📎';
 };
@@ -46,6 +47,22 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
             const filesList = Array.from(e.dataTransfer.files);
             const safeFiles = await cloneFilesEagerly(filesList);
             addFiles(safeFiles);
+        }
+    };
+
+    const handlePasteText = async (e) => {
+        e.stopPropagation();
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim() !== '') {
+                const file = new File([text], `Presse-papier.txt`, { type: "text/plain" });
+                addFiles([file]);
+            } else {
+                alert("Le presse-papier est vide ou ne contient pas de texte.");
+            }
+        } catch (err) {
+            console.error("Erreur d'accès au presse-papier", err);
+            alert("Impossible de lire le presse-papier. Vérifiez les autorisations du navigateur.");
         }
     };
 
@@ -84,7 +101,12 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                                 </div>
                             </label>
                         </div>
-                        <p className="text-[9px] leading-tight mt-1 pointer-events-none">Glissez vos mails (.msg) et documents</p>
+                        <div className="flex items-center justify-between w-full mt-1">
+                            <p className="text-[9px] leading-tight pointer-events-none">Glissez vos mails (.msg) et documents</p>
+                            <button onClick={handlePasteText} className="text-[9px] text-slate-400 hover:text-indigo-300 transition-colors flex items-center gap-1" title="Coller le texte du presse-papier">
+                                📋 Coller texte
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -114,6 +136,9 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                                     <div className={`w-2.5 h-2.5 bg-white rounded-full shadow-sm transform transition-transform ${isDeepThinkingMode ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                                 </div>
                             </label>
+                            <button onClick={handlePasteText} className="text-[9px] text-slate-400 hover:text-indigo-300 transition-colors" title="Coller le texte du presse-papier">
+                                📋 Coller
+                            </button>
                             <button
                                 onClick={() => setFiles([])}
                                 className="text-[9px] text-slate-600 hover:text-red-400 transition-colors"
@@ -143,19 +168,11 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                                 </button>
                             </div>
                         ))}
-
-                        {/* Chip + ajouter */}
-                        <div
-                            onClick={() => inputRef.current?.click()}
-                            className={`flex items-center gap-0.5 border border-dashed rounded px-1.5 py-0.5 text-[9px] cursor-pointer transition-all ${
-                                isDragOver
-                                    ? 'border-indigo-400 bg-indigo-500/20 text-indigo-300'
-                                    : 'border-slate-600 text-slate-500 hover:border-indigo-400/60 hover:text-indigo-400'
-                            }`}
-                        >
-                            <span>＋</span>
-                        </div>
                     </div>
+
+                    <button onClick={() => inputRef.current?.click()} className="text-[8px] text-slate-500 hover:text-slate-300 w-full text-center py-0.5 border border-dashed border-slate-700 hover:border-slate-500 rounded transition-colors mb-2">
+                        + Ajouter un autre document
+                    </button>
 
                     {/* Bouton Analyser */}
                     <button

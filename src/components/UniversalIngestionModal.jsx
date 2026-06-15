@@ -13,8 +13,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 const PDF_RENDER_WIDTH = 760;
 
 const UniversalIngestionModal = () => {
-    const {
         ingestionModal,
+        openIngestion,
         closeIngestion,
         setFormData,
         addExpense,
@@ -32,6 +32,7 @@ const UniversalIngestionModal = () => {
     const [fileUrl, setFileUrl] = useState(null);
     const [localData, setLocalData] = useState({});
     const [numPages, setNumPages] = useState(null);
+    const [textContent, setTextContent] = useState('');
 
     // Populate localData when modal opens
     useEffect(() => {
@@ -61,9 +62,30 @@ const UniversalIngestionModal = () => {
         if (isOpen && file) {
             const url = URL.createObjectURL(file);
             setFileUrl(url);
+            if (file.type === 'text/plain') {
+                file.text().then(setTextContent);
+            } else {
+                setTextContent('');
+            }
             return () => { URL.revokeObjectURL(url); };
         }
     }, [isOpen, file, data, type, existingId, expenses]);
+
+    const handlePasteText = async (e) => {
+        if (e) e.stopPropagation();
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim() !== '') {
+                const newFile = new File([text], `Presse-papier.txt`, { type: "text/plain" });
+                openIngestion(newFile, type, localData, existingId);
+            } else {
+                alert("Le presse-papier est vide ou ne contient pas de texte.");
+            }
+        } catch (err) {
+            console.error("Erreur d'accès au presse-papier", err);
+            alert("Impossible de lire le presse-papier. Vérifiez les autorisations du navigateur.");
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -147,6 +169,7 @@ const UniversalIngestionModal = () => {
     };
 
     const isImage = file?.type?.startsWith('image/');
+    const isText = file?.type === 'text/plain' || file?.name?.endsWith('.txt');
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -154,9 +177,14 @@ const UniversalIngestionModal = () => {
 
                 {/* Left Side: Document Preview (w-2/3) */}
                 <div className="w-2/3 bg-slate-800 border-r border-slate-700 p-4 flex flex-col h-full overflow-hidden">
-                    <h2 className="text-white font-bold mb-2 flex items-center gap-2">
-                        <span>📄</span> Document : {file?.name}
-                    </h2>
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-white font-bold flex items-center gap-2">
+                            <span>📄</span> Document : {file?.name || 'Aucun fichier'}
+                        </h2>
+                        <button onClick={handlePasteText} className="text-xs text-slate-400 hover:text-indigo-300 transition-colors bg-slate-700/50 hover:bg-slate-700 px-2 py-1 rounded" title="Coller depuis le presse-papier">
+                            📋 Coller texte
+                        </button>
+                    </div>
                     <div className="flex-1 bg-slate-950 rounded-lg border border-slate-700 overflow-hidden relative">
                         {fileUrl ? (
                             <TransformWrapper
@@ -179,7 +207,11 @@ const UniversalIngestionModal = () => {
                                         </div>
 
                                         <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full flex flex-col items-center justify-center py-4">
-                                            {isImage ? (
+                                            {isText ? (
+                                                <div className="w-full h-full p-6 text-left overflow-auto text-[13px] whitespace-pre-wrap font-mono text-slate-300 break-words max-w-[800px] mx-auto bg-slate-900 border border-slate-700 rounded shadow-xl">
+                                                    {textContent || 'Chargement...'}
+                                                </div>
+                                            ) : isImage ? (
                                                 <img src={fileUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded shadow-xl" />
                                             ) : (
                                                 <Document
