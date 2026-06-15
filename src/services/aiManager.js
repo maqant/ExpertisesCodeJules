@@ -792,6 +792,8 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         console.log(`  SOCIAL (${dispatchLog.SOCIAL.length}):`, dispatchLog.SOCIAL);
         console.log(`  RECITS (${dispatchLog.RECITS.length}):`, dispatchLog.RECITS);
         console.log(`  FINANCIER (${dispatchLog.FINANCIER.length}):`, dispatchLog.FINANCIER);
+        
+        if (addDebugLog) addDebugLog('DISPATCH', 'INFO', dispatchLog);
 
         if (onStatusChange) onStatusChange('extracting');
 
@@ -830,7 +832,13 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         const [adminRes, narrativeRes, socialRes] = await Promise.all([
             adminPromise, narrativePromise, socialPromise
         ]);
-        if (addDebugLog) addDebugLog('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
+        
+        if (addDebugLog) {
+            if (adminFiles.length > 0) addDebugLog('AGENT_ADMIN', adminRes.success ? 'SUCCESS' : 'ERROR', adminRes.data, adminRes.error || null);
+            if (narrativeFiles.length > 0) addDebugLog('AGENT_RECITS', narrativeRes.success ? 'SUCCESS' : 'ERROR', narrativeRes.data, narrativeRes.error || null);
+            if (socialFiles.length > 0) addDebugLog('AGENT_SOCIAL', socialRes.success ? 'SUCCESS' : 'ERROR', socialRes.data, socialRes.error || null);
+            addDebugLog('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
+        }
 
         // 4. Phase 2 : Agent Financier AVEC la liste des occupants (cascade v5.9.0)
         // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
@@ -847,6 +855,10 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
                     return { success: false, data: { expenses: [] } }; 
                 })
             : { success: true, data: { expenses: [] } };
+            
+        if (addDebugLog && financialFiles.length > 0) {
+            addDebugLog('AGENT_FINANCIER', financialRes.success ? 'SUCCESS' : 'ERROR', financialRes.data, financialRes.error || null);
+        }
 
         // --- DÉBUT DU BLOC : AGENT BALAI (Phase 2) ---
         const missingVitalData = [];

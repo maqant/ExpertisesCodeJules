@@ -197,7 +197,7 @@ export const ExpertiseProvider = ({ children }) => {
       });
   };
 
-  const [isDeepThinkingMode, setIsDeepThinkingMode] = useState(true);
+  const [isDeepThinkingMode, setIsDeepThinkingMode] = useState(false);
   const toggleDeepThinkingMode = () => setIsDeepThinkingMode(prev => !prev);
 
 
