@@ -25,7 +25,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
             success: true,
             data: {
                 formData: {
-                    dateExp: "2026-06-15", heureExp: "10:00", nomResidence: "Copropriété Les Acacias", adresse: "12 rue de la Paix, Paris", refPechard: "DOSS-2026-001", expertInfos: "M. Dupont", bureau: "Bureau Péchard",
+                    dateExp: "2026-06-15", heureExp: "10:00", nomResidence: "Copropriété Les Acacias", adresse: "12 rue de la Paix, Paris", expertInfos: "M. Dupont",
                     dateSinistre: "2026-06-01", dateDeclaration: "2026-06-02", declarant: "Syndic ABC", nomCie: "AXA Belgium", nomContrat: "Top Habitation", numPolice: "POL-123", numSinistreCie: "SIN-999", 
                     numConditionsGenerales: "CG-2022", franchise: "Légale", pertesIndirectes: "10%", isAxa: true,
                     isContradictoire: false, cieContradictoire: "", bureauContradictoire: "", expertContradictoire: "", compteDeContradictoire: ""
@@ -46,7 +46,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
 Ton rôle est d'analyser attentivement les documents fournis (polices d'assurance, conditions particulières, convocations, correspondances) et d'en extraire les informations contractuelles, les coordonnées de l'expertise et les références.
 
 CONTEXTE IMPORTANT :
-- "Bureau Péchard" est le bureau de gestion de sinistres / courtier en charge du dossier. Ce n'est PAS un bureau d'expertise externe. Si le document ne mentionne pas d'autre bureau, utilise "Bureau Péchard" comme valeur par défaut.
+- Le bureau d'expertise en charge est toujours "Bureau Péchard". N'essaie pas d'extraire notre nom ou notre référence de dossier (refPechard) car nous le connaissons déjà en interne. Concentre-toi sur les données du sinistre et de la compagnie d'assurance.
 
 RÈGLES ABSOLUES :
 1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable dans le texte, tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A", et tu ne dois pas omettre la clé).
@@ -62,13 +62,12 @@ RÈGLES ABSOLUES :
       - "Anglaise" si le texte mentionne "franchise anglaise".
       - null si aucune franchise n'est mentionnée.
 7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
-8. ANTI-HALLUCINATION refPechard : Le champ "refPechard" est la référence INTERNE du dossier au Bureau Péchard. Si tu ne trouves PAS cette référence exacte, renvoie IMPÉRATIVEMENT null. N'invente AUCUN numéro.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
   "_raisonnement": "Ta réflexion étape par étape sur les entités, dates et chiffres identifiés avant de remplir le reste du JSON",
   "formData": {
-    "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "refPechard": null, "expertInfos": null, "bureau": "Bureau Péchard",
+    "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "expertInfos": null,
     "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
     "numConditionsGenerales": null, "franchiseBrute": null, "typeFranchise": null, "pertesIndirectes": null, "isAxa": false,
     "isContradictoire": false, "cieContradictoire": null, "bureauContradictoire": null, "expertContradictoire": null, "compteDeContradictoire": null

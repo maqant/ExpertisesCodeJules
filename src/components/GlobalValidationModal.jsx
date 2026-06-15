@@ -365,7 +365,7 @@ const GlobalValidationModal = () => {
                             <div className="p-3 space-y-1.5">
                                 {Object.keys(editableData.formData).map(key => {
                                     const aiVal = editableData.formData[key];
-                                    if (!aiVal || aiVal === '') return null;
+                                    if (!aiVal || aiVal === '' || key === 'refPechard' || key === 'bureau') return null;
                                     const currentVal = formData[key] || '';
                                     const isIdentical = currentVal === aiVal;
                                     const label = FORM_FIELD_LABELS[key] || key;

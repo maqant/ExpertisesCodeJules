@@ -369,9 +369,10 @@ export const ExpertiseProvider = ({ children }) => {
       if (!name) return;
       
       handleReset();
+      setFormData(prev => ({ ...prev, refPechard: name }));
       
       const newId = crypto.randomUUID();
-      const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: initialFormData, blockTitles: initialTitles } };
+      const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: { ...initialFormData, refPechard: name }, blockTitles: initialTitles } };
       const updated = [newDossier, ...savedDossiers];
       
       setSavedDossiers(updated);
