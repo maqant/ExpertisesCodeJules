@@ -714,13 +714,27 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         // Extraction automatique des PJ des fichiers MSG
         for (const file of rawFiles) {
+            // v6.4.4 - Bypass Image Analysis to save time/tokens (they become unassigned photos)
+            if (file.type && file.type.startsWith('image/')) {
+                allExtractedFiles.push(file); // Adds to 'unassigned' later
+                if (addDebugLog) addDebugLog('INGESTION_BYPASS', 'INFO', `Bypass IA pour l'image: ${file.name}`);
+                continue; 
+            }
+
             if (file.name && file.name.toLowerCase().endsWith('.msg')) {
-                // v5.5.5 - Les MSG passent AUSSI par le routeur (au lieu d'être forcés dans 3 agents)
+                // v5.5.5 - Les MSG passent AUSSI par le routeur
                 filesToRoute.push(file);
                 try {
                     const { files: attachments } = await extractValidAttachmentsFromMsg(file);
-                    allExtractedFiles.push(...attachments);
-                    filesToRoute.push(...attachments);
+                    // Filter attachments too!
+                    for (const att of attachments) {
+                        allExtractedFiles.push(att);
+                        if (att.type && att.type.startsWith('image/')) {
+                            if (addDebugLog) addDebugLog('INGESTION_BYPASS', 'INFO', `Bypass IA pour la PJ image: ${att.name}`);
+                        } else {
+                            filesToRoute.push(att);
+                        }
+                    }
                 } catch (e) {
                     console.error("Erreur extraction PJ MSG:", e);
                 }

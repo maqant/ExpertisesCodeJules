@@ -233,6 +233,9 @@ const Sidebar = () => {
     // v6.4.1 - Bulk Photo Selection and Move
     const [selectedPhotos, setSelectedPhotos] = useState([]);
     const [isMovingPhotos, setIsMovingPhotos] = useState(false);
+    
+    // v6.4.4 - Convert photo to devis
+    const [processingPhotoId, setProcessingPhotoId] = useState(null);
 
     const handleTogglePhotoSelect = (dbKey) => {
         setSelectedPhotos(prev => prev.includes(dbKey) ? prev.filter(k => k !== dbKey) : [...prev, dbKey]);
@@ -272,6 +275,57 @@ const Sidebar = () => {
         
         setSelectedPhotos([]);
         setIsMovingPhotos(false);
+    };
+
+    // v6.4.4 - Convert photo to devis logic
+    const handleConvertPhotoToDevis = async (dbKey) => {
+        setProcessingPhotoId(dbKey);
+        try {
+            const bytes = await localforage.getItem(dbKey);
+            if (!bytes) throw new Error("Fichier introuvable en local");
+            
+            const photoObj = attachedPhotos['unassigned']?.find(p => p.dbKey === dbKey);
+            if (!photoObj) throw new Error("Photo introuvable dans unassigned");
+
+            const mime = photoObj.isPdf ? 'application/pdf' : 'image/jpeg';
+            const file = new File([bytes], photoObj.name, { type: mime });
+            
+            // Appeler OpenAI
+            const { extractFinancialData } = await import('../services/agents/financial.js');
+            const apiKey = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+            const res = await extractFinancialData(file, apiKey, null, 'gpt-5.4', occupants);
+            
+            if (res.success && res.data.expenses && res.data.expenses.length > 0) {
+                const expenseData = res.data.expenses[0];
+                const newId = crypto.randomUUID();
+                
+                // Ajouter à ExpertContext (frais)
+                const newExp = {
+                    ...expenseData,
+                    id: newId,
+                    montant: expenseData.montantReclame || expenseData.montantDevis || expenseData.montantFacture || '',
+                    montantReclame: expenseData.montantReclame || expenseData.montantDevis || expenseData.montantFacture || '',
+                    montantValide: expenseData.montantValide || expenseData.montantReclame || expenseData.montantDevis || expenseData.montantFacture || '',
+                    compteDe: expenseData.compteDe || 'unassigned'
+                };
+                setExpenses(prev => [...prev, newExp]);
+                
+                // Attacher la photo à la nouvelle ligne de frais
+                await handleAttachPhoto(newId, file);
+                
+                // Retirer de 'unassigned'
+                handleRemovePhoto('unassigned', dbKey);
+                
+                alert("✅ Document financier analysé avec succès ! Une ligne de frais a été créée.");
+            } else {
+                alert("❌ Aucun montant trouvé dans ce document.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de l'analyse : " + err.message);
+        } finally {
+            setProcessingPhotoId(null);
+        }
     };
 
     // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
@@ -1543,6 +1597,14 @@ const Sidebar = () => {
                                                         <img src={photo.dataUrl} alt={photo.name} className="max-w-full max-h-full object-contain" />
                                                     )}
                                                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleConvertPhotoToDevis(photo.dbKey)} 
+                                                            className="bg-indigo-600 hover:bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" 
+                                                            title="Transformer en Devis/Facture (IA)"
+                                                            disabled={processingPhotoId === photo.dbKey}
+                                                        >
+                                                            {processingPhotoId === photo.dbKey ? '↻' : '🪄'}
+                                                        </button>
                                                         <button onClick={() => handleRemovePhoto('unassigned', photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
                                                     </div>
                                                     {occupants.length > 0 && (
