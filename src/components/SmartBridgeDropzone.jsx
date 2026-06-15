@@ -1,6 +1,7 @@
 // v6.1.1 - Smart Bridge : accumulation multi-fichiers + chips compacts
 import React, { useState, useRef, useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { cloneFilesEagerly } from '../services/utils/aiHelpers.js';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg'];
 const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -40,8 +41,10 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
     const handleDrop = async (e) => {
         e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
         if (e.dataTransfer.files?.length > 0) {
-            const { cloneFilesEagerly } = await import('../services/utils/aiHelpers.js');
-            const safeFiles = await cloneFilesEagerly(e.dataTransfer.files);
+            // v6.3.2 - IMPORTANT: On extrait immédatement les fichiers de e.dataTransfer
+            // avant tout await, sinon l'objet dataTransfer est vidé par le navigateur
+            const filesList = Array.from(e.dataTransfer.files);
+            const safeFiles = await cloneFilesEagerly(filesList);
             addFiles(safeFiles);
         }
     };
