@@ -1,5 +1,5 @@
 import { useFinanceStore, cleanAmount } from "../store/financeStore";
-import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import html2canvas from 'html2canvas';
