@@ -230,6 +230,50 @@ const Sidebar = () => {
     const [generatedText, setGeneratedText] = useState(null);
     const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
 
+    // v6.4.1 - Bulk Photo Selection and Move
+    const [selectedPhotos, setSelectedPhotos] = useState([]);
+    const [isMovingPhotos, setIsMovingPhotos] = useState(false);
+
+    const handleTogglePhotoSelect = (dbKey) => {
+        setSelectedPhotos(prev => prev.includes(dbKey) ? prev.filter(k => k !== dbKey) : [...prev, dbKey]);
+    };
+
+    const handleMoveSelectedPhotos = async (targetOccId) => {
+        if (!targetOccId || selectedPhotos.length === 0) return;
+        setIsMovingPhotos(true);
+        
+        for (const dbKey of selectedPhotos) {
+            let sourceId = null;
+            let photoObj = null;
+            
+            if (attachedPhotos['unassigned']?.some(p => p.dbKey === dbKey)) {
+                sourceId = 'unassigned';
+                photoObj = attachedPhotos['unassigned'].find(p => p.dbKey === dbKey);
+            } else {
+                for (const occId of Object.keys(attachedPhotos)) {
+                    if (occId !== 'unassigned' && attachedPhotos[occId]?.some(p => p.dbKey === dbKey)) {
+                        sourceId = occId;
+                        photoObj = attachedPhotos[occId].find(p => p.dbKey === dbKey);
+                        break;
+                    }
+                }
+            }
+            
+            if (sourceId && photoObj && sourceId !== targetOccId) {
+                const bytes = await localforage.getItem(dbKey);
+                if (bytes) {
+                    const mime = photoObj.isPdf ? 'application/pdf' : 'image/jpeg';
+                    const file = new File([bytes], photoObj.name, { type: mime });
+                    await handleAttachPhoto(targetOccId, file);
+                    handleRemovePhoto(sourceId, dbKey);
+                }
+            }
+        }
+        
+        setSelectedPhotos([]);
+        setIsMovingPhotos(false);
+    };
+
     // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
     const handleCopyResume = async () => {
         let text = "";
@@ -1415,6 +1459,24 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="photos" num="7" />
                             <div className="p-3 space-y-4">
+                                {/* Bulk Selection UI */}
+                                {selectedPhotos.length > 0 && (
+                                    <div className="sticky top-0 z-10 bg-indigo-900/90 border border-indigo-500 p-2 rounded mb-2 flex items-center justify-between shadow-lg backdrop-blur">
+                                        <span className="text-xs text-white font-bold">{selectedPhotos.length} photo(s) sélect.</span>
+                                        <div className="flex gap-2">
+                                            <select
+                                                className="bg-slate-800 text-[10px] text-white border border-slate-600 rounded px-1 py-1"
+                                                value=""
+                                                onChange={(e) => handleMoveSelectedPhotos(e.target.value)}
+                                                disabled={isMovingPhotos}
+                                            >
+                                                <option value="">Déplacer vers...</option>
+                                                {occupants.map(occ => <option key={occ.id} value={occ.id}>{occ.nom || 'Inconnu'}</option>)}
+                                            </select>
+                                            <button onClick={() => setSelectedPhotos([])} className="text-[10px] text-slate-300 hover:text-white bg-slate-700 px-2 rounded">✕</button>
+                                        </div>
+                                    </div>
+                                )}
                                 {occupants.length === 0 ? (
                                     <p className="text-[10px] text-slate-400 italic">Ajoutez d'abord des intervenants dans la section "Organisation du bâtiment".</p>
                                 ) : (
@@ -1435,7 +1497,10 @@ const Sidebar = () => {
                                             {(attachedPhotos[occ.id] || []).length > 0 ? (
                                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                                     {attachedPhotos[occ.id].map(photo => (
-                                                        <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-slate-600 aspect-video bg-slate-800 flex items-center justify-center">
+                                                        <div key={photo.dbKey} className={`relative group rounded overflow-hidden border ${selectedPhotos.includes(photo.dbKey) ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-slate-600'} aspect-video bg-slate-800 flex items-center justify-center`}>
+                                                            <div className={`absolute top-1 left-1 z-10 ${selectedPhotos.includes(photo.dbKey) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                                                                <input type="checkbox" checked={selectedPhotos.includes(photo.dbKey)} onChange={() => handleTogglePhotoSelect(photo.dbKey)} className="w-4 h-4 cursor-pointer accent-indigo-500" />
+                                                            </div>
                                                             {photo.isPdf ? (
                                                                 <div className="flex flex-col items-center justify-center text-center p-2">
                                                                     <span className="text-2xl">📄</span>
@@ -1465,7 +1530,10 @@ const Sidebar = () => {
                                         <h4 className="text-amber-300 text-xs font-bold mb-2 flex items-center gap-1">📸 Photos en attente d'attribution <span className="text-[9px] font-normal text-amber-400/60">({attachedPhotos['unassigned'].length})</span></h4>
                                         <div className="grid grid-cols-2 gap-2">
                                             {attachedPhotos['unassigned'].map(photo => (
-                                                <div key={photo.dbKey} className="relative group rounded overflow-hidden border border-amber-500/30 aspect-video bg-slate-800 flex items-center justify-center">
+                                                <div key={photo.dbKey} className={`relative group rounded overflow-hidden border ${selectedPhotos.includes(photo.dbKey) ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-amber-500/30'} aspect-video bg-slate-800 flex items-center justify-center`}>
+                                                    <div className={`absolute top-1 left-1 z-10 ${selectedPhotos.includes(photo.dbKey) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                                                        <input type="checkbox" checked={selectedPhotos.includes(photo.dbKey)} onChange={() => handleTogglePhotoSelect(photo.dbKey)} className="w-4 h-4 cursor-pointer accent-indigo-500" />
+                                                    </div>
                                                     {photo.isPdf ? (
                                                         <div className="flex flex-col items-center justify-center text-center p-2">
                                                             <span className="text-2xl">📄</span>
