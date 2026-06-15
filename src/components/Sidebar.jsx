@@ -1513,6 +1513,25 @@ const Sidebar = () => {
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="photos" num="7" />
                             <div className="p-3 space-y-4">
+                                <div className="flex justify-between items-center -mb-2">
+                                    <span className="text-[10px] text-slate-400">Gérez et assignez les photos</span>
+                                    {Object.values(attachedPhotos).flat().length > 0 && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                const allKeys = Object.values(attachedPhotos).flat().map(p => p.dbKey);
+                                                if (selectedPhotos.length === allKeys.length && allKeys.length > 0) {
+                                                    setSelectedPhotos([]);
+                                                } else {
+                                                    setSelectedPhotos(allKeys);
+                                                }
+                                            }}
+                                            className="text-[10px] text-indigo-300 hover:text-white bg-slate-700/50 hover:bg-slate-600 px-2 py-1 rounded transition-colors"
+                                        >
+                                            {selectedPhotos.length > 0 && selectedPhotos.length === Object.values(attachedPhotos).flat().length ? "Désélectionner tout" : "Tout sélectionner"}
+                                        </button>
+                                    )}
+                                </div>
                                 {/* Bulk Selection UI */}
                                 {selectedPhotos.length > 0 && (
                                     <div className="sticky top-0 z-10 bg-indigo-900/90 border border-indigo-500 p-2 rounded mb-2 flex items-center justify-between shadow-lg backdrop-blur">
