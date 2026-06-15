@@ -6,7 +6,7 @@
  * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
  */
 
-import { processInParallelBatches, buildContentArrayParallel, normalizeDate, resolveFranchiseLegale } from '../utils/aiHelpers.js';
+import { processInParallelBatches, buildContentArrayParallel, normalizeDate } from '../utils/aiHelpers.js';
 
 /**
  * [v5.5.1] Étape 2 : L'Agent Administratif
@@ -54,13 +54,7 @@ RÈGLES ABSOLUES :
 3. Remplis les champs avec précision.
 4. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
 5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou null si non trouvé.
-6. FRANCHISE - Tu dois extraire DEUX informations distinctes :
-   a) "franchiseBrute" : le montant ou texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "600€", "indice 119", "franchise anglaise de 500€", "franchise x3").
-   b) "typeFranchise" : déduis le TYPE de franchise selon ces règles :
-      - "Legale" si le montant est inférieur à 400€ OU s'il y a une référence à un indice IPC/abex.
-      - "Speciale" si c'est un gros forfait OU un multiplicateur.
-      - "Anglaise" si le texte mentionne "franchise anglaise".
-      - null si aucune franchise n'est mentionnée.
+6. FRANCHISE : Extrait le montant exact ou le texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "1.500 EUR", "indice 119", "franchise anglaise de 500€").
 7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
 
 Voici le format EXACT attendu, avec tous les champs présents :
@@ -69,7 +63,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "formData": {
     "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "expertInfos": null,
     "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
-    "numConditionsGenerales": null, "franchiseBrute": null, "typeFranchise": null, "pertesIndirectes": null, "isAxa": false,
+    "numConditionsGenerales": null, "franchise": null, "pertesIndirectes": null, "isAxa": false,
     "isContradictoire": false, "cieContradictoire": null, "bureauContradictoire": null, "expertContradictoire": null, "compteDeContradictoire": null
   },
   "references": [ 
@@ -114,45 +108,9 @@ Voici le format EXACT attendu, avec tous les champs présents :
                     }
                 });
 
-                try {
-                    const typeFranchise = (parsedData.formData.typeFranchise || '').trim();
-                    const franchiseBrute = (parsedData.formData.franchiseBrute || '').trim();
-                    
-                    if (typeFranchise && franchiseBrute) {
-                        if (typeFranchise === 'Legale') {
-                            const dateSinistre = parsedData.formData.dateSinistre;
-                            if (dateSinistre && dateSinistre.trim() !== '') {
-                                const resolved = resolveFranchiseLegale(dateSinistre);
-                                if (resolved !== null) {
-                                    parsedData.formData.franchise = `${resolved}€`;
-                                } else {
-                                    parsedData.formData.franchise = 'Légale';
-                                }
-                            } else {
-                                parsedData.formData.franchise = '⚠️ À calculer (Date de sinistre requise)';
-                            }
-                        } else if (typeFranchise === 'Speciale') {
-                            const montantMatch = franchiseBrute.match(/[\d.,]+/);
-                            const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
-                            parsedData.formData.franchise = `Spéciale : ${montantStr}€`;
-                        } else if (typeFranchise === 'Anglaise') {
-                            const montantMatch = franchiseBrute.match(/[\d.,]+/);
-                            const montantStr = montantMatch ? montantMatch[0].replace(',', '.') : franchiseBrute;
-                            parsedData.formData.franchise = `${montantStr}€ Anglaise`;
-                        } else {
-                            parsedData.formData.franchise = franchiseBrute;
-                        }
-                    } else if (franchiseBrute && !typeFranchise) {
-                        parsedData.formData.franchise = franchiseBrute;
-                    } else {
-                        parsedData.formData.franchise = parsedData.formData.franchise || '';
-                    }
-                } catch (franchiseErr) {
-                    parsedData.formData.franchise = parsedData.formData.franchiseBrute || parsedData.formData.franchise || '';
+                if (!parsedData.formData.franchise || String(parsedData.formData.franchise).trim() === '') {
+                    parsedData.formData.franchise = '';
                 }
-                
-                delete parsedData.formData.franchiseBrute;
-                delete parsedData.formData.typeFranchise;
             }
             return parsedData;
         };
