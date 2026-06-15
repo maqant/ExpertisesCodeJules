@@ -13,6 +13,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 const PDF_RENDER_WIDTH = 760;
 
 const UniversalIngestionModal = () => {
+    const {
         ingestionModal,
         openIngestion,
         closeIngestion,
