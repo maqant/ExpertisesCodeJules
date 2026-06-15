@@ -551,9 +551,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: currentText }
-                ],
-                temperature: 0.0,
-                max_tokens: 2000
+                ]
             })
         });
 
