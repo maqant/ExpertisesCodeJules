@@ -109,7 +109,7 @@ const GlobalAiAssistant = () => {
                     ...(result.extractedFiles || []),
                     ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
-                setPendingAiData({ formData: aiData.formData || null, occupants, expenses, pendingFiles: allPendingFiles });
+                setPendingAiData({ formData: aiData.formData || null, occupants, experts: aiData.experts || [], intervenants: aiData.intervenants || [], expenses, pendingFiles: allPendingFiles });
                 const newContexts = [];
                 if (rawText.trim()) newContexts.push(rawText.trim());
                 if (aiData.formData?.cause) newContexts.push(aiData.formData.cause);

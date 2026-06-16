@@ -452,7 +452,7 @@ const Sidebar = () => {
                         pendingFiles.push(file);
                     }
                 }
-                setPendingAiData({ formData: null, occupants: [], expenses: [], pendingFiles });
+                setPendingAiData({ formData: null, occupants: [], experts: [], intervenants: [], expenses: [], pendingFiles });
                 return;
             }
 
@@ -479,6 +479,8 @@ const Sidebar = () => {
                 setPendingAiData({
                     formData: aiData.formData || null,
                     occupants,
+                    experts: aiData.experts || [],
+                    intervenants: aiData.intervenants || [],
                     expenses,
                     pendingFiles: allPendingFiles
                 });
@@ -2136,7 +2138,7 @@ const Sidebar = () => {
                                             const { files: extractedFiles } = await extractValidAttachmentsFromMsg(droppedMsgFile);
                                             if (extractedFiles.length > 0) {
                                                 setTimeout(() => {
-                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });
+                                                    setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles, experts: [], intervenants: [] });
                                                 }, 50);
                                             } else {
                                                 alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
