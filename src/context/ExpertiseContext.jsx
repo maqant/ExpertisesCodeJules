@@ -103,6 +103,7 @@ export const ExpertiseProvider = ({ children }) => {
   const financeStore = useFinanceStore();
 
   const [telemetrySessionId, setTelemetrySessionId] = useState(() => crypto.randomUUID());
+  const [currentDossierId, setCurrentDossierId] = useState(null);
   const telemetry = useTelemetry(telemetrySessionId, currentDossierId);
 
   const [activeTab, setActiveTab] = useState('builder');
@@ -231,7 +232,6 @@ export const ExpertiseProvider = ({ children }) => {
   const [expandedExpId, setExpandedExpId] = useState(null);
 
   // Données globales
-  const [currentDossierId, setCurrentDossierId] = useState(null);
   const [savedDossiers, setSavedDossiers] = useState([]);
   const [dossierSearch, setDossierSearch] = useState('');
   const [expertsList, setExpertsList] = useState([]);
@@ -384,7 +384,7 @@ export const ExpertiseProvider = ({ children }) => {
       // performReset vide tout (Zustand synchrone + React state)
       performReset();
       // On écrit directement dans Zustand APRÈS le reset → garanti propre
-      financeStore.replaceFormData({ ...initialFormData, refPechard: name });
+      useFinanceStore.getState().replaceFormData({ ...initialFormData, refPechard: name });
       
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: { ...initialFormData, refPechard: name }, blockTitles: initialTitles } };
