@@ -53,7 +53,7 @@ function App() {
         <GlobalValidationModal />
 
         {/* Version Badge */}
-        <div className="fixed bottom-2 right-3 text-[10px] text-slate-400/60 font-bold tracking-wider pointer-events-none z-50 print:hidden uppercase">
+        <div className="fixed bottom-2 right-40 text-[10px] text-slate-400/60 font-bold tracking-wider pointer-events-none z-50 print:hidden uppercase">
           v{packageJson.version}
         </div>
 
