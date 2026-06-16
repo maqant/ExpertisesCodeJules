@@ -539,7 +539,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "gpt-5.4-mini",
+                model: "gpt-5.4", // v7.3.0 : on force le 5.4 partout
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: currentText }
@@ -648,7 +648,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
     const startTime = Date.now();
 
     // Stratégie de modèles
-    const agentsModel = isDeepThinkingMode ? 'gpt-5.4' : 'gpt-5.4-mini';
+    const agentsModel = 'gpt-5.4'; // v7.3.0 : on force le 5.4 pour tous les agents (test Qualité Golden Dataset)
     const fallbackModel = isDeepThinkingMode ? 'gpt-5.5' : 'gpt-5.4';
 
     let originalConsole = null;
