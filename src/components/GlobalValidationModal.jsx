@@ -136,7 +136,7 @@ const GlobalValidationModal = () => {
         const newOccActions = new Map();
         cleanOccs.forEach(occ => {
             const match = occupants.find(o => o.nom && occ.nom && o.nom.toLowerCase().trim() === occ.nom.toLowerCase().trim());
-            newOccActions.set(occ.id, match ? 'update' : 'add');
+            newOccActions.set(occ.id, match ? 'ignore' : 'add');
         });
         setOccActions(newOccActions);
 
@@ -147,7 +147,7 @@ const GlobalValidationModal = () => {
                 e.prestataire.toLowerCase().trim() === exp.prestataire.toLowerCase().trim() &&
                 (e.montantReclame || e.montant || '') === (exp.montant || '')
             );
-            newExpActions.set(exp.id, match ? 'update' : 'add');
+            newExpActions.set(exp.id, match ? 'ignore' : 'add');
         });
         setExpActions(newExpActions);
 
@@ -225,6 +225,16 @@ const GlobalValidationModal = () => {
 
     const toggleOccExpand = (id) => { setExpandedOcc(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
     const toggleExpExpand = (id) => { setExpandedExp(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
+
+    const removeOccupant = (e, id) => {
+        e.stopPropagation();
+        setEditableData(prev => ({ ...prev, occupants: prev.occupants.filter(o => o.id !== id) }));
+    };
+
+    const removeExpense = (e, id) => {
+        e.stopPropagation();
+        setEditableData(prev => ({ ...prev, expenses: prev.expenses.filter(x => x.id !== id) }));
+    };
 
     const hasFormData = editableData.formData && Object.keys(editableData.formData).some(k => editableData.formData[k] && editableData.formData[k] !== '');
     const hasOccupants = editableData.occupants && editableData.occupants.length > 0;
@@ -511,6 +521,7 @@ const GlobalValidationModal = () => {
                                                     <option value="add">Créer nouveau</option>
                                                     <option value="ignore">Ignorer</option>
                                                 </select>
+                                                <button onClick={(e) => removeOccupant(e, occ.id)} className="text-slate-500 hover:text-red-400 p-1" title="Supprimer de la liste">🗑️</button>
                                             </div>
                                             {/* Expanded details */}
                                             {isExpanded && !isIgnored && (
@@ -524,6 +535,7 @@ const GlobalValidationModal = () => {
                                                     </div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Téléphone</label><input type="text" value={occ.tel || ''} onChange={(e) => updateOccField(occ.id, 'tel', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Email</label><input type="email" value={occ.email || ''} onChange={(e) => updateOccField(occ.id, 'email', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
+                                                    <div className="col-span-2"><label className="text-[9px] text-slate-500 uppercase">IBAN</label><input type="text" value={occ.iban || ''} onChange={(e) => updateOccField(occ.id, 'iban', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none font-mono" placeholder="BE..." /></div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">RC</label>
                                                         <select value={occ.rc || 'Non'} onChange={(e) => updateOccField(occ.id, 'rc', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none">
                                                             <option value="Oui">Oui</option><option value="Non">Non</option>
@@ -627,6 +639,7 @@ const GlobalValidationModal = () => {
                                                     <option value="add">Créer nouveau</option>
                                                     <option value="ignore">Ignorer</option>
                                                 </select>
+                                                <button onClick={(e) => removeExpense(e, exp.id)} className="text-slate-500 hover:text-red-400 p-1" title="Supprimer de la liste">🗑️</button>
                                             </div>
                                             {/* Expanded details */}
                                             {isExpanded && !isIgnored && (
