@@ -90,6 +90,7 @@ const GlobalValidationModal = () => {
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
     const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
+    const [isMerging, setIsMerging] = useState(false);
 
     // v7.0.0 - Analyze occupant conflicts avec fuzzy matching
     const occupantAnalysis = useMemo(() => {
@@ -198,7 +199,6 @@ const GlobalValidationModal = () => {
     if (!pendingAiData || !editableData) return null;
 
     // -- Handlers --
-    const [isMerging, setIsMerging] = useState(false);
 
     const handleMagicMerge = async () => {
         setIsMerging(true);
