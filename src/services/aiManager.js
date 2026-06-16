@@ -29,6 +29,7 @@ export { extractAdministrativeData } from './agents/admin.js';
 export { extractSocialData } from './agents/social.js';
 export { extractNarrativeData } from './agents/narrative.js';
 export { extractFinancialData } from './agents/financial.js';
+export { runMergeAgent } from './agents/merger.js';
 
 // ═══════════════════════════════════════════════════════════════
 // IMPORTS INTERNES pour l'orchestrateur et les fonctions locales
@@ -41,6 +42,7 @@ import { extractAdministrativeData } from './agents/admin.js';
 import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
+import { runMergeAgent } from './agents/merger.js';
 import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 
 // ═══════════════════════════════════════════════════════════════
@@ -952,7 +954,28 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             });
         }
 
-        // 6. Fusion et assemblage
+        // 6. PHASE FINALE : Agent de Synthèse (Merger)
+        if (addDebugLog) addDebugLog('AGENT_MERGER', 'INFO', 'Lancement de la déduplication intelligente (Merge Agent)...');
+        console.log(`[aiManager] ✨ Lancement Merge Agent sur ${occupants.length} occupants et ${expenses.length} dépenses...`);
+        
+        let finalOccupants = occupants;
+        let finalExpenses = expenses;
+        
+        try {
+            const mergerRes = await withRetry(() => runMergeAgent(occupants, expenses, providedApiKey));
+            if (mergerRes.success && mergerRes.data) {
+                finalOccupants = mergerRes.data.occupants || occupants;
+                finalExpenses = mergerRes.data.expenses || expenses;
+                if (addDebugLog) addDebugLog('AGENT_MERGER', 'SUCCESS', mergerRes.data);
+            } else {
+                if (addDebugLog) addDebugLog('AGENT_MERGER', 'WARNING', 'Échec de la fusion intelligente, conservation des données brutes.', mergerRes.error);
+            }
+        } catch (mergeErr) {
+            console.error('[aiManager] ❌ Erreur fatale Agent Merger:', mergeErr);
+            if (addDebugLog) addDebugLog('AGENT_MERGER', 'ERROR', null, mergeErr.message);
+        }
+
+        // 7. Assemblage final
         const finalJson = {
             formData: {
                 ...(adminRes.data?.formData || {}),
@@ -961,9 +984,9 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             },
             references: adminRes.data?.references || [],
             experts: socialRes.data?.experts || [],
-            occupants: occupants,
+            occupants: finalOccupants,
             intervenants: socialRes.data?.intervenants || [],
-            expenses: expenses,
+            expenses: finalExpenses,
             technicalFilesToAttach: narrativeRes.data?.technicalFilesToAttach || []
         };
 

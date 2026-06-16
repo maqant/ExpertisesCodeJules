@@ -1,6 +1,6 @@
 import React, { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { refineText, extractAdministrativeData } from '../services/aiManager';
+import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
@@ -198,6 +198,37 @@ const GlobalValidationModal = () => {
     if (!pendingAiData || !editableData) return null;
 
     // -- Handlers --
+    const [isMerging, setIsMerging] = useState(false);
+
+    const handleMagicMerge = async () => {
+        setIsMerging(true);
+        try {
+            const res = await runMergeAgent(editableData.occupants, editableData.expenses);
+            if (res.success && res.data) {
+                setEditableData(prev => ({
+                    ...prev,
+                    occupants: res.data.occupants || prev.occupants,
+                    expenses: res.data.expenses || prev.expenses
+                }));
+                // Mettre à jour les actions par défaut
+                const newOccActions = new Map(occActions);
+                (res.data.occupants || []).forEach(occ => newOccActions.set(occ.id, 'add'));
+                setOccActions(newOccActions);
+                
+                const newExpActions = new Map(expActions);
+                (res.data.expenses || []).forEach(exp => newExpActions.set(exp.id, 'add'));
+                setExpActions(newExpActions);
+            } else {
+                alert("Erreur lors du nettoyage : " + (res.error || "Inconnue"));
+            }
+        } catch (e) {
+            console.error("Magic Merge error", e);
+            alert("Erreur critique lors du nettoyage IA.");
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
     const toggleFormField = (key) => {
         setSelectedFormFields(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
     };
@@ -298,13 +329,23 @@ const GlobalValidationModal = () => {
         <div className="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 w-full max-w-[750px] max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="p-5 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-indigo-900/50">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <span className="text-2xl">🛡️</span> Sas de validation IA
-                    </h2>
-                    <p className="text-xs text-slate-300 mt-1">
-                        Vérifiez et modifiez les données avant import. Cliquez sur une ligne pour éditer les détails.
-                    </p>
+                <div className="p-5 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-indigo-900/50 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <span className="text-2xl">🛡️</span> Sas de validation IA
+                        </h2>
+                        <p className="text-xs text-slate-300 mt-1">
+                            Vérifiez et modifiez les données avant import. Cliquez sur une ligne pour éditer les détails.
+                        </p>
+                    </div>
+                    <button 
+                        onClick={handleMagicMerge} 
+                        disabled={isMerging}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-2 shadow-lg"
+                        title="Déléguer à l'IA la fusion des doublons restants"
+                    >
+                        {isMerging ? '⏳ Nettoyage...' : '✨ Nettoyage Magique IA'}
+                    </button>
                 </div>
 
                 {/* Body */}
