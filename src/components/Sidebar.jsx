@@ -941,6 +941,36 @@ const Sidebar = () => {
                             <button onClick={() => contextTelemetry?.exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
                              <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
                         </div>
+
+                        {/* Laboratoire de Données (Golden Dataset) */}
+                        <div className="bg-gradient-to-r from-purple-900 to-fuchsia-900 p-4 rounded border border-purple-500 shadow-lg mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2">📊 Golden Dataset (Erreurs IA)</h3>
+                            <p className="text-[10px] text-purple-200 leading-tight mb-3">
+                                Enregistrements capturés dans le sas de validation. ({datasetRecords.length} enregistrements)
+                            </p>
+                            
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={exportDatasetJSON}
+                                    disabled={datasetRecords.length === 0}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                >
+                                    📥 Télécharger (.json)
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
+                                            clearDatasetRecords();
+                                        }
+                                    }}
+                                    disabled={datasetRecords.length === 0}
+                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                    title="Vider les enregistrements"
+                                >
+                                    🗑️ Vider
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 ) : activeTab === 'prompts' ? (
                     <div className="space-y-6">
@@ -995,47 +1025,6 @@ const Sidebar = () => {
                                     title="Rétablir le prompt d'origine"
                                 >
                                     🔄 Réinitialiser
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Laboratoire de Données (Golden Dataset) */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
-                                <span>📊 Laboratoire de Données (Golden Dataset)</span>
-                            </h3>
-                            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                                Base de données d'exemples d'erreurs IA capturés lors de la validation. Utilisez ces données pour affiner les prompts ou entraîner des modèles.
-                            </p>
-                            
-                            <div className="flex items-center justify-between bg-slate-900 p-3 rounded border border-slate-700 mb-4">
-                                <span className="text-xs font-bold text-slate-300">
-                                    Enregistrements collectés :
-                                </span>
-                                <span className="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-bold">
-                                    {datasetRecords.length}
-                                </span>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={exportDatasetJSON}
-                                    disabled={datasetRecords.length === 0}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                >
-                                    📥 Télécharger Dataset (.json)
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
-                                            clearDatasetRecords();
-                                        }
-                                    }}
-                                    disabled={datasetRecords.length === 0}
-                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                    title="Vider les enregistrements"
-                                >
-                                    🗑️ Vider
                                 </button>
                             </div>
                         </div>
