@@ -1968,7 +1968,7 @@ const Sidebar = () => {
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             
-            <div className="p-4 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
+            <div className="p-4 pb-6 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
                 <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-800 p-2 rounded border border-slate-700">
                     <span>Nb pages rapport principal :</span>
                     <input type="number" min="1" value={coverPageCount} onChange={(e) => setCoverPageCount(parseInt(e.target.value) || 1)} className="w-12 bg-slate-900 border border-slate-600 rounded px-1 text-center text-white font-bold" />
