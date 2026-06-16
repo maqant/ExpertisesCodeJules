@@ -205,6 +205,9 @@ const GlobalValidationModal = () => {
         setInitialized(false);
         setEditableData(null);
         setSelectedIntervenants(new Set());
+        setFeedbackNote('');
+        setFeedbackOptions({ adminErr: false, socialErr: false, financeErr: false, fusionErr: false });
+        setAttachedCpFile(null);
     }
 
     if (!pendingAiData || !editableData) return null;
