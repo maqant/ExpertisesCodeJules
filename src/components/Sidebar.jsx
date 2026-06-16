@@ -887,6 +887,12 @@ const Sidebar = () => {
                             <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
                             <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" au-dessus avec votre fichier .json.</p>
                         </div>
+
+                        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie & Usage</h3>
+                            <button onClick={() => telemetry?.exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
+                            <p className="text-[10px] text-emerald-200 leading-tight">Exporte tout l'historique de vos interactions (Data-Driven Design).</p>
+                        </div>
                     </div>
                 ) : (
                     <div>
