@@ -1,7 +1,6 @@
-import React, { useContext, useState, useRef } from 'react';
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
-import { useFinanceStore } from '../store/financeStore.js'; // v7.0.0 - Pour lecture synchrone Zustand
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
 import SmartBridgeDropzone from './SmartBridgeDropzone';
@@ -250,6 +249,12 @@ const Sidebar = () => {
     const [isDraggingOverMagic, setIsDraggingOverMagic] = useState(false);
     const [isAiDossierLoading, setIsAiDossierLoading] = useState(false);
 
+    // v7.0.1 - Capture de la cause sans dépendance circulaire
+    const causeRef = useRef(formData?.cause || '');
+    useEffect(() => {
+        causeRef.current = formData?.cause || '';
+    }, [formData?.cause]);
+
     // v5.9.4 - Smart Bridge State
     const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
     const [currentBridgeFile, setCurrentBridgeFile] = useState(null);
@@ -409,9 +414,9 @@ const Sidebar = () => {
         setIsAiDossierLoading(true);
         if (typeof clearDebugLogs === 'function') clearDebugLogs();
 
-        // v7.0.0 - Lire la cause depuis Zustand MAINTENANT (synchrone), pas depuis la closure React
-        // Cela garantit qu'on lit TOUJOURS l'état actuel du store, même après un reset immédiat
-        const currentCause = ignoreContext ? '' : (useFinanceStore.getState().metier.formData.cause || '');
+        // v7.0.1 - Lire la cause depuis la Ref MAINTENANT (synchrone), pas depuis la closure React
+        // Cela garantit qu'on lit TOUJOURS l'état actuel de la Ref, même après un reset immédiat
+        const currentCause = ignoreContext ? '' : causeRef.current;
 
         try {
             if (!isAiModeActive) {
