@@ -97,9 +97,15 @@ RÈGLES ABSOLUES :
 6. DESTINATAIRE & RATTACHEMENT : Extrait le NOM et PRÉNOM EXACT de la personne à qui la facture est adressée dans "destinataireFacture".${occupantsContext}
 7. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction.
 
+v7.0.0 - RÈGLE ANTI-DOUBLON CROSS-DOCUMENTS (CRITIQUE) :
+- Il est POSSIBLE que plusieurs documents (ex: un email qui cite un devis + le devis lui-même) fassent référence à la MÊME prestation.
+- Si tu identifies que deux mentions se réfèrent au même devis/facture (même prestataire + même montant + même référence), n'extrais la prestation QU'UNE SEULE FOIS.
+- Priorise toujours le document source original (facture/devis) sur un email qui le mentionne.
+- Si le montant n'est mentionné que dans un seul document, mais la référence est la même, ne l'extrais qu'une fois.
+
 Format EXACT attendu :
 {
-  "_raisonnement": "Ta réflexion sur le type de document, les montants HTVA/TVAC, et l'identification du destinataire avant de remplir le tableau expenses",
+  "_raisonnement": "Ta réflexion sur le type de document, les montants HTVA/TVAC, l'identification du destinataire, et la vérification anti-doublon avant de remplir le tableau expenses",
   "expenses": [
     {
       "prestataire": null, "type": "Devis ou Facture", "ref": null, "desc": null, "compteDe": "ID_OCCUPANT ou unassigned", 

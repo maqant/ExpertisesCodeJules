@@ -1,6 +1,7 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
+import { useFinanceStore } from '../store/financeStore.js'; // v7.0.0 - Pour lecture synchrone Zustand
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
 import SmartBridgeDropzone from './SmartBridgeDropzone';
@@ -399,12 +400,19 @@ const Sidebar = () => {
         setIsBridgeModalOpen(true);
     };
 
-    // v6.1.1 - Smart Bridge : analyse TOUS les fichiers d'un coup
+    // v7.0.0 - Smart Bridge : analyse TOUS les fichiers d'un coup
+    // Fix étanchéité : on lit la cause DEPUIS ZUSTAND directement (synchrone, pas de closure stale)
+    // Quand ignoreContext=true (nouveau dossier), on garantit un contexte vide.
     const triggerSmartBridgeAnalysis = async (filesArray, ignoreContext = false) => {
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         if (allFiles.length === 0) return;
         setIsAiDossierLoading(true);
         if (typeof clearDebugLogs === 'function') clearDebugLogs();
+
+        // v7.0.0 - Lire la cause depuis Zustand MAINTENANT (synchrone), pas depuis la closure React
+        // Cela garantit qu'on lit TOUJOURS l'état actuel du store, même après un reset immédiat
+        const currentCause = ignoreContext ? '' : (useFinanceStore.getState().metier.formData.cause || '');
+
         try {
             if (!isAiModeActive) {
                 // Mode non-IA : extraire les PJ des MSGs
@@ -426,7 +434,8 @@ const Sidebar = () => {
                 aiConfig.apiKey,
                 setAiStatus,
                 aiConfig.model,
-                ignoreContext ? {} : { cause: formData?.cause },
+                // v7.0.0 - Utiliser la cause lue depuis Zustand, pas la closure
+                currentCause ? { cause: currentCause } : {},
                 addDebugLog,
                 isDeepThinkingMode
             );
@@ -469,6 +478,7 @@ const Sidebar = () => {
             if (typeof commitLogSession === 'function') commitLogSession();
         }
     };
+
 
     const resetAllDragStates = () => {
         setIsDraggingOverFrais(false);

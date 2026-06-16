@@ -372,13 +372,19 @@ export const ExpertiseProvider = ({ children }) => {
       }));
   };
 
+  // v7.0.0 - Fix étanchéité structurel :
+  // performReset() vide le store Zustand de manière synchrone.
+  // On utilise ensuite directement financeStore.replaceFormData() (Zustand = synchrone)
+  // au lieu de setFormData(prev => ...) qui aurait capturé un `prev` React encore stale.
   const handleNewDossier = () => {
       if (!window.confirm("Créer un nouveau dossier ? Les données non sauvegardées seront perdues.")) return false;
       const name = window.prompt("Nom du nouveau dossier ?");
       if (!name) return false;
       
+      // performReset vide tout (Zustand synchrone + React state)
       performReset();
-      setFormData(prev => ({ ...prev, refPechard: name }));
+      // On écrit directement dans Zustand APRÈS le reset → garanti propre
+      financeStore.replaceFormData({ ...initialFormData, refPechard: name });
       
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: { formData: { ...initialFormData, refPechard: name }, blockTitles: initialTitles } };

@@ -10,25 +10,63 @@ const FORM_FIELD_LABELS = {
 
 const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Propriétaire (occupation inconnue)', 'ACP'];
 
-// Deduplicate strict AI duplicates (same prestataire + same montant + same ref)
+// v7.0.0 - Fix critique : la clé utilisait exp.montant (champ disparu depuis v5.x)
+// Désormais on utilise montantReclame || montant pour compatibilité
 const deduplicateExpenses = (expenses) => {
     const seen = new Map();
     return expenses.filter(exp => {
-        const key = `${(exp.prestataire||'').toLowerCase().trim()}|${(exp.montant||'')}|${(exp.ref||'').toLowerCase().trim()}`;
+        const montant = (exp.montantReclame || exp.montant || '').toString().trim();
+        const key = `${(exp.prestataire||'').toLowerCase().trim()}|${montant}|${(exp.ref||'').toLowerCase().trim()}`;
         if (seen.has(key)) return false;
         seen.set(key, true);
         return true;
     });
 };
 
+// v7.0.0 - Fuzzy matching : normalise les noms en enlevant civilités, espaces multiples, met en majuscules
+// Exemples : "M. Jean-Pierre Dupont" → "DUPONT", "Mme DUBOIS" → "DUBOIS", "dupont" → "DUPONT"
+const normalizeOccName = (name) => {
+    if (!name) return '';
+    return name
+        .replace(/^(M\.|Mme\.?|Mr\.?|Mlle\.?|Dr\.?|Me\.?)\s*/i, '') // Enlève civilités
+        .split(/[\s,]+/)[0]  // Garde uniquement le premier token (nom de famille)
+        .toUpperCase()
+        .trim();
+};
+
 const deduplicateOccupants = (occupants) => {
     const seen = new Map();
     return occupants.filter(occ => {
-        const key = (occ.nom || '').toLowerCase().trim();
+        const key = normalizeOccName(occ.nom);
         if (!key || seen.has(key)) return false;
         seen.set(key, true);
         return true;
     });
+};
+
+// v7.0.0 - Matcher fuzzy pour comparer un occupant IA avec les occupants existants
+const fuzzyMatchOccupant = (aiOcc, existingOccs) => {
+    const aiKey = normalizeOccName(aiOcc.nom);
+    if (!aiKey) return null;
+    return existingOccs.find(o => {
+        const existKey = normalizeOccName(o.nom);
+        return existKey && (existKey === aiKey || existKey.includes(aiKey) || aiKey.includes(existKey));
+    }) || null;
+};
+
+// v7.0.0 - Matcher fuzzy pour comparer un frais IA avec les frais existants
+const fuzzyMatchExpense = (aiExp, existingExps) => {
+    const aiPrestataire = (aiExp.prestataire || '').toLowerCase().trim();
+    const aiMontant = (aiExp.montantReclame || aiExp.montant || '').toString().trim();
+    if (!aiPrestataire) return null;
+    return existingExps.find(e => {
+        const existPrestataire = (e.prestataire || '').toLowerCase().trim();
+        const existMontant = (e.montantReclame || e.montant || '').toString().trim();
+        // Match si le prestataire est inclus dans l'autre + même montant
+        const prestaMatch = existPrestataire.includes(aiPrestataire) || aiPrestataire.includes(existPrestataire);
+        const montantMatch = !aiMontant || !existMontant || aiMontant === existMontant;
+        return prestaMatch && montantMatch;
+    }) || null;
 };
 
 const GlobalValidationModal = () => {
@@ -53,24 +91,20 @@ const GlobalValidationModal = () => {
     const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
 
-    // Analyze occupant conflicts
+    // v7.0.0 - Analyze occupant conflicts avec fuzzy matching
     const occupantAnalysis = useMemo(() => {
         if (!editableData?.occupants) return [];
         return editableData.occupants.map(aiOcc => {
-            const match = occupants.find(o => o.nom && aiOcc.nom && o.nom.toLowerCase().trim() === aiOcc.nom.toLowerCase().trim());
+            const match = fuzzyMatchOccupant(aiOcc, occupants);
             return { ...aiOcc, isDuplicate: !!match, existingId: match?.id || null, existingData: match || null };
         });
     }, [editableData?.occupants, occupants]);
 
-    // Analyze expense conflicts
+    // v7.0.0 - Analyze expense conflicts avec fuzzy matching
     const expenseAnalysis = useMemo(() => {
         if (!editableData?.expenses) return [];
         return editableData.expenses.map(aiExp => {
-            const match = expenses.find(e => 
-                e.prestataire && aiExp.prestataire && 
-                e.prestataire.toLowerCase().trim() === aiExp.prestataire.toLowerCase().trim() &&
-                (e.montantReclame || e.montant || '') === (aiExp.montant || '')
-            );
+            const match = fuzzyMatchExpense(aiExp, expenses);
             return { ...aiExp, isDuplicate: !!match, existingId: match?.id || null };
         });
     }, [editableData?.expenses, expenses]);
@@ -132,21 +166,19 @@ const GlobalValidationModal = () => {
         });
         setSelectedExperts(newSelectedExperts);
 
-        // Set default actions
+        // v7.0.0 - Set default actions avec fuzzy matching
         const newOccActions = new Map();
         cleanOccs.forEach(occ => {
-            const match = occupants.find(o => o.nom && occ.nom && o.nom.toLowerCase().trim() === occ.nom.toLowerCase().trim());
+            const match = fuzzyMatchOccupant(occ, occupants);
+            // Par défaut : conflit → 'ignore' (non coché), nouveau → 'add'
             newOccActions.set(occ.id, match ? 'ignore' : 'add');
         });
         setOccActions(newOccActions);
 
         const newExpActions = new Map();
         cleanExps.forEach(exp => {
-            const match = expenses.find(e => 
-                e.prestataire && exp.prestataire && 
-                e.prestataire.toLowerCase().trim() === exp.prestataire.toLowerCase().trim() &&
-                (e.montantReclame || e.montant || '') === (exp.montant || '')
-            );
+            const match = fuzzyMatchExpense(exp, expenses);
+            // Par défaut : conflit → 'ignore' (non coché), nouveau → 'add'
             newExpActions.set(exp.id, match ? 'ignore' : 'add');
         });
         setExpActions(newExpActions);

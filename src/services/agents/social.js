@@ -62,6 +62,22 @@ RÈGLES ABSOLUES :
 7. PRÉCISION DU RÔLE ET DE L'IDENTITÉ : Précise de quel lot/appartement s'occupe un syndic. Inclus la civilité (M., Mme) si elle est connue.
 8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
 
+v7.0.0 - RÈGLE DE NORMALISATION DES NOMS (CRITIQUE) :
+- Le champ "nom" doit TOUJOURS contenir UNIQUEMENT le NOM DE FAMILLE, en MAJUSCULES, sans civilité.
+  ✅ Correct : nom: "DUPONT", prenom: "Jean-Pierre"
+  ❌ Interdit : nom: "M. Jean-Pierre Dupont", nom: "dupont", nom: "DUPONT Jean-Pierre"
+- Enlevez toujours la civilité (M., Mme, Mr, Mlle, Dr) du nom, et mettez-la en majuscule.
+
+v7.0.0 - RÈGLE ANTI-DOUBLON (CRITIQUE) :
+- Si la MÊME personne apparaît plusieurs fois dans un fil de discussion (signature, CC, corps du mail),
+  ne la liste QU'UNE SEULE FOIS. La clé d'unicité est le NOM DE FAMILLE normalisé.
+- Si une personne est mentionnée avec des détails complémentaires dans plusieurs messages,
+  fusionne les informations dans une seule entrée (ex: email trouvé dans le 1er message + téléphone dans le 2ème → une entrée avec les deux).
+
+v7.0.0 - EXTRACTION IBAN :
+- Si un IBAN ou des coordonnées bancaires (compte bancaire, numéro de compte) sont mentionnés
+  pour un occupant, extrais-les dans le champ "iban".
+
 Voici le format EXACT attendu, avec tous les champs présents :
 {
   "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
@@ -69,7 +85,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "occupants": [
     {
       "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
-      "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false
+      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false
     }
   ],
   "intervenants": [
