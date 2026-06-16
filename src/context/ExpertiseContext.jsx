@@ -337,7 +337,7 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const handleReset = () => {
-      if(!window.confirm("⚠️ Voulez-vous réinitialiser tout le document ? Les données non sauvegardées seront perdues.")) return;
+      if(!window.confirm("⚠️ Voulez-vous vraiment effacer tout le contenu de ce document ?")) return;
       performReset();
   };
 
@@ -377,7 +377,6 @@ export const ExpertiseProvider = ({ children }) => {
   // On utilise ensuite directement financeStore.replaceFormData() (Zustand = synchrone)
   // au lieu de setFormData(prev => ...) qui aurait capturé un `prev` React encore stale.
   const handleNewDossier = () => {
-      if (!window.confirm("Créer un nouveau dossier ? Les données non sauvegardées seront perdues.")) return false;
       const name = window.prompt("Nom du nouveau dossier ?");
       if (!name) return false;
       
@@ -434,7 +433,6 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const loadDossier = (dossier) => {
-      if(!window.confirm(`⚠️ Charger "${dossier.name}" écrasera vos données actuelles. Continuer ?`)) return;
       setTelemetrySessionId(crypto.randomUUID());
       const d = dossier.data;
       if(d.formData) setFormData(d.formData); 
