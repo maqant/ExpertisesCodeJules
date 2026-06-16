@@ -490,7 +490,8 @@ const Sidebar = () => {
                     experts: aiData.experts || [],
                     intervenants: aiData.intervenants || [],
                     expenses,
-                    pendingFiles: allPendingFiles
+                    pendingFiles: allPendingFiles,
+                    _rawInputText: aiData._rawInputText // v7.3.2 - Ensure raw text is kept for Golden Dataset
                 });
 
                 // v6.0.0 - Context Vault
