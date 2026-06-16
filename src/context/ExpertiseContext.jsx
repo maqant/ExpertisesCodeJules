@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useCallback, useMemo, useRef
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import html2canvas from 'html2canvas';
+import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -100,6 +101,9 @@ value
 
 export const ExpertiseProvider = ({ children }) => {
   const financeStore = useFinanceStore();
+
+  const [telemetrySessionId, setTelemetrySessionId] = useState(() => crypto.randomUUID());
+  const telemetry = useTelemetry(telemetrySessionId, currentDossierId);
 
   const [activeTab, setActiveTab] = useState('builder');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -323,6 +327,7 @@ export const ExpertiseProvider = ({ children }) => {
   }, [expertsList, franchises]);
 
   const performReset = () => {
+      setTelemetrySessionId(crypto.randomUUID());
       financeStore.replaceFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
@@ -424,6 +429,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   const loadDossier = (dossier) => {
       if(!window.confirm(`⚠️ Charger "${dossier.name}" écrasera vos données actuelles. Continuer ?`)) return;
+      setTelemetrySessionId(crypto.randomUUID());
       const d = dossier.data;
       if(d.formData) setFormData(d.formData); 
       if(d.blockTitles) {
@@ -1686,7 +1692,8 @@ Voici le format JSON :
       bridgeFiles, setBridgeFiles,  // v6.1.0 - Smart Bridge file queue
       globalAssistantFiles, setGlobalAssistantFiles, // v6.3.2 - SAS file queue
       isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs, // v6.2.0
-      logHistory, commitLogSession, clearLogHistory // v6.3.3
+      logHistory, commitLogSession, clearLogHistory, // v6.3.3
+      telemetry, exportTelemetryJson, clearTelemetryLogs
   };
 
   return (

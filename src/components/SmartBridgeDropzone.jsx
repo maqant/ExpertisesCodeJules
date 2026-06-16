@@ -23,7 +23,7 @@ const emoji = (file) => {
 const formatSize = (b) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} Ko` : `${(b / 1024 / 1024).toFixed(1)} Mo`;
 
 const SmartBridgeDropzone = ({ onFileDrop }) => {
-    const { bridgeFiles: files, setBridgeFiles: setFiles, isDeepThinkingMode, toggleDeepThinkingMode } = useContext(ExpertiseContext);
+    const { bridgeFiles: files, setBridgeFiles: setFiles, isDeepThinkingMode, toggleDeepThinkingMode, telemetry } = useContext(ExpertiseContext);
     const [isDragOver, setIsDragOver] = useState(false);
     const inputRef = useRef(null);
 
@@ -46,6 +46,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
             // avant tout await, sinon l'objet dataTransfer est vidé par le navigateur
             const filesList = Array.from(e.dataTransfer.files);
             const safeFiles = await cloneFilesEagerly(filesList);
+            if (telemetry) telemetry.logEvent('DROP', 'smartbridge_zone', { fileCount: safeFiles.length });
             addFiles(safeFiles);
         }
     };
@@ -55,6 +56,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
         try {
             const text = await navigator.clipboard.readText();
             if (text && text.trim() !== '') {
+                if (telemetry) telemetry.logEvent('CLICK', 'btn_paste_smartbridge');
                 const file = new File([text], `Presse-papier.txt`, { type: "text/plain" });
                 addFiles([file]);
             } else {
@@ -68,6 +70,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
 
     const handleAnalyze = () => {
         if (files.length === 0) return;
+        if (telemetry) telemetry.logEvent('CLICK', 'btn_analyze_smartbridge', { fileCount: files.length, isDeepThinkingMode });
         // Envoyer TOUS les fichiers au handler de la Sidebar
         onFileDrop(files);
     };

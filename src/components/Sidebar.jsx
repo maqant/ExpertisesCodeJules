@@ -203,9 +203,37 @@ const Sidebar = () => {
         bridgeFiles, setBridgeFiles,  // v6.1.1 - Smart Bridge file queue
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
         isDeepThinkingMode, // v6.3.2 - Mode Lourd
-        commitLogSession, clearDebugLogs // v6.3.3
+        commitLogSession, clearDebugLogs, // v6.3.3
+        telemetry
     } = context;
 
+    const handleFocusCapture = (e) => {
+        if (!telemetry) return;
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+            const name = target.name || target.id || 'unknown_field';
+            telemetry.logFocus(`field_${name}`, target.value);
+        }
+    };
+
+    const handleBlurCapture = (e) => {
+        if (!telemetry) return;
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+            const name = target.name || target.id || 'unknown_field';
+            telemetry.logBlur(`field_${name}`, target.value);
+        }
+    };
+
+    const handleToggleCapture = (e) => {
+        if (!telemetry) return;
+        const target = e.target;
+        if (target.tagName === 'DETAILS') {
+            const summary = target.querySelector('summary');
+            const summaryText = summary ? summary.textContent.trim() : 'unknown';
+            telemetry.logEvent('TOGGLE', `accordion_${summaryText}`, { isOpen: target.open });
+        }
+    };
 
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
     const [isDraggingOverFrais, setIsDraggingOverFrais] = useState(false);
@@ -330,6 +358,7 @@ const Sidebar = () => {
 
     // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
     const handleCopyResume = async () => {
+        if (telemetry) telemetry.logEvent('CLICK', 'btn_copy_resume_brio');
         let text = "";
         
         if (formData.cause) text += "CAUSE :\n" + formData.cause + "\n\n";
@@ -678,7 +707,13 @@ const Sidebar = () => {
 
     return (
         <>
-        <div id="sidebar" style={{ width: `${sidebarWidth}px` }} className="bg-slate-900 text-slate-200 flex flex-col shadow-xl z-10 shrink-0 h-screen overflow-hidden">
+        <div 
+            className="h-full flex flex-col bg-slate-800 border-r border-slate-700 relative shadow-2xl z-10" 
+            style={{ width: `${sidebarWidth}px`, minWidth: '300px', maxWidth: '800px' }}
+            onFocusCapture={handleFocusCapture}
+            onBlurCapture={handleBlurCapture}
+            onToggleCapture={handleToggleCapture}
+        >
             <div className="p-3 border-b border-slate-700 bg-slate-800">
                 <div className="flex justify-between items-center mb-1">
                     <div>
@@ -692,7 +727,7 @@ const Sidebar = () => {
                         {/* AI Controls & Dev Mode */}
                         <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                             <button
-                                onClick={toggleAiMode}
+                                onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
                                 className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isAiModeActive ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300'}`}
                                 title="Activer/Désactiver l'IA"
                             >
@@ -700,7 +735,7 @@ const Sidebar = () => {
                             </button>
                             <div className="w-px h-3 bg-slate-700 mx-0.5"></div>
                             <button
-                                onClick={toggleDebugMode}
+                                onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
                                 className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isDebugMode ? 'bg-red-900/50 text-red-400' : 'text-slate-500 hover:text-slate-400'}`}
                                 title="Console Développeur"
                             >
@@ -708,13 +743,13 @@ const Sidebar = () => {
                             </button>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={handleNewDossier} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <button onClick={saveDossier} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
-                            <button onClick={handleReset} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
                                 🔄 Reset
                             </button>
                         </div>
@@ -735,8 +770,8 @@ const Sidebar = () => {
                 </div>
 
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('builder')}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => setActiveTab('settings')}>Paramètres</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
                 </div>
             </div>
 
@@ -952,6 +987,7 @@ const Sidebar = () => {
                                             setIsDraggingOverInfos(false);
                                             const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
                                             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                if (telemetry) telemetry.logEvent('DROP', 'magic_drop_infos', { fileCount: e.dataTransfer.files.length });
                                                 await handleContractMagicDrop(Array.from(e.dataTransfer.files));
                                             }
                                         }}
@@ -1145,16 +1181,17 @@ const Sidebar = () => {
                                         <div className="flex gap-1.5 mt-1.5">
                                             {[
                                                 { directive: 'DEVELOP', icon: '+', label: 'Développer', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' },
-                                                { directive: 'SUMMARIZE', icon: '−', label: 'Résumer', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20' },
-                                                { directive: 'TECH_FOCUS', icon: '🔧', label: 'Technique', cls: 'bg-violet-500/10 text-violet-400 border-violet-500/30 hover:bg-violet-500/20' },
-                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' },
-                                                { directive: 'REWRITE', icon: '🔄', label: 'Réécriture', cls: 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20' }
+                                                { directive: 'SUMMARIZE', icon: '−', label: 'Résumer', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:sky-500/20' },
+                                                { directive: 'TECH_FOCUS', icon: '🔧', label: 'Technique', cls: 'bg-violet-500/10 text-violet-400 border-violet-500/30 hover:violet-500/20' },
+                                                { directive: 'CONTEXT_FOCUS', icon: '👥', label: 'Contexte', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:amber-500/20' },
+                                                { directive: 'REWRITE', icon: '🔄', label: 'Réécriture', cls: 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:rose-500/20' }
                                             ].map(btn => (
                                                 <button
                                                     key={btn.directive}
                                                     disabled={refiningCause}
                                                     onClick={async (e) => {
                                                         e.preventDefault();
+                                                        if (telemetry) telemetry.logEvent('AI_ACTION', `rewrite_${btn.directive.toLowerCase()}`);
                                                         setRefiningCause(true);
                                                         const result = await refineText(formData.cause, btn.directive, aiConfig?.apiKey);
                                                         if (result.success) {
@@ -1183,6 +1220,7 @@ const Sidebar = () => {
                                 <div className="flex justify-between items-center mb-2 bg-slate-800 p-2 rounded border border-slate-700">
                                     <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold">
                                         <input type="checkbox" checked={orgaAdvancedMode} onChange={(e) => {
+                                            if (telemetry) telemetry.logEvent('TOGGLE', 'checkbox_orga_advanced', { isChecked: e.target.checked });
                                             setOrgaAdvancedMode(e.target.checked);
                                             setOccupants(occupants.map(o => ({ ...o, showDetails: e.target.checked })));
                                         }} className="w-4 h-4 rounded border-slate-600 bg-slate-700" />
@@ -1319,6 +1357,7 @@ const Sidebar = () => {
                                             setIsDraggingOverFrais(false);
                                             const key = aiConfig.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
                                             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                if (telemetry) telemetry.logEvent('DROP', 'magic_drop_frais', { fileCount: e.dataTransfer.files.length });
                                                 await handleMagicDrop(Array.from(e.dataTransfer.files));
                                             }
                                         }}
@@ -1328,7 +1367,7 @@ const Sidebar = () => {
                                 )}
 
                                 <div className="flex items-center justify-between mb-3 bg-slate-800 p-2 rounded border border-slate-700">
-                                    <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
+                                    <label className="flex items-center space-x-2 cursor-pointer text-white text-[11px] font-bold"><input type="checkbox" checked={showSubtotals} onChange={(e) => { if (telemetry) telemetry.logEvent('TOGGLE', 'checkbox_frais_advanced', { isChecked: e.target.checked }); setShowSubtotals(e.target.checked); }} className="w-4 h-4 rounded border-slate-600 bg-slate-700" /><span>Mode avancé</span></label>
                                     <button onClick={reorganizeExpenses} className="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-[10px] text-white">🔄 Réorganiser</button>
                                 </div>
                                 {expenses.map((exp, index) => {
@@ -1798,7 +1837,10 @@ const Sidebar = () => {
                 </label>
                 <div className="relative">
                     <button
-                        onClick={() => setShowPrintMenu(p => !p)}
+                        onClick={() => {
+                            if (telemetry) telemetry.logEvent('CLICK', 'btn_print_menu');
+                            setShowPrintMenu(p => !p);
+                        }}
                         disabled={isMerging}
                         className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
                     >
@@ -1822,16 +1864,16 @@ const Sidebar = () => {
                     </div>
                     {showPrintMenu && !isMerging && (
                         <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
-                            <button onClick={() => { setShowPrintMenu(false); generatePDF(); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_print_page_garde'); setShowPrintMenu(false); generatePDF(); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
                                 <span>🖨️</span><span><strong>Page de garde</strong><br/><span className="text-slate-400">Impression navigateur (mise en page HTML)</span></span>
                             </button>
-                            <button onClick={() => { setShowPrintMenu(false); downloadDossierPDF(null); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_print_tout_dossier'); setShowPrintMenu(false); downloadDossierPDF(null); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
                                 <span>📄</span><span><strong>Tout le dossier</strong><br/><span className="text-slate-400">Page de garde + toutes les annexes (1 PDF)</span></span>
                             </button>
-                            <button onClick={() => { setShowPrintMenu(false); setAnnexModalMode('page+annexes'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_print_page_annexes'); setShowPrintMenu(false); setAnnexModalMode('page+annexes'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
                                 <span>📦</span><span><strong>Page de garde + annexes au choix</strong><br/><span className="text-slate-400">Sélection, index dynamiques, 1 PDF</span></span>
                             </button>
-                            <button onClick={() => { setShowPrintMenu(false); setAnnexModalMode('annexes-only'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 flex items-center gap-2">
+                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_print_annexes_seules'); setShowPrintMenu(false); setAnnexModalMode('annexes-only'); setShowAnnexModal(true); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 flex items-center gap-2">
                                 <span>📋</span><span><strong>Annexes seules</strong><br/><span className="text-slate-400">Sans page de garde</span></span>
                             </button>
                         </div>

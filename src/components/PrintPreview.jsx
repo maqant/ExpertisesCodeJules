@@ -10,7 +10,7 @@ const PrintPreview = () => {
         setIsPreviewMode, formData, blockTitles, references, occupants, expenses,
         blocksVisible, customBlocks, positions, styles, showSubtotals, orgaAdvancedMode,
         getSortedBlocks, getPaginationInfo, causeTimeline,
-        intervenantsList
+        intervenantsList, telemetry
     } = context;
 
     const totalFrais = expenses.reduce((acc, curr) => {
@@ -326,10 +326,16 @@ const PrintPreview = () => {
                     <p className="text-xs text-slate-400">Le contenu est automatiquement paginé. Redimensionnez ou appuyez sur Imprimer pour voir le rendu exact.</p>
                 </div>
                 <div className="flex gap-4">
-                    <button onClick={() => setIsPreviewMode(false)} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-bold text-sm transition-colors">
+                    <button onClick={() => {
+                        if (telemetry) telemetry.logEvent('CLICK', 'btn_print_preview_retour');
+                        setIsPreviewMode(false);
+                    }} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-bold text-sm transition-colors">
                         ⬅️ Retour à l'éditeur
                     </button>
-                    <button onClick={() => window.print()} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors">
+                    <button onClick={() => {
+                        if (telemetry) telemetry.logEvent('CLICK', 'btn_print_preview_lancer');
+                        window.print();
+                    }} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors">
                         🖨️ Lancer l'impression
                     </button>
                 </div>
