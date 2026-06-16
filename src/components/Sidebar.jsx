@@ -2078,7 +2078,7 @@ const Sidebar = () => {
                                                 const { files: extractedFiles } = await extractValidAttachmentsFromMsg(droppedMsgFile);
                                                 if (extractedFiles.length > 0) {
                                                     setTimeout(() => {
-                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles } : { parsedData: {}, pendingFiles: extractedFiles });
+                                                        setPendingAiData(prev => prev ? { ...prev, pendingFiles: extractedFiles, _rawInputText: prev._rawInputText || null } : { parsedData: {}, pendingFiles: extractedFiles, _rawInputText: null });
                                                     }, 50);
                                                 } else {
                                                     alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
@@ -2122,7 +2122,8 @@ const Sidebar = () => {
                                                     intervenants: aiData.intervenants || [],
                                                     expenses: safeExpenses,
                                                     pendingFiles: allPendingFiles,
-                                                    technicalFilesToAttach: result.data.technicalFilesToAttach || []
+                                                    technicalFilesToAttach: result.data.technicalFilesToAttach || [],
+                                                    _rawInputText: result.data._rawInputText || aiData._rawInputText
                                                 });
                                             } else {
                                                 alert("Erreur IA : " + (result.error || "Réponse invalide"));
@@ -2221,7 +2222,8 @@ const Sidebar = () => {
                                                 occupants: safeOccupants,
                                                 intervenants: aiData.intervenants || [],
                                                 expenses: safeExpenses,
-                                                pendingFiles: allPendingFiles
+                                                pendingFiles: allPendingFiles,
+                                                _rawInputText: result.data._rawInputText || aiData._rawInputText
                                             });
                                         } else {
                                             alert("Erreur IA : " + (result.error || "Réponse invalide"));
