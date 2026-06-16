@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware';
 export const DEFAULT_PROMPTS = {
     ROUTER: `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
 Tu dois classer LE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
-- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture, et TOUT email ou document contenant un numéro de police, numéro de sinistre, nom de compagnie d'assurance, BCE, IBAN, date de sinistre ou données contractuelles.
+- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture, et TOUT email ou document contenant un numéro de police, numéro de sinistre, nom de compagnie d'assurance, BCE, IBAN, franchise, pertes indirectes, date de sinistre ou données contractuelles.
 - "SOCIAL" : Documents listant des personnes (noms, téléphones, emails), cartes d'identité, documents d'assurance personnels, échanges informels mentionnant des occupants ou propriétaires.
 - "RECITS" : Rapports d'intervention, constats pompiers, chronologies des faits, déclarations circonstanciées de sinistre, descriptions techniques des dommages.
 - "FINANCIER" : Devis, factures, tickets de caisse, justificatifs de paiement.
