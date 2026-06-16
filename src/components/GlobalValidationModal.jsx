@@ -1,6 +1,7 @@
 import React, { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
+import { useDatasetStore } from '../store/datasetStore';
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
@@ -91,6 +92,16 @@ const GlobalValidationModal = () => {
     const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
     const [isMerging, setIsMerging] = useState(false);
+
+    // v7.2.1 - Feedback Dataset
+    const [feedbackOptions, setFeedbackOptions] = useState({
+        adminErr: false,
+        socialErr: false,
+        financeErr: false,
+        fusionErr: false
+    });
+    const [feedbackNote, setFeedbackNote] = useState('');
+    const toggleFeedback = (key) => setFeedbackOptions(prev => ({ ...prev, [key]: !prev[key] }));
 
     // v7.0.0 - Analyze occupant conflicts avec fuzzy matching
     const occupantAnalysis = useMemo(() => {
@@ -278,6 +289,36 @@ const GlobalValidationModal = () => {
             intervenants: pendingAiData.intervenants || [],  // preserve original intervenants
             pendingFiles: pendingAiData.pendingFiles || []  // explicit safety net
         };
+
+        // v7.2.1 - Sauvegarde du Feedback Dataset
+        const hasFeedback = Object.values(feedbackOptions).some(Boolean) || feedbackNote.trim() !== '';
+        if (hasFeedback) {
+            const { addRecord } = useDatasetStore.getState();
+            const activeCategories = Object.entries(feedbackOptions)
+                .filter(([, isChecked]) => isChecked)
+                .map(([key]) => key);
+                
+            addRecord({
+                feedback: {
+                    categories: activeCategories,
+                    note: feedbackNote.trim()
+                },
+                inputText: pendingAiData._rawInputText || "TEXTE_NON_CAPTURE",
+                aiOutput: {
+                    formData: pendingAiData.formData,
+                    occupants: pendingAiData.occupants,
+                    expenses: pendingAiData.expenses,
+                    intervenants: pendingAiData.intervenants,
+                    experts: pendingAiData.experts
+                },
+                userCorrection: {
+                    formData: editableData.formData,
+                    occupants: editableData.occupants,
+                    expenses: editableData.expenses
+                }
+            });
+        }
+
         setPendingAiData(mergedData);
 
         // Call commit with the merged data directly — bypasses React state async delay
@@ -742,6 +783,32 @@ const GlobalValidationModal = () => {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* Feedback IA (Golden Dataset) */}
+                <div className="px-5 pb-5">
+                    <div className="bg-slate-800/80 rounded-lg border border-slate-700 p-3">
+                        <p className="text-xs font-bold text-slate-300 mb-2">Signaler des erreurs d'IA (Cochez pour sauvegarder l'exemple) :</p>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            <label className="flex items-center gap-1.5 text-[10px] text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-600 cursor-pointer hover:bg-slate-700">
+                                <input type="checkbox" checked={feedbackOptions.adminErr} onChange={() => toggleFeedback('adminErr')} className="w-3 h-3 rounded bg-slate-800 border-slate-500 text-indigo-500 focus:ring-0" />
+                                Admin (Franchise, Police, Dates...)
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[10px] text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-600 cursor-pointer hover:bg-slate-700">
+                                <input type="checkbox" checked={feedbackOptions.socialErr} onChange={() => toggleFeedback('socialErr')} className="w-3 h-3 rounded bg-slate-800 border-slate-500 text-indigo-500 focus:ring-0" />
+                                Social (Personnes, Rôles...)
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[10px] text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-600 cursor-pointer hover:bg-slate-700">
+                                <input type="checkbox" checked={feedbackOptions.financeErr} onChange={() => toggleFeedback('financeErr')} className="w-3 h-3 rounded bg-slate-800 border-slate-500 text-indigo-500 focus:ring-0" />
+                                Finance (Montants, TVAC/HTVA...)
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[10px] text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-600 cursor-pointer hover:bg-slate-700">
+                                <input type="checkbox" checked={feedbackOptions.fusionErr} onChange={() => toggleFeedback('fusionErr')} className="w-3 h-3 rounded bg-slate-800 border-slate-500 text-indigo-500 focus:ring-0" />
+                                Fusion (Doublons non détectés)
+                            </label>
+                        </div>
+                        <input type="text" value={feedbackNote} onChange={(e) => setFeedbackNote(e.target.value)} placeholder="Note optionnelle : qu'est-ce qui a planté ?" className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[10px] text-white focus:border-indigo-500 outline-none" />
+                    </div>
                 </div>
 
                 {/* Footer */}

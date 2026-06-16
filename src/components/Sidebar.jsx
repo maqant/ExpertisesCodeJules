@@ -13,6 +13,7 @@ import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
 import localforage from 'localforage';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
+import { useDatasetStore } from '../store/datasetStore.js';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
@@ -181,6 +182,13 @@ const Sidebar = () => {
     const { customPrompts, getPrompt, setPrompt, resetPrompt, resetAll } = usePromptStore();
     const [selectedAgent, setSelectedAgent] = useState('ROUTER');
     const [currentPromptDraft, setCurrentPromptDraft] = useState('');
+
+    // -- DATASET STORE (v7.2.1) --
+    const { records: datasetRecords, loadRecords: loadDatasetRecords, exportAsJSON: exportDatasetJSON, clearRecords: clearDatasetRecords } = useDatasetStore();
+
+    useEffect(() => {
+        loadDatasetRecords();
+    }, []);
 
     useEffect(() => {
         setCurrentPromptDraft(getPrompt(selectedAgent));
@@ -987,6 +995,47 @@ const Sidebar = () => {
                                     title="Rétablir le prompt d'origine"
                                 >
                                     🔄 Réinitialiser
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Laboratoire de Données (Golden Dataset) */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
+                                <span>📊 Laboratoire de Données (Golden Dataset)</span>
+                            </h3>
+                            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                                Base de données d'exemples d'erreurs IA capturés lors de la validation. Utilisez ces données pour affiner les prompts ou entraîner des modèles.
+                            </p>
+                            
+                            <div className="flex items-center justify-between bg-slate-900 p-3 rounded border border-slate-700 mb-4">
+                                <span className="text-xs font-bold text-slate-300">
+                                    Enregistrements collectés :
+                                </span>
+                                <span className="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-bold">
+                                    {datasetRecords.length}
+                                </span>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={exportDatasetJSON}
+                                    disabled={datasetRecords.length === 0}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                >
+                                    📥 Télécharger Dataset (.json)
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
+                                            clearDatasetRecords();
+                                        }
+                                    }}
+                                    disabled={datasetRecords.length === 0}
+                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                    title="Vider les enregistrements"
+                                >
+                                    🗑️ Vider
                                 </button>
                             </div>
                         </div>

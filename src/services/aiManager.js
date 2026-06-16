@@ -733,6 +733,15 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             }
         }
 
+        // Extraction du texte complet pour le Golden Dataset (Feedback)
+        let fullExtractedText = "";
+        try {
+            const rawContentArray = await buildContentArrayParallel(filesToRoute, "");
+            fullExtractedText = rawContentArray.filter(c => c.type === 'text').map(c => c.text).join('\n');
+        } catch (e) {
+            console.warn("[aiManager] Erreur lors de l'extraction globale du texte pour dataset:", e);
+        }
+
         // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
         if (addDebugLog) addDebugLog('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
         const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
@@ -967,6 +976,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         // 7. Assemblage final
         const finalJson = {
+            _rawInputText: fullExtractedText,
             formData: {
                 ...(adminRes.data?.formData || {}),
                 cause: narrativeRes.data?.cause || "",
