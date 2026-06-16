@@ -44,26 +44,14 @@ import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
 import { runMergeAgent } from './agents/merger.js';
 import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
+import { usePromptStore } from '../store/promptStore.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
 // ═══════════════════════════════════════════════════════════════
 const runFallbackAgent = async (documentText, missingKeysList, apiKey, fallbackModel = 'gpt-5.5') => {
-    const prompt = `Tu es un Super-Réviseur Premium (Agent Balai). Un premier passage d'extraction a échoué à trouver certaines informations cruciales dans le document ci-dessous.
-
-TA MISSION : 
-Recherche ces informations spécifiques : ${missingKeysList.join(', ')}.
-
-RÈGLES ANTI-HALLUCINATION ABSOLUES :
-1. Utilise le champ "_raisonnement" en premier dans ton JSON pour réfléchir étape par étape. Pour chaque information demandée, cherche une PREUVE exacte dans le texte.
-2. Si tu trouves l'information, extrais-la fidèlement.
-3. Si l'information est absente, déduite, ou incertaine, tu DOIS OBLIGATOIREMENT renvoyer la chaîne "INTROUVABLE". C'est une réponse parfaitement valide et attendue ! N'invente JAMAIS rien.
-4. Renvoie UNIQUEMENT un objet JSON valide. 
-5. Les clés du JSON (en dehors de "_raisonnement") doivent être exactement les noms des informations listées ci-dessus.
-
-Document :
-${documentText.substring(0, 30000)} // Sécurité pour ne pas exploser le contexte
-`;
+    const basePrompt = usePromptStore.getState().getPrompt('FALLBACK');
+    const prompt = basePrompt.replace('[MISSING_KEYS]', missingKeysList.join(', ')) + `\n\nDocument :\n${documentText.substring(0, 30000)}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -509,14 +497,16 @@ export const reformatCompteRendu = async (rawNotes, provider = 'openai', model =
 
 // v5.6.1 - Mini-Agent de Refining (Affinage de texte assisté par IA)
 // Utilisé dans le SAS pour affiner les champs narratifs (cause, divers, compteRendu)
-const ANTI_HALLUCINATION_DATES = "RÈGLE ABSOLUE : NE JAMAIS inventer de dates (jours, mois, années). Si aucune date n'est explicitement fournie dans le texte d'origine, n'en invente absolument aucune.";
-
-const REFINE_DIRECTIVES = {
-    DEVELOP: `Tu reçois un texte technique d'expertise sinistre. Développe-le : allonge-le, rends-le plus rédigé, explicatif et professionnel. Conserve tous les faits, ajoute des transitions et des précisions techniques. Ne change pas le sens. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
-    SUMMARIZE: `Tu reçois un texte technique d'expertise sinistre. Résume-le drastiquement : va droit au but, élimine les redondances. Tu peux utiliser des tirets/bullet points. Conserve les faits critiques (cause, localisation, montants). Renvoie UNIQUEMENT le texte résumé, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
-    TECH_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le dans un ton hyper-factuel et technique. Utilise le vocabulaire du bâtiment et de l'assurance (infiltration, désordre, sinistre, dommages consécutifs, vétusté, etc.). Élimine toute émotion, contexte humain inutile ou formule de politesse. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
-    CONTEXT_FOCUS: `Tu reçois un texte d'expertise sinistre. Réécris-le en mettant l'accent sur la chronologie des événements, les raisons de l'intervention et le contexte circonstanciel. Précise les dates, les intervenants et l'enchaînement des faits. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`,
-    REWRITE: `Tu reçois un texte d'expertise sinistre (probablement issu de l'accumulation de plusieurs notes ou rapports). Ton objectif est de le RÉÉCRIRE COMPLÈTEMENT de manière globale. Fusionne les idées de façon naturelle et fluide. Le résultat final doit se lire comme un seul récit structuré et cohérent, comme si tu avais eu toutes les informations dès le départ. N'ajoute aucune information qui n'est pas dans le texte original, mais restructure-le totalement pour la lisibilité. Renvoie UNIQUEMENT le texte réécrit, sans introduction ni commentaire.\n\n${ANTI_HALLUCINATION_DATES}`
+const getRefinePrompt = (directive) => {
+    const store = usePromptStore.getState();
+    switch (directive) {
+        case 'DEVELOP': return store.getPrompt('REFINE_DEVELOP');
+        case 'SUMMARIZE': return store.getPrompt('REFINE_SUMMARIZE');
+        case 'TECH_FOCUS': return store.getPrompt('REFINE_TECH_FOCUS');
+        case 'CONTEXT_FOCUS': return store.getPrompt('REFINE_CONTEXT_FOCUS');
+        case 'REWRITE': return store.getPrompt('REFINE_REWRITE');
+        default: return null;
+    }
 };
 
 /**
@@ -536,7 +526,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
         return { success: false, error: "Clé API non configurée." };
     }
 
-    const systemPrompt = REFINE_DIRECTIVES[directive];
+    const systemPrompt = getRefinePrompt(directive);
     if (!systemPrompt) {
         return { success: false, error: `Directive inconnue : ${directive}` };
     }

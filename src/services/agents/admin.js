@@ -7,6 +7,7 @@
  */
 
 import { processInParallelBatches, buildContentArrayParallel, normalizeDate } from '../utils/aiHelpers.js';
+import { usePromptStore } from '../../store/promptStore.js';
 
 /**
  * [v5.5.1] Étape 2 : L'Agent Administratif
@@ -42,34 +43,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
         const processBatch = async (batchFiles) => {
             const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents administratifs à analyser.");
 
-            const systemPrompt = `Tu es un Agent Administratif expert en assurances et expertises sinistres. 
-Ton rôle est d'analyser attentivement les documents fournis (polices d'assurance, conditions particulières, convocations, correspondances) et d'en extraire les informations contractuelles, les coordonnées de l'expertise et les références.
-
-CONTEXTE IMPORTANT :
-- Le bureau d'expertise en charge est toujours "Bureau Péchard". N'essaie pas d'extraire notre nom ou notre référence de dossier (refPechard) car nous le connaissons déjà en interne. Concentre-toi sur les données du sinistre et de la compagnie d'assurance.
-
-RÈGLES ABSOLUES :
-1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable dans le texte, tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A", et tu ne dois pas omettre la clé).
-2. N'invente AUCUNE information.
-3. Remplis les champs avec précision.
-4. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
-5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou null si non trouvé.
-6. FRANCHISE : Extrait le montant exact ou le texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "1.500 EUR", "indice 119", "franchise anglaise de 500€").
-7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
-
-Voici le format EXACT attendu, avec tous les champs présents :
-{
-  "_raisonnement": "Ta réflexion étape par étape sur les entités, dates et chiffres identifiés avant de remplir le reste du JSON",
-  "formData": {
-    "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "expertInfos": null,
-    "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
-    "numConditionsGenerales": null, "franchise": null, "pertesIndirectes": null, "isAxa": false,
-    "isContradictoire": false, "cieContradictoire": null, "bureauContradictoire": null, "expertContradictoire": null, "compteDeContradictoire": null
-  },
-  "references": [ 
-    { "nom": null, "ref": null } 
-  ]
-}`;
+            const systemPrompt = usePromptStore.getState().getPrompt('ADMIN');
 
             const payload = {
                 model: model,

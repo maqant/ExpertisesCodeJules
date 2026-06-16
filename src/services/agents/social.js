@@ -7,6 +7,7 @@
  */
 
 import { processInParallelBatches, buildContentArrayParallel } from '../utils/aiHelpers.js';
+import { usePromptStore } from '../../store/promptStore.js';
 
 // v5.5.2
 /**
@@ -43,57 +44,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
         const processBatch = async (batchFiles) => {
             const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents sociaux à analyser.");
 
-            const systemPrompt = `Tu es un Agent Social expert dans l'analyse de documents liés aux expertises immobilières.
-Ton rôle est de lire ces documents (emails de syndics, tableaux de contacts, baux de location) et d'identifier TOUTES les personnes mentionnées.
-
-MÉTHODE DE TRAVAIL (Chain of Thought) :
-Avant de formater le JSON, utilise le champ "_raisonnement" pour :
-1. Lister mentalement TOUTES les personnes physiques et morales mentionnées.
-2. Déterminer leur RÔLE exact (occupant ou intervenant extérieur).
-3. Classer chaque personne dans le bon tableau.
-
-RÈGLES ABSOLUES :
-1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable (ex: pas d'email, pas de téléphone), tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A"). N'omets aucune clé.
-2. N'invente AUCUNE information.
-3. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces 5 valeurs EXACTES : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", "Propriétaire (occupation inconnue)", "ACP".
-4. SÉPARATION STRICTE DES TABLEAUX : Les tableaux "occupants", "intervenants" et "experts" sont MUTUELLEMENT EXCLUSIFS.
-5. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau "experts" du tableau "intervenants".
-6. EXCLUSION ABSOLUE : Le Bureau Péchard et ses employés NE SONT JAMAIS des experts ni des intervenants. Tu dois impérativement les IGNORER.
-7. PRÉCISION DU RÔLE ET DE L'IDENTITÉ : Précise de quel lot/appartement s'occupe un syndic. Inclus la civilité (M., Mme) si elle est connue.
-8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
-
-v7.0.0 - RÈGLE DE NORMALISATION DES NOMS (CRITIQUE) :
-- Le champ "nom" doit TOUJOURS contenir UNIQUEMENT le NOM DE FAMILLE, en MAJUSCULES, sans civilité.
-  ✅ Correct : nom: "DUPONT", prenom: "Jean-Pierre"
-  ❌ Interdit : nom: "M. Jean-Pierre Dupont", nom: "dupont", nom: "DUPONT Jean-Pierre"
-- Enlevez toujours la civilité (M., Mme, Mr, Mlle, Dr) du nom, et mettez-la en majuscule.
-
-v7.0.0 - RÈGLE ANTI-DOUBLON (CRITIQUE) :
-- Si la MÊME personne apparaît plusieurs fois dans un fil de discussion (signature, CC, corps du mail),
-  ne la liste QU'UNE SEULE FOIS. La clé d'unicité est le NOM DE FAMILLE normalisé.
-- Si une personne est mentionnée avec des détails complémentaires dans plusieurs messages,
-  fusionne les informations dans une seule entrée (ex: email trouvé dans le 1er message + téléphone dans le 2ème → une entrée avec les deux).
-
-v7.0.0 - EXTRACTION IBAN :
-- Si un IBAN ou des coordonnées bancaires (compte bancaire, numéro de compte) sont mentionnés
-  pour un occupant, extrais-les dans le champ "iban".
-
-Voici le format EXACT attendu, avec tous les champs présents :
-{
-  "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
-  "experts": [ { "nom": null, "tel": null } ],
-  "occupants": [
-    {
-      "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
-      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false
-    }
-  ],
-  "intervenants": [
-    {
-      "nom": null, "prenom": null, "role": null, "societe": null, "email": null, "tel": null
-    }
-  ]
-}`;
+            const systemPrompt = usePromptStore.getState().getPrompt('SOCIAL');
 
             const payload = {
                 model: model,

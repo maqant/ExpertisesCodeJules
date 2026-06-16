@@ -11,6 +11,7 @@
  */
 
 import { buildContentArrayParallel } from '../utils/aiHelpers.js';
+import { usePromptStore } from '../../store/promptStore.js';
 
 // v6.1.0 - Routeur Individuel : 1 appel par document, lecture complète, gpt-5.4-nano
 export const routeDocuments = async (files, providedApiKey = null, onStatusChange = null) => {
@@ -31,25 +32,7 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
     try {
         if (onStatusChange) onStatusChange('routing');
 
-        const systemPrompt = `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
-Tu dois classer LE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
-- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture, et TOUT email ou document contenant un numéro de police, numéro de sinistre, nom de compagnie d'assurance, BCE, IBAN, date de sinistre ou données contractuelles.
-- "SOCIAL" : Documents listant des personnes (noms, téléphones, emails), cartes d'identité, documents d'assurance personnels, échanges informels mentionnant des occupants ou propriétaires.
-- "RECITS" : Rapports d'intervention, constats pompiers, chronologies des faits, déclarations circonstanciées de sinistre, descriptions techniques des dommages.
-- "FINANCIER" : Devis, factures, tickets de caisse, justificatifs de paiement.
-
-RÈGLES :
-1. Analyse LE document en ENTIER (pas seulement le début).
-2. Si le document contient des informations relevant de PLUSIEURS catégories (ex: un email qui contient un n° de police ET liste des noms ET décrit les circonstances), retourne TOUTES les catégories pertinentes.
-3. Si le document ne relève que d'une seule catégorie, retourne quand même un tableau à 1 élément.
-4. Les emails (.msg) contiennent quasi toujours des données ADMIN (références contractuelles) ET SOCIAL (noms, contacts).
-
-Tu dois renvoyer STRICTEMENT un objet JSON valide qui mappe le nom exact du fichier à un TABLEAU de catégories.
-Format attendu :
-{
-  "nom_du_fichier.msg": ["ADMIN", "SOCIAL", "RECITS"]
-}
-Ne renvoie aucun autre texte, juste le JSON.`;
+        const systemPrompt = usePromptStore.getState().getPrompt('ROUTER');
 
         // v6.1.0 - 1 appel par fichier en parallèle (pas de batching, lecture complète)
         const promises = fileArray.map(async (file) => {

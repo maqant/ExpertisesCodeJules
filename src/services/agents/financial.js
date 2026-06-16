@@ -8,6 +8,7 @@
  */
 
 import { fileToBase64, pdfExtractHybrid } from '../utils/pdfUtils.js';
+import { usePromptStore } from '../../store/promptStore.js';
 import { parseMsgFile } from '../utils/msgUtils.js';
 
 // v5.5.4
@@ -85,23 +86,10 @@ export const extractFinancialData = async (files, providedApiKey = null, onStatu
             }
             contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
 
-            const systemPrompt = `Tu es un Agent Financier expert en comptabilité et expertise sinistres.
-Ton rôle est d'analyser des documents financiers (devis, factures, tickets) et d'extraire les réclamations financières.
-
-RÈGLES ABSOLUES :
-1. RÈGLE D'EXHAUSTIVITÉ : Si une information (comme une référence, un taux, une description) est introuvable, tu DOIS obligatoirement renvoyer la valeur null au lieu d'une chaîne vide "". N'omets aucune clé.
-2. RÈGLE DU HTVA STRICT : TOUS les montants extraits (montantReclame, montantDevis, montantFacture, montantValide) DOIVENT IMPÉRATIVEMENT être Hors TVA (HTVA). Si le texte fournit un montant TVAC, extrais le HTVA ou déduis-le mathématiquement avec le taux de TVA indiqué. Formate les montants sous forme de texte avec un point (ex: "450.00").
-3. "typeMontant" DOIT TOUJOURS être "HTVA".
-4. RÈGLE DES DEVIS ET FACTURES : Si le document est un DEVIS, remplis "montantDevis", "refDevis", "prestataireDevis" et "descDevis". Si c'est une FACTURE, remplis "montantFacture", "refFacture", "prestataireFacture" et "descFacture". Copie la valeur la plus pertinente dans "montantReclame" et "montantValide". "type" doit valoir "Devis" ou "Facture".
-5. SOURCE FILE NAME : Remplis "sourceFileName" avec le nom EXACT du fichier suivant : [${fileName}]. Il est interdit d'inventer un nom.
-6. DESTINATAIRE & RATTACHEMENT : Extrait le NOM et PRÉNOM EXACT de la personne à qui la facture est adressée dans "destinataireFacture".${occupantsContext}
-7. Tu dois renvoyer STRICTEMENT un JSON valide, sans introduction.
-
-v7.0.0 - RÈGLE ANTI-DOUBLON CROSS-DOCUMENTS (CRITIQUE) :
-- Il est POSSIBLE que plusieurs documents (ex: un email qui cite un devis + le devis lui-même) fassent référence à la MÊME prestation.
-- Si tu identifies que deux mentions se réfèrent au même devis/facture (même prestataire + même montant + même référence), n'extrais la prestation QU'UNE SEULE FOIS.
-- Priorise toujours le document source original (facture/devis) sur un email qui le mentionne.
-- Si le montant n'est mentionné que dans un seul document, mais la référence est la même, ne l'extrais qu'une fois.
+            const basePrompt = usePromptStore.getState().getPrompt('FINANCIAL');
+            
+            const systemPrompt = `${basePrompt}
+${occupantsContext}
 
 Format EXACT attendu :
 {

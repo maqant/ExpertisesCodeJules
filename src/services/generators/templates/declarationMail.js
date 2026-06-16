@@ -1,3 +1,5 @@
+import { usePromptStore } from '../../../store/promptStore.js';
+
 // v6.0.0 - Context Vault & Mail Generator
 
 /**
@@ -60,33 +62,9 @@ export const buildDeclarationPrompt = (dossierState) => {
         }).join('\n')
         : '';
 
-    const systemPrompt = `Ton but va être de transformer le mail d'un client ou un échange de mail de clients à propos d'un sinistre, en une déclaration de sinistre à la compagnie d'assurance.
-Je suis courtier et mon job est de déclarer les sinistres à la compagnie.
-Tu fais donc des phrases courtes et claires pour la compréhension.
-Le style c'est genre "en date du x, l'assuré a subi x," . 
-Tu parles à la 3ème personne, et tu fais attention à bien dire à la compagnie le "qui que quoi dont où " du sinistre.
-IMPORTANT : Sépare bien chaque idée par un double saut de ligne <br><br> pour que le texte soit très aéré (une ligne, espace vide, ligne suivante).
-
-Tu feras précéder ton texte par 
-"Bonjour, <br><br>Nouvelle déclaration pour le contrat dont réfs. en objet."
-
-Juste avant "À vous lire & bien cordialement", Insère les tableaux demandés avec des titres soulignés.
-
-IMPORTANT POUR LES TABLEAUX :
-- Ajoute d'abord le titre : <br>&nbsp;<br><u>Tableau des intervenants</u><br>
-- Pour le tableau des parties, utilise exactement les colonnes suivantes : Étage/Unité, Rôle, Nom, Téléphone, E-mail, Autres informations.
-- Ensuite ajoute le titre du second tableau en forçant un espace : <br>&nbsp;<br><u>Tableau des réclamations</u><br>
-- Pour le tableau des réclamations, utilise exactement les colonnes suivantes : Prestataire, Type/Réf, Description, Compte de, Montant, Remarque. Calcule un "TOTAL DE LA RÉCLAMATION" sur la dernière ligne dans la colonne Montant (fusionne les cellules précédentes avec colspan="5"). Ne laisse aucune colonne vide. S'il n'y a pas d'info, mets un tiret "-".
-
-Et tu le termineras par : "<br>&nbsp;<br>À vous lire & bien cordialement"
-
-IMPORTANT : Formate TOUTE ta réponse en HTML valide. N'utilise PAS de balises <p>. Utilise UNIQUEMENT la combinaison <br>&nbsp;<br> pour créer un vrai espace vide entre tes paragraphes et entre les tableaux. Outlook supprime les <br> simples, donc tu DOIS utiliser <br>&nbsp;<br> pour forcer la ligne vide.
-Pour les tableaux, utilise cette structure exacte :
-<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; text-align: left;">
-  <thead style="background-color: #f2f2f2;">...</thead>
-  <tbody>...</tbody>
-</table>
-N'utilise PAS de Markdown, uniquement du HTML pur.`;
+    const occupantName = declarant || "Le déclarant";
+    const basePrompt = usePromptStore.getState().getPrompt('DECLARATION_MAIL');
+    const systemPrompt = basePrompt.replace('${occupantName}', occupantName);
 
     const userContent = `--- DONNÉES DU DOSSIER ---
 Date du sinistre : ${dateSinistre}

@@ -12,6 +12,7 @@ import { Eye } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import packageInfo from '../../package.json';
 import localforage from 'localforage';
+import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
@@ -174,6 +175,27 @@ const AccordionHeader = ({ id, num }) => {
 };
 
 const Sidebar = () => {
+    const { telemetry } = useContext(ExpertiseContext);
+    
+    // -- PROMPT STORE --
+    const { customPrompts, getPrompt, setPrompt, resetPrompt, resetAll } = usePromptStore();
+    const [selectedAgent, setSelectedAgent] = useState('ROUTER');
+    const [currentPromptDraft, setCurrentPromptDraft] = useState('');
+
+    useEffect(() => {
+        setCurrentPromptDraft(getPrompt(selectedAgent));
+    }, [selectedAgent, customPrompts]);
+
+    const handleSavePrompt = () => {
+        setPrompt(selectedAgent, currentPromptDraft);
+        alert(`Prompt pour ${selectedAgent} sauvegardé avec succès !`);
+    };
+
+    const handleResetPrompt = () => {
+        if(window.confirm(`Voulez-vous vraiment restaurer le prompt par défaut pour ${selectedAgent} ?`)) {
+            resetPrompt(selectedAgent);
+        }
+    };
     const context = useContext(ExpertiseContext);
     if (!context) return null;
 
@@ -204,34 +226,34 @@ const Sidebar = () => {
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
         isDeepThinkingMode, // v6.3.2 - Mode Lourd
         commitLogSession, clearDebugLogs, // v6.3.3
-        telemetry
+        telemetry: contextTelemetry
     } = context;
 
     const handleFocusCapture = (e) => {
-        if (!telemetry) return;
+        if (!contextTelemetry) return;
         const target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
             const name = target.name || target.id || 'unknown_field';
-            telemetry.logFocus(`field_${name}`, target.value);
+            contextTelemetry.logFocus(`field_${name}`, target.value);
         }
     };
 
     const handleBlurCapture = (e) => {
-        if (!telemetry) return;
+        if (!contextTelemetry) return;
         const target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
             const name = target.name || target.id || 'unknown_field';
-            telemetry.logBlur(`field_${name}`, target.value);
+            contextTelemetry.logBlur(`field_${name}`, target.value);
         }
     };
 
     const handleToggleCapture = (e) => {
-        if (!telemetry) return;
+        if (!contextTelemetry) return;
         const target = e.target;
         if (target.tagName === 'DETAILS') {
             const summary = target.querySelector('summary');
             const summaryText = summary ? summary.textContent.trim() : 'unknown';
-            telemetry.logEvent('TOGGLE', `accordion_${summaryText}`, { isOpen: target.open });
+            contextTelemetry.logEvent('TOGGLE', `accordion_${summaryText}`, { isOpen: target.open });
         }
     };
 
@@ -362,9 +384,9 @@ const Sidebar = () => {
         }
     };
 
-    // v6.1.1 - Smart Bridge : reçoit un TABLEAU de fichiers depuis le dropzone
+    // v6.4.4 - Convert photo to devis logic
     const handleCopyResume = async () => {
-        if (telemetry) telemetry.logEvent('CLICK', 'btn_copy_resume_brio');
+        if (contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_copy_resume_brio');
         let text = "";
         
         if (formData.cause) text += "CAUSE :\n" + formData.cause + "\n\n";
@@ -742,7 +764,7 @@ const Sidebar = () => {
                         {/* AI Controls & Dev Mode */}
                         <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                             <button
-                                onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
+                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
                                 className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isAiModeActive ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300'}`}
                                 title="Activer/Désactiver l'IA"
                             >
@@ -750,7 +772,7 @@ const Sidebar = () => {
                             </button>
                             <div className="w-px h-3 bg-slate-700 mx-0.5"></div>
                             <button
-                                onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
+                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
                                 className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isDebugMode ? 'bg-red-900/50 text-red-400' : 'text-slate-500 hover:text-slate-400'}`}
                                 title="Console Développeur"
                             >
@@ -758,13 +780,13 @@ const Sidebar = () => {
                             </button>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
-                            <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
                                 🔄 Reset
                             </button>
                         </div>
@@ -785,8 +807,9 @@ const Sidebar = () => {
                 </div>
 
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'prompts' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_prompts'); setActiveTab('prompts'); }}>Prompts IA</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
                 </div>
             </div>
 
@@ -905,8 +928,65 @@ const Sidebar = () => {
 
                         <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
                             <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie & Usage</h3>
-                            <button onClick={() => telemetry?.exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
-                            <p className="text-[10px] text-emerald-200 leading-tight">Exporte tout l'historique de vos interactions (Data-Driven Design).</p>
+                            <button onClick={() => contextTelemetry?.exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
+                             <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
+                        </div>
+                    </div>
+                ) : activeTab === 'prompts' ? (
+                    <div className="space-y-6">
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-2">
+                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
+                                <span>🧪 Laboratoire IA (Prompts)</span>
+                            </h3>
+                            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                                Modifiez dynamiquement les consignes données à chaque agent IA. 
+                                Les modifications prennent effet immédiatement.
+                            </p>
+
+                            <div className="mb-4">
+                                <label className="block text-slate-400 mb-1 text-xs font-bold">Sélectionner un Agent</label>
+                                <select 
+                                    value={selectedAgent} 
+                                    onChange={(e) => setSelectedAgent(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white focus:border-indigo-500 outline-none text-xs"
+                                >
+                                    {Object.keys(DEFAULT_PROMPTS).map(key => (
+                                        <option key={key} value={key}>
+                                            {key} {customPrompts[key] ? '*(Modifié)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-slate-400 mb-1 text-xs font-bold flex justify-between">
+                                    <span>Prompt Système</span>
+                                    {customPrompts[selectedAgent] && <span className="text-orange-400 text-[10px]">Modifié</span>}
+                                </label>
+                                <textarea
+                                    value={currentPromptDraft}
+                                    onChange={(e) => setCurrentPromptDraft(e.target.value)}
+                                    className="w-full h-96 bg-slate-900 border border-slate-600 rounded p-3 text-emerald-300 font-mono focus:border-indigo-500 outline-none text-[11px] leading-relaxed resize-y"
+                                    spellCheck="false"
+                                />
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleSavePrompt}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                >
+                                    💾 Sauvegarder ce prompt
+                                </button>
+                                <button 
+                                    onClick={handleResetPrompt}
+                                    disabled={!customPrompts[selectedAgent]}
+                                    className="px-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                    title="Rétablir le prompt d'origine"
+                                >
+                                    🔄 Réinitialiser
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ) : (
