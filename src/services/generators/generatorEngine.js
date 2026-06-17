@@ -42,7 +42,7 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'openai/gpt-5.4-mini-2026-03-17',
+                model: 'gpt-5.4',
                 messages: [
                     { role: 'user', content: prompt }
                 ],
@@ -124,7 +124,7 @@ export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-
  * Passe 2: Linter de texte pour Outlook (temp: 0.0)
  */
 export const generateAcknowledgmentEmail = async (dossierData, formData, apiKey) => {
-    const model = 'gpt-5.4-mini-2026-03-17';
+    const model = 'gpt-5.4';
     const { getPrompt } = usePromptStore.getState();
     const analystPromptTemplate = getPrompt('prompt_ar_analyste');
     const linterPromptTemplate = getPrompt('prompt_ar_balai');
