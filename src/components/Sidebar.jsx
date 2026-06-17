@@ -1151,7 +1151,7 @@ const Sidebar = () => {
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 {/* v6.0.0 - Bouton de génération de déclaration */}
                                 {isAiModeActive && aiConfig.apiKey && (
-                                    <div className="mt-3 pt-2 border-t border-slate-600">
+                                    <div className="mt-3 pt-2 border-t border-slate-600 space-y-2">
                                         <button
                                             onClick={async () => {
                                                 try {
@@ -1177,9 +1177,6 @@ const Sidebar = () => {
                                         >
                                             🤖 Générer la déclaration (IA)
                                         </button>
-                                        {rawContexts.length === 0 && (
-                                            <p className="text-[9px] text-amber-400/70 mt-1 italic text-center">Conseil : ingérez d'abord des documents pour enrichir le contexte.</p>
-                                        )}
                                     </div>
                                 )}
                                 <div className="mt-4 pt-2 border-t border-slate-600">
