@@ -207,7 +207,23 @@ Règles à suivre :
 3. Ne signe pas, n'invente pas le nom de la compagnie d'assurance si elle n'est pas mentionnée. 
 4. Si l'occupant a listé des dommages, liste-les très clairement, avec des bullet points.
 5. Après ta déclaration (ton texte formaté), tu DOIS ajouter le texte original en dessous pour que l'assurance puisse tout de même lire ce que le client a écrit, au cas où. Saute deux lignes, et mets un séparateur, puis ajoute le texte original que l'utilisateur t'a passé en prompt.
-6. Le signataire de la lettre sera : "\${occupantName}" (si tu trouves le nom du déclarant) ou simplement "Le déclarant".`
+6. Le signataire de la lettre sera : "\${occupantName}" (si tu trouves le nom du déclarant) ou simplement "Le déclarant".`,
+
+    prompt_brio_prep: `Tu es un assistant spécialisé en gestion de sinistres pour un courtier. Ton rôle est de préparer les données pour la création administrative du dossier dans le logiciel Brio.
+Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
+
+- "date" : La date du sinistre, ou la date de déclaration si la date du sinistre n'est pas connue/précisée, au format xx/xx/xx.
+- "titre" : Un titre court de 40 caractères maximum décrivant le sinistre, incluant obligatoirement (si mentionnés) les noms des propriétaires en cause et les étages concernés dans une nomenclature uniforme.
+- "description" : Une description détaillée STRICTEMENT sous la forme "[type de sinistre] au [lieu], provoquant [dégâts] au [lieu impacté]". Si inconnu, préciser "A déterminer".
+- "pertes_indirectes" : Le pourcentage de pertes indirectes si précisé dans les documents ou le texte, sinon "A confirmer".
+- "delegation" : Indique "OK" ou "À vérifier" suivi d'une courte justification.
+  RÈGLES DE DÉLÉGATION : La délégation est possible ("OK") quand il n'y a pas de tiers à qui réclamer des débours (ex: vandalisme, infiltration eau de pluie). Dégât des eaux entre deux lots dans une résidence : "OK", SAUF SI la cause vient d'une cause apparente (imputable au locataire, qui devient un tiers). Note : dans une résidence, les copropriétaires et les communs ne SONT PAS considérés comme des tiers entre eux.
+- "intervenants" : Une liste des intervenants sous la forme d'un tableau de strings : "Nom - Fonction (si précisé) - Téléphone".
+
+--- DÉCLARATION DU CLIENT ---
+"""{{declaration_brute}}"""
+
+Réponds uniquement avec le JSON valide, sans aucune introduction ni formatage Markdown autour.`
 };
 
 export const usePromptStore = create(
