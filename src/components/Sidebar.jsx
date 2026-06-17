@@ -2064,13 +2064,11 @@ const Sidebar = () => {
                 if (brioResults?.date) {
                     setFormData(prev => ({ ...prev, dateSinistre: brioResults.date }));
                 }
-                // Le dossier existe déjà (créé par SmartBridge onCreateNew), pas besoin de handleNewDossier
-                const syntheticFile = new File([rawText], "declaration_initiale.txt", { type: "text/plain" });
-                if (isAiModeActive) {
-                    triggerSmartBridgeAnalysis([syntheticFile], true);
-                } else {
-                    openIngestion(syntheticFile, 'declaration');
-                }
+                // NE PAS relancer triggerSmartBridgeAnalysis ici !
+                // Le pipeline principal (lancé par onCreateNew du SmartBridge) est déjà en cours
+                // avec le fichier MSG original. Relancer créerait un doublon qui écraserait
+                // les résultats (et viderait le _rawInputText du Golden Dataset).
+                console.log('[BrioPrep] ✅ Franchise et date injectées. Pipeline principal en cours...');
             }}
         />
 
