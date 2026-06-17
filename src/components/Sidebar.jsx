@@ -495,7 +495,7 @@ const Sidebar = () => {
                     intervenants: aiData.intervenants || [],
                     expenses,
                     pendingFiles: allPendingFiles,
-                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null) // v7.3.2 - Ensure raw text is kept for Golden Dataset
+                    _rawInputText: aiData._rawInputText // v7.3.2 - Ensure raw text is kept for Golden Dataset
                 });
 
                 // v6.0.0 - Context Vault
@@ -1155,7 +1155,7 @@ const Sidebar = () => {
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 {/* v6.0.0 - Bouton de génération de déclaration */}
                                 {isAiModeActive && aiConfig.apiKey && (
-                                    <div className="mt-3 pt-2 border-t border-slate-600 space-y-2">
+                                    <div className="mt-3 pt-2 border-t border-slate-600">
                                         <button
                                             onClick={async () => {
                                                 try {
@@ -1181,6 +1181,9 @@ const Sidebar = () => {
                                         >
                                             🤖 Générer la déclaration (IA)
                                         </button>
+                                        {rawContexts.length === 0 && (
+                                            <p className="text-[9px] text-amber-400/70 mt-1 italic text-center">Conseil : ingérez d'abord des documents pour enrichir le contexte.</p>
+                                        )}
                                     </div>
                                 )}
                                 <div className="mt-4 pt-2 border-t border-slate-600">
@@ -2136,7 +2139,7 @@ const Sidebar = () => {
                                                     expenses: safeExpenses,
                                                     pendingFiles: allPendingFiles,
                                                     technicalFilesToAttach: result.data.technicalFilesToAttach || [],
-                                                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
+                                                    _rawInputText: result.data._rawInputText || aiData._rawInputText
                                                 });
                                             } else {
                                                 alert("Erreur IA : " + (result.error || "Réponse invalide"));
@@ -2236,7 +2239,7 @@ const Sidebar = () => {
                                                 intervenants: aiData.intervenants || [],
                                                 expenses: safeExpenses,
                                                 pendingFiles: allPendingFiles,
-                                                _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
+                                                _rawInputText: result.data._rawInputText || aiData._rawInputText
                                             });
                                         } else {
                                             alert("Erreur IA : " + (result.error || "Réponse invalide"));

@@ -737,10 +737,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         let fullExtractedText = "";
         try {
             const rawContentArray = await buildContentArrayParallel(filesToRoute, "");
-            const rawInputTextParts = rawContentArray
-                .filter(c => c.type === 'text' && c.text)
-                .map(c => `[DÉBUT SOURCE : ${c.sourceFileName || 'Inconnu'}]\n${c.text}\n[FIN SOURCE : ${c.sourceFileName || 'Inconnu'}]`);
-            fullExtractedText = rawInputTextParts.join('\n\n---\n\n').trim();
+            fullExtractedText = rawContentArray.filter(c => c.type === 'text').map(c => c.text).join('\n');
         } catch (e) {
             console.warn("[aiManager] Erreur lors de l'extraction globale du texte pour dataset:", e);
         }

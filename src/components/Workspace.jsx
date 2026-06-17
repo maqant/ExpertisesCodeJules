@@ -2,8 +2,6 @@ import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
-import AcknowledgmentModal from './Post/AcknowledgmentModal';
-import { Mail } from 'lucide-react';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -158,8 +156,6 @@ const BlockContainer = ({ id, children }) => {
 
 const Workspace = () => {
     const context = useContext(ExpertiseContext);
-    const [isAcknowledgmentModalOpen, setIsAcknowledgmentModalOpen] = useState(false);
-
     if (!context) return null;
 
     const {
@@ -475,22 +471,6 @@ const Workspace = () => {
 
     return (
         <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 print:py-0 print:block">
-            {/* Generate AR Button in Workspace */}
-            <div className="absolute top-4 right-4 z-[100] print:hidden">
-                <button
-                    onClick={() => setIsAcknowledgmentModalOpen(true)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700 flex items-center gap-2"
-                >
-                    <Mail className="w-4 h-4" />
-                    Générer AR
-                </button>
-            </div>
-
-            <AcknowledgmentModal
-                isOpen={isAcknowledgmentModalOpen}
-                onClose={() => setIsAcknowledgmentModalOpen(false)}
-            />
-
             <div id="a4-page" className="relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
                 {renderBlocksInOrder()}
                 <PageBreakLines />
