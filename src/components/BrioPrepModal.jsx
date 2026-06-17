@@ -118,48 +118,60 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
                             Résultats générés. Utilisez les boutons de copie pour Brio.
                         </p>
 
-                        {[
-                            { label: "Date", value: results.date },
-                            { label: "Franchise (calculée via la date)", value: calculatedFranchise, isHighlight: true },
-                            { label: "Titre", value: results.titre },
-                            { label: "Description", value: results.description },
-                            { label: "Pertes indirectes", value: results.pertes_indirectes },
-                            { label: "Délégation", value: results.delegation },
-                        ].map((field, idx) => (
-                            <div key={idx} className="flex gap-2">
-                                <div className="flex-1">
-                                    <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">{field.label}</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={field.value || ''}
-                                        className={`w-full ${field.isHighlight ? 'bg-indigo-900/50 border-indigo-500/50 text-indigo-200' : 'bg-slate-800 border-slate-600 text-white'} border rounded px-3 py-2 text-sm outline-none`}
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleCopy(field.value)}
-                                    className="mt-5 bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 transition-colors"
-                                    title="Copier"
-                                >
-                                    📋
-                                </button>
-                            </div>
-                        ))}
-
-                        {/* Intervenants */}
+                        {/* Bloc 1: Date */}
                         <div className="flex gap-2">
                             <div className="flex-1">
-                                <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Intervenants</label>
-                                <textarea
+                                <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Bloc 1 : Date</label>
+                                <input
+                                    type="text"
                                     readOnly
-                                    value={Array.isArray(results.intervenants) ? results.intervenants.join('\n') : (results.intervenants || '')}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white outline-none resize-none h-24"
+                                    value={results.date || ''}
+                                    className="w-full bg-slate-800 border-slate-600 text-white border rounded px-3 py-2 text-sm outline-none"
                                 />
                             </div>
                             <button
-                                onClick={() => handleCopy(Array.isArray(results.intervenants) ? results.intervenants.join('\n') : (results.intervenants || ''))}
+                                onClick={() => handleCopy(results.date)}
+                                className="mt-5 bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 transition-colors"
+                                title="Copier"
+                            >
+                                📋
+                            </button>
+                        </div>
+
+                        {/* Bloc 2: Titre (Description courte) */}
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Bloc 2 : Description courte</label>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={results.titre || ''}
+                                    className="w-full bg-slate-800 border-slate-600 text-white border rounded px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={() => handleCopy(results.titre)}
+                                className="mt-5 bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 transition-colors"
+                                title="Copier"
+                            >
+                                📋
+                            </button>
+                        </div>
+
+                        {/* Bloc 3: Détails combinés */}
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Bloc 3 : Détails (Description, Franchise, PI, Intervenants)</label>
+                                <textarea
+                                    readOnly
+                                    value={`Description :\n${results.description || ''}\n\nFranchise :\n${calculatedFranchise || ''}\n\nPertes Indirectes :\n${results.pertes_indirectes || ''}\n\nDélégation :\n${results.delegation || ''}\n\nIntervenants :\n${Array.isArray(results.intervenants) ? results.intervenants.join('\n') : (results.intervenants || '')}`}
+                                    className="w-full bg-indigo-900/30 border-indigo-500/50 text-indigo-100 rounded-lg px-3 py-2 text-sm outline-none resize-none h-64"
+                                />
+                            </div>
+                            <button
+                                onClick={() => handleCopy(`Description :\n${results.description || ''}\n\nFranchise :\n${calculatedFranchise || ''}\n\nPertes Indirectes :\n${results.pertes_indirectes || ''}\n\nDélégation :\n${results.delegation || ''}\n\nIntervenants :\n${Array.isArray(results.intervenants) ? results.intervenants.join('\n') : (results.intervenants || '')}`)}
                                 className="mt-5 bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 transition-colors h-[42px]"
-                                title="Copier la liste"
+                                title="Copier tout le bloc"
                             >
                                 📋
                             </button>
