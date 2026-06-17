@@ -13,6 +13,7 @@ import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
 import packageInfo from '../../package.json';
 import localforage from 'localforage';
+import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
 
@@ -482,7 +483,7 @@ const Sidebar = () => {
                         const { files: extracted } = await extractValidAttachmentsFromMsg(file);
                         pendingFiles.push(...extracted);
                     } else {
-                        pendingFiles.push(file);
+                        pendingFiles.push(await processIngestedFile(file));
                     }
                 }
                 setPendingAiData({ formData: null, occupants: [], experts: [], intervenants: [], expenses: [], pendingFiles });

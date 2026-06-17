@@ -2,6 +2,7 @@ import { useFinanceStore, cleanAmount } from "../store/financeStore";
 import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
+import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 
@@ -220,8 +221,9 @@ export const ExpertiseProvider = ({ children }) => {
 
   // Ingestion Modal State
   const [ingestionModal, setIngestionModal] = useState({ isOpen: false, type: null, file: null, data: null, existingId: null });
-  const openIngestion = (file, type, initialData = null, existingId = null) => {
-      setIngestionModal({ isOpen: true, type, file, data: initialData, existingId });
+  const openIngestion = async (file, type, initialData = null, existingId = null) => {
+      const processedFile = await processIngestedFile(file);
+      setIngestionModal({ isOpen: true, type, file: processedFile, data: initialData, existingId });
   };
   const closeIngestion = () => {
       setIngestionModal({ isOpen: false, type: null, file: null, data: null, existingId: null });
@@ -596,8 +598,10 @@ export const ExpertiseProvider = ({ children }) => {
       financeStore.setExpenses(sorted);
   };
 
-  const handleAttachFile = async (expenseId, file, expenseType = null) => {
-      if (!file) return;
+  const handleAttachFile = async (expenseId, rawFile, expenseType = null) => {
+      if (!rawFile) return;
+      const file = await processIngestedFile(rawFile);
+      const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
       
       try {
           const arrayBuffer = await file.arrayBuffer();
@@ -617,7 +621,6 @@ export const ExpertiseProvider = ({ children }) => {
               return alert("Seuls les fichiers PDF et les images sont acceptés pour le moment.");
           }
 
-          const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
           
           const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type, expenseType };
@@ -654,15 +657,16 @@ export const ExpertiseProvider = ({ children }) => {
       }
   };
 
-  const handleAttachPhoto = async (occupantId, file) => {
-      if (!file) return;
+  const handleAttachPhoto = async (occupantId, rawFile) => {
+      if (!rawFile) return;
+      const file = await processIngestedFile(rawFile);
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
       if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');
 
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const dbKey = `${isPdf ? 'pdf' : 'img'}_${crypto.randomUUID()}_${file.name}`;
+          const dbKey = `photo_${crypto.randomUUID()}_${file.name}`;
           await localforage.setItem(dbKey, arrayBuffer);
 
           if (isPdf) {
@@ -698,9 +702,9 @@ export const ExpertiseProvider = ({ children }) => {
           return { ...prev, [occupantId]: updated };
       });
   };
-
-  const handleAttachFreeAnnex = async (file, generatedTitle = null, desc = '') => {
-      if (!file) return;
+  const handleAttachFreeAnnex = async (rawFile, generatedTitle = null, desc = '') => {
+      if (!rawFile) return;
+      const file = await processIngestedFile(rawFile);
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
       if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');

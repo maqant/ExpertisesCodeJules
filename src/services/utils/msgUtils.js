@@ -7,6 +7,7 @@
 
 import MsgReader from '@kenjiuno/msgreader';
 import { isPdf } from './fileUtils.js';
+import { processIngestedFile } from './filePreprocessor.js';
 
 // Cache v5.7.2
 const _msgCache = new Map();
@@ -102,9 +103,11 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
         let attName = att.fileName || att.name || '';
         const ext = attName ? attName.split('.').pop().toLowerCase() : '';
 
-        // Ignorer les formats bureautiques non supportés
-        if (['doc', 'docx', 'xls', 'xlsx'].includes(ext)) {
-            console.log(`${prefix}   #${i} ❌ Rejeté (format bureautique non supporté) : "${attName}"`);
+        // --- 1. Filtrage strict par extension : on rejette ce qui est dangereux ou inutile ---
+        // On AUTORISE : pdf, images, doc, docx, txt, edi, xls, xlsx
+        // Note : xls/doc (vieux) et xlsx ne seront pas convertis en PDF par processIngestedFile (car pas gérés), mais ils seront renvoyés tels quels, puis bloqués par le reste de l'app si besoin.
+        if (['exe', 'js', 'bat', 'vbs', 'ps1', 'scr', 'dll'].includes(ext)) {
+            console.log(`${prefix}   #${i} ❌ Rejeté (dangereux) : "${attName}"`);
             continue;
         }
 
@@ -140,6 +143,7 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
         const mime = getMimeType(attName || 'unknown.bin');
         const isImage = mime.startsWith('image/');
         const isPdfFile = isPdf({ type: mime, name: attName });
+        const isConvertible = ['docx', 'edi', 'txt', 'doc', 'xls', 'xlsx'].includes(ext);
 
         // --- Gestion des PJ sans nom ---
         if (!attName || attName === '' || attName.startsWith('attachment_')) {
@@ -155,8 +159,8 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
             }
         }
 
-        if (!isPdfFile && !isImage) {
-            console.log(`${prefix}   #${i} ❌ Rejeté (ni PDF ni image) : "${attName}", mime="${mime}"`);
+        if (!isPdfFile && !isImage && !isConvertible) {
+            console.log(`${prefix}   #${i} ❌ Rejeté (ni PDF, ni image, ni convertible) : "${attName}", mime="${mime}"`);
             continue;
         }
 
@@ -193,7 +197,15 @@ export const extractValidAttachmentsFromMsg = async (msgFile, _depth = 0) => {
     _inlineImageCounter = 0; // Reset compteur à chaque appel top-level
     try {
         const arrayBuffer = await msgFile.arrayBuffer();
-        return _extractMsgRecursive(arrayBuffer, msgFile.name || 'email.msg', _depth);
+        const result = await _extractMsgRecursive(arrayBuffer, msgFile.name || 'email.msg', _depth);
+        
+        // Post-traitement : convertir les docx/edi en PDF
+        const finalFiles = [];
+        for (const f of result.files) {
+            finalFiles.push(await processIngestedFile(f));
+        }
+        
+        return { files: finalFiles, nestedTexts: result.nestedTexts };
     } catch (e) {
         console.error(`[MSG Parser] ❌ Fatal error:`, e);
         return { files: [], nestedTexts: [] };
@@ -222,7 +234,13 @@ export const parseMsgFile = async (file) => {
     if (fileData.body) parts.push(fileData.body);
 
     // Extraction récursive (texte des sous-mails + PJ de tous les niveaux)
-    const { files: attachments, nestedTexts } = _extractMsgRecursive(arrayBuffer, file.name, 0);
+    const { files: rawAttachments, nestedTexts } = _extractMsgRecursive(arrayBuffer, file.name, 0);
+
+    // Post-traitement : convertir les docx/edi en PDF
+    const attachments = [];
+    for (const f of rawAttachments) {
+        attachments.push(await processIngestedFile(f));
+    }
 
     // Fusionner le texte principal + texte des sous-mails
     // Exclure le texte du niveau 0 (déjà dans parts) car _extractMsgRecursive ne l'ajoute pas pour depth=0

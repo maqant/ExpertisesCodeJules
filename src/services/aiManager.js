@@ -46,6 +46,7 @@ import { runMergeAgent } from './agents/merger.js';
 import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 import { usePromptStore } from '../store/promptStore.js';
 import { isPdf, isPdfDeep } from './utils/fileUtils.js';
+import { processIngestedFile } from './utils/filePreprocessor.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
@@ -697,8 +698,11 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         }
         if (onStatusChange) onStatusChange('routing');
         
-        // On convertit les `files` en Array
-        let rawFiles = Array.isArray(files) ? files : Array.from(files);
+        // On convertit les `files` en Array et on les pré-traite (convertit docx/edi en pdf)
+        let rawFiles = [];
+        for (const f of Array.from(files)) {
+            rawFiles.push(await processIngestedFile(f));
+        }
         
         let allExtractedFiles = [];
         let filesToRoute = [];

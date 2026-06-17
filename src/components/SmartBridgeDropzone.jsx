@@ -3,7 +3,7 @@ import React, { useState, useRef, useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { cloneFilesEagerly } from '../services/utils/aiHelpers.js';
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt'];
+const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.docx', '.doc', '.edi', '.xls', '.xlsx'];
 const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'];
 
 const isAccepted = (file) => {
@@ -15,7 +15,8 @@ const emoji = (file) => {
     const n = (file.name || '').toLowerCase();
     if (n.endsWith('.msg')) return '📧';
     if (n.endsWith('.pdf')) return '📄';
-    if (n.endsWith('.txt')) return '📝';
+    if (n.endsWith('.txt') || n.endsWith('.edi') || n.endsWith('.docx') || n.endsWith('.doc')) return '📝';
+    if (n.endsWith('.xls') || n.endsWith('.xlsx')) return '📊';
     if (file.type?.startsWith('image/')) return '🖼️';
     return '📎';
 };
@@ -193,7 +194,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                 ref={inputRef}
                 type="file"
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.msg"
+                accept=".pdf,.jpg,.jpeg,.png,.msg,.txt,.docx,.doc,.edi,.xls,.xlsx"
                 onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = null; }}
                 className="hidden"
             />
