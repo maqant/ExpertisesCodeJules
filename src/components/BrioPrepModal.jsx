@@ -185,7 +185,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
                                 🔄 Recommencer
                             </button>
                             <button
-                                onClick={() => onContinue(mailText)}
+                                onClick={() => onContinue(mailText, results, calculatedFranchise)}
                                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded shadow-lg shadow-emerald-500/20 transition-colors"
                             >
                                 ➡️ Continuer l'ingestion

@@ -2053,17 +2053,23 @@ const Sidebar = () => {
                 setIsBrioPrepModalOpen(false);
                 setBrioPrepInitialText('');
             }}
-            onContinue={async (rawText) => {
+            onContinue={async (rawText, brioResults, brioFranchise) => {
                 setIsBrioPrepModalOpen(false);
                 setBrioPrepInitialText('');
-                const created = await handleNewDossier();
-                if (created) {
-                    const syntheticFile = new File([rawText], "declaration_initiale.txt", { type: "text/plain" });
-                    if (isAiModeActive) {
-                        triggerSmartBridgeAnalysis([syntheticFile], true);
-                    } else {
-                        openIngestion(syntheticFile, 'declaration');
-                    }
+                // Injecter la franchise calculée par Brio dans le formData du dossier courant
+                if (brioFranchise) {
+                    setFormData(prev => ({ ...prev, franchise: brioFranchise }));
+                }
+                // Injecter la date du sinistre si disponible
+                if (brioResults?.date) {
+                    setFormData(prev => ({ ...prev, dateSinistre: brioResults.date }));
+                }
+                // Le dossier existe déjà (créé par SmartBridge onCreateNew), pas besoin de handleNewDossier
+                const syntheticFile = new File([rawText], "declaration_initiale.txt", { type: "text/plain" });
+                if (isAiModeActive) {
+                    triggerSmartBridgeAnalysis([syntheticFile], true);
+                } else {
+                    openIngestion(syntheticFile, 'declaration');
                 }
             }}
         />
