@@ -10,6 +10,7 @@
 
 import { fileToBase64, pdfToBase64Images, pdfExtractHybrid } from './pdfUtils.js';
 import { parseMsgFile } from './msgUtils.js';
+import { isPdfDeep } from './fileUtils.js';
 
 // v5.5.15 - Table de référence des franchises légales (IPC/ABEX Belgique)
 // Clé = "YYYY" (année), valeur = montant de la franchise légale pour cette année.
@@ -148,7 +149,7 @@ export const buildContentArrayParallel = async (files, introductoryText, options
                 } catch (e) {
                     localContent.push({ type: "text", text: "[Fichier MSG illisible]" });
                 }
-            } else if (item.type === 'application/pdf') {
+            } else if (await isPdfDeep(item)) {
                 if (forceVision) {
                     // Mode vision forcé (ex: Agent Financier sur factures potentiellement scannées)
                     const base64Images = await pdfToBase64Images(item, maxPdfPages);
@@ -170,6 +171,14 @@ export const buildContentArrayParallel = async (files, introductoryText, options
             } else if (item.type && item.type.startsWith('image/')) {
                 const base64Image = await fileToBase64(item);
                 localContent.push({ type: "image_url", image_url: { url: base64Image, detail: "low" } });
+            } else if (item.type === 'text/plain' || fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md') || fileNameLower.endsWith('.csv')) {
+                try {
+                    const textContent = await item.text();
+                    const textToPush = maxTextLength ? textContent.substring(0, maxTextLength) : textContent;
+                    localContent.push({ type: "text", text: textToPush });
+                } catch (e) {
+                    localContent.push({ type: "text", text: "[Erreur lecture fichier texte]" });
+                }
             } else {
                 localContent.push({ type: "text", text: "[Format non supporté pour la vision]" });
             }

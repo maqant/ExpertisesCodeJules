@@ -6,6 +6,7 @@
  */
 
 import MsgReader from '@kenjiuno/msgreader';
+import { isPdf } from './fileUtils.js';
 
 // Cache v5.7.2
 const _msgCache = new Map();
@@ -138,7 +139,7 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
         // --- Déterminer le MIME et le type ---
         const mime = getMimeType(attName || 'unknown.bin');
         const isImage = mime.startsWith('image/');
-        const isPdf = mime === 'application/pdf';
+        const isPdfFile = isPdf({ type: mime, name: attName });
 
         // --- Gestion des PJ sans nom ---
         if (!attName || attName === '' || attName.startsWith('attachment_')) {
@@ -154,7 +155,7 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
             }
         }
 
-        if (!isPdf && !isImage) {
+        if (!isPdfFile && !isImage) {
             console.log(`${prefix}   #${i} ❌ Rejeté (ni PDF ni image) : "${attName}", mime="${mime}"`);
             continue;
         }

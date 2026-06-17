@@ -10,6 +10,7 @@
 import { fileToBase64, pdfExtractHybrid } from '../utils/pdfUtils.js';
 import { usePromptStore } from '../../store/promptStore.js';
 import { parseMsgFile } from '../utils/msgUtils.js';
+import { isPdfDeep } from '../utils/fileUtils.js';
 
 // v5.5.4
 /**
@@ -67,7 +68,7 @@ export const extractFinancialData = async (files, providedApiKey = null, onStatu
                     } catch (e) {
                         contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
                     }
-                } else if (item.type === 'application/pdf') {
+                } else if (await isPdfDeep(item)) {
                     // v5.9.1 - Optimisation Hybride PDF : texte si facture numérique, vision si scan
                     const hybrid = await pdfExtractHybrid(item);
                     if (hybrid.mode === 'text') {

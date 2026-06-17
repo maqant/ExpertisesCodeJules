@@ -45,6 +45,7 @@ import { extractFinancialData } from './agents/financial.js';
 import { runMergeAgent } from './agents/merger.js';
 import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 import { usePromptStore } from '../store/promptStore.js';
+import { isPdf, isPdfDeep } from './utils/fileUtils.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
@@ -213,7 +214,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                             
                             contentArray.push({ type: "text", text: `\n\n==================================================\n[DÉBUT DE LA PIÈCE JOINTE : ${attName}]\n` });
 
-                            if (att.type === 'application/pdf') {
+                            if (await isPdfDeep(att)) {
                                 const base64Images = await pdfToBase64Images(att);
                                 for (const img of base64Images) {
                                     contentArray.push({ type: "image_url", image_url: { url: img } });
@@ -233,7 +234,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
                         console.warn(`[aiManager] Impossible de lire le fichier MSG ${file.name}:`, e);
                         contentArray.push({ type: "text", text: `[Fichier MSG illisible: ${file.name}]` });
                     }
-                } else if (file.type === 'application/pdf') {
+                } else if (await isPdfDeep(file)) {
                     const base64Images = await pdfToBase64Images(file);
                     for (const img of base64Images) {
                         contentArray.push({
@@ -771,7 +772,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             const fileName = file.name || 'document_sans_nom';
             const isMsg = fileName.toLowerCase().endsWith('.msg');
             // Détecter les PJ extraites des MSG (pas dans les fichiers originaux)
-            const isExtractedFromMsg = !rawFiles.includes(file) && file.type === 'application/pdf';
+            const isExtractedFromMsg = !rawFiles.includes(file) && (await isPdf(file));
             let categories = routeMap[fileName];
             
             if (!categories && isMsg) {

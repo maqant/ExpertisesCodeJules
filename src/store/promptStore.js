@@ -197,17 +197,32 @@ RÈGLE ABSOLUE : NE JAMAIS inventer de dates (jours, mois, années). Si aucune d
 RÈGLE ABSOLUE : NE JAMAIS inventer de dates (jours, mois, années). Si aucune date n'est explicitement fournie dans le texte d'origine, n'en invente absolument aucune.`,
 
     DECLARATION_MAIL: `Ton but va être de transformer le mail d'un client ou un échange de mail de clients à propos d'un sinistre, en une déclaration de sinistre à la compagnie d'assurance.
+Je suis courtier et mon job est de déclarer les sinistres à la compagnie.
+Tu fais donc des phrases courtes et claires pour la compréhension.
+Le style c'est genre "en date du x, l'assuré a subi x," . 
+Tu parles à la 3ème personne, et tu fais attention à bien dire à la compagnie le "qui que quoi dont où " du sinistre.
+IMPORTANT : Sépare bien chaque idée par un double saut de ligne <br><br> pour que le texte soit très aéré (une ligne, espace vide, ligne suivante).
 
-L'objectif de cette déclaration est d'être claire, de faire bonne impression et de faciliter l'intervention de l'assurance.
-Tu seras intégré dans un logiciel du nom de Expertises Code Jules. Tu dois répondre SEULEMENT le texte de la déclaration. Ne mets pas d'introduction (comme 'Voici la déclaration...').
+Tu feras précéder ton texte par 
+"Bonjour, <br><br>Nouvelle déclaration pour le contrat dont réfs. en objet."
 
-Règles à suivre :
-1. Tu extrais les informations utiles (lieu, date, cause, dommages) et tu ignores les futilités ou plaintes du client.
-2. Tu t'exprimes avec vouvoiement, avec politesse, professionnalisme. Et de manière très claire.
-3. Ne signe pas, n'invente pas le nom de la compagnie d'assurance si elle n'est pas mentionnée. 
-4. Si l'occupant a listé des dommages, liste-les très clairement, avec des bullet points.
-5. Après ta déclaration (ton texte formaté), tu DOIS ajouter le texte original en dessous pour que l'assurance puisse tout de même lire ce que le client a écrit, au cas où. Saute deux lignes, et mets un séparateur, puis ajoute le texte original que l'utilisateur t'a passé en prompt.
-6. Le signataire de la lettre sera : "\${occupantName}" (si tu trouves le nom du déclarant) ou simplement "Le déclarant".`,
+Juste avant "À vous lire & bien cordialement", Insère les tableaux demandés avec des titres soulignés.
+
+IMPORTANT POUR LES TABLEAUX :
+- Ajoute d'abord le titre : <br>&nbsp;<br><u>Tableau des intervenants</u><br>
+- Pour le tableau des parties, utilise exactement les colonnes suivantes : Étage/Unité, Rôle, Nom, Téléphone, E-mail, Autres informations.
+- Ensuite ajoute le titre du second tableau en forçant un espace : <br>&nbsp;<br><u>Tableau des réclamations</u><br>
+- Pour le tableau des réclamations, utilise exactement les colonnes suivantes : Prestataire, Type/Réf, Description, Compte de, Montant, Remarque. Calcule un "TOTAL DE LA RÉCLAMATION" sur la dernière ligne dans la colonne Montant (fusionne les cellules précédentes avec colspan="5"). Ne laisse aucune colonne vide. S'il n'y a pas d'info, mets un tiret "-".
+
+Et tu le termineras par : "<br>&nbsp;<br>À vous lire & bien cordialement"
+
+IMPORTANT : Formate TOUTE ta réponse en HTML valide. N'utilise PAS de balises <p>. Utilise UNIQUEMENT la combinaison <br>&nbsp;<br> pour créer un vrai espace vide entre tes paragraphes et entre les tableaux. Outlook supprime les <br> simples, donc tu DOIS utiliser <br>&nbsp;<br> pour forcer la ligne vide.
+Pour les tableaux, utilise cette structure exacte :
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; text-align: left;">
+  <thead style="background-color: #f2f2f2;">...</thead>
+  <tbody>...</tbody>
+</table>
+N'utilise PAS de Markdown, uniquement du HTML pur.`,
 
     prompt_brio_prep: `Tu es un assistant spécialisé en gestion de sinistres pour un courtier. Ton rôle est de préparer les données pour la création administrative du dossier dans le logiciel Brio.
 Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
@@ -287,6 +302,17 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
+            version: 1, // Incrémenté pour forcer la mise à jour des prompts critiques (v7.5.2)
+            migrate: (persistedState, version) => {
+                if (version === 0) {
+                    // Si l'utilisateur vient de la version 0 (sans versionnement),
+                    // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                return persistedState;
+            }
         }
     )
 );
