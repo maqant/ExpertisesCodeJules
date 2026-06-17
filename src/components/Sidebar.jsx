@@ -312,7 +312,7 @@ const Sidebar = () => {
         const msgFile = allFiles.find(f => f.name.toLowerCase().endsWith('.msg'));
         if (msgFile) {
             try {
-                const { parseMsgFile } = await import('../services/utils/aiHelpers.js');
+                const { parseMsgFile } = await import('../services/utils/msgUtils.js');
                 const { bodyText } = await parseMsgFile(msgFile);
                 if (bodyText) {
                     setBrioPrepInitialText(bodyText);

@@ -293,10 +293,10 @@ const GlobalValidationModal = () => {
             pendingFiles: pendingAiData.pendingFiles || []  // explicit safety net
         };
 
-        // v7.2.1 - Sauvegarde du Feedback Dataset
-        const hasFeedback = Object.values(feedbackOptions).some(Boolean) || feedbackNote.trim() !== '';
-        if (hasFeedback) {
+        // v7.4.5 - Golden Dataset: TOUJOURS sauvegarder un record à chaque validation
+        {
             const { addRecord } = useDatasetStore.getState();
+            const hasFeedback = Object.values(feedbackOptions).some(Boolean) || feedbackNote.trim() !== '';
             const activeCategories = Object.entries(feedbackOptions)
                 .filter(([, isChecked]) => isChecked)
                 .map(([key]) => key);
@@ -310,10 +310,10 @@ const GlobalValidationModal = () => {
             }
                 
             addRecord({
-                feedback: {
+                feedback: hasFeedback ? {
                     categories: activeCategories,
                     note: feedbackNote.trim()
-                },
+                } : null,
                 inputText: rawInputText,
                 aiOutput: {
                     formData: pendingAiData.formData,
@@ -328,6 +328,7 @@ const GlobalValidationModal = () => {
                     expenses: editableData.expenses
                 }
             });
+            console.log("[GoldenDataset] ✅ Record sauvegardé", { hasFeedback, rawInputTextLength: rawInputText.length });
         }
 
         setPendingAiData(mergedData);
