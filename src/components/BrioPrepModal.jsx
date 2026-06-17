@@ -3,7 +3,7 @@ import { usePromptStore } from '../store/promptStore';
 import { runBrioPrepAnalysis } from '../services/generators/generatorEngine';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 
-const BrioPrepModal = ({ isOpen, onClose, onContinue }) => {
+const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
     const { franchises, aiConfig } = useContext(ExpertiseContext);
     const { getPrompt } = usePromptStore();
 
@@ -19,8 +19,10 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue }) => {
             setResults(null);
             setError(null);
             setCalculatedFranchise('');
+        } else if (initialText) {
+            setMailText(initialText);
         }
-    }, [isOpen]);
+    }, [isOpen, initialText]);
 
     const getFranchiseAmount = (dateString) => {
         if (!dateString || !dateString.includes('/')) return 'Date invalide ou absente';
@@ -65,6 +67,12 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue }) => {
         }
     };
 
+    useEffect(() => {
+        if (isOpen && initialText && mailText === initialText && !results && !isLoading && !error) {
+            handleAnalyze();
+        }
+    }, [isOpen, initialText, mailText, results, isLoading, error]);
+
     const handleCopy = (text) => {
         if (!text) return;
         navigator.clipboard.writeText(text).then(() => {
@@ -75,7 +83,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-slate-900 rounded-xl border border-indigo-500/40 shadow-2xl p-6 w-full max-w-[700px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">

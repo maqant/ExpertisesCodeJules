@@ -304,6 +304,25 @@ const Sidebar = () => {
 
     // Brio Prep State
     const [isBrioPrepModalOpen, setIsBrioPrepModalOpen] = useState(false);
+    const [brioPrepInitialText, setBrioPrepInitialText] = useState('');
+
+    const handleAutoBrioPrep = async (filesArray) => {
+        if (!filesArray) return;
+        const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
+        const msgFile = allFiles.find(f => f.name.toLowerCase().endsWith('.msg'));
+        if (msgFile) {
+            try {
+                const { parseMsgFile } = await import('../services/utils/aiHelpers.js');
+                const { bodyText } = await parseMsgFile(msgFile);
+                if (bodyText) {
+                    setBrioPrepInitialText(bodyText);
+                    setIsBrioPrepModalOpen(true);
+                }
+            } catch (err) {
+                console.error("Erreur Auto Brio:", err);
+            }
+        }
+    };
 
     const handleTogglePhotoSelect = (dbKey) => {
         setSelectedPhotos(prev => prev.includes(dbKey) ? prev.filter(k => k !== dbKey) : [...prev, dbKey]);
@@ -2029,9 +2048,14 @@ const Sidebar = () => {
         <UniversalIngestionModal />
         <BrioPrepModal
             isOpen={isBrioPrepModalOpen}
-            onClose={() => setIsBrioPrepModalOpen(false)}
+            initialText={brioPrepInitialText}
+            onClose={() => {
+                setIsBrioPrepModalOpen(false);
+                setBrioPrepInitialText('');
+            }}
             onContinue={async (rawText) => {
                 setIsBrioPrepModalOpen(false);
+                setBrioPrepInitialText('');
                 const created = await handleNewDossier();
                 if (created) {
                     const syntheticFile = new File([rawText], "declaration_initiale.txt", { type: "text/plain" });
@@ -2345,6 +2369,7 @@ const Sidebar = () => {
                 setIsBridgeModalOpen(false);
                 // v5.9.4 - Fix SAS Trigger
                 triggerSmartBridgeAnalysis(currentBridgeFile);
+                handleAutoBrioPrep(currentBridgeFile);
             }}
             onManualSelect={(dossier) => {
                 if (dossier) {
@@ -2352,6 +2377,7 @@ const Sidebar = () => {
                 }
                 setIsBridgeModalOpen(false);
                 triggerSmartBridgeAnalysis(currentBridgeFile);
+                handleAutoBrioPrep(currentBridgeFile);
             }}
             onCreateNew={() => {
                 const created = handleNewDossier();
@@ -2359,6 +2385,7 @@ const Sidebar = () => {
                 setIsBridgeModalOpen(false);
                 // v5.9.4 - Fix SAS Trigger
                 triggerSmartBridgeAnalysis(currentBridgeFile, true);
+                handleAutoBrioPrep(currentBridgeFile);
             }}
         />
         {/* v6.0.0 - Generated Doc Modal */}
