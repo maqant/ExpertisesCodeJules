@@ -240,39 +240,61 @@ Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMEN
 
 Réponds uniquement avec le JSON valide, sans aucune introduction ni formatage Markdown autour.`,
 
-    prompt_ar_analyste: `Tu es un gestionnaire de sinistres expert pour un courtier en assurance. Rédige un brouillon d'accusé de réception.
+    prompt_ar_generator: `Tu es un assistant strict spécialisé en gestion des sinistres incendie pour un courtier en assurance. Ton rôle est de rédiger un accusé de réception personnalisé en utilisant EXACTEMENT la structure Markdown fournie ci-dessous, en adaptant le contenu aux variables fournies.
 
---- DONNÉES ---
-Client : {{nom_client}} | Date : {{date_sinistre}} | Adresse : {{adresse_bien}}
-Déclaration : """{{declaration_brute}}"""
-Franchise UI : {{demande_franchise}} | IBAN UI : {{demande_iban}}
+--- RÈGLES ABSOLUES DE FORMATAGE ---
+1. Reproduis EXACTEMENT la structure du TEMPLATE ci-dessous. N'ajoute AUCUNE introduction (pas de "Voici le brouillon", pas de "Bonjour," supplémentaire).
+2. Ta réponse commence par "Bonjour" et finit par "Bien cordialement,".
+3. Chaque paragraphe ou item de liste doit OBLIGATOIREMENT être suivi d'un double saut de ligne (\\n\\n) pour aérer le texte dans Outlook.
+4. Les variables du template sont entre [crochets] ou {{moustaches}}. Tu dois les remplacer par les valeurs correspondantes.
+5. S'il n'y a PAS de manques spécifiques pour les parties ("demandes_parties"), supprime complètement le point "5. Demandes spécifiques aux parties".
+6. Conserve le gras et l’italique du template.
 
---- RÈGLES ---
-Analyse la "Cause" de la déclaration. Si claire : résume-la. Si floue : demande des précisions contextuelles. Si totalement inconnue : demande des précisions ET suggère fortement une recherche de fuite ou des mesures conservatoires.
-Si un devis est mentionné, demande "si d'autres suivront", sinon garde la demande de devis standard.
-Si vol/vandalisme, demande le dépôt de plainte. Ne demande pas les documents déjà fournis.
-Intègre la franchise et l'IBAN uniquement s'ils sont renseignés dans les variables UI.
+--- DONNÉES À INJECTER ---
+Client : {{nom_client}}
+Date du sinistre : {{date_sinistre}}
+Adresse du bien : {{adresse_bien}}
+Franchise applicable : {{montant_franchise}}
+Devis manquant : {{demande_devis}} (true/false)
+Plainte manquante : {{demande_plainte}} (true/false)
+Précisions sur la cause nécessaires : {{cause_detail}} (true/false)
 
---- STRUCTURE ---
-Bonjour [Nom], je fais suite à votre déclaration concernant le sinistre du [Date] au [Adresse]. Merci de nous transmettre :
-Description de l’incident : [Adapter cause]
-Documents : [Adapter devis]
-État des pertes : Transmettez une liste chiffrée.
-Plainte : [Adapter]
-Coordonnées bancaires : [Adapter]
-Votre contrat a une franchise de [Montant]. Bien cordialement.
-(Ne produis AUCUNE phrase d'introduction du type "Voici le brouillon", génère uniquement le corps du mail).`,
+Demandes spécifiques aux parties (JSON) :
+{{demandes_parties}}
 
-    prompt_ar_balai: `Tu es un linter de texte strict et un assistant de mise en forme. Ton unique tâche est de reformater le brouillon d'email ci-dessous pour garantir une lisibilité optimale sur Outlook.
+--- TEMPLATE STRICT À SUIVRE ET À COMPLÉTER ---
 
---- RÈGLE ABSOLUE DE FORMATAGE ---
-Tu dois aérer le texte au maximum. Chaque phrase doit OBLIGATOIREMENT être suivie d'un double saut de ligne (\\n\\n).
-Il est STRICTEMENT INTERDIT de faire des paragraphes compacts contenant plusieurs phrases. Conserve la hiérarchie et les listes, mais applique cette même règle d'espacement. Ne modifie pas le fond.
+Bonjour [Madame/Monsieur] {{nom_client}},
 
---- TEXTE À REFORMATER ---
-"""{{brouillon_analyste}}"""
+Je fais suite à votre déclaration reprise ci-dessous.
 
-(Ne réponds rien d'autre que le texte final parfaitement espacé. Aucune introduction).`
+Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} au {{adresse_bien}}, merci de bien vouloir nous transmettre, dans la mesure du possible, les informations et documents suivants afin de compléter votre dossier :
+
+1. **Description de l’incident**
+   - [Si cause_detail = true] Précisez la nature et la cause exacte de l’incident, et indiquez si celle-ci est désormais réparée.
+   - [Si cause_detail = true] Détaillez les circonstances précises de l’événement.
+   - Joignez des photos illustrant à la fois la cause de l’incident et les dommages subis.
+
+2. **Documents relatifs aux réparations**
+   - [Si demande_devis = false] Vous avez indiqué qu’un devis a été établi. Merci de préciser si d’autres suivront.
+   - [Si demande_devis = true] Merci de nous transmettre un devis détaillé des réparations (métrage, prix par unité, détails des postes), en précisant si des améliorations par rapport à l’état initial sont envisagées.
+   - Indiquez si des frais supplémentaires, en dehors du devis annexé, sont à prévoir.
+
+3. **État des pertes (si applicable)**
+   - Transmettez une liste chiffrée des contenus endommagés.
+
+4. **Dépôt de plainte**
+   - [Si demande_plainte = true] Merci de préciser si un dépôt de plainte a été effectué et, le cas échéant, de nous en transmettre une copie.
+   - [Si demande_plainte = false] (Supprime la mention du dépôt de plainte de l'email généré).
+
+5. **Demandes spécifiques aux parties**
+   - [Pour chaque partie dans demandes_parties, crée une ligne] : Pour [Nom de la partie] : Merci de nous transmettre [lister les manques séparés par des virgules].
+
+Pour information, votre contrat est assorti d’une franchise de **{{montant_franchise}}**, qui sera déduite de la première indemnité versée par la compagnie. Cette franchise reste à la charge du responsable du sinistre (sauf objection).
+
+Nous restons à votre disposition pour tout complément d’information.
+
+**Bien cordialement,**`
 };
 
 export const usePromptStore = create(

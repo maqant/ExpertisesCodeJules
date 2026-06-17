@@ -118,16 +118,14 @@ export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-
 };
 
 /**
- * generateAcknowledgmentEmail — Générateur d'Accusé de Réception (Pipeline à 2 étages)
+ * generateAcknowledgmentEmail — Générateur d'Accusé de Réception v2
  *
- * Passe 1: Analyse logique (temp: 0.2)
- * Passe 2: Linter de texte pour Outlook (temp: 0.0)
+ * Utilise un prompt strict (prompt_ar_generator) avec les variables validées par l'UI.
  */
-export const generateAcknowledgmentEmail = async (dossierData, formData, apiKey) => {
+export const generateAcknowledgmentEmail = async (dossierData, formSelections, apiKey) => {
     const model = 'gpt-5.4';
     const { getPrompt } = usePromptStore.getState();
-    const analystPromptTemplate = getPrompt('prompt_ar_analyste');
-    const linterPromptTemplate = getPrompt('prompt_ar_balai');
+    const generatorPrompt = getPrompt('prompt_ar_generator');
 
     // Extraire le nom du client (le premier occupant pertinent)
     let nomClient = "Client";
@@ -136,25 +134,43 @@ export const generateAcknowledgmentEmail = async (dossierData, formData, apiKey)
         nomClient = `${principal.nom || ''} ${principal.prenom || ''}`.trim() || "Client";
     }
 
-    // Préparer les données pour l'interpolation
-    const dateSinistre = dossierData.formData?.dateSinistre || '';
-    const adresseBien = dossierData.formData?.adresse || '';
-    const declarationBrute = dossierData.formData?.cause || '';
+    const dateSinistre = dossierData.formData?.dateSinistre || '[Date inconnue]';
+    const adresseBien = dossierData.formData?.adresse || '[Adresse inconnue]';
+    
+    const montantFranchise = formSelections.franchiseInput || '0€';
+    const demandeDevis = formSelections.askDevis === true ? 'true' : 'false';
+    const demandePlainte = formSelections.askPlainte === true ? 'true' : 'false';
+    const causeDetail = formSelections.askCauseDetail === true ? 'true' : 'false';
 
-    // Variables UI : ce qu'on demande explicitement (franchise ou IBAN)
-    const demandeFranchise = formData.franchiseInput || "Non, ne pas demander";
-    const demandeIban = formData.ibanInput || "Non, ne pas demander";
+    // Formater les demandes spécifiques aux parties
+    let demandesPartiesStr = '';
+    if (formSelections.partiesGaps && formSelections.partiesGaps.length > 0) {
+        // Filtrer les parties qui ont au moins un manque coché
+        const partiesAvecManques = formSelections.partiesGaps.filter(p => p.manques && p.manques.length > 0);
+        if (partiesAvecManques.length > 0) {
+            demandesPartiesStr = JSON.stringify(partiesAvecManques.map(p => ({
+                nom: `${p.nom} ${p.prenom}`.trim(),
+                manques: p.manques
+            })), null, 2);
+        }
+    }
 
-    // Interpolation pour la passe 1
-    const analystContent = analystPromptTemplate
-        .replace('{{nom_client}}', nomClient)
-        .replace('{{date_sinistre}}', dateSinistre)
-        .replace('{{adresse_bien}}', adresseBien)
-        .replace('{{declaration_brute}}', declarationBrute)
-        .replace('{{demande_franchise}}', demandeFranchise)
-        .replace('{{demande_iban}}', demandeIban);
+    if (!demandesPartiesStr) {
+        demandesPartiesStr = '[]';
+    }
 
-    const callPasse1 = async () => {
+    // Interpolation des variables
+    const promptContent = generatorPrompt
+        .replace(/{{nom_client}}/g, nomClient)
+        .replace(/{{date_sinistre}}/g, dateSinistre)
+        .replace(/{{adresse_bien}}/g, adresseBien)
+        .replace(/{{montant_franchise}}/g, montantFranchise)
+        .replace(/{{demande_devis}}/g, demandeDevis)
+        .replace(/{{demande_plainte}}/g, demandePlainte)
+        .replace(/{{cause_detail}}/g, causeDetail)
+        .replace(/{{demandes_parties}}/g, demandesPartiesStr);
+
+    const callApi = async () => {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -164,56 +180,23 @@ export const generateAcknowledgmentEmail = async (dossierData, formData, apiKey)
             body: JSON.stringify({
                 model,
                 messages: [
-                    { role: 'user', content: analystContent }
+                    { role: 'user', content: promptContent }
                 ],
-                temperature: 0.2,
+                temperature: 0.1, // Très faible pour rester strict sur le format
             })
         });
 
         if (!response.ok) {
             const errBody = await response.text();
-            throw new Error(`API (Passe 1) ${response.status}: ${errBody}`);
+            throw new Error(`API AR Generator ${response.status}: ${errBody}`);
         }
 
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
-        if (!text) throw new Error('[Generator] Réponse vide de l\'API (Passe 1).');
+        if (!text) throw new Error('[Generator] Réponse vide de l\'API (AR).');
         return text;
     };
 
-    console.log("[Generator] Lancement de la Passe 1 (Analyste) pour l'AR");
-    const brouillonAnalyste = await withRetry(callPasse1, 1, 2000);
-
-    // Interpolation pour la passe 2
-    const linterContent = linterPromptTemplate.replace('{{brouillon_analyste}}', brouillonAnalyste);
-
-    const callPasse2 = async () => {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    { role: 'user', content: linterContent }
-                ],
-                temperature: 0.0,
-            })
-        });
-
-        if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`API (Passe 2) ${response.status}: ${errBody}`);
-        }
-
-        const data = await response.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (!text) throw new Error('[Generator] Réponse vide de l\'API (Passe 2).');
-        return text;
-    };
-
-    console.log("[Generator] Lancement de la Passe 2 (Balai) pour l'AR");
-    return withRetry(callPasse2, 1, 2000);
+    console.log("[Generator] Lancement de la génération AR (v2)");
+    return withRetry(callApi, 1, 2000);
 };
