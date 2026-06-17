@@ -39,37 +39,21 @@ export const processIngestedFile = async (file) => {
         return file;
     }
 
-    // 2. Ancien format OLE2 (.doc, .xls) : BLOQUER
-    if (magic === 'D0 CF 11 E0') {
-        throw new Error(`Le format de ${name} (Word/Excel 97-2003) n'est pas pris en charge. Veuillez l'enregistrer au format récent (.docx ou .xlsx) et réessayer.`);
+    // 2. Ancien format OLE2 (.doc, .xls) : BLOQUER (sauf .msg)
+    if (magic === 'D0 CF 11 E0' && !nameLower.endsWith('.msg')) {
+        throw new Error(`Les formats bureautiques (Word, Excel) ne sont pas pris en charge. Veuillez enregistrer le fichier en PDF depuis votre logiciel avant de l'importer.`);
     }
 
-    // 3. Nouveaux formats ZIP (.docx, .xlsx)
+    // 3. Nouveaux formats ZIP (.docx, .xlsx) : BLOQUER
     if (magic.startsWith('50 4B 03 04')) { // PK..
-        if (nameLower.endsWith('.xlsx')) {
-            console.log(`[filePreprocessor] Conversion de ${name} (XLSX) en PDF...`);
-            try {
-                const pdfBytes = await convertXlsxToPdfBytes(file);
-                return new File([pdfBytes], name.replace(/\.xlsx$/i, '.pdf'), { type: 'application/pdf' });
-            } catch (e) {
-                console.error(`[filePreprocessor] Échec conversion XLSX: ${name}`, e);
-                throw new Error(`Impossible de lire le fichier Excel ${name}. Il est peut-être corrompu ou trop volumineux.`);
-            }
-        }
-        // Par défaut, on traite comme DOCX
-        console.log(`[filePreprocessor] Conversion de ${name} (DOCX) en PDF...`);
-        try {
-            const pdfBytes = await convertDocxToPdfBytes(file);
-            return new File([pdfBytes], name.replace(/\.docx?$/i, '.pdf'), { type: 'application/pdf' });
-        } catch (e) {
-            console.error(`[filePreprocessor] Échec conversion DOCX: ${name}`, e);
-            return file;
+        if (nameLower.endsWith('.docx') || nameLower.endsWith('.xlsx')) {
+            throw new Error(`Les formats bureautiques (.docx, .xlsx) ne sont pas pris en charge. Veuillez enregistrer le fichier en PDF depuis votre logiciel avant de l'importer.`);
         }
     }
 
     // 4. Format RTF : BLOQUER
     if (magic === '7B 5C 72 74') { // {\rt
-        throw new Error(`Le format RTF nécessite une mise en page complexe que le navigateur ne peut pas reproduire fidèlement. Ouvrez votre fichier dans Word et utilisez « Enregistrer sous → PDF » ou « .docx », puis réimportez-le ici.`);
+        throw new Error(`Le format RTF n'est pas pris en charge. Ouvrez votre fichier dans Word et utilisez « Enregistrer sous → PDF », puis réimportez-le ici.`);
     }
 
     // 5. Texte brut ou EDI (fallback text)

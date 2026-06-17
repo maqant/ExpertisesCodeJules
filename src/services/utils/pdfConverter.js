@@ -1,7 +1,5 @@
 import html2canvas from 'html2canvas';
 import { PDFDocument } from 'pdf-lib';
-import mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
 
 // ---------------------------------------------------------
 // Helper 1 : Transforme du HTML en Uint8Array (PDF)
@@ -80,22 +78,7 @@ export const convertHtmlToPdfBytes = async (htmlContent) => {
 };
 
 // ---------------------------------------------------------
-// Helper 2 : Convertir un Fichier .docx -> Uint8Array (PDF)
-// ---------------------------------------------------------
-export const convertDocxToPdfBytes = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.convertToHtml({ arrayBuffer });
-    const html = `
-        <div style="margin-bottom: 20px;">
-            <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 5px;">Document original : ${file.name}</h2>
-        </div>
-        ${result.value}
-    `;
-    return convertHtmlToPdfBytes(html);
-};
-
-// ---------------------------------------------------------
-// Helper 3 : Convertir un Fichier Texte / EDI -> Uint8Array (PDF)
+// Helper 2 : Convertir un Fichier Texte / EDI -> Uint8Array (PDF)
 // ---------------------------------------------------------
 export const convertTextToPdfBytes = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -133,29 +116,5 @@ export const convertTextToPdfBytes = async (file) => {
         </div>
     `;
 
-    return convertHtmlToPdfBytes(html);
-};
-
-// ---------------------------------------------------------
-// Helper 4 : Convertir un Fichier .xlsx -> Uint8Array (PDF)
-// ---------------------------------------------------------
-export const convertXlsxToPdfBytes = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const htmlTable = XLSX.utils.sheet_to_html(worksheet);
-    
-    const html = `
-        <div style="margin-bottom: 20px;">
-            <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 5px;">Document original : ${file.name}</h2>
-        </div>
-        <style>
-            table { border-collapse: collapse; width: 100%; font-size: 10pt; }
-            th, td { border: 1px solid #ddd; padding: 4px; text-align: left; word-wrap: break-word; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-        </style>
-        ${htmlTable}
-    `;
     return convertHtmlToPdfBytes(html);
 };
