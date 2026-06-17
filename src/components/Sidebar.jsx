@@ -305,6 +305,8 @@ const Sidebar = () => {
     // Brio Prep State
     const [isBrioPrepModalOpen, setIsBrioPrepModalOpen] = useState(false);
     const [brioPrepInitialText, setBrioPrepInitialText] = useState('');
+    const [brioOverrides, setBrioOverrides] = useState({});
+    const brioOverridesRef = useRef({});
 
     const handleAutoBrioPrep = async (filesArray) => {
         if (!filesArray) return;
@@ -507,8 +509,9 @@ const Sidebar = () => {
                     ...allFiles.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
 
+                const currentOverrides = brioOverridesRef.current;
                 setPendingAiData({
-                    formData: aiData.formData || null,
+                    formData: { ...(aiData.formData || {}), ...currentOverrides },
                     occupants,
                     experts: aiData.experts || [],
                     intervenants: aiData.intervenants || [],
@@ -2056,19 +2059,23 @@ const Sidebar = () => {
             onContinue={async (rawText, brioResults, brioFranchise) => {
                 setIsBrioPrepModalOpen(false);
                 setBrioPrepInitialText('');
-                // Injecter la franchise calculée par Brio dans le formData du dossier courant
-                if (brioFranchise) {
-                    setFormData(prev => ({ ...prev, franchise: brioFranchise }));
-                }
-                // Injecter la date du sinistre si disponible
-                if (brioResults?.date) {
-                    setFormData(prev => ({ ...prev, dateSinistre: brioResults.date }));
-                }
-                // NE PAS relancer triggerSmartBridgeAnalysis ici !
-                // Le pipeline principal (lancé par onCreateNew du SmartBridge) est déjà en cours
-                // avec le fichier MSG original. Relancer créerait un doublon qui écraserait
-                // les résultats (et viderait le _rawInputText du Golden Dataset).
-                console.log('[BrioPrep] ✅ Franchise et date injectées. Pipeline principal en cours...');
+                
+                const overrides = {};
+                if (brioFranchise) overrides.franchise = brioFranchise;
+                if (brioResults?.date) overrides.dateSinistre = brioResults.date;
+
+                setBrioOverrides(overrides);
+                brioOverridesRef.current = overrides;
+
+                // Si l'analyse principale est DÉJÀ terminée, on met à jour pendingAiData immédiatement
+                setPendingAiData(prev => {
+                    if (prev) {
+                        return { ...prev, formData: { ...prev.formData, ...overrides } };
+                    }
+                    return prev;
+                });
+
+                console.log('[BrioPrep] ✅ Overrides stockés dans le sas. Ils seront fusionnés à la fin de l\'analyse.');
             }}
         />
 

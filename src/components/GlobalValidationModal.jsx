@@ -324,10 +324,10 @@ const GlobalValidationModal = () => {
                 },
                 userCorrection: {
                     formData: editableData.formData,
-                    occupants: editableData.occupants.filter(o => selections.occupants.some(sel => sel.id === o.id)),
-                    expenses: editableData.expenses.filter(e => selections.expenses.includes(e.id)),
-                    intervenants: (pendingAiData.intervenants || []).filter(i => selections.intervenants.includes(i.id)),
-                    experts: (pendingAiData.experts || []).filter(e => selections.experts.includes(e.id))
+                    occupants: editableData.occupants.map(o => ({ ...o, _status: selections.occupants.some(sel => sel.id === o.id) ? 'kept' : 'rejected' })),
+                    expenses: editableData.expenses.map(e => ({ ...e, _status: selections.expenses.includes(e.id) ? 'kept' : 'rejected' })),
+                    intervenants: (pendingAiData.intervenants || []).map(i => ({ ...i, _status: selections.intervenants.includes(i.id) ? 'kept' : 'rejected' })),
+                    experts: (pendingAiData.experts || []).map(e => ({ ...e, _status: selections.experts.includes(e.id) ? 'kept' : 'rejected' }))
                 }
             });
             console.log("[GoldenDataset] ✅ Record sauvegardé", { hasFeedback, rawInputTextLength: rawInputText.length });
