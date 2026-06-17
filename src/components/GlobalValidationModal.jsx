@@ -324,8 +324,10 @@ const GlobalValidationModal = () => {
                 },
                 userCorrection: {
                     formData: editableData.formData,
-                    occupants: editableData.occupants,
-                    expenses: editableData.expenses
+                    occupants: editableData.occupants.filter(o => selections.occupants.some(sel => sel.id === o.id)),
+                    expenses: editableData.expenses.filter(e => selections.expenses.includes(e.id)),
+                    intervenants: (pendingAiData.intervenants || []).filter(i => selections.intervenants.includes(i.id)),
+                    experts: (pendingAiData.experts || []).filter(e => selections.experts.includes(e.id))
                 }
             });
             console.log("[GoldenDataset] ✅ Record sauvegardé", { hasFeedback, rawInputTextLength: rawInputText.length });
