@@ -194,7 +194,7 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                 ref={inputRef}
                 type="file"
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.msg,.txt,.docx,.doc,.edi,.xls,.xlsx"
+                accept=".pdf,.jpg,.jpeg,.png,.msg,.txt,.docx,.doc,.edi,.xls,.xlsx,.rtf"
                 onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = null; }}
                 className="hidden"
             />

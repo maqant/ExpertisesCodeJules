@@ -166,7 +166,7 @@ const GlobalAiAssistant = () => {
                                 : 'border-slate-600 hover:border-indigo-400/60 bg-slate-800/40 hover:bg-slate-800/60'
                         }`}
                     >
-                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.msg"
+                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.msg,.txt,.docx,.doc,.edi,.xls,.xlsx,.rtf"
                             onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
                             className="hidden"
                         />
@@ -306,7 +306,7 @@ const GlobalAiAssistant = () => {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.msg"
+                accept=".pdf,.jpg,.jpeg,.png,.msg,.txt,.docx,.doc,.edi,.xls,.xlsx,.rtf"
                 onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
                 className="hidden"
             />

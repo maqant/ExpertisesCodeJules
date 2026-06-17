@@ -1,6 +1,8 @@
 import html2canvas from 'html2canvas';
 import { PDFDocument } from 'pdf-lib';
 import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
+import { extractTextFromRTF } from './rtfExtractor.js';
 
 // ---------------------------------------------------------
 // Helper 1 : Transforme du HTML en Uint8Array (PDF)
@@ -132,5 +134,56 @@ export const convertTextToPdfBytes = async (file) => {
         </div>
     `;
 
+    return convertHtmlToPdfBytes(html);
+};
+
+// ---------------------------------------------------------
+// Helper 4 : Convertir un Fichier .xlsx -> Uint8Array (PDF)
+// ---------------------------------------------------------
+export const convertXlsxToPdfBytes = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    const htmlTable = XLSX.utils.sheet_to_html(worksheet);
+    
+    const html = `
+        <div style="margin-bottom: 20px;">
+            <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 5px;">Document original : ${file.name}</h2>
+        </div>
+        <style>
+            table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+            th, td { border: 1px solid #ddd; padding: 4px; text-align: left; word-wrap: break-word; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+        ${htmlTable}
+    `;
+    return convertHtmlToPdfBytes(html);
+};
+
+// ---------------------------------------------------------
+// Helper 5 : Convertir un Fichier .rtf -> Uint8Array (PDF)
+// ---------------------------------------------------------
+export const convertRtfToPdfBytes = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const decoder = new TextDecoder('windows-1252');
+    const rtfText = decoder.decode(arrayBuffer);
+    
+    const plainText = extractTextFromRTF(rtfText);
+
+    const escapedText = plainText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\\n/g, '<br/>');
+
+    const html = `
+        <div style="margin-bottom: 20px;">
+            <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 5px;">Document original : ${file.name}</h2>
+        </div>
+        <div style="font-family: Arial, sans-serif; font-size: 11pt; white-space: pre-wrap; word-break: break-word;">
+            ${escapedText}
+        </div>
+    `;
     return convertHtmlToPdfBytes(html);
 };
