@@ -1,7 +1,7 @@
 {
   "name": "expertises-code-jules",
   "private": true,
-  "version": "7.7.0",
+  "version": "7.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@iarna/rtf-to-html": "^1.1.0",
     "@kenjiuno/msgreader": "^1.28.0",
     "html2canvas": "^1.4.1",
     "iconv-lite": "^0.7.2",

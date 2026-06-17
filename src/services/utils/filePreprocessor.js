@@ -1,5 +1,5 @@
 import { isPdfDeep } from './fileUtils.js';
-import { convertDocxToPdfBytes, convertTextToPdfBytes, convertXlsxToPdfBytes, convertRtfToPdfBytes } from './pdfConverter.js';
+import { convertDocxToPdfBytes, convertTextToPdfBytes, convertXlsxToPdfBytes } from './pdfConverter.js';
 
 // Fonction utilitaire pour lire les premiers octets
 const readMagicBytes = async (file, byteCount = 4) => {
@@ -67,16 +67,9 @@ export const processIngestedFile = async (file) => {
         }
     }
 
-    // 4. Format RTF
+    // 4. Format RTF : BLOQUER
     if (magic === '7B 5C 72 74') { // {\rt
-        console.log(`[filePreprocessor] Conversion de ${name} (RTF) en PDF...`);
-        try {
-            const pdfBytes = await convertRtfToPdfBytes(file);
-            return new File([pdfBytes], name.replace(/\.rtf$/i, '.pdf'), { type: 'application/pdf' });
-        } catch (e) {
-            console.error(`[filePreprocessor] Échec conversion RTF: ${name}`, e);
-            throw new Error(`Impossible de lire le fichier RTF ${name}.`);
-        }
+        throw new Error(`Le format RTF nécessite une mise en page complexe que le navigateur ne peut pas reproduire fidèlement. Ouvrez votre fichier dans Word et utilisez « Enregistrer sous → PDF » ou « .docx », puis réimportez-le ici.`);
     }
 
     // 5. Texte brut ou EDI (fallback text)
