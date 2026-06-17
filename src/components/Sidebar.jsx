@@ -236,7 +236,8 @@ const Sidebar = () => {
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
         isDeepThinkingMode, // v6.3.2 - Mode Lourd
         commitLogSession, clearDebugLogs, // v6.3.3
-        telemetry: contextTelemetry
+        telemetry: contextTelemetry,
+        exportTelemetryJson
     } = context;
 
     const handleFocusCapture = (e) => {
@@ -966,7 +967,7 @@ const Sidebar = () => {
 
                         <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
                             <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie & Usage</h3>
-                            <button onClick={() => contextTelemetry?.exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
+                            <button onClick={() => exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
                              <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
                         </div>
 
