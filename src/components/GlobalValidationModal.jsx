@@ -300,13 +300,21 @@ const GlobalValidationModal = () => {
             const activeCategories = Object.entries(feedbackOptions)
                 .filter(([, isChecked]) => isChecked)
                 .map(([key]) => key);
+
+            const rawInputText = typeof pendingAiData?._rawInputText === 'string' && pendingAiData._rawInputText.trim().length > 0
+                ? pendingAiData._rawInputText
+                : "TEXTE_NON_CAPTURE";
+
+            if (rawInputText === "TEXTE_NON_CAPTURE") {
+                console.warn("[GoldenDataset] _rawInputText manquant dans pendingAiData", pendingAiData);
+            }
                 
             addRecord({
                 feedback: {
                     categories: activeCategories,
                     note: feedbackNote.trim()
                 },
-                inputText: pendingAiData._rawInputText || "TEXTE_NON_CAPTURE",
+                inputText: rawInputText,
                 aiOutput: {
                     formData: pendingAiData.formData,
                     occupants: pendingAiData.occupants,
@@ -812,7 +820,13 @@ const GlobalValidationModal = () => {
                                 Fusion (Doublons non détectés)
                             </label>
                         </div>
-                        <input type="text" value={feedbackNote} onChange={(e) => setFeedbackNote(e.target.value)} placeholder="Note optionnelle : qu'est-ce qui a planté ?" className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[10px] text-white focus:border-indigo-500 outline-none" />
+                        <input type="text" value={feedbackNote} onChange={(e) => setFeedbackNote(e.target.value)} placeholder="Note optionnelle : qu'est-ce qui a planté ?" className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[10px] text-white focus:border-indigo-500 outline-none mb-2" />
+                        
+                        {(Object.values(feedbackOptions).some(Boolean) || feedbackNote.trim() !== '') && (!pendingAiData._rawInputText || pendingAiData._rawInputText.trim().length === 0) && (
+                            <div className="text-[9px] text-amber-400 bg-amber-400/10 p-1.5 rounded border border-amber-400/20">
+                                ⚠️ Texte brut non capturé : ce cas sera partiellement exploitable.
+                            </div>
+                        )}
                     </div>
                 </div>
 

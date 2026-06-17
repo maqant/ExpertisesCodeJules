@@ -223,7 +223,41 @@ Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMEN
 --- DÉCLARATION DU CLIENT ---
 """{{declaration_brute}}"""
 
-Réponds uniquement avec le JSON valide, sans aucune introduction ni formatage Markdown autour.`
+Réponds uniquement avec le JSON valide, sans aucune introduction ni formatage Markdown autour.`,
+
+    prompt_ar_analyste: `Tu es un gestionnaire de sinistres expert pour un courtier en assurance. Rédige un brouillon d'accusé de réception.
+
+--- DONNÉES ---
+Client : {{nom_client}} | Date : {{date_sinistre}} | Adresse : {{adresse_bien}}
+Déclaration : """{{declaration_brute}}"""
+Franchise UI : {{demande_franchise}} | IBAN UI : {{demande_iban}}
+
+--- RÈGLES ---
+Analyse la "Cause" de la déclaration. Si claire : résume-la. Si floue : demande des précisions contextuelles. Si totalement inconnue : demande des précisions ET suggère fortement une recherche de fuite ou des mesures conservatoires.
+Si un devis est mentionné, demande "si d'autres suivront", sinon garde la demande de devis standard.
+Si vol/vandalisme, demande le dépôt de plainte. Ne demande pas les documents déjà fournis.
+Intègre la franchise et l'IBAN uniquement s'ils sont renseignés dans les variables UI.
+
+--- STRUCTURE ---
+Bonjour [Nom], je fais suite à votre déclaration concernant le sinistre du [Date] au [Adresse]. Merci de nous transmettre :
+Description de l’incident : [Adapter cause]
+Documents : [Adapter devis]
+État des pertes : Transmettez une liste chiffrée.
+Plainte : [Adapter]
+Coordonnées bancaires : [Adapter]
+Votre contrat a une franchise de [Montant]. Bien cordialement.
+(Ne produis AUCUNE phrase d'introduction du type "Voici le brouillon", génère uniquement le corps du mail).`,
+
+    prompt_ar_balai: `Tu es un linter de texte strict et un assistant de mise en forme. Ton unique tâche est de reformater le brouillon d'email ci-dessous pour garantir une lisibilité optimale sur Outlook.
+
+--- RÈGLE ABSOLUE DE FORMATAGE ---
+Tu dois aérer le texte au maximum. Chaque phrase doit OBLIGATOIREMENT être suivie d'un double saut de ligne (\\n\\n).
+Il est STRICTEMENT INTERDIT de faire des paragraphes compacts contenant plusieurs phrases. Conserve la hiérarchie et les listes, mais applique cette même règle d'espacement. Ne modifie pas le fond.
+
+--- TEXTE À REFORMATER ---
+"""{{brouillon_analyste}}"""
+
+(Ne réponds rien d'autre que le texte final parfaitement espacé. Aucune introduction).`
 };
 
 export const usePromptStore = create(
