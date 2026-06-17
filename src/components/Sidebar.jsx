@@ -491,7 +491,7 @@ const Sidebar = () => {
                     intervenants: aiData.intervenants || [],
                     expenses,
                     pendingFiles: allPendingFiles,
-                    _rawInputText: aiData._rawInputText // v7.3.2 - Ensure raw text is kept for Golden Dataset
+                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null) // v7.3.2 - Ensure raw text is kept for Golden Dataset
                 });
 
                 // v6.0.0 - Context Vault
@@ -2120,7 +2120,7 @@ const Sidebar = () => {
                                                     expenses: safeExpenses,
                                                     pendingFiles: allPendingFiles,
                                                     technicalFilesToAttach: result.data.technicalFilesToAttach || [],
-                                                    _rawInputText: result.data._rawInputText || aiData._rawInputText
+                                                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
                                                 });
                                             } else {
                                                 alert("Erreur IA : " + (result.error || "Réponse invalide"));
@@ -2220,7 +2220,7 @@ const Sidebar = () => {
                                                 intervenants: aiData.intervenants || [],
                                                 expenses: safeExpenses,
                                                 pendingFiles: allPendingFiles,
-                                                _rawInputText: result.data._rawInputText || aiData._rawInputText
+                                                _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
                                             });
                                         } else {
                                             alert("Erreur IA : " + (result.error || "Réponse invalide"));
