@@ -43,7 +43,7 @@ import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
 import { runMergeAgent } from './agents/merger.js';
-import { withRetry } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
+import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 import { usePromptStore } from '../store/promptStore.js';
 
 // ═══════════════════════════════════════════════════════════════
