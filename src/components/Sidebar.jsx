@@ -2035,7 +2035,11 @@ const Sidebar = () => {
                 const created = await handleNewDossier();
                 if (created) {
                     const syntheticFile = new File([rawText], "declaration_initiale.txt", { type: "text/plain" });
-                    openIngestion(syntheticFile, 'declaration');
+                    if (isAiModeActive) {
+                        triggerSmartBridgeAnalysis([syntheticFile], true);
+                    } else {
+                        openIngestion(syntheticFile, 'declaration');
+                    }
                 }
             }}
         />
