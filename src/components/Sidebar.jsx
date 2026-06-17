@@ -240,12 +240,28 @@ const Sidebar = () => {
         exportTelemetryJson
     } = context;
 
+    const extractFieldTelemetry = (target) => {
+        if (target.dataset.telemetryId) {
+            return { name: target.dataset.telemetryId, inferred: false };
+        }
+        let inferredName = target.name || target.id;
+        if (!inferredName) {
+            const label = target.closest('div')?.querySelector('label')?.textContent;
+            if (label) {
+                inferredName = label.trim().replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+            } else {
+                inferredName = target.placeholder || 'untagged_field';
+            }
+        }
+        return { name: inferredName, inferred: true };
+    };
+
     const handleFocusCapture = (e) => {
         if (!contextTelemetry) return;
         const target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
-            const name = target.name || target.id || 'unknown_field';
-            contextTelemetry.logFocus(`field_${name}`, target.value);
+            const { name, inferred } = extractFieldTelemetry(target);
+            contextTelemetry.logFocus(`field_${name}`, target.value, inferred);
         }
     };
 
@@ -253,8 +269,8 @@ const Sidebar = () => {
         if (!contextTelemetry) return;
         const target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
-            const name = target.name || target.id || 'unknown_field';
-            contextTelemetry.logBlur(`field_${name}`, target.value);
+            const { name, inferred } = extractFieldTelemetry(target);
+            contextTelemetry.logBlur(`field_${name}`, target.value, inferred);
         }
     };
 

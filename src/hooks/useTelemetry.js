@@ -54,16 +54,16 @@ export function useTelemetry(sessionId, dossierId = null) {
     /**
      * Enregistre le focus sur un champ (pour chronométrer ou voir l'ancienne valeur).
      */
-    const logFocus = (componentId, initialValue) => {
+    const logFocus = (componentId, initialValue, inferred = false) => {
         focusValues.current.set(componentId, initialValue);
-        logEvent('FOCUS', componentId, { initialValue });
+        logEvent('FOCUS', componentId, { initialValue, inferred });
         startTimer(componentId);
     };
 
     /**
      * Enregistre la perte de focus, en vérifiant si la valeur a changé (utile pour corrections post-IA).
      */
-    const logBlur = (componentId, finalValue) => {
+    const logBlur = (componentId, finalValue, inferred = false) => {
         const timeSpent = stopTimer(componentId);
         const initialValue = focusValues.current.get(componentId);
         focusValues.current.delete(componentId);
@@ -73,7 +73,8 @@ export function useTelemetry(sessionId, dossierId = null) {
             changed, 
             timeSpentMs: timeSpent,
             initialValue,
-            finalValue
+            finalValue,
+            inferred
         });
     };
 
