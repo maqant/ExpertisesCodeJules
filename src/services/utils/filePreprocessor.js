@@ -1,5 +1,5 @@
 import { isPdfDeep } from './fileUtils.js';
-import { convertDocxToPdfBytes, convertTextToPdfBytes, convertXlsxToPdfBytes } from './pdfConverter.js';
+import { convertTextToPdfBytes } from './pdfConverter.js';
 
 // Fonction utilitaire pour lire les premiers octets
 const readMagicBytes = async (file, byteCount = 4) => {
