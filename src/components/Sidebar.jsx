@@ -8,7 +8,7 @@ import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
 import GeneratedDocModal from './GeneratedDocModal'; // v6.0.0
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
 import { generateDocument } from '../services/generators/generatorEngine.js'; // v6.0.0
-import { Eye, Info } from 'lucide-react';
+import { Eye, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
 import packageInfo from '../../package.json';
@@ -17,6 +17,7 @@ import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
+import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap } from '../ai/process.catalog.js';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
@@ -906,32 +907,66 @@ const Sidebar = () => {
                                     <p className="text-[9px] text-slate-500 mt-1">0 = Précis/Strict, 1 = Créatif. (Désactivé auto pour les modèles o1)</p>
                                 </div>
 
-                                <div className="border-t border-slate-700 pt-3 space-y-3">
-                                    <h4 className="text-xs font-bold text-slate-300">Attribution des Modèles</h4>
+                                <div className="border-t border-slate-700 pt-3 space-y-4">
+                                    <h4 className="text-xs font-bold text-slate-300">Processus & Modèles</h4>
                                     
-                                    {Object.values(AI_ROLES).map(role => (
-                                        <div key={role} className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-1">
-                                                <label className="text-[10px] text-slate-400">{AI_ROLE_META[role].label}</label>
-                                                <div 
-                                                    className="text-slate-500 hover:text-indigo-400 cursor-help"
-                                                    title={AI_ROLE_META[role].description}
-                                                    onClick={() => alert(`${AI_ROLE_META[role].label}\n\n${AI_ROLE_META[role].description}`)}
-                                                >
-                                                    <Info size={12} />
-                                                </div>
+                                    {Object.entries(getProcessesByGroup()).map(([group, processes]) => (
+                                        <div key={group} className="space-y-2">
+                                            <h5 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800 pb-1">{group}</h5>
+                                            <div className="space-y-3">
+                                                {processes.map(process => {
+                                                    const roleMeta = AI_ROLE_META[process.role];
+                                                    const currentModel = aiConfig.roles?.[process.role] || roleMeta.defaultModel;
+                                                    const usageMap = buildRoleUsageMap()[process.role];
+                                                    const otherProcesses = usageMap.filter(p => p.id !== process.id);
+                                                    const promptText = process.promptKey ? usePromptStore.getState().getPrompt(process.promptKey) : null;
+                                                    
+                                                    return (
+                                                        <div key={process.id} className="flex flex-col gap-1 bg-slate-800/30 p-2 rounded border border-slate-700/50">
+                                                            <div className="flex items-center gap-1 mb-1">
+                                                                <label className="text-[11px] font-medium text-slate-300 flex-1">{process.label}</label>
+                                                                <div 
+                                                                    className="text-slate-500 hover:text-indigo-400 cursor-help"
+                                                                    title={process.hint}
+                                                                >
+                                                                    <Info size={12} />
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <select
+                                                                value={currentModel}
+                                                                onChange={(e) => updateAiConfig({ roles: { [process.role]: e.target.value } })}
+                                                                className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white focus:border-indigo-500 outline-none text-[10px]"
+                                                            >
+                                                                {Object.entries(MODEL_CATALOG).map(([id, meta]) => (
+                                                                    <option key={id} value={id}>
+                                                                        {meta.label}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            
+                                                            {otherProcesses.length > 0 && (
+                                                                <div className="text-[9px] text-amber-500/80 leading-tight mt-1">
+                                                                    ⚠️ Partagé avec : {otherProcesses.map(p => p.label).join(', ')}
+                                                                </div>
+                                                            )}
+
+                                                            {promptText && (
+                                                                <details className="mt-1 group">
+                                                                    <summary className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer list-none flex items-center gap-1 select-none">
+                                                                        <span className="group-open:hidden"><ChevronRight size={10} /></span>
+                                                                        <span className="hidden group-open:inline"><ChevronDown size={10} /></span>
+                                                                        Voir le prompt
+                                                                    </summary>
+                                                                    <div className="mt-2 p-2 bg-slate-900 border border-slate-700 rounded text-[9px] text-slate-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                                                        {promptText}
+                                                                    </div>
+                                                                </details>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                            <select
-                                                value={aiConfig.roles?.[role] || AI_ROLE_META[role].defaultModel}
-                                                onChange={(e) => updateAiConfig({ roles: { [role]: e.target.value } })}
-                                                className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                            >
-                                                {Object.entries(MODEL_CATALOG).map(([id, meta]) => (
-                                                    <option key={id} value={id}>
-                                                        {meta.label}
-                                                    </option>
-                                                ))}
-                                            </select>
                                         </div>
                                     ))}
                                 </div>
