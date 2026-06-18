@@ -2,11 +2,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export const HTML_FORMATTING_RULES = `
+IMPORTANT : Formate TOUTE ta réponse en HTML valide. N'utilise PAS de balises <p>. Utilise UNIQUEMENT la combinaison <br>&nbsp;<br> pour créer un vrai espace vide entre tes paragraphes et entre les tableaux. Outlook supprime les <br> simples, donc tu DOIS utiliser <br>&nbsp;<br> pour forcer la ligne vide.
+Pour les tableaux (si pertinents), utilise cette structure exacte :
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; text-align: left;">
+  <thead style="background-color: #f2f2f2;">...</thead>
+  <tbody>...</tbody>
+</table>
+N'utilise PAS de Markdown, uniquement du HTML pur.`.trim();
+
 export const DEFAULT_PROMPTS = {
     ROUTER: `Tu es un routeur intelligent chargé de trier des documents d'assurance et d'expertise sinistre.
 Tu dois classer LE document fourni dans UNE OU PLUSIEURS des 4 catégories suivantes :
-- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture, et TOUT email ou document contenant un numéro de police, numéro de sinistre, nom de compagnie d'assurance, BCE, IBAN, franchise, pertes indirectes, date de sinistre ou données contractuelles.
-- "SOCIAL" : Documents listant des personnes (noms, téléphones, emails), cartes d'identité, documents d'assurance personnels, échanges informels mentionnant des occupants ou propriétaires.
+- "ADMIN" : Polices d'assurance, conditions générales, convocations d'expertise, documents officiels de couverture, et TOUT email ou document contenant un numéro de police, numéro de sinistre, nom de compagnie d'assurance, BCE, IBAN, franchise, pertes indirectes, date de sinistre ou données contractuelles. (EXCLUSION : Ne classe PAS ici les simples attestations d'assurance, qui vont en SOCIAL).
+- "SOCIAL" : Documents listant des personnes (noms, téléphones, emails), cartes d'identité, documents d'assurance personnels, attestations d'assurance, échanges informels mentionnant des occupants ou propriétaires.
 - "RECITS" : Rapports d'intervention, constats pompiers, chronologies des faits, déclarations circonstanciées de sinistre, descriptions techniques des dommages.
 - "FINANCIER" : Devis, factures, tickets de caisse, justificatifs de paiement.
 
@@ -216,13 +225,7 @@ IMPORTANT POUR LES TABLEAUX :
 
 Et tu le termineras par : "<br>&nbsp;<br>À vous lire & bien cordialement"
 
-IMPORTANT : Formate TOUTE ta réponse en HTML valide. N'utilise PAS de balises <p>. Utilise UNIQUEMENT la combinaison <br>&nbsp;<br> pour créer un vrai espace vide entre tes paragraphes et entre les tableaux. Outlook supprime les <br> simples, donc tu DOIS utiliser <br>&nbsp;<br> pour forcer la ligne vide.
-Pour les tableaux, utilise cette structure exacte :
-<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; text-align: left;">
-  <thead style="background-color: #f2f2f2;">...</thead>
-  <tbody>...</tbody>
-</table>
-N'utilise PAS de Markdown, uniquement du HTML pur.`,
+${HTML_FORMATTING_RULES}`,
 
     prompt_brio_prep: `Tu es un assistant spécialisé en gestion de sinistres pour un courtier. Ton rôle est de préparer les données pour la création administrative du dossier dans le logiciel Brio.
 Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
@@ -263,8 +266,15 @@ RÈGLES ABSOLUES (non négociables) :
 2. Tu ne RAJOUTES AUCUNE demande qui n'est pas dans le mail structuré.
 3. Tu peux uniquement : ajouter des phrases de transition, des références contextuelles au sinistre réel, des formules de politesse naturelles, fluidifier les enchaînements.
 4. Le ton doit faire penser qu'un gestionnaire humain, rigoureux et carré, l'a rédigé — pas un robot.
-5. Conserve STRICTEMENT la structure en numéros (1, 2, 3...) et les demandes en gras.
+5. Conserve STRICTEMENT la structure en numéros et les demandes en gras (en HTML, utiliser <b> ou <strong>).
 6. Renvoie UNIQUEMENT le mail final, sans introduction ni commentaire.
+
+--- RÈGLE ABSOLUE — APPARIEMENT DEVIS/FACTURE ---
+Lorsque tu détectes un Devis et une Facture portant sur la MÊME prestation
+(indices : même prestataire, intitulé/description proches, montants cohérents),
+fusionne-les en un SEUL poste de dépense de type « Facture » (la Facture porte le montant définitif).
+
+${HTML_FORMATTING_RULES}
 
 Contexte du sinistre (pour enrichir les transitions) :
 {{declaration_digest}}
@@ -276,10 +286,14 @@ Mail structuré à naturaliser :
 
 --- RÈGLES ABSOLUES DE FORMATAGE ---
 1. Ta réponse commence par "Bonjour" et finit par "Bien cordialement,". Pas d'introduction ni de commentaire.
-2. Chaque paragraphe ou item de liste est suivi d'un double saut de ligne (\\n\\n) pour aérer le texte dans Outlook.
-3. Utilise le gras pour les titres de sections.
-4. Si une variable est vide ou "false", supprime la section correspondante — ne mets jamais un placeholder visible.
-5. N'utilise JAMAIS le mot "attestation" pour les RC : utilise "coordonnées" (Compagnie + numéro de contrat).
+2. Utilise le gras (balises <b> ou <strong>) pour les titres de sections.
+3. Si une variable est vide ou "false", supprime la section correspondante — ne mets jamais un placeholder visible.
+4. N'utilise JAMAIS le mot "attestation" pour les RC : utilise "coordonnées" (Compagnie + numéro de contrat).
+
+--- RÈGLE ABSOLUE — DOCUMENTS À NE JAMAIS RÉCLAMER ---
+- N'inclus JAMAIS « l'attestation incendie » (ni ses variantes : attestation d'assurance incendie, attestation habitation incendie) dans la liste des pièces à demander. Ce document n'est pas requis dans ce contexte.
+
+${HTML_FORMATTING_RULES}
 
 --- DONNÉES À INJECTER ---
 Client : {{nom_client}}

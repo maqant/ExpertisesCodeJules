@@ -110,23 +110,31 @@ export function resolveModelForProcess(processId, aiConfig) {
     const overrides = aiConfig?.processOverrides ?? {};
     const roles = aiConfig?.roles ?? {};
 
+    // 1. Override explicite
     const overrideModel = overrides[processId];
     if (overrideModel) {
         if (!isValidModelId(overrideModel)) {
-            // Erreur explicite, jamais silencieuse
-            console.error(`[resolveModelForProcess] Override invalide "${overrideModel}" pour "${processId}". Fallback rôle.`);
+            console.error(`[resolveModelForProcess] Override invalide "${overrideModel}" pour "${processId}". Fallback.`);
         } else {
             return { modelId: overrideModel, source: 'override', isOverridden: true, role: proc.role };
         }
     }
 
+    // 2. Default Model Spécifique (s'il est différent du modèle de base générique)
+    // Cela garantit que agent_router (nano) garde son modèle par défaut, sans détruire la config globale par rôle
+    if (proc.defaultModel && proc.defaultModel !== BASE_DEFAULT_MODEL && isValidModelId(proc.defaultModel)) {
+        return { modelId: proc.defaultModel, source: 'process-default', isOverridden: false, role: proc.role };
+    }
+
+    // 3. Config par rôle
     const roleModel = roles[proc.role];
     if (roleModel && isValidModelId(roleModel)) {
         return { modelId: roleModel, source: 'role', isOverridden: false, role: proc.role };
     }
 
-    const fallback = proc.defaultModel;
-    return { modelId: fallback, source: 'process-default', isOverridden: false, role: proc.role };
+    // 4. Fallback ultime
+    const fallback = proc.defaultModel || BASE_DEFAULT_MODEL;
+    return { modelId: fallback, source: 'fallback', isOverridden: false, role: proc.role };
 }
 
 /**

@@ -1465,17 +1465,28 @@ export const ExpertiseProvider = ({ children }) => {
               });
 
               // v5.4.0 Magic Drop: auto-attach file via fuzzy matching
-              if (aiExp.sourceFileName && aiExp.sourceFileName !== '' && pendingFiles.length > 0) {
-                  const matchedFile = findMatchingFile(pendingFiles, aiExp.sourceFileName);
-                  if (matchedFile) {
-                      try {
-                          await handleAttachFile(newId, matchedFile);
-                          console.log(`[Magic Drop] ✅ Auto-attaché: "${matchedFile.name}" (source: "${aiExp.sourceFileName}") → frais ${newId}`);
-                      } catch (err) {
-                          console.warn(`[Magic Drop] ❌ Échec auto-attach pour ${matchedFile.name}:`, err);
+              // v8.0.0: Support de la fusion Devis/Facture (sourceFileNames)
+              const filesToAttach = [];
+              if (aiExp.sourceFileName && typeof aiExp.sourceFileName === 'string' && aiExp.sourceFileName.trim() !== '') {
+                  filesToAttach.push(aiExp.sourceFileName);
+              }
+              if (Array.isArray(aiExp.sourceFileNames)) {
+                  filesToAttach.push(...aiExp.sourceFileNames);
+              }
+
+              if (filesToAttach.length > 0 && pendingFiles.length > 0) {
+                  for (const fName of filesToAttach) {
+                      const matchedFile = findMatchingFile(pendingFiles, fName);
+                      if (matchedFile) {
+                          try {
+                              await handleAttachFile(newId, matchedFile);
+                              console.log(`[Magic Drop] ✅ Auto-attaché: "${matchedFile.name}" (source: "${fName}") → frais ${newId}`);
+                          } catch (err) {
+                              console.warn(`[Magic Drop] ❌ Échec auto-attach pour ${matchedFile.name}:`, err);
+                          }
+                      } else {
+                          console.warn(`[Magic Drop] ⚠️ Aucun fichier ne matche "${fName}". Fichiers disponibles:`, pendingFiles.map(f => f.name));
                       }
-                  } else {
-                      console.warn(`[Magic Drop] ⚠️ Aucun fichier ne matche "${aiExp.sourceFileName}". Fichiers disponibles:`, pendingFiles.map(f => f.name));
                   }
               }
           }

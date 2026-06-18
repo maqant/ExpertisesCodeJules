@@ -57,13 +57,6 @@ export const PARTY_CLAIMS = Object.freeze([
             !allOccupants.some((o) => o.statut === PartyStatus.PROPRIO_NON_OCCUPANT),
     },
     {
-        id: 'RC_IMMEUBLE',
-        label: 'Attestation d\'assurance incendie de l\'immeuble',
-        scope: 'PARTY',
-        applies: ({ party }) => party.statut === PartyStatus.COPROPRIETE,
-        preChecked: () => true,
-    },
-    {
         id: 'DEVIS_SYNDIC',
         label: 'Devis de réparation des parties communes',
         scope: 'PARTY',

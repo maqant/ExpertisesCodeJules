@@ -349,6 +349,36 @@ const GlobalValidationModal = () => {
         setEditableData(prev => ({ ...prev, occupants: prev.occupants.filter(o => o.id !== id) }));
     };
 
+    const handleMergeDevis = (factureId, devisId) => {
+        setEditableData(prev => {
+            const factureExp = prev.expenses.find(e => e.id === factureId);
+            const devisExp = prev.expenses.find(e => e.id === devisId);
+            if (!factureExp || !devisExp) return prev;
+
+            const filesToKeep = [];
+            if (factureExp.sourceFileName) filesToKeep.push(factureExp.sourceFileName);
+            if (Array.isArray(factureExp.sourceFileNames)) filesToKeep.push(...factureExp.sourceFileNames);
+            if (devisExp.sourceFileName) filesToKeep.push(devisExp.sourceFileName);
+            if (Array.isArray(devisExp.sourceFileNames)) filesToKeep.push(...devisExp.sourceFileNames);
+
+            const merged = { 
+                ...factureExp, 
+                type: 'Facture',
+                sourceFileNames: [...new Set(filesToKeep.filter(Boolean))]
+            };
+
+            return {
+                ...prev,
+                expenses: prev.expenses.map(e => e.id === factureId ? merged : e).filter(e => e.id !== devisId)
+            };
+        });
+        setExpandedExp(prev => {
+            const n = new Set(prev);
+            n.delete(devisId);
+            return n;
+        });
+    };
+
     const removeExpense = (e, id) => {
         e.stopPropagation();
         setEditableData(prev => ({ ...prev, expenses: prev.expenses.filter(x => x.id !== id) }));
@@ -830,6 +860,39 @@ const GlobalValidationModal = () => {
                                                             <span className="text-[10px] text-blue-300 font-medium">Pièce jointe : {matchedFile.name}</span>
                                                             <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(matchedFile)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
                                                             <span className="text-[9px] text-slate-500 ml-auto">Sera attachée automatiquement</span>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {exp.sourceFileNames && exp.sourceFileNames.length > 0 && exp.sourceFileNames.map((fName, idx) => {
+                                                        const mFile = pendingFiles.find(f => f.name === fName);
+                                                        if (!mFile) return null;
+                                                        return (
+                                                            <div key={idx} className="col-span-2 bg-indigo-900/20 border border-indigo-500/30 rounded p-2 flex items-center gap-2 mt-1">
+                                                                <span className="text-sm">📎</span>
+                                                                <span className="text-[10px] text-indigo-300 font-medium">Pièce jointe additionnelle : {mFile.name}</span>
+                                                                <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(mFile)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {exp.type === 'Facture' && editableData.expenses.some(other => other.type === 'Devis' && other.id !== exp.id) && (
+                                                        <div className="col-span-2 mt-2 p-2 bg-indigo-900/30 border border-indigo-500/30 rounded">
+                                                            <label className="text-[9px] text-indigo-300 uppercase mb-1 block">Lier un devis à cette facture</label>
+                                                            <select 
+                                                                onChange={(e) => {
+                                                                    if (e.target.value) handleMergeDevis(exp.id, e.target.value);
+                                                                }}
+                                                                value=""
+                                                                className="w-full bg-slate-900 border border-indigo-500/50 rounded px-2 py-1 text-xs text-white focus:border-indigo-400 outline-none cursor-pointer"
+                                                            >
+                                                                <option value="">-- Sélectionner un devis à lier --</option>
+                                                                {editableData.expenses.filter(other => other.type === 'Devis' && other.id !== exp.id).map(devis => (
+                                                                    <option key={devis.id} value={devis.id}>
+                                                                        {devis.prestataire || 'Prestataire inconnu'} - {devis.montant || devis.montantReclame || 'Montant inconnu'}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <p className="text-[9px] text-indigo-400 mt-1">Le devis sera supprimé et sa pièce jointe sera rattachée à cette facture.</p>
                                                         </div>
                                                     )}
                                                 </div>
