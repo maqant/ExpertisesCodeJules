@@ -47,26 +47,35 @@ import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // 
 import { usePromptStore } from '../store/promptStore.js';
 import { isPdf, isPdfDeep } from './utils/fileUtils.js';
 import { processIngestedFile } from './utils/filePreprocessor.js';
+import { buildAiPayload } from '../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../ai/ai.config.js';
+import { AI_ROLES } from '../ai/ai.catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
 // ═══════════════════════════════════════════════════════════════
-const runFallbackAgent = async (documentText, missingKeysList, apiKey, fallbackModel = 'gpt-5.5') => {
+const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
     const basePrompt = usePromptStore.getState().getPrompt('FALLBACK');
     const prompt = basePrompt.replace('[MISSING_KEYS]', missingKeysList.join(', ')) + `\n\nDocument :\n${documentText.substring(0, 30000)}`;
+
+    const payload = buildAiPayload(
+        config,
+        AI_ROLES.SYNTHESIS, // Agent Balai utilise le modèle lourd par défaut pour récupérer les clés manquantes
+        [{ role: 'user', content: prompt }],
+        { forceJsonResponse: true }
+    );
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey || process.env.VITE_OPENAI_API_KEY}`
+            'Authorization': `Bearer ${resolvedApiKey}`
         },
-        body: JSON.stringify({
-            model: fallbackModel,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.0,
-            response_format: { type: "json_object" }
-        })
+        body: JSON.stringify(payload)
     });
 
     if (!response.ok) throw new Error("Erreur API Agent Balai");
@@ -334,17 +343,22 @@ Il t'est STRICTEMENT INTERDIT d'inventer un nom de fichier, de croiser les sourc
 Si l'information que tu extrais provient du texte encadré par [DÉBUT DE LA PIÈCE JOINTE : X], alors \`sourceFileName\` doit être EXACTEMENT "X".
 Si l'information se trouve dans l'email principal et pas dans une pièce jointe, laisse \`sourceFileName\` totalement vide ("").`;
 
-            // Payload générique pour un modèle multimodal (ex: gpt-5.4)
-            const payload = {
-                model: model,
-                messages: [
+            // Payload générique pour un modèle multimodal
+            const configStr = localStorage.getItem('expertise_aiConfig_v2');
+            const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+            
+            const payload = buildAiPayload(
+                config,
+                AI_ROLES.EXTRACTION,
+                [
                     { role: "system", content: getSystemPrompt() + antiHallucinationPrompt },
                     { role: "user", content: contentArray }
                 ],
-                response_format: (documentType === 'cause' || documentType === 'annexe') ? { type: "text" } : { type: "json_object" },
-                max_tokens: documentType === 'dossier_global' ? 4096 : 500,
-                temperature: 0.1
-            };
+                { 
+                    forceJsonResponse: !(documentType === 'cause' || documentType === 'annexe'), 
+                    maxTokensOverride: documentType === 'dossier_global' ? 4096 : 500 
+                }
+            );
 
             if (onStatusChange) onStatusChange('sending');
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -424,7 +438,9 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
  * Reformate les notes brutes du courtier en un compte rendu structuré.
  */
 export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-5.4', providedApiKey = null) => {
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     
     if (!apiKey) {
         // Mode Mock si pas de clé API
@@ -433,9 +449,10 @@ export const reformatCompteRendu = async (rawNotes, provider = 'openai', model =
     }
 
     try {
-        const payload = {
-            model: model,
-            messages: [
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.SYNTHESIS,
+            [
                 {
                     role: "system",
                     content: `Tu es un rédacteur professionnel spécialisé dans les comptes rendus d'expertise sinistre. Tu reçois des notes brutes prises pendant une expertise. Ta mission est de les transformer en un compte rendu structuré, clair et professionnel. Utilise le format suivant :
@@ -465,9 +482,8 @@ export const reformatCompteRendu = async (rawNotes, provider = 'openai', model =
                     content: rawNotes
                 }
             ],
-            response_format: { type: "text" },
-            temperature: 0.3
-        };
+            { forceJsonResponse: false }
+        );
 
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -511,19 +527,15 @@ const getRefinePrompt = (directive) => {
     }
 };
 
-/**
- * [v5.6.1] Mini-Agent Refine : affine un texte selon une directive.
- * @param {string} currentText - Le texte à affiner
- * @param {'DEVELOP'|'SUMMARIZE'|'TECH_FOCUS'|'CONTEXT_FOCUS'} directive - La directive d'affinage
- * @param {string|null} providedApiKey - Clé API optionnelle
- * @returns {Promise<{success: boolean, text?: string, error?: string}>}
- */
 export const refineText = async (currentText, directive, providedApiKey = null) => {
     if (!currentText || currentText.trim() === '') {
         return { success: false, error: "Aucun texte à affiner." };
     }
 
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    
     if (!apiKey) {
         return { success: false, error: "Clé API non configurée." };
     }
@@ -534,19 +546,23 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
     }
 
     try {
+        const payload = buildAiPayload(
+            config, 
+            AI_ROLES.REFINEMENT, 
+            [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: currentText }
+            ],
+            {}
+        );
+
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model: "gpt-5.4", // v7.3.0 : on force le 5.4 partout
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: currentText }
-                ]
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -564,28 +580,22 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
     }
 };
 
-/**
- * [v5.6.5] Agent d'Affinage Intelligent de la Cause
- * Tunnel d'entrée de données pour le fil chronologique.
- */
 export const refineCauseWithInput = async (existingCause, newInput, providedApiKey = null) => {
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    
     if (!apiKey) return { success: false, error: "Clé API non configurée." };
     if (!newInput || newInput.trim() === '') return { success: true, cause: existingCause, changed: false };
 
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: "gpt-5.4-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: `Tu es un agent de gestion de texte expert dans les dossiers d'expertise sinistre.
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.REFINEMENT,
+            [
+                {
+                    role: "system",
+                    content: `Tu es un agent de gestion de texte expert dans les dossiers d'expertise sinistre.
 
 CONTEXTE :
 Tu gères le champ "cause" d'un dossier. Ce champ contient un texte technique décrivant l'origine et les circonstances du sinistre.
@@ -601,16 +611,22 @@ RÈGLES :
 - Le texte résultant doit être professionnel, technique et concis.
 - Renvoie UNIQUEMENT un JSON : { "cause": "le texte final", "changed": true/false }
 - "changed" = true si tu as modifié/enrichi la cause, false si tu l'as laissée identique.`
-                    },
-                    {
-                        role: "user",
-                        content: `CAUSE ACTUELLE :\n"""${existingCause || '(vide)'}"""\n\nNOUVEL APPORT :\n"""${newInput}"""`
-                    }
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.0,
-                max_tokens: 2000
-            })
+                },
+                {
+                    role: "user",
+                    content: `CAUSE ACTUELLE :\n"""${existingCause || '(vide)'}"""\n\nNOUVEL APPORT :\n"""${newInput}"""`
+                }
+            ],
+            { forceJsonResponse: true, maxTokensOverride: 2000 }
+        );
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -644,14 +660,10 @@ RÈGLES :
  * et assemble le JSON final pour la modale globale.
  */
 // v6.3.2 - Mode Lourd vs Mode Rapide via isDeepThinkingMode
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingContext = {}, addDebugLog = null, isDeepThinkingMode = true) => {
+export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, existingContext = {}, addDebugLog = null) => {
     
     // v6.3.3 - Metrics & Chrono
     const startTime = Date.now();
-
-    // Stratégie de modèles
-    const agentsModel = 'gpt-5.4'; // v7.3.0 : on force le 5.4 pour tous les agents (test Qualité Golden Dataset)
-    const fallbackModel = isDeepThinkingMode ? 'gpt-5.5' : 'gpt-5.4';
 
     let originalConsole = null;
     
@@ -831,7 +843,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
         // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
         const adminPromise = adminFiles.length > 0
-            ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null, agentsModel))
+            ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Admin KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_ADMIN', 'ERROR', null, err.message);
@@ -840,7 +852,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             : Promise.resolve({ success: true, data: {} });
 
         const narrativePromise = narrativeFiles.length > 0
-            ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, agentsModel, existingContext.cause || ''))
+            ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, existingContext.cause || ''))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Récits KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_RECITS', 'ERROR', null, err.message);
@@ -849,7 +861,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             : Promise.resolve({ success: true, data: {} });
 
         const socialPromise = socialFiles.length > 0
-            ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null, agentsModel))
+            ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Social KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_SOCIAL', 'ERROR', null, err.message);
@@ -877,7 +889,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         // v5.9.3 - Smart Retry & Résilience
         const financialRes = financialFiles.length > 0
-            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, agentsModel, occupantsForFinancial))
+            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, occupantsForFinancial))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Financier KO après retries:', err); 
                     if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'ERROR', null, err.message);
@@ -906,13 +918,13 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             
             try {
                 // Utilisation du texte complet pour le rattrapage
-                console.log(`[aiManager] 🧹 Lancement de l'Agent Balai (Fallback)... Mode: ${fallbackModel}`);
-                if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', `Lancement Agent Balai... Modèle: ${fallbackModel}`);
+                console.log(`[aiManager] 🧹 Lancement de l'Agent Balai (Fallback)...`);
+                if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', `Lancement Agent Balai...`);
                 
                 const contentArray = await buildContentArrayParallel(filesToRoute, "");
                 const globalText = contentArray.map(c => c.text || "").join('\n');
                 
-                const fallbackResults = await withRetry(() => runFallbackAgent(globalText, missingVitalData, providedApiKey, fallbackModel));
+                const fallbackResults = await withRetry(() => runFallbackAgent(globalText, missingVitalData, providedApiKey));
                 if (addDebugLog) addDebugLog('AGENT_BALAI', 'SUCCESS', fallbackResults);
 
                 // Fusion des trouvailles du Balai dans l'objet principal

@@ -5,6 +5,7 @@ import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
+import { sanitizeAiConfig } from "../ai/ai.config.js";
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -189,11 +190,25 @@ export const ExpertiseProvider = ({ children }) => {
 
   // AI Mode Config
   const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
-  const [aiConfig, setAiConfig] = useState(() => ({
-      apiKey: localStorage.getItem('aiApiKey') || '',
-      model: localStorage.getItem('aiModel') || 'gpt-4o',
-      provider: localStorage.getItem('aiProvider') || 'openai'
-  }));
+  const [aiConfig, setAiConfig] = useState(() => {
+      const stored = localStorage.getItem('expertise_aiConfig_v2');
+      if (stored) {
+          try {
+              return sanitizeAiConfig(JSON.parse(stored));
+          } catch (e) {
+              console.warn("Erreur lecture aiConfig, reset aux défauts.");
+          }
+      } else {
+          // Migration from old flat config
+          const oldApiKey = localStorage.getItem('aiApiKey');
+          const oldModel = localStorage.getItem('aiModel');
+          const oldProvider = localStorage.getItem('aiProvider');
+          if (oldApiKey || oldModel) {
+              return sanitizeAiConfig({ apiKey: oldApiKey, model: oldModel, provider: oldProvider });
+          }
+      }
+      return sanitizeAiConfig({});
+  });
 
   const toggleAiMode = () => {
       setIsAiModeActive(prev => {
@@ -207,12 +222,26 @@ export const ExpertiseProvider = ({ children }) => {
   const toggleDeepThinkingMode = () => setIsDeepThinkingMode(prev => !prev);
 
 
-  const updateAiConfig = (newConfig) => {
+  const updateAiConfig = (newConfigPartial) => {
       setAiConfig(prev => {
-          const next = { ...prev, ...newConfig };
+          const rawNext = { ...prev };
+          // Deep merge pour ne pas écraser partials
+          if (newConfigPartial.apiKey !== undefined) rawNext.apiKey = newConfigPartial.apiKey;
+          if (newConfigPartial.provider !== undefined) rawNext.provider = newConfigPartial.provider;
+          if (newConfigPartial.parameters) {
+              rawNext.parameters = { ...rawNext.parameters, ...newConfigPartial.parameters };
+          }
+          if (newConfigPartial.roles) {
+              rawNext.roles = { ...rawNext.roles, ...newConfigPartial.roles };
+          }
+          
+          const next = sanitizeAiConfig(rawNext);
+          localStorage.setItem('expertise_aiConfig_v2', JSON.stringify(next));
+          
+          // Compatibilité legacy (à supprimer plus tard si besoin)
           localStorage.setItem('aiApiKey', next.apiKey);
-          localStorage.setItem('aiModel', next.model);
-          localStorage.setItem('aiProvider', next.provider);
+          localStorage.setItem('aiModel', next.roles.extraction); 
+          
           return next;
       });
   };

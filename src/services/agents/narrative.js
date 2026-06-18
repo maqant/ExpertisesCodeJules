@@ -9,6 +9,9 @@
 
 import { processInParallelBatches, buildContentArrayParallel } from '../utils/aiHelpers.js';
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 // v5.5.3
 /**
@@ -16,9 +19,11 @@ import { usePromptStore } from '../../store/promptStore.js';
  * Extrait et synthétise les données textuelles (cause, compte rendu, divers) 
  * à partir des fichiers taggués "RECITS".
  */
-export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', existingCause = '') => {
+export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, existingCause = '') => {
     const fileArray = Array.isArray(files) ? files : [files];
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
@@ -62,15 +67,15 @@ Voici le format EXACT attendu :
   "technicalFilesToAttach": []
 }`;
 
-            const payload = {
-                model: model,
-                messages: [
+            const payload = buildAiPayload(
+                config,
+                AI_ROLES.EXTRACTION,
+                [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }
                 ],
-                response_format: { type: "json_object" },
-                temperature: 0.0
-            };
+                { forceJsonResponse: true }
+            );
 
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",

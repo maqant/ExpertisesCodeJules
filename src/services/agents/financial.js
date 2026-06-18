@@ -11,6 +11,9 @@ import { fileToBase64, pdfExtractHybrid } from '../utils/pdfUtils.js';
 import { usePromptStore } from '../../store/promptStore.js';
 import { parseMsgFile } from '../utils/msgUtils.js';
 import { isPdfDeep } from '../utils/fileUtils.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 // v5.5.4
 /**
@@ -18,9 +21,11 @@ import { isPdfDeep } from '../utils/fileUtils.js';
  * Extrait les données financières (devis, factures) et les rattache aux occupants.
  * Ne reçoit que les documents taggués "FINANCIER".
  */
-export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4', occupantsList = []) => {
+export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, occupantsList = []) => {
     const fileArray = Array.isArray(files) ? files : [files];
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
 
     // v5.9.0 - Construire le contexte occupants pour le rattachement des factures
@@ -108,15 +113,15 @@ Format EXACT attendu :
   ]
 }`;
 
-            const payload = {
-                model: model, // gpt-5.4 recommandé pour les calculs mathématiques HTVA
-                messages: [
+            const payload = buildAiPayload(
+                config,
+                AI_ROLES.EXTRACTION,
+                [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }
                 ],
-                response_format: { type: "json_object" },
-                temperature: 0.1
-            };
+                { forceJsonResponse: true }
+            );
 
             try {
                 const response = await fetch("https://api.openai.com/v1/chat/completions", {

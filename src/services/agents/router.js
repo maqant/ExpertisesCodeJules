@@ -12,11 +12,16 @@
 
 import { buildContentArrayParallel } from '../utils/aiHelpers.js';
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 // v6.1.0 - Routeur Individuel : 1 appel par document, lecture complète, gpt-5.4-nano
 export const routeDocuments = async (files, providedApiKey = null, onStatusChange = null) => {
     const fileArray = Array.isArray(files) ? files : [files];
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
@@ -48,15 +53,15 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
                 // Lecture COMPLÈTE : pas de maxPdfPages, pas de maxTextLength
                 const contentArray = await buildContentArrayParallel([file], `Analyse et classe ce document : ${fileName}`);
 
-                const payload = {
-                    model: 'gpt-5.4-nano', // v6.1.0 - Ultra-rapide pour le triage
-                    messages: [
+                const payload = buildAiPayload(
+                    config,
+                    AI_ROLES.REFINEMENT, // Utilise le modèle nano/rapide pour le routage
+                    [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: contentArray }
                     ],
-                    response_format: { type: 'json_object' },
-                    temperature: 0.0 // Classification = déterministe
-                };
+                    { forceJsonResponse: true }
+                );
 
                 const response = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',

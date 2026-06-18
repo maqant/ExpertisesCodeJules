@@ -6,59 +6,47 @@
  */
 
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
-export const runMergeAgent = async (occupants, expenses, providedApiKey = null, provider = 'openai') => {
+export const runMergeAgent = async (occupants, expenses, providedApiKey = null) => {
     // Si la liste est vide ou très petite, inutile de payer ou d'attendre
     if ((!occupants || occupants.length <= 1) && (!expenses || expenses.length <= 1)) {
         return { success: true, data: { occupants: occupants || [], expenses: expenses || [] } };
     }
 
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
     if (!apiKey) {
         // Mode Mock / Pas de clé = on retourne tel quel (ou on pourrait faire un fallback JS)
         return { success: true, data: { occupants, expenses } };
     }
 
-    // Le Merger utilise toujours le modèle le plus rapide/cheap possible.
-    const mergeModel = provider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4o-mini';
-
     const systemPrompt = usePromptStore.getState().getPrompt('MERGER');
-
     const payloadContent = JSON.stringify({ occupants, expenses }, null, 2);
 
     try {
-        let endpoint = "https://api.openai.com/v1/chat/completions";
-        let payload = {
-            model: mergeModel,
-            messages: [
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.REFINEMENT, // Utilise le modèle le plus rapide/cheap pour le nettoyage
+            [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: payloadContent }
             ],
-            response_format: { type: "json_object" },
-            temperature: 0.0 // Déterministe
-        };
+            { forceJsonResponse: true, maxTokensOverride: 4096 }
+        );
 
+        let endpoint = "https://api.openai.com/v1/chat/completions";
         let headers = {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${apiKey}`
         };
 
-        if (provider === 'anthropic') {
-            endpoint = "https://api.anthropic.com/v1/messages";
-            headers = {
-                "Content-Type": "application/json",
-                "x-api-key": apiKey,
-                "anthropic-version": "2023-06-01",
-                "anthropic-dangerously-allow-browser": "true"
-            };
-            payload = {
-                model: mergeModel,
-                system: systemPrompt,
-                messages: [{ role: "user", content: `Fusionne ce JSON et retourne uniquement un objet JSON (sans texte avant ou après) : \n${payloadContent}` }],
-                max_tokens: 4096,
-                temperature: 0.0
-            };
-        }
+        // Si jamais le provider anthropic est configuré dans le futur, ce bloc sera étendu dans ai.resolver.js
+        // Pour l'instant on garde la compatibilité REST standard OpenAI.
 
         const response = await fetch(endpoint, {
             method: "POST",

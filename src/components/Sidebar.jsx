@@ -8,7 +8,7 @@ import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
 import GeneratedDocModal from './GeneratedDocModal'; // v6.0.0
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
 import { generateDocument } from '../services/generators/generatorEngine.js'; // v6.0.0
-import { Eye } from 'lucide-react';
+import { Eye, Info } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
 import packageInfo from '../../package.json';
@@ -876,9 +876,9 @@ const Sidebar = () => {
 
                         <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
                             <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
-                                <span>✨ Configuration IA</span>
+                                <span>🧪 Laboratoire IA</span>
                             </h3>
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-slate-400 mb-1 text-xs">Clé API (OpenAI)</label>
                                     <input
@@ -889,28 +889,50 @@ const Sidebar = () => {
                                         className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
                                     />
                                 </div>
-                                <div className="flex gap-2">
-                                    <div className="flex-1">
-                                        <label className="block text-slate-400 mb-1 text-xs">Provider</label>
-                                        <select
-                                            value={aiConfig.provider}
-                                            onChange={(e) => updateAiConfig({ provider: e.target.value })}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                        >
-                                            <option value="openai">OpenAI</option>
-                                        </select>
+                                
+                                <div className="border-t border-slate-700 pt-3">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block text-slate-400 text-xs">Température globale</label>
+                                        <span className="text-indigo-400 font-mono text-[10px]">{aiConfig.parameters?.temperature ?? 0.1}</span>
                                     </div>
-                                    <div className="flex-1">
-                                        <label className="block text-slate-400 mb-1 text-xs">Modèle</label>
-                                        <select
-                                            value={aiConfig.model}
-                                            onChange={(e) => updateAiConfig({ model: e.target.value })}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
-                                        >
-                                            <option value="gpt-4o">gpt-4o</option>
-                                            <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                        </select>
-                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0" max="1" step="0.05" 
+                                        value={aiConfig.parameters?.temperature ?? 0.1}
+                                        onChange={(e) => updateAiConfig({ parameters: { temperature: parseFloat(e.target.value) } })}
+                                        className="w-full accent-indigo-500"
+                                    />
+                                    <p className="text-[9px] text-slate-500 mt-1">0 = Précis/Strict, 1 = Créatif. (Désactivé auto pour les modèles o1)</p>
+                                </div>
+
+                                <div className="border-t border-slate-700 pt-3 space-y-3">
+                                    <h4 className="text-xs font-bold text-slate-300">Attribution des Modèles</h4>
+                                    
+                                    {Object.values(AI_ROLES).map(role => (
+                                        <div key={role} className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-1">
+                                                <label className="text-[10px] text-slate-400">{AI_ROLE_META[role].label}</label>
+                                                <div 
+                                                    className="text-slate-500 hover:text-indigo-400 cursor-help"
+                                                    title={AI_ROLE_META[role].description}
+                                                    onClick={() => alert(`${AI_ROLE_META[role].label}\n\n${AI_ROLE_META[role].description}`)}
+                                                >
+                                                    <Info size={12} />
+                                                </div>
+                                            </div>
+                                            <select
+                                                value={aiConfig.roles?.[role] || AI_ROLE_META[role].defaultModel}
+                                                onChange={(e) => updateAiConfig({ roles: { [role]: e.target.value } })}
+                                                className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white focus:border-indigo-500 outline-none text-xs"
+                                            >
+                                                {Object.entries(MODEL_CATALOG).map(([id, meta]) => (
+                                                    <option key={id} value={id}>
+                                                        {meta.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

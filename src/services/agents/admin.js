@@ -8,15 +8,20 @@
 
 import { processInParallelBatches, buildContentArrayParallel, normalizeDate } from '../utils/aiHelpers.js';
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 /**
  * [v5.5.1] Étape 2 : L'Agent Administratif
  * Extrait les données administratives, contractuelles et les coordonnées.
  * Ne reçoit que les documents taggués "ADMIN".
  */
-export const extractAdministrativeData = async (files, providedApiKey = null, onStatusChange = null, model = 'gpt-5.4') => {
+export const extractAdministrativeData = async (files, providedApiKey = null, onStatusChange = null) => {
     const fileArray = Array.isArray(files) ? files : [files];
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
@@ -45,15 +50,15 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
 
             const systemPrompt = usePromptStore.getState().getPrompt('ADMIN');
 
-            const payload = {
-                model: model,
-                messages: [
+            const payload = buildAiPayload(
+                config,
+                AI_ROLES.EXTRACTION,
+                [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }
                 ],
-                response_format: { type: "json_object" },
-                temperature: 0.1
-            };
+                { forceJsonResponse: true }
+            );
 
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
