@@ -1,5 +1,5 @@
 // src/ai/ai.resolver.js
-import { getModelMeta, AI_ROLES } from './ai.catalog.js';
+import { getModelMeta, getApiModelName, AI_ROLES } from './ai.catalog.js';
 import { resolveModelForProcess } from './process.catalog.js';
 
 /**
@@ -17,8 +17,11 @@ export const buildAiPayload = (config, processId, messages, options = {}) => {
     const meta = getModelMeta(modelId);
     if (!meta) throw new Error(`Modèle non trouvé pour le processus ${processId} (rôle ${resolvedRole}): ${modelId}`);
 
+    const apiModel = getApiModelName(modelId);
+    if (!apiModel) throw new Error(`Aucun nom d'API mappé pour le modèle interne "${modelId}".`);
+
     const payload = {
-        model: modelId,
+        model: apiModel,
         messages: [...messages],
     };
 
