@@ -865,7 +865,6 @@ const Sidebar = () => {
 
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'prompts' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_prompts'); setActiveTab('prompts'); }}>Prompts IA</button>
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
                 </div>
             </div>
@@ -874,9 +873,70 @@ const Sidebar = () => {
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
 
+                        {/* 1. BASE EXPERTS — en premier, usage métier quotidien */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                            <h3 className="text-sm font-bold text-white mb-2">{editingExpert ? "✏️ Modifier l'Expert" : "➕ Base Experts"}</h3>
+                            <div className="flex gap-2"><div className="flex-1"><label>Nom</label><input type="text" value={addExpertForm.nom} onChange={e=>setAddExpertForm({...addExpertForm, nom:e.target.value})} placeholder="GABER Lionel" className="input-field mb-0"/></div><div className="flex-1"><label>Tél</label><input type="text" value={addExpertForm.tel} onChange={e=>setAddExpertForm({...addExpertForm, tel:e.target.value})} placeholder="04XX XX XX" className="input-field mb-0"/></div></div>
+                            <button onClick={handleAddExpert} className="w-full mt-2 bg-green-700 hover:bg-green-600 py-1.5 rounded text-xs font-bold">{editingExpert ? "Enregistrer" : "Ajouter"}</button>
+                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-48 overflow-y-auto pr-1">
+                                <ul className="space-y-1 text-xs">
+                                    {sortedExperts.map((exp, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{formatExpertDisplay(exp)}</span><div><button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button> <button onClick={()=>window.confirm('Supprimer ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button></div></li>)}
+                                </ul>
+                            </div>
+                        </div>
 
+                        {/* 2. BASE FRANCHISES — en second, usage métier quotidien */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                            <h3 className="text-sm font-bold text-white mb-2">➕ Base Franchises</h3>
+                            <div className="flex gap-2"><div className="flex-1"><label>Mois/Année</label><input type="text" value={addFranchiseForm.moisAnnee} onChange={e=>setAddFranchiseForm({...addFranchiseForm, moisAnnee:e.target.value})} placeholder="Mai 2026" className="input-field mb-0"/></div><div className="flex-1"><label>Montant</label><input type="text" value={addFranchiseForm.montant} onChange={e=>setAddFranchiseForm({...addFranchiseForm, montant:e.target.value})} placeholder="335,00 €" className="input-field mb-0"/></div></div>
+                            <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold">Ajouter</button>
+                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-32 overflow-y-auto pr-1">
+                                <ul className="space-y-1 text-xs text-slate-300">
+                                    {franchises.map((f, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{f}</span><button onClick={()=>window.confirm('Supprimer ?')&&setFranchises(franchises.filter(x=>x!==f))} className="hover:text-red-400 shrink-0">🗑️</button></li>)}
+                                </ul>
+                            </div>
+                        </div>
 
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
+                        {/* 3. GESTION DES DOSSIERS */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                            <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
+                            <div className="flex gap-2 mb-3">
+                                <button onClick={saveDossier} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow">💾 Sauvegarder</button>
+                                {currentDossierId && <button onClick={saveDossierAs} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded text-xs font-bold shadow">📁 Copier</button>}
+                            </div>
+                            {savedDossiers.length > 0 && <input type="text" placeholder="🔍 Rechercher..." value={dossierSearch} onChange={(e) => setDossierSearch(e.target.value)} className="input-field mb-3 w-full" />}
+                            <div className="border-t border-slate-700 pt-3 max-h-48 overflow-y-auto pr-1">
+                                {savedDossiers.length === 0 ? <p className="text-[10px] text-slate-400 italic text-center">Aucun dossier.</p> : 
+                                    <ul className="space-y-2">
+                                        {savedDossiers.filter(d => (d.name || '').toLowerCase().includes(dossierSearch.toLowerCase())).map(d => (
+                                            <li 
+                                                key={d.id} 
+                                                onClick={() => loadDossier(d)}
+                                                className="group flex justify-between items-center bg-slate-900 hover:bg-slate-800 p-1.5 rounded border border-slate-600 transition-colors cursor-pointer"
+                                            >
+                                                <div className="flex flex-col min-w-0 mr-2">
+                                                    <span className="font-bold text-xs text-white truncate">{d.name}</span>
+                                                    <span className="text-[9px] text-slate-400">{d.date}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation();
+                                                        deleteDossier(d.id); 
+                                                    }} 
+                                                    className="text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded transition-colors opacity-40 group-hover:opacity-100 flex-shrink-0" 
+                                                    title="Supprimer"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                }
+                            </div>
+                        </div>
+
+                        {/* 4. LABORATOIRE IA — Clé API & Modèles */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
                                 <span>🧪 Laboratoire IA</span>
                             </h3>
@@ -908,7 +968,7 @@ const Sidebar = () => {
                                 </div>
 
                                 <div className="border-t border-slate-700 pt-3 space-y-4">
-                                    <h4 className="text-xs font-bold text-slate-300">Processus & Modèles</h4>
+                                    <h4 className="text-xs font-bold text-slate-300">Processus &amp; Modèles</h4>
                                     
                                     {Object.entries(getProcessesByGroup()).map(([group, processes]) => (
                                         <div key={group} className="space-y-2">
@@ -941,7 +1001,6 @@ const Sidebar = () => {
                                                                 </div>
                                                             </div>
 
-                                                            {/* NOUVEAU : Affichage des déclencheurs (Scénarios) */}
                                                             {PROCESS_TO_SCENARIOS[process.id] && PROCESS_TO_SCENARIOS[process.id].length > 0 && (
                                                                 <div className="flex flex-wrap gap-1 mb-2">
                                                                     {PROCESS_TO_SCENARIOS[process.id].map(scenario => (
@@ -1013,113 +1072,10 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-6">
-                            <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
-                            <div className="flex gap-2 mb-3">
-                                <button onClick={saveDossier} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow">💾 Sauvegarder</button>
-                                {currentDossierId && <button onClick={saveDossierAs} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded text-xs font-bold shadow">📁 Copier</button>}
-                            </div>
-                            {savedDossiers.length > 0 && <input type="text" placeholder="🔍 Rechercher..." value={dossierSearch} onChange={(e) => setDossierSearch(e.target.value)} className="input-field mb-3 w-full" />}
-                            <div className="border-t border-slate-700 pt-3 max-h-48 overflow-y-auto pr-1">
-                                {savedDossiers.length === 0 ? <p className="text-[10px] text-slate-400 italic text-center">Aucun dossier.</p> : 
-                                    <ul className="space-y-2">
-                                        {savedDossiers.filter(d => (d.name || '').toLowerCase().includes(dossierSearch.toLowerCase())).map(d => (
-                                            <li 
-                                                key={d.id} 
-                                                onClick={() => loadDossier(d)}
-                                                className="group flex justify-between items-center bg-slate-900 hover:bg-slate-800 p-1.5 rounded border border-slate-600 transition-colors cursor-pointer"
-                                            >
-                                                <div className="flex flex-col min-w-0 mr-2">
-                                                    <span className="font-bold text-xs text-white truncate">{d.name}</span>
-                                                    <span className="text-[9px] text-slate-400">{d.date}</span>
-                                                </div>
-                                                <button 
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); // Empêche de charger le dossier quand on clique sur la poubelle
-                                                        deleteDossier(d.id); 
-                                                    }} 
-                                                    className="text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded transition-colors opacity-40 group-hover:opacity-100 flex-shrink-0" 
-                                                    title="Supprimer"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                }
-                            </div>
-                        </div>
-
+                        {/* 5. PROMPTS IA — intégrés dans Paramètres (anciennement onglet dédié) */}
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">{editingExpert ? "✏️ Modifier l'Expert" : "➕ Base Experts"}</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Nom</label><input type="text" value={addExpertForm.nom} onChange={e=>setAddExpertForm({...addExpertForm, nom:e.target.value})} placeholder="GABER Lionel" className="input-field mb-0"/></div><div className="flex-1"><label>Tél</label><input type="text" value={addExpertForm.tel} onChange={e=>setAddExpertForm({...addExpertForm, tel:e.target.value})} placeholder="04XX XX XX" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddExpert} className="w-full mt-2 bg-green-700 hover:bg-green-600 py-1.5 rounded text-xs font-bold">{editingExpert ? "Enregistrer" : "Ajouter"}</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-48 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs">
-                                    {sortedExperts.map((exp, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{formatExpertDisplay(exp)}</span><div><button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button> <button onClick={()=>window.confirm('Supprimer ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button></div></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">➕ Base Franchises</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Mois/Année</label><input type="text" value={addFranchiseForm.moisAnnee} onChange={e=>setAddFranchiseForm({...addFranchiseForm, moisAnnee:e.target.value})} placeholder="Mai 2026" className="input-field mb-0"/></div><div className="flex-1"><label>Montant</label><input type="text" value={addFranchiseForm.montant} onChange={e=>setAddFranchiseForm({...addFranchiseForm, montant:e.target.value})} placeholder="335,00 €" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold">Ajouter</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-32 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs text-slate-300">
-                                    {franchises.map((f, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{f}</span><button onClick={()=>window.confirm('Supprimer ?')&&setFranchises(franchises.filter(x=>x!==f))} className="hover:text-red-400 shrink-0">🗑️</button></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-
-                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
-                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
-                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
-                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" au-dessus avec votre fichier .json.</p>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie & Usage</h3>
-                            <button onClick={() => exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
-                             <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
-                        </div>
-
-                        {/* Laboratoire de Données (Golden Dataset) */}
-                        <div className="bg-gradient-to-r from-purple-900 to-fuchsia-900 p-4 rounded border border-purple-500 shadow-lg mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2">📊 Golden Dataset (Erreurs IA)</h3>
-                            <p className="text-[10px] text-purple-200 leading-tight mb-3">
-                                Enregistrements capturés dans le sas de validation. ({datasetRecords.length} enregistrements)
-                            </p>
-                            
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={exportDatasetJSON}
-                                    disabled={datasetRecords.length === 0}
-                                    className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                >
-                                    📥 Télécharger (.json)
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
-                                            clearDatasetRecords();
-                                        }
-                                    }}
-                                    disabled={datasetRecords.length === 0}
-                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                    title="Vider les enregistrements"
-                                >
-                                    🗑️ Vider
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ) : activeTab === 'prompts' ? (
-                    <div className="space-y-6">
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700 mt-2">
                             <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
-                                <span>🧪 Laboratoire IA (Prompts)</span>
+                                <span>🧪 Prompts IA</span>
                             </h3>
                             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                                 Modifiez dynamiquement les consignes données à chaque agent IA. 
@@ -1168,6 +1124,50 @@ const Sidebar = () => {
                                     title="Rétablir le prompt d'origine"
                                 >
                                     🔄 Réinitialiser
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 6. SAUVEGARDE GLOBALE */}
+                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
+                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
+                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
+                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" au-dessus avec votre fichier .json.</p>
+                        </div>
+
+                        {/* 7. TÉLÉMÉTRIE */}
+                        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie &amp; Usage</h3>
+                            <button onClick={() => exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
+                             <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
+                        </div>
+
+                        {/* 8. GOLDEN DATASET */}
+                        <div className="bg-gradient-to-r from-purple-900 to-fuchsia-900 p-4 rounded border border-purple-500 shadow-lg mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2">📊 Golden Dataset (Erreurs IA)</h3>
+                            <p className="text-[10px] text-purple-200 leading-tight mb-3">
+                                Enregistrements capturés dans le sas de validation. ({datasetRecords.length} enregistrements)
+                            </p>
+                            
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={exportDatasetJSON}
+                                    disabled={datasetRecords.length === 0}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                >
+                                    📥 Télécharger (.json)
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
+                                            clearDatasetRecords();
+                                        }
+                                    }}
+                                    disabled={datasetRecords.length === 0}
+                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
+                                    title="Vider les enregistrements"
+                                >
+                                    🗑️ Vider
                                 </button>
                             </div>
                         </div>
