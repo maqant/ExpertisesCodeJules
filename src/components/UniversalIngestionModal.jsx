@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
+import { isEmptyValue } from '../domain/merge/conservativeMerge.js';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -42,7 +43,18 @@ const UniversalIngestionModal = () => {
                 const existingExpense = expenses.find(e => e.id === existingId) || {};
                 setLocalData({ ...existingExpense, ...(data || {}) });
             } else if (data) {
-                setLocalData(data);
+                // On fusionne de manière conservative avec le formData existant (priorité à l'humain)
+                if (type === 'cp') {
+                    const mergedData = { ...formData };
+                    Object.keys(data).forEach(key => {
+                        if (isEmptyValue(mergedData[key]) && !isEmptyValue(data[key])) {
+                            mergedData[key] = data[key];
+                        }
+                    });
+                    setLocalData(mergedData);
+                } else {
+                    setLocalData(data);
+                }
             } else {
                 if (type === 'cp') {
                     setLocalData({

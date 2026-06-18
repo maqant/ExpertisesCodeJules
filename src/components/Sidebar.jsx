@@ -16,6 +16,7 @@ import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
+import { useFinanceStore } from '../store/financeStore.js';
 import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngestionDocumentSet.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
@@ -150,6 +151,8 @@ const AccordionHeader = ({ id, num }) => {
 
 const Sidebar = () => {
     const { telemetry } = useContext(ExpertiseContext);
+    const toggleResponsable = useFinanceStore(state => state.toggleResponsable);
+    const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
     
     // -- PROMPT STORE --
     const { customPrompts, getPrompt, setPrompt, resetPrompt, resetAll } = usePromptStore();
@@ -1532,6 +1535,10 @@ TON OBJECTIF :
                                                 <div><label>Prénom</label><input type="text" value={o.prenom || ''} onChange={e=>updateOcc(o.id, 'prenom', e.target.value)} placeholder="Jean" className="input-field mb-0" /></div>
                                                 <div className="col-span-2"><label>Téléphone</label><input type="text" value={o.tel} onChange={e=>updateOcc(o.id, 'tel', e.target.value)} className="input-field mb-0" /></div>
                                                 <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-slate-700">
+                                                    <label className="flex items-center space-x-2 cursor-pointer text-red-400 text-[10px] font-bold" title="Désigner cette partie comme responsable du sinistre">
+                                                        <input type="checkbox" checked={responsablesIds.includes(o.id)} onChange={() => toggleResponsable(o.id)} className="w-3 h-3 rounded bg-slate-700 border-red-500 text-red-500 focus:ring-red-500" />
+                                                        <span>Responsable</span>
+                                                    </label>
                                                     <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px]">
                                                         <input type="checkbox" checked={o.showDetails} onChange={(e) => updateOcc(o.id, 'showDetails', e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
                                                         <span>Mode avancé</span>

@@ -68,7 +68,8 @@ export const useFinanceStore = create((set, get) => ({
     paiements: [],     // Phase 3: { id: UUID, dateRecept, montantTotal, ventilations: [{ expenseId, montantAlloue, typeAllocation }] }
     isPVEClosed: false, // Statut de l'expertise (Verrouille les modifications)
     franchiseOccId: null, // ID de l'occupant qui porte la franchise (null = pas encore décidé)
-    referentielFranchises: [] // Liste des franchises applicables selon date
+    referentielFranchises: [], // Liste des franchises applicables selon date
+    responsablesIds: [] // Liste des IDs des occupants responsables du sinistre
   },
 
   // ==========================================
@@ -85,6 +86,7 @@ export const useFinanceStore = create((set, get) => ({
       isPVEClosed: false,
       franchiseOccId: null,
       referentielFranchises: [],
+      responsablesIds: [],
       ...(data.metier || {})
     }
   }),
@@ -209,6 +211,16 @@ export const useFinanceStore = create((set, get) => ({
   // --- Franchise (v5.1.0) ---
   setFranchiseOccId: (occId) => set((state) => ({
     metier: { ...state.metier, franchiseOccId: occId }
+  })),
+
+  // --- Responsabilité (v7.13.0) ---
+  toggleResponsable: (occId) => set((state) => {
+    const ids = state.metier.responsablesIds || [];
+    const newIds = ids.includes(occId) ? ids.filter(id => id !== occId) : [...ids, occId];
+    return { metier: { ...state.metier, responsablesIds: newIds } };
+  }),
+  setResponsables: (ids) => set((state) => ({
+    metier: { ...state.metier, responsablesIds: ids }
   })),
 
   generateFranchiseExpense: (occId) => set((state) => {
