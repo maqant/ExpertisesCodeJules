@@ -2,6 +2,9 @@
 import { buildDeclarationPrompt } from './templates/declarationMail.js';
 import { withRetry } from '../utils/aiHelpers.js';
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 /**
  * Registre des templates disponibles.
@@ -35,20 +38,26 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
     const prompt = promptTemplate.replace('{{declaration_brute}}', mailText);
 
     const callApi = async () => {
+        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+        const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.SYNTHESIS,
+            [
+                { role: 'user', content: prompt }
+            ],
+            { forceJsonResponse: true }
+        );
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${resolvedApiKey}`
             },
-            body: JSON.stringify({
-                model: 'gpt-5.4',
-                messages: [
-                    { role: 'user', content: prompt }
-                ],
-                temperature: 0.1,
-                response_format: { type: 'json_object' }
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -69,7 +78,7 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
     return withRetry(callApi, 1, 2000);
 };
 
-export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-5.4') => {
+export const generateDocument = async (type, dossierState, apiKey) => {
     const builder = TEMPLATES[type];
     if (!builder) {
         throw new Error(`[Generator] Template inconnu : "${type}". Templates disponibles : ${Object.keys(TEMPLATES).join(', ')}`);
@@ -77,26 +86,32 @@ export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-
 
     const { systemPrompt, userContent } = builder(dossierState);
 
-    console.log(`[Generator] 📝 Génération type="${type}" avec modèle=${model}`);
+    console.log(`[Generator] 📝 Génération type="${type}"`);
     console.log(`[Generator] Context Vault : ${(dossierState.rawContexts || []).length} entrée(s)`);
 
     // v5.9.3 - Smart Retry & Résilience
     const callApi = async () => {
+        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+        const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.SYNTHESIS,
+            [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userContent }
+            ],
+            { forceJsonResponse: false, maxTokensOverride: 2000 }
+        );
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${resolvedApiKey}`
             },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userContent }
-                ],
-                temperature: 0.3,
-                max_tokens: 2000
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -123,7 +138,6 @@ export const generateDocument = async (type, dossierState, apiKey, model = 'gpt-
  * Utilise un prompt strict (prompt_ar_generator) avec les variables validées par l'UI.
  */
 export const generateAcknowledgmentEmail = async (dossierData, formSelections, apiKey) => {
-    const model = 'gpt-5.4';
     const { getPrompt } = usePromptStore.getState();
     const generatorPrompt = getPrompt('prompt_ar_generator');
 
@@ -171,19 +185,26 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
         .replace(/{{demandes_parties}}/g, demandesPartiesStr);
 
     const callApi = async () => {
+        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+        const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
+        const payload = buildAiPayload(
+            config,
+            AI_ROLES.SYNTHESIS,
+            [
+                { role: 'user', content: promptContent }
+            ],
+            { forceJsonResponse: false }
+        );
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${resolvedApiKey}`
             },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    { role: 'user', content: promptContent }
-                ],
-                temperature: 0.1, // Très faible pour rester strict sur le format
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

@@ -79,9 +79,21 @@ export const AI_ROLES = Object.freeze({
 });
 
 export const AI_ROLE_META = Object.freeze({
-    [AI_ROLES.EXTRACTION]: { label: 'Extraction (ingestion documents)', defaultModel: 'gpt-5.4' },
-    [AI_ROLES.SYNTHESIS]: { label: 'Synthèse (rapport final)', defaultModel: 'gpt-5.5' },
-    [AI_ROLES.REFINEMENT]: { label: 'Affinage (reformulation de texte)', defaultModel: 'gpt-5.4-nano' },
+    [AI_ROLES.EXTRACTION]: { 
+        label: 'Extraction (ingestion documents)', 
+        defaultModel: 'gpt-5.4',
+        description: 'Processus affectés :\n- Agent Administratif (lecture du contrat)\n- Agent Social (occupants, intervenants)\n- Agent Financier (devis, factures)\n- Extraction classique (dropzone)'
+    },
+    [AI_ROLES.SYNTHESIS]: { 
+        label: 'Synthèse (rapport final)', 
+        defaultModel: 'gpt-5.5',
+        description: 'Processus affectés :\n- Agent Récits (analyse narrative)\n- Générateur de résumé Brio\n- Générateur de document final\n- Génération de la modale Accusé de Réception'
+    },
+    [AI_ROLES.REFINEMENT]: { 
+        label: 'Affinage (reformulation de texte)', 
+        defaultModel: 'gpt-5.4-nano',
+        description: 'Processus affectés :\n- Agent Routeur (triage initial rapide)\n- Agent Merger (déduplication finale)\n- Agent Balai (fallback de trous vitaux)\n- Affinage manuel du texte (Reformuler)'
+    },
 });
 
 export const isValidModelId = (id) => Object.prototype.hasOwnProperty.call(MODEL_CATALOG, id);
