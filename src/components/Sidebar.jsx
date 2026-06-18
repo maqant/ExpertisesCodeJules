@@ -228,7 +228,7 @@ const Sidebar = () => {
         attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
-        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
+        isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
         processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
         toggleExpenseType,
         intervenantsList, setIntervenantsList,

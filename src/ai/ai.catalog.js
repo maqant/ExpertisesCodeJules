@@ -59,14 +59,14 @@ export const MODEL_CATALOG = Object.freeze({
         label: 'o1-preview (raisonnement avancé)',
         provider: AI_PROVIDERS.OPENAI,
         group: 'o1 (raisonnement)',
-        capabilities: { supportsTemperature: false, supportsJsonSchema: false, defaultMaxTokens: 8192 },
+        capabilities: { supportsTemperature: false, supportsJsonSchema: false, usesMaxCompletionTokens: true, defaultMaxTokens: 8192 },
     },
     'o1-mini': {
         id: 'o1-mini',
         label: 'o1-mini (raisonnement rapide)',
         provider: AI_PROVIDERS.OPENAI,
         group: 'o1 (raisonnement)',
-        capabilities: { supportsTemperature: false, supportsJsonSchema: false, defaultMaxTokens: 8192 },
+        capabilities: { supportsTemperature: false, supportsJsonSchema: false, usesMaxCompletionTokens: true, defaultMaxTokens: 8192 },
     },
 });
 

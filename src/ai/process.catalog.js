@@ -51,7 +51,13 @@ export function validateProcessCatalog() {
 
         if (!validRoles.has(p.role)) {
             errors.push(`Processus "${p.id}" référence un rôle inexistant : "${p.role}".`);
+        } else {
+            const meta = AI_ROLE_META[p.role];
+            if (!meta || !meta.defaultModel || !isValidModelId(meta.defaultModel)) {
+                errors.push(`Le rôle "${p.role}" n'a pas de \`defaultModel\` valide dans AI_ROLE_META.`);
+            }
         }
+        
         if (p.promptKey !== null && !validPromptKeys.has(p.promptKey)) {
             errors.push(`Processus "${p.id}" référence une clé de prompt inexistante : "${p.promptKey}".`);
         }

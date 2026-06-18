@@ -44,7 +44,7 @@ export const buildAiPayload = (config, processId, messages, options = {}) => {
     // Le max_tokens pour o1 est en fait max_completion_tokens (depuis de récentes MAJ d'OpenAI), mais restons sur max_tokens standard si compatible.
     // OpenAI a introduit `max_completion_tokens` pour o1.
     const maxTokens = options.maxTokensOverride || meta.capabilities.defaultMaxTokens;
-    if (meta.group.startsWith('o1')) {
+    if (meta.capabilities.usesMaxCompletionTokens) {
         payload.max_completion_tokens = maxTokens;
     } else {
         payload.max_tokens = maxTokens;
