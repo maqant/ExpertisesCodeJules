@@ -1175,6 +1175,33 @@ const Sidebar = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* 9. ANALYSE EXPERT (PROMPT) */}
+                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg mt-4">
+                            <h3 className="text-sm font-bold text-white mb-2">🧠 Prompt d'Analyse IA</h3>
+                            <p className="text-[10px] text-blue-200 leading-tight mb-3">
+                                Copiez ce prompt pour demander à une IA d'analyser vos fichiers Télémétrie et Golden Dataset.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    const prompt = `Agis en tant qu'Architecte Logiciel Senior et Expert Data / AI.
+Je te fournis deux fichiers d'export de mon application métier :
+1. "Golden Dataset" : capture les entrées brutes ("inputText"), les prédictions initiales de l'IA ("aiOutput") et les corrections finales manuelles de l'utilisateur ("userCorrection"). Il indique aussi les catégories d'erreurs signalées ("feedback").
+2. "Télémétrie" : trace les événements ("eventType"), les composants modifiés ("componentId") et le temps passé ("timeSpentMs") ou les changements ("initialValue", "finalValue").
+
+TON OBJECTIF :
+1. Croise ces données pour identifier précisément où le système IA est le plus faible (temps passé le plus long pour corriger, champs les plus souvent rejetés/édités).
+2. Analyse les décalages entre "aiOutput" et "userCorrection" dans le Golden Dataset pour comprendre les schémas d'hallucination ou d'omission.
+3. Fournis une analyse technique approfondie point par point, en mettant en évidence le ROI de chaque correction potentielle.
+4. Propose 3 angles d'amélioration concrets et techniques (modifications de prompt, ajustement de température, nouvelle architecture de pipeline ou agent, etc.) basés EXCLUSIVEMENT sur ces résultats.`;
+                                    navigator.clipboard.writeText(prompt);
+                                    alert("Prompt copié dans le presse-papier !");
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
+                            >
+                                📋 Copier le prompt d'analyse
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div>
