@@ -11,7 +11,7 @@ export const MODEL_CATALOG = Object.freeze({
         label: 'GPT-5.5 (Deep Thinking)',
         provider: AI_PROVIDERS.OPENAI,
         group: 'GPT-5',
-        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 16384 },
+        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 16384, usesMaxCompletionTokens: true },
     },
     'gpt-5.4': {
         id: 'gpt-5.4',
@@ -19,7 +19,7 @@ export const MODEL_CATALOG = Object.freeze({
         label: 'GPT-5.4 (Standard)',
         provider: AI_PROVIDERS.OPENAI,
         group: 'GPT-5',
-        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 8192 },
+        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 8192, usesMaxCompletionTokens: true },
     },
     'gpt-5.4-nano': {
         id: 'gpt-5.4-nano',
@@ -27,7 +27,7 @@ export const MODEL_CATALOG = Object.freeze({
         label: 'GPT-5.4-nano (Ultra Rapide)',
         provider: AI_PROVIDERS.OPENAI,
         group: 'GPT-5',
-        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 4096 },
+        capabilities: { supportsTemperature: true, supportsJsonSchema: true, defaultMaxTokens: 4096, usesMaxCompletionTokens: true },
     },
 });
 
