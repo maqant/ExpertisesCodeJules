@@ -1,5 +1,7 @@
 // v6.0.0 - Context Vault & Mail Generator
 import React, { useState, useRef } from 'react';
+import { cleanAiHtml, sanitizeHtml } from '../services/utils/htmlSanitizer';
+import { copyHtmlToClipboard } from '../services/utils/clipboardUtils';
 
 const GeneratedDocModal = ({ isOpen, generatedText, onClose }) => {
     const [copied, setCopied] = useState(false);
@@ -8,36 +10,13 @@ const GeneratedDocModal = ({ isOpen, generatedText, onClose }) => {
     if (!isOpen || !generatedText) return null;
 
     // Nettoyer les éventuels backticks markdown que l'IA pourrait ajouter
-    const cleanHtml = generatedText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+    const cleanHtml = cleanAiHtml(generatedText);
+    const sanitizedHtml = sanitizeHtml(generatedText);
 
     const handleCopy = async () => {
         if (!contentRef.current) return;
-        
-        try {
-            const html = contentRef.current.innerHTML;
-            const text = contentRef.current.innerText;
-
-            const htmlBlob = new Blob([html], { type: 'text/html' });
-            const textBlob = new Blob([text], { type: 'text/plain' });
-
-            const clipboardItem = new ClipboardItem({
-                'text/html': htmlBlob,
-                'text/plain': textBlob
-            });
-
-            await navigator.clipboard.write([clipboardItem]);
-            
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.warn("ClipboardItem non supporté, utilisation du fallback texte brut.", err);
-            // Fallback pour les navigateurs sans clipboard API avancée
-            const textarea = document.createElement('textarea');
-            textarea.value = contentRef.current.innerText;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
+        const success = await copyHtmlToClipboard(contentRef.current);
+        if (success) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
@@ -68,7 +47,7 @@ const GeneratedDocModal = ({ isOpen, generatedText, onClose }) => {
                             ref={contentRef}
                             contentEditable={true}
                             suppressContentEditableWarning={true}
-                            dangerouslySetInnerHTML={{ __html: cleanHtml }}
+                            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                             className="text-sm text-slate-200 font-sans leading-relaxed outline-none 
                                        [&>p]:mb-4 
                                        [&>table]:w-full [&>table]:border-collapse [&>table]:my-4 [&>table]:text-left

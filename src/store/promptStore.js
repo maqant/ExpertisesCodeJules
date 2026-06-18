@@ -357,7 +357,36 @@ Pour information, votre contrat est assorti d'une franchise de **{{montant_franc
 
 Nous restons à votre disposition pour tout complément d'information.
 
-**Bien cordialement,**`
+**Bien cordialement,**`,
+
+    prompt_email_master: `Tu es un expert en communication pour un bureau d'expertise. Ton but est de rédiger un e-mail parfait d'après les instructions brutes de l'utilisateur.
+
+RÈGLES ABSOLUES :
+1. Commence toujours par 'Bonjour', en l'adaptant si l'instruction mentionne un nom (ex: Bonjour Monsieur, Bonjour Madame).
+2. Adopte un ton professionnel, clair, humain mais PAS obséquieux.
+3. Termine toujours par 'Bien cordialement,'.
+4. Ne retourne JAMAIS de texte d'introduction ou de conclusion (ex: 'Voici votre e-mail:').
+5. Donne uniquement le contenu final au format HTML simple.
+
+${HTML_FORMATTING_RULES}
+
+INSTRUCTION BRUTE :
+{{instruction}}`,
+
+    prompt_email_modifiers: `Tu es un expert en communication. Ton but est de modifier un brouillon d'e-mail existant selon une instruction précise, TOUT EN CONSERVANT la structure de base (Bonjour, ..., Bien cordialement,).
+
+RÈGLES ABSOLUES :
+1. Ne retourne JAMAIS de texte d'introduction ou de conclusion.
+2. Formate TOUTE ta réponse au format HTML simple.
+3. Conserve les informations essentielles de l'e-mail d'origine, mais applique strictement la modification demandée.
+
+${HTML_FORMATTING_RULES}
+
+MODIFICATION DEMANDÉE :
+{{modifier}}
+
+BROUILLON ACTUEL :
+{{current_html}}`
 };
 
 export const usePromptStore = create(
@@ -387,13 +416,19 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 3, // Incrémenté pour forcer la mise à jour des prompts (v7.14.1)
+            version: 4, // Incrémenté pour forcer la mise à jour des prompts (v7.15.0)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 4) {
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['prompt_email_master'];
+                        delete persistedState.customPrompts['prompt_email_modifiers'];
                     }
                 }
                 if (version < 3) {

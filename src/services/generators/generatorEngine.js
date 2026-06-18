@@ -314,3 +314,82 @@ function validateFinisherOutput(originalText, finishedText) {
         missingDemands
     };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMAIL LIBRE ITÉRATIF
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * draftMagicEmail — Rédige le premier jet d'un e-mail libre
+ */
+export const draftMagicEmail = async (instruction, apiKey) => {
+    if (!instruction || !instruction.trim()) return '';
+
+    const { getPrompt } = usePromptStore.getState();
+    const masterPrompt = getPrompt('prompt_email_master').replace('{{instruction}}', instruction.trim());
+
+    const callApi = async () => {
+        const configStr = localStorage.getItem('expertise_aiConfig_v3');
+        const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+        const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
+        const payload = buildAiPayload(
+            config,
+            'draft_email',
+            [{ role: 'user', content: masterPrompt }],
+            { forceJsonResponse: false }
+        );
+
+        const data = await executeAiCall({ apiKey: resolvedApiKey, payload, componentId: 'draft_email' });
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('[Free Email] Réponse vide.');
+        return text;
+    };
+
+    console.log('[Generator] Lancement draftMagicEmail');
+    return withRetry(callApi, 1, 2000);
+};
+
+/**
+ * modifyDraftEmail — Itère sur un brouillon d'e-mail existant
+ */
+export const modifyDraftEmail = async (currentHtml, modifierKey, apiKey) => {
+    if (!currentHtml || !modifierKey) return currentHtml;
+
+    // Mapping des modificateurs
+    const modifiers = {
+        'rewrite': 'Conserve le sens exact et la longueur de cet e-mail, mais fluidifie la syntaxe pour qu\'elle soit plus naturelle.',
+        'shorter': 'Réécris cet e-mail pour qu\'il soit significativement plus court, tout en conservant les informations essentielles et le ton professionnel.',
+        'longer': 'Réécris cet e-mail pour qu\'il soit significativement plus long et plus détaillé, tout en conservant le ton professionnel.',
+        'colder': 'Ajuste le ton de cet e-mail pour le rendre plus froid et strictement administratif, tout en restant courtois.',
+        'warmer': 'Ajuste le ton de cet e-mail pour le rendre plus chaleureux, empathique et rassurant, tout en restant professionnel.'
+    };
+
+    const modifierText = modifiers[modifierKey] || modifierKey; // On accepte aussi un texte libre
+
+    const { getPrompt } = usePromptStore.getState();
+    const modifierPrompt = getPrompt('prompt_email_modifiers')
+        .replace('{{modifier}}', modifierText)
+        .replace('{{current_html}}', currentHtml);
+
+    const callApi = async () => {
+        const configStr = localStorage.getItem('expertise_aiConfig_v3');
+        const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+        const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+
+        const payload = buildAiPayload(
+            config,
+            'modify_email',
+            [{ role: 'user', content: modifierPrompt }],
+            { forceJsonResponse: false }
+        );
+
+        const data = await executeAiCall({ apiKey: resolvedApiKey, payload, componentId: 'modify_email' });
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new Error('[Modify Email] Réponse vide.');
+        return text;
+    };
+
+    console.log('[Generator] Lancement modifyDraftEmail avec:', modifierKey);
+    return withRetry(callApi, 1, 2000);
+};

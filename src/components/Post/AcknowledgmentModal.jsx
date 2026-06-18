@@ -5,8 +5,9 @@ import { generateAcknowledgmentEmail, analyzeNarrativeCause, runArFinisher } fro
 import { evaluateClaims } from '../../domain/claims/claimEngine';
 import { extractEmailsForOutlook } from '../../services/utils/contactUtils';
 import {
-    X, Mail, Check, Copy, Loader2, AlertTriangle, FileText, User, CopyPlus, ChevronDown, ChevronRight, Sparkles, Wand2
+    X, Mail, Check, CopyPlus, Loader2, AlertTriangle, FileText, User, Sparkles, Wand2
 } from 'lucide-react';
+import EmailPreview from '../shared/EmailPreview';
 
 const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const { formData, occupants, expenses, aiConfig, isAiModeActive } = useContext(ExpertiseContext);
@@ -38,7 +39,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const [generatedText, setGeneratedText] = useState('');
     const [finisherWarning, setFinisherWarning] = useState('');
     const [error, setError] = useState(null);
-    const [copied, setCopied] = useState(false);
+    const [error, setError] = useState(null);
     const [emailsCopied, setEmailsCopied] = useState(false);
 
     // Initialisation à l'ouverture
@@ -78,7 +79,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
             setGeneratedText('');
             setFinisherWarning('');
             setError(null);
-            setCopied(false);
             setEmailsCopied(false);
             setCauseNanoPhrase('');
             setCauseNanoEdited('');
@@ -130,7 +130,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         setError(null);
         setGeneratedText('');
         setFinisherWarning('');
-        setCopied(false);
 
         try {
             const dossierData = { formData, occupants, expenses };
@@ -193,13 +192,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
             setIsGenerating(false);
             setIsFinishing(false);
         }
-    };
-
-    const handleCopy = () => {
-        if (!generatedText) return;
-        navigator.clipboard.writeText(generatedText)
-            .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
-            .catch(() => alert('Erreur lors de la copie.'));
     };
 
     const handleCopyEmails = () => {
@@ -477,52 +469,18 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                             )}
                         </div>
 
-                        {/* Colonne droite : aperçu */}
-                        <div className="flex flex-col bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative">
-                            <div className="bg-slate-100 border-b border-slate-200 px-4 py-3 flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-slate-700">Aperçu Outlook</h3>
-                                    {generatedText && !isLoading && !finisherWarning && (
-                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-                                            ✓ Finalisé
-                                        </span>
-                                    )}
-                                    {finisherWarning && (
-                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium" title={finisherWarning}>
-                                            ⚠ Structuré
-                                        </span>
-                                    )}
-                                </div>
-                                {generatedText && (
-                                    <button
-                                        onClick={handleCopy}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${copied ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
-                                    >
-                                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                        {copied ? 'Copié !' : 'Copier'}
-                                    </button>
-                                )}
-                            </div>
-
+                        {/* Colonne droite : aperçu via composant partagé */}
+                        <div className="w-full flex flex-col relative h-[500px]">
                             {finisherWarning && (
-                                <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-700 flex items-center gap-1.5">
+                                <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-700 flex items-center gap-1.5 rounded-t-xl">
                                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                                     {finisherWarning}
                                 </div>
                             )}
-
-                            {generatedText ? (
-                                <textarea
-                                    readOnly
-                                    value={generatedText}
-                                    className="w-full flex-1 p-5 bg-transparent text-sm text-slate-800 focus:outline-none resize-none font-sans leading-relaxed whitespace-pre-wrap"
-                                />
-                            ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center space-y-4">
-                                    <Mail className="w-12 h-12 text-slate-200" />
-                                    <p className="text-sm">Sélectionnez les options à gauche et cliquez sur Générer pour voir le brouillon d'email apparaître ici.</p>
-                                </div>
-                            )}
+                            <EmailPreview 
+                                htmlText={generatedText}
+                                isFinalized={!!generatedText && !isLoading && !finisherWarning}
+                            />
                         </div>
                     </div>
                 </div>
