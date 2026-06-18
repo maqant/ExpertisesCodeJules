@@ -22,6 +22,24 @@ export const buildDeclarationPrompt = (dossierState) => {
     const numSinistreCie = formData.numSinistreCie || '';
     const numeroPVPolice = formData.numeroPVPolice || '';
     const declarant = formData.declarant || '';
+    const dateDeclaration = formData.dateDeclaration || '[DATE INCONNUE]';
+
+    // Utilitaires de formatage de l'introduction (v7.14.1)
+    const formatIntroductionText = (dSinistre, dDeclaration, addr) => {
+        const adresseTexte = addr && addr !== '[ADRESSE INCONNUE]' ? ` à l'adresse ${addr}` : '';
+        
+        if (dSinistre && dSinistre !== '[DATE INCONNUE]' && dSinistre.trim() !== '') {
+            return `Sinistre en date du ${dSinistre}, l'assuré a subi un sinistre${adresseTexte}.`;
+        }
+        
+        if (dDeclaration && dDeclaration !== '[DATE INCONNUE]' && dDeclaration.trim() !== '') {
+            return `En date du ${dDeclaration}, l'assuré nous DECLARE un sinistre${adresseTexte}.`;
+        }
+        
+        return `L'assuré nous déclare un sinistre${adresseTexte}.`;
+    };
+
+    const introSentence = formatIntroductionText(dateSinistre, dateDeclaration, adresse);
 
     // Contexte brut concaténé
     const contextBrut = rawContexts.length > 0
@@ -86,6 +104,9 @@ ${numeroPVPolice ? `N° PV Police : ${numeroPVPolice}` : ''}
 ${numSinistreCie ? `N° Sinistre Cie : ${numSinistreCie}` : ''}
 ${declarant ? `Déclaré par : ${declarant}` : ''}
 ${refsStr ? `Références : ${refsStr}` : ''}
+
+--- INTRODUCTION OBLIGATOIRE ---
+${introSentence}
 
 ${occupantsStr ? `--- PARTIES IMPLIQUÉES ---\n${occupantsStr}\n` : ''}
 ${phraseResponsabilite ? `--- RESPONSABILITÉ ET FRANCHISE ---\nInclure mot pour mot cette phrase dans le compte rendu d'expertise :\n"${phraseResponsabilite}"\n` : ''}

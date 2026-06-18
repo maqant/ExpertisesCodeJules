@@ -215,12 +215,12 @@ RÈGLE ABSOLUE : NE JAMAIS inventer de dates (jours, mois, années). Si aucune d
     DECLARATION_MAIL: `Ton but va être de transformer le mail d'un client ou un échange de mail de clients à propos d'un sinistre, en une déclaration de sinistre à la compagnie d'assurance.
 Je suis courtier et mon job est de déclarer les sinistres à la compagnie.
 Tu fais donc des phrases courtes et claires pour la compréhension.
-Le style c'est genre "en date du x, l'assuré a subi x," . 
+RÈGLE ABSOLUE POUR L'INTRODUCTION : Tu DOIS commencer le corps de ton récit EXACTEMENT et MOT POUR MOT par la phrase fournie dans la section "--- INTRODUCTION OBLIGATOIRE ---". N'invente pas d'autre phrase d'introduction.
 Tu parles à la 3ème personne, et tu fais attention à bien dire à la compagnie le "qui que quoi dont où " du sinistre.
 IMPORTANT : Sépare bien chaque idée par un double saut de ligne <br><br> pour que le texte soit très aéré (une ligne, espace vide, ligne suivante).
 
 Tu feras précéder ton texte par 
-"Bonjour, <br><br>Nouvelle déclaration pour le contrat dont réfs. en objet."
+"Bonjour, <br><br>Nouvelle déclaration pour le contrat dont réfs. en objet.<br>&nbsp;<br>[INSERER ICI L'INTRODUCTION OBLIGATOIRE EXACTE]"
 
 Juste avant "À vous lire & bien cordialement", Insère les tableaux demandés avec des titres soulignés.
 
@@ -387,11 +387,16 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 2, // Incrémenté pour forcer la mise à jour des prompts (v7.13.0)
+            version: 3, // Incrémenté pour forcer la mise à jour des prompts (v7.14.1)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 3) {
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
                     }
