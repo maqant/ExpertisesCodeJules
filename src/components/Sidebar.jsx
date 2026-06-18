@@ -21,7 +21,7 @@ import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import { ANALYSIS_PROMPTS } from '../ai/analysisPrompts.js';
-
+import DropZone from './DropZone.jsx';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
