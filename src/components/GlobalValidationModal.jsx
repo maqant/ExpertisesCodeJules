@@ -2,6 +2,7 @@ import React, { useContext, useState, useMemo, useCallback, useEffect } from 're
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 import { useDatasetStore } from '../store/datasetStore';
+import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
 import DropZone from './DropZone';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
@@ -113,6 +114,8 @@ const GlobalValidationModal = () => {
     const [selectedExperts, setSelectedExperts] = useState(new Set());
     // v5.6.0 - Intervenants (tous DÉCOCHÉS par défaut)
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
+    // v8.1.0 - Références sélectionnées
+    const [selectedReferences, setSelectedReferences] = useState(new Set());
     // v5.6.1 - Refining state
     // v5.6.1 - Refining state
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
@@ -150,11 +153,10 @@ const GlobalValidationModal = () => {
 
     // Initialize when pendingAiData arrives
     if (pendingAiData && !initialized) {
-        const cleanOccs = deduplicateOccupants(pendingAiData.occupants || []);
-        const rawExps = deduplicateExpenses(pendingAiData.expenses || []);
+        const normalized = normalizeAiData(pendingAiData);
         
         // Ticket D: Matching Intelligent du compteDe
-        const cleanExps = rawExps.map(exp => {
+        const cleanExps = normalized.expenses.map(exp => {
             let matchedCompteDe = exp.compteDe || 'unassigned';
             if (matchedCompteDe !== 'unassigned' && matchedCompteDe.trim() !== '') {
                 const searchName = matchedCompteDe.toLowerCase().trim();
@@ -166,17 +168,27 @@ const GlobalValidationModal = () => {
             return { ...exp, compteDe: matchedCompteDe };
         });
         
+        // Déduplication des références
+        const seenRefs = new Set();
+        const cleanRefs = normalized.references.filter(ref => {
+            const key = referenceKey(ref);
+            if (seenRefs.has(key)) return false;
+            seenRefs.add(key);
+            return true;
+        });
+        
         setEditableData({
-            formData: pendingAiData.formData ? { ...pendingAiData.formData } : null,
-            occupants: cleanOccs.map(o => ({ ...o })),
-            expenses: cleanExps.map(e => ({ ...e }))
+            formData: normalized.formData,
+            occupants: normalized.occupants,
+            expenses: cleanExps,
+            references: cleanRefs
         });
 
         // FormData: select fields where current is empty or different
         const newFormFields = new Set();
-        if (pendingAiData.formData) {
-            Object.keys(pendingAiData.formData).forEach(key => {
-                const aiVal = pendingAiData.formData[key] ?? '';
+        if (normalized.formData) {
+            Object.keys(normalized.formData).forEach(key => {
+                const aiVal = normalized.formData[key] ?? '';
                 const currentVal = formData[key] ?? '';
                 
                 const aiValStr = String(aiVal);
@@ -205,9 +217,16 @@ const GlobalValidationModal = () => {
         });
         setSelectedExperts(newSelectedExperts);
 
+        // Références : sélectionner toutes les références non vides par défaut
+        const newSelectedRefs = new Set();
+        cleanRefs.forEach(ref => {
+            newSelectedRefs.add(ref.id);
+        });
+        setSelectedReferences(newSelectedRefs);
+
         // v7.0.0 - Set default actions avec fuzzy matching
         const newOccActions = new Map();
-        cleanOccs.forEach(occ => {
+        normalized.occupants.forEach(occ => {
             const match = fuzzyMatchOccupant(occ, occupants);
             // Par défaut : conflit → 'ignore' (non coché), nouveau → 'add'
             newOccActions.set(occ.id, match ? 'ignore' : 'add');
@@ -232,6 +251,7 @@ const GlobalValidationModal = () => {
         setInitialized(false);
         setEditableData(null);
         setSelectedIntervenants(new Set());
+        setSelectedReferences(new Set());
         setFeedbackNote('');
         setFeedbackOptions({ adminErr: false, socialErr: false, financeErr: false, fusionErr: false });
         setAttachedCpFile(null);
@@ -274,6 +294,17 @@ const GlobalValidationModal = () => {
         setSelectedFormFields(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
     };
 
+    const toggleReference = (id) => {
+        setSelectedReferences(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    };
+
+    const updateReferenceField = (refId, field, value) => {
+        setEditableData(prev => ({
+            ...prev,
+            references: prev.references.map(r => r.id === refId ? { ...r, [field]: value } : r)
+        }));
+    };
+
     const updateOccField = (occId, field, value) => {
         setEditableData(prev => ({
             ...prev,
@@ -299,6 +330,7 @@ const GlobalValidationModal = () => {
         const selections = {
             formFields: Array.from(selectedFormFields),
             experts: Array.from(selectedExperts),
+            references: Array.from(selectedReferences),
             occupants: Array.from(occActions.entries())
                 .filter(([, action]) => action !== 'ignore')
                 .map(([id, action]) => {
@@ -315,7 +347,8 @@ const GlobalValidationModal = () => {
         // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
         const mergedData = {
             ...pendingAiData,               // preserves pendingFiles, experts, intervenants, etc.
-            ...editableData,                // overwrites formData, occupants, expenses with edited versions
+            ...editableData,                // overwrites formData, occupants, expenses, references with edited versions
+            references: editableData.references || [],
             intervenants: pendingAiData.intervenants || [],  // preserve original intervenants
             pendingFiles: pendingAiData.pendingFiles || []  // explicit safety net
         };
@@ -412,6 +445,7 @@ const GlobalValidationModal = () => {
     };
 
     const hasFormData = editableData.formData && Object.keys(editableData.formData).some(k => editableData.formData[k] && editableData.formData[k] !== '');
+    const hasReferences = editableData.references && editableData.references.length > 0;
     const hasOccupants = editableData.occupants && editableData.occupants.length > 0;
     const hasExpenses = editableData.expenses && editableData.expenses.length > 0;
     const aiExperts = pendingAiData.experts || [];
@@ -616,6 +650,47 @@ const GlobalValidationModal = () => {
                         </div>
                     )}
 
+                    {/* Section 1.5: Références (v8.1.0) */}
+                    {hasReferences && (
+                        <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
+                            <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">📊 Références tierces</h3>
+                                <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newId = Math.random().toString(36).substring(2, 11);
+                                    setEditableData(prev => ({
+                                        ...prev,
+                                        references: [...(prev.references || []), { id: newId, nom: '', ref: '' }]
+                                    }));
+                                    setSelectedReferences(prev => new Set(prev).add(newId));
+                                }} className="text-[10px] bg-indigo-500 hover:bg-indigo-400 text-white px-2 py-1 rounded transition-colors shadow">
+                                    + Ajouter
+                                </button>
+                            </div>
+                            <div className="p-3 space-y-1.5">
+                                {editableData.references.map((r) => {
+                                    const isChecked = selectedReferences.has(r.id);
+                                    return (
+                                        <div key={r.id} className="flex items-center gap-2.5 p-2 rounded transition-colors hover:bg-slate-700/50">
+                                            <input type="checkbox" checked={isChecked} onChange={() => toggleReference(r.id)}
+                                                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 cursor-pointer" />
+                                            <div className="flex-1 flex gap-2">
+                                                <input type="text" value={r.nom || ''} onChange={e => updateReferenceField(r.id, 'nom', e.target.value)}
+                                                    placeholder="Nom (Ex: Tiers, Cie...)" className="w-1/2 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" />
+                                                <input type="text" value={r.ref || ''} onChange={e => updateReferenceField(r.id, 'ref', e.target.value)}
+                                                    placeholder="Référence" className="w-1/2 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
+                                            </div>
+                                            <button onClick={() => {
+                                                setEditableData(prev => ({ ...prev, references: prev.references.filter(x => x.id !== r.id) }));
+                                                setSelectedReferences(prev => { const n = new Set(prev); n.delete(r.id); return n; });
+                                            }} className="text-slate-500 hover:text-red-400 p-1" title="Supprimer de la liste">🗑️</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Section 2: Experts (v5.5.10) */}
                     {hasExperts && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
@@ -726,6 +801,14 @@ const GlobalValidationModal = () => {
                                                             <div><label className="text-[9px] text-slate-500 uppercase">N° Police 2ème</label><input type="text" data-telemetry-id="occ_sec_police" value={occ.secPolice || ''} onChange={(e) => updateOccField(occ.id, 'secPolice', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                             <div><label className="text-[9px] text-slate-500 uppercase">Cie 2ème</label><input type="text" data-telemetry-id="occ_sec_cie" value={occ.secCie || ''} onChange={(e) => updateOccField(occ.id, 'secCie', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                         </>
+                                                    )}
+                                                    <div><label className="text-[9px] text-slate-500 uppercase">Expert client (Contre-Expert)</label>
+                                                        <select value={occ.contreExpert ? 'Oui' : 'Non'} onChange={(e) => updateOccField(occ.id, 'contreExpert', e.target.value === 'Oui')} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none">
+                                                            <option value="Oui">Oui</option><option value="Non">Non</option>
+                                                        </select>
+                                                    </div>
+                                                    {occ.contreExpert && (
+                                                        <div><label className="text-[9px] text-slate-500 uppercase">Nom Expert Client</label><input type="text" value={occ.nomContreExpert || ''} onChange={(e) => updateOccField(occ.id, 'nomContreExpert', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                     )}
                                                 </div>
                                             )}

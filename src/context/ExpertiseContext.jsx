@@ -1,5 +1,6 @@
 import { useFinanceStore, cleanAmount } from "../store/financeStore";
 import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
@@ -1550,20 +1551,27 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
-      // 4. Experts — ajouter les nouveaux à la base de données (v5.5.10)
-      if (selections.experts && selections.experts.length > 0 && data.experts) {
-          const newExperts = [];
-          selections.experts.forEach(expertName => {
-              const aiExpert = data.experts.find(e => (e.nom || '').trim() === expertName);
-              if (!aiExpert) return;
-              // Anti-doublons par nom
-              const exists = expertsList.some(e => (e.nom || '').toLowerCase().trim() === (aiExpert.nom || '').toLowerCase().trim());
-              if (!exists && aiExpert.nom) {
-                  newExperts.push({ nom: aiExpert.nom, tel: aiExpert.tel || '' });
+      // 4. Experts — Auto-ajout DÉSACTIVÉ (gestion manuelle exclusive).
+      // (Supprimé pour éviter de polluer la base de données avec de faux experts).
+
+      // 4.5. Références — ajouter les références cochées (v8.1.0)
+      if (selections.references && selections.references.length > 0 && data.references) {
+          const newRefs = [];
+          selections.references.forEach(refId => {
+              const aiRef = data.references.find(r => r.id === refId);
+              if (!aiRef) return;
+              const exists = references.some(r => referenceKey(r) === referenceKey(aiRef));
+              if (!exists && (aiRef.nom || aiRef.ref)) {
+                  newRefs.push({
+                      id: crypto.randomUUID(),
+                      nom: aiRef.nom || '',
+                      ref: aiRef.ref || ''
+                  });
               }
           });
-          if (newExperts.length > 0) {
-              setExpertsList(prev => [...prev, ...newExperts]);
+          if (newRefs.length > 0) {
+              setReferences(prev => [...prev, ...newRefs]);
+              console.log(`[commitPendingAiData] 📊 ${newRefs.length} références ajoutées`);
           }
       }
 

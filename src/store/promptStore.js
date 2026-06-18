@@ -96,6 +96,12 @@ v7.0.0 - EXTRACTION IBAN :
 - Si un IBAN ou des coordonnées bancaires (compte bancaire, numéro de compte) sont mentionnés
   pour un occupant, extrais-les dans le champ "iban".
 
+v8.1.0 - RÈGLE EXPERT CLIENT (CONTRE-EXPERT) (CRITIQUE) :
+- L'expert client (ou contre-expert) désigne l'expert privé désigné personnellement par l'assuré/occupant pour défendre ses intérêts propres (distinct de l'expert de la compagnie d'assurance ou du Bureau Péchard).
+- \`contreExpert\` doit être \`true\` uniquement s'il est explicitement indiqué que l'occupant a fait appel à son propre expert (ex: "l'assuré est assisté de M. GALTIER", "contre-expertise de M. DUPONT"). Par défaut, mettez \`false\`.
+- Ne confondez jamais l'expert client/contre-expert avec l'expert principal de la compagnie ou les employés du Bureau Péchard.
+- Si \`contreExpert\` est \`true\`, renseignez le nom de cet expert dans \`nomContreExpert\` (uniquement le NOM en majuscules, ex: "GALTIER").
+
 Voici le format EXACT attendu, avec tous les champs présents :
 {
   "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
@@ -103,7 +109,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "occupants": [
     {
       "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
-      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false
+      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false, "nomContreExpert": null
     }
   ],
   "intervenants": [
