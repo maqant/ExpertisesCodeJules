@@ -39,7 +39,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const [generatedText, setGeneratedText] = useState('');
     const [finisherWarning, setFinisherWarning] = useState('');
     const [error, setError] = useState(null);
-    const [error, setError] = useState(null);
     const [emailsCopied, setEmailsCopied] = useState(false);
 
     // Initialisation à l'ouverture
