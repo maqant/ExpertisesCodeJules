@@ -28,7 +28,7 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'brio_summary',    label: 'Résumé Brio',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_brio_prep', hint: 'Préparation du résumé Brio.' },
     { id: 'final_document',  label: 'Document final',      group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Assemblage du rapport d\'expertise final.' },
     { id: 'ar_modal',        label: 'Accusé de Réception',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_generator', hint: 'Génération de la modale AR.' },
-    { id: 'ar_nano',         label: 'Nano Cause AR',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-4o-mini',        promptKey: 'prompt_ar_nano',      hint: 'Micro-analyse IA de la cause pour l\'AR (une phrase ciblée).' },
+    { id: 'ar_nano',         label: 'Nano Cause AR',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.4-nano',        promptKey: 'prompt_ar_nano',      hint: 'Micro-analyse IA de la cause pour l\'AR (une phrase ciblée).' },
     { id: 'ar_finisher',     label: 'IA Balais AR',           group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_finisher',  hint: 'Naturalisation du mail AR généré pour un rendu humain.' },
 
     // --- Affinage / Reformulation ---
