@@ -20,7 +20,6 @@ import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngest
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
-import { ANALYSIS_PROMPTS } from '../ai/analysisPrompts.js';
 import DropZone from './DropZone.jsx';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
@@ -281,7 +280,6 @@ const Sidebar = () => {
     const [currentBridgeFile, setCurrentBridgeFile] = useState(null);
     const [bridgeMatchResult, setBridgeMatchResult] = useState(null);
     const [contextVaultMenuAnchor, setContextVaultMenuAnchor] = useState(null);
-    const [showPromptsMenu, setShowPromptsMenu] = useState(false);
 
     // v6.0.0 - Generator State
     const [generatedText, setGeneratedText] = useState(null);
@@ -816,28 +814,6 @@ const Sidebar = () => {
                                 title="Console Développeur"
                             >
                                 🦂
-                            </button>
-                            <div className="w-px h-3 bg-slate-700 mx-0.5 relative">
-                                {showPromptsMenu && (
-                                    <div className="absolute top-6 right-0 w-48 bg-slate-800 border border-slate-600 rounded shadow-xl z-50 overflow-hidden">
-                                        <div className="px-2 py-1 bg-slate-900 text-[9px] text-slate-400 uppercase font-bold border-b border-slate-700">Copier Prompt QA</div>
-                                        {Object.keys(ANALYSIS_PROMPTS).map(key => (
-                                            <button key={key} onClick={() => {
-                                                navigator.clipboard.writeText(ANALYSIS_PROMPTS[key]);
-                                                setShowPromptsMenu(false);
-                                            }} className="w-full text-left px-3 py-1.5 text-[10px] text-slate-300 hover:bg-indigo-600 hover:text-white transition-colors">
-                                                {key}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setShowPromptsMenu(!showPromptsMenu)}
-                                className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-white hover:bg-slate-700 relative border border-transparent hover:border-slate-600"
-                                title="Prompts QA"
-                            >
-                                📋 <span className="hidden sm:inline">Prompts QA</span>
                             </button>
                         </div>
                         <div className="flex gap-1.5">
