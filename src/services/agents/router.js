@@ -55,7 +55,7 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
 
                 const payload = buildAiPayload(
                     config,
-                    AI_ROLES.REFINEMENT, // Utilise le modèle nano/rapide pour le routage
+                    'agent_router', // Utilise le modèle nano/rapide pour le routage
                     [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: contentArray }

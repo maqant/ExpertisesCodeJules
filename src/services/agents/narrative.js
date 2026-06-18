@@ -69,7 +69,7 @@ Voici le format EXACT attendu :
 
             const payload = buildAiPayload(
                 config,
-                AI_ROLES.EXTRACTION,
+                'agent_narrative',
                 [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }

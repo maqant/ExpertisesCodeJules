@@ -41,6 +41,7 @@ export const sanitizeAiConfig = (raw) => {
         apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : def.apiKey,
         provider: typeof raw.provider === 'string' ? raw.provider : def.provider,
         parameters: { temperature: validTemp },
-        roles
+        roles,
+        processOverrides: raw.processOverrides && typeof raw.processOverrides === 'object' ? raw.processOverrides : {}
     };
 };

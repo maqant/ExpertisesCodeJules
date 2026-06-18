@@ -52,7 +52,7 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
 
             const payload = buildAiPayload(
                 config,
-                AI_ROLES.EXTRACTION,
+                'agent_admin',
                 [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }

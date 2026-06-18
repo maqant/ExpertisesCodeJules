@@ -44,7 +44,7 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
 
         const payload = buildAiPayload(
             config,
-            AI_ROLES.SYNTHESIS,
+            'brio_summary',
             [
                 { role: 'user', content: prompt }
             ],
@@ -97,7 +97,7 @@ export const generateDocument = async (type, dossierState, apiKey) => {
 
         const payload = buildAiPayload(
             config,
-            AI_ROLES.SYNTHESIS,
+            'final_document',
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
@@ -191,7 +191,7 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
 
         const payload = buildAiPayload(
             config,
-            AI_ROLES.SYNTHESIS,
+            'ar_modal',
             [
                 { role: 'user', content: promptContent }
             ],

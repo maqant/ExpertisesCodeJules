@@ -115,7 +115,7 @@ Format EXACT attendu :
 
             const payload = buildAiPayload(
                 config,
-                AI_ROLES.EXTRACTION,
+                'agent_financial',
                 [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }

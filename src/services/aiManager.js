@@ -64,7 +64,7 @@ const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
 
     const payload = buildAiPayload(
         config,
-        AI_ROLES.SYNTHESIS, // Agent Balai utilise le modèle lourd par défaut pour récupérer les clés manquantes
+        'agent_fallback', // Process ID pour l'Agent Balai
         [{ role: 'user', content: prompt }],
         { forceJsonResponse: true }
     );
@@ -349,7 +349,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
             
             const payload = buildAiPayload(
                 config,
-                AI_ROLES.EXTRACTION,
+                'extraction_dropzone',
                 [
                     { role: "system", content: getSystemPrompt() + antiHallucinationPrompt },
                     { role: "user", content: contentArray }
@@ -451,7 +451,7 @@ export const reformatCompteRendu = async (rawNotes, provider = 'openai', model =
     try {
         const payload = buildAiPayload(
             config,
-            AI_ROLES.SYNTHESIS,
+            'agent_narrative',
             [
                 {
                     role: "system",
@@ -548,7 +548,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
     try {
         const payload = buildAiPayload(
             config, 
-            AI_ROLES.REFINEMENT, 
+            'manual_refine', 
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: currentText }
@@ -591,7 +591,7 @@ export const refineCauseWithInput = async (existingCause, newInput, providedApiK
     try {
         const payload = buildAiPayload(
             config,
-            AI_ROLES.REFINEMENT,
+            'manual_refine',
             [
                 {
                     role: "system",

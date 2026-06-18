@@ -1,5 +1,5 @@
 // src/ai/process.catalog.js
-import { AI_ROLES } from './ai.catalog.js';
+import { AI_ROLES, isValidModelId, AI_ROLE_META } from './ai.catalog.js';
 import { DEFAULT_PROMPTS } from '../store/promptStore.js';
 
 /**
@@ -81,6 +81,49 @@ export function getProcessesByGroup() {
         (groups[p.group] ??= []).push(p);
     }
     return groups;
+}
+
+/**
+ * SOURCE DE VÉRITÉ UNIQUE pour résoudre le modèle effectif d'un processus.
+ * Priorité : override processus > modèle du rôle (aiConfig) > défaut du rôle (catalogue).
+ * @returns {{ modelId: string, source: 'override'|'role'|'role-default', isOverridden: boolean, role: string }}
+ */
+export function resolveModelForProcess(processId, aiConfig) {
+    const proc = PROCESS_CATALOG.find(p => p.id === processId);
+    if (!proc) throw new Error(`[resolveModelForProcess] Processus inconnu : "${processId}".`);
+
+    const overrides = aiConfig?.processOverrides ?? {};
+    const roles = aiConfig?.roles ?? {};
+
+    const overrideModel = overrides[processId];
+    if (overrideModel) {
+        if (!isValidModelId(overrideModel)) {
+            // Erreur explicite, jamais silencieuse
+            console.error(`[resolveModelForProcess] Override invalide "${overrideModel}" pour "${processId}". Fallback rôle.`);
+        } else {
+            return { modelId: overrideModel, source: 'override', isOverridden: true, role: proc.role };
+        }
+    }
+
+    const roleModel = roles[proc.role];
+    if (roleModel && isValidModelId(roleModel)) {
+        return { modelId: roleModel, source: 'role', isOverridden: false, role: proc.role };
+    }
+
+    const fallback = AI_ROLE_META[proc.role].defaultModel;
+    return { modelId: fallback, source: 'role-default', isOverridden: false, role: proc.role };
+}
+
+/**
+ * Carte des dépendances croisées par prompt : promptKey -> [processus partageant ce prompt].
+ */
+export function buildPromptUsageMap() {
+    const map = {};
+    for (const p of PROCESS_CATALOG) {
+        if (!p.promptKey) continue;
+        (map[p.promptKey] ??= []).push(p);
+    }
+    return Object.freeze(map);
 }
 
 // Validation immédiate au chargement du module (fail-fast).

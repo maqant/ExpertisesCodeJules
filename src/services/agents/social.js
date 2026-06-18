@@ -53,7 +53,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
             const payload = buildAiPayload(
                 config,
-                AI_ROLES.EXTRACTION,
+                'agent_social',
                 [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: contentArray }

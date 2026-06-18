@@ -31,7 +31,7 @@ export const runMergeAgent = async (occupants, expenses, providedApiKey = null) 
     try {
         const payload = buildAiPayload(
             config,
-            AI_ROLES.REFINEMENT, // Utilise le modèle le plus rapide/cheap pour le nettoyage
+            'agent_merger', // Utilise le modèle le plus rapide/cheap pour le nettoyage
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: payloadContent }

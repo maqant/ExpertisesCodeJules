@@ -234,6 +234,12 @@ export const ExpertiseProvider = ({ children }) => {
           if (newConfigPartial.roles) {
               rawNext.roles = { ...rawNext.roles, ...newConfigPartial.roles };
           }
+          if (newConfigPartial.processOverrides !== undefined) {
+              // Si null est passé explicitement on veut écraser (pour le reset) ou on merge
+              rawNext.processOverrides = newConfigPartial.processOverrides === null 
+                  ? {} 
+                  : { ...rawNext.processOverrides, ...newConfigPartial.processOverrides };
+          }
           
           const next = sanitizeAiConfig(rawNext);
           localStorage.setItem('expertise_aiConfig_v2', JSON.stringify(next));
@@ -242,6 +248,26 @@ export const ExpertiseProvider = ({ children }) => {
           localStorage.setItem('aiApiKey', next.apiKey);
           localStorage.setItem('aiModel', next.roles.extraction); 
           
+          return next;
+      });
+  };
+
+  const setProcessOverride = (processId, modelId) => {
+      updateAiConfig({
+          processOverrides: { [processId]: modelId },
+      });
+  };
+
+  const clearProcessOverride = (processId) => {
+      setAiConfig(prev => {
+          const rawNext = { ...prev };
+          if (rawNext.processOverrides) {
+              const nextOverrides = { ...rawNext.processOverrides };
+              delete nextOverrides[processId];
+              rawNext.processOverrides = nextOverrides;
+          }
+          const next = sanitizeAiConfig(rawNext);
+          localStorage.setItem('expertise_aiConfig_v2', JSON.stringify(next));
           return next;
       });
   };
@@ -1719,7 +1745,7 @@ Voici le format JSON :
       addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense,
       removeExpense, reorganizeExpenses, processJsonData, handleJsonImport,
       handlePasteImport, copyPrompt, exportGlobalData, handleOpenFile,
-      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig,
+      isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
       isDeepThinkingMode, toggleDeepThinkingMode,
       pendingAiData, setPendingAiData, commitPendingAiData,
       causeTimeline, setCauseTimeline, addCauseTimelineItem,

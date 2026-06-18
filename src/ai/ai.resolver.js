@@ -1,20 +1,21 @@
 // src/ai/ai.resolver.js
 import { getModelMeta, AI_ROLES } from './ai.catalog.js';
+import { resolveModelForProcess } from './process.catalog.js';
 
 /**
  * Construit le payload pour l'API d'OpenAI, en l'adaptant selon les capacités
- * du modèle choisi pour le rôle spécifié.
+ * du modèle choisi pour le processus spécifié.
  * 
  * @param {Object} config - aiConfig (sanitized) complet.
- * @param {string} role - Le rôle métier (AI_ROLES.EXTRACTION, etc.)
+ * @param {string} processId - L'identifiant du processus métier (ex: 'agent_admin')
  * @param {Array} messages - Les messages (system/user). Note: o1 ne supporte 'system' qu'avec de récents ajustements, on gardera 'system' pour l'instant ou on le convertira en 'user' si besoin futur.
  * @param {Object} options - Options contextuelles (ex: forceJsonResponse, maxTokensOverride).
  * @returns {Object} Le payload prêt à être envoyé à l'API OpenAI.
  */
-export const buildAiPayload = (config, role, messages, options = {}) => {
-    const modelId = config.roles[role];
+export const buildAiPayload = (config, processId, messages, options = {}) => {
+    const { modelId, role: resolvedRole } = resolveModelForProcess(processId, config);
     const meta = getModelMeta(modelId);
-    if (!meta) throw new Error(`Modèle non trouvé pour le rôle ${role}: ${modelId}`);
+    if (!meta) throw new Error(`Modèle non trouvé pour le processus ${processId} (rôle ${resolvedRole}): ${modelId}`);
 
     const payload = {
         model: modelId,
