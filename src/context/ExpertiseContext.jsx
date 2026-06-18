@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useCallback, useMemo, useRef
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
+import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
 import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
@@ -657,11 +658,25 @@ export const ExpertiseProvider = ({ children }) => {
       const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
       
       try {
-          const arrayBuffer = await file.arrayBuffer();
+          let arrayBuffer = await file.arrayBuffer();
           let pages = 1; // Default for images
           let isPdf = false;
+          let finalFileName = file.name;
+          let finalType = file.type;
 
-          if (file.type === 'application/pdf') {
+          if (finalFileName.toLowerCase().endsWith('.msg')) {
+              try {
+                  const pdfBytes = await msgToSinglePagePdf(arrayBuffer);
+                  arrayBuffer = pdfBytes.buffer || pdfBytes; // Uint8Array -> ArrayBuffer
+                  isPdf = true;
+                  pages = 1;
+                  finalFileName = finalFileName + '.pdf';
+                  finalType = 'application/pdf';
+              } catch (e) {
+                  console.error("Error converting MSG to PDF:", e);
+                  return alert("Erreur lors de la conversion du fichier MSG : " + e.message);
+              }
+          } else if (finalType === 'application/pdf') {
               isPdf = true;
               try {
                   const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -670,13 +685,13 @@ export const ExpertiseProvider = ({ children }) => {
                   console.error("Non-fatal error reading PDF pages:", e);
                   pages = 1;
               }
-          } else if (!file.type.startsWith('image/')) {
-              return alert("Seuls les fichiers PDF et les images sont acceptés pour le moment.");
+          } else if (!finalType.startsWith('image/')) {
+              return alert("Seuls les fichiers PDF, MSG et les images sont acceptés pour le moment.");
           }
 
           await localforage.setItem(dbKey, arrayBuffer);
           
-          const fileObj = { name: file.name, pages, dbKey, isPdf, type: file.type, expenseType };
+          const fileObj = { name: finalFileName, pages, dbKey, isPdf, type: finalType, expenseType };
           setAttachedFiles(prev => {
               const current = prev[expenseId] || [];
               return { ...prev, [expenseId]: [...current, fileObj] };

@@ -48,7 +48,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUp
                     </span>
                 );
             })}
-            <DropZone onDragFinish={onDragFinish} onFiles={handleFiles} accept=".pdf" />
+            <DropZone onDragFinish={onDragFinish} onFiles={handleFiles} accept=".pdf,.msg" />
         </div>
     );
 };

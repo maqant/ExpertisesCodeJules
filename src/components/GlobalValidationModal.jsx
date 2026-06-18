@@ -25,7 +25,7 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
                     </span>
                 );
             })}
-            <DropZone onDragFinish={() => {}} onFiles={handleFiles} accept=".pdf" />
+            <DropZone onDragFinish={() => {}} onFiles={handleFiles} accept=".pdf,.msg" />
         </div>
     );
 };
