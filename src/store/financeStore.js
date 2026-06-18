@@ -61,6 +61,7 @@ export const useFinanceStore = create((set, get) => ({
       nomContrat: "",
       numPolice: "",
       numSinistreCie: "",
+      numeroPVPolice: "",
       adresse: "",
       cause: ""
     },

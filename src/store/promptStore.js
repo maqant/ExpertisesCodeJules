@@ -45,7 +45,8 @@ RÈGLES ABSOLUES :
 4. Si la compagnie d'assurance (nomCie) est "AXA", ou une de ses filiales, tu DOIS ABSOLUMENT mettre le booléen "isAxa" à true. Sinon false.
 5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou null si non trouvé.
 6. FRANCHISE : Extrait le montant exact ou le texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "1.500 EUR", "indice 119", "franchise anglaise de 500€").
-7. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
+7. PV DE POLICE : Recherche la présence éventuelle d'un numéro de procès-verbal de police (souvent noté Numéro de PV ou PV de police). Si tu le trouves, assigne-le à la clé "numeroPVPolice". Sinon, retourne null.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
@@ -53,7 +54,7 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "formData": {
     "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "expertInfos": null,
     "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
-    "numConditionsGenerales": null, "franchise": null, "pertesIndirectes": null, "isAxa": false,
+    "numConditionsGenerales": null, "numeroPVPolice": null, "franchise": null, "pertesIndirectes": null, "isAxa": false,
     "isContradictoire": false, "cieContradictoire": null, "bureauContradictoire": null, "expertContradictoire": null, "compteDeContradictoire": null
   },
   "references": [ 
@@ -386,13 +387,18 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 1, // Incrémenté pour forcer la mise à jour des prompts critiques (v7.5.2)
+            version: 2, // Incrémenté pour forcer la mise à jour des prompts (v7.13.0)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 2) {
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['ADMIN'];
                     }
                 }
                 return persistedState;

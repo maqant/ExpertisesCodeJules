@@ -41,7 +41,7 @@ const REFERENCE_DEFAULTS = {
 const FORMDATA_DEFAULTS = {
   dateExp: null, heureExp: null, nomResidence: null, adresse: null, expertInfos: null,
   dateSinistre: null, dateDeclaration: null, declarant: null, nomCie: null, nomContrat: null,
-  numPolice: null, numSinistreCie: null, numConditionsGenerales: null, franchise: null,
+  numPolice: null, numSinistreCie: null, numConditionsGenerales: null, numeroPVPolice: null, franchise: null,
   pertesIndirectes: null, isAxa: false,
   isContradictoire: false, cieContradictoire: null, bureauContradictoire: null,
   expertContradictoire: null, compteDeContradictoire: null
