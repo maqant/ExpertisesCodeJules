@@ -55,7 +55,7 @@ export default function DebugConsole() {
     }
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-64 bg-gray-900 text-gray-100 flex flex-col border-t border-gray-700 z-[10000] shadow-2xl opacity-95">
+        <div className="fixed bottom-0 left-0 right-0 h-64 bg-gray-900 text-gray-100 flex flex-col border-t border-gray-700 z-[10000] shadow-2xl opacity-95 no-print">
             <div className="flex justify-between items-center p-2 bg-gray-900/90 border-b border-gray-800 shrink-0">
                 <div className="flex items-center gap-4">
                     <h3 className="font-bold text-lg flex items-center gap-2 text-white">

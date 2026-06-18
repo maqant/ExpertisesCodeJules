@@ -784,7 +784,7 @@ const Sidebar = () => {
     return (
         <>
         <div 
-            className="h-full flex flex-col bg-slate-800 border-r border-slate-700 relative shadow-2xl z-10" 
+            className="no-print h-full flex flex-col bg-slate-800 border-r border-slate-700 relative shadow-2xl z-10" 
             style={{ width: `${sidebarWidth}px`, minWidth: '300px', maxWidth: '800px' }}
             onFocusCapture={handleFocusCapture}
             onBlurCapture={handleBlurCapture}

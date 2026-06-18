@@ -15,7 +15,7 @@ function App() {
 
   return (
     <ExpertiseProvider>
-      <div className="flex flex-col h-screen w-full bg-slate-200 relative">
+      <div className="flex flex-col h-screen w-full bg-slate-200 relative print:h-auto print:overflow-visible print:bg-white">
 
         <div className="bg-slate-900 text-white p-2 flex justify-center gap-4 z-50 shadow-md print:hidden no-print">
           <button
@@ -38,7 +38,7 @@ function App() {
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden print:overflow-visible print:block">
           {viewMode === 'bureau' && (
             <>
               <Sidebar />

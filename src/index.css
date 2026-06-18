@@ -130,4 +130,20 @@ details[open] > summary::before { transform: rotate(90deg); }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid !important; page-break-after: auto; }
     th, td { border: 1px solid #cbd5e1 !important; }
+
+    /* Tout élément chrome applicatif disparaît */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Le conteneur document reprend toute la largeur */
+    .print-document {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+        display: block !important;
+    }
 }

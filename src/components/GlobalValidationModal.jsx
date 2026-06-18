@@ -439,7 +439,7 @@ const GlobalValidationModal = () => {
     const showMissingWarning = isFranchiseMissing || isPertesMissing;
 
     return (
-        <div className="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm no-print">
             <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 w-full max-w-[750px] max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-indigo-900/50 flex justify-between items-center">

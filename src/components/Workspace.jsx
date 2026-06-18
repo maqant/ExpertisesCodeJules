@@ -476,7 +476,7 @@ const Workspace = () => {
     return (
         <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 print:py-0 print:block">
             {/* Generate AR Button in Workspace */}
-            <div className="absolute top-4 right-4 z-[100] print:hidden">
+            <div className="absolute top-4 right-4 z-[100] print:hidden no-print">
                 <button
                     onClick={() => setIsAcknowledgmentModalOpen(true)}
                     className="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700 flex items-center gap-2"
@@ -491,7 +491,7 @@ const Workspace = () => {
                 onClose={() => setIsAcknowledgmentModalOpen(false)}
             />
 
-            <div id="a4-page" className="relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
+            <div id="a4-page" className="print-document relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">
                 {renderBlocksInOrder()}
                 <PageBreakLines />
             </div>
@@ -506,7 +506,7 @@ const Workspace = () => {
             `}</style>
 
             {/* AutoSave Indicator */}
-            <div className="fixed bottom-4 right-4 z-50 print:hidden flex items-center gap-2 bg-slate-800/90 backdrop-blur border border-slate-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-2xl transition-all duration-300">
+            <div className="fixed bottom-4 right-4 z-50 print:hidden no-print flex items-center gap-2 bg-slate-800/90 backdrop-blur border border-slate-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-2xl transition-all duration-300">
                 {saveStatus === 'saving' && <><span className="animate-spin text-indigo-400">↻</span> <span className="text-slate-300">Enregistrement...</span></>}
                 {saveStatus === 'saved' && <><span className="text-emerald-400 text-sm">✓</span> <span className="text-emerald-400/90">Sauvegardé</span></>}
                 {saveStatus === 'unsaved' && <><span className="text-amber-400">✎</span> <span className="text-amber-400/90">Non sauvegardé</span></>}
