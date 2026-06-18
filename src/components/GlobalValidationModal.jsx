@@ -2,6 +2,9 @@ import React, { useContext, useState, useMemo, useCallback, useEffect } from 're
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 import { useDatasetStore } from '../store/datasetStore';
+import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
+import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
+import { FieldStatus } from '../domain/merge/mergeStrategies.js';
 import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
 import DropZone from './DropZone';
 
@@ -184,24 +187,15 @@ const GlobalValidationModal = () => {
             references: cleanRefs
         });
 
-        // FormData: select fields where current is empty or different
+        // FormData: select fields where current is empty or different using domain logic
         const newFormFields = new Set();
         if (normalized.formData) {
-            Object.keys(normalized.formData).forEach(key => {
-                const aiVal = normalized.formData[key] ?? '';
-                const currentVal = formData[key] ?? '';
-                
-                const aiValStr = String(aiVal);
-                const currentValStr = String(currentVal);
-                
-                if (aiValStr.trim() !== '') {
-                    if (currentValStr.trim() === '') {
-                        // New value
-                        newFormFields.add(key);
-                    } else if (aiValStr.trim() !== currentValStr.trim()) {
-                        // Modified value
-                        newFormFields.add(key);
-                    }
+            const diffs = buildFieldDiff(formData, normalized.formData);
+            diffs.forEach(diff => {
+                // Seuls les NOUVEAUX champs (IA a trouvé qqch, humain n'avait rien mis) sont cochés par défaut.
+                // Les CONFLITS (humain avait déjà une valeur) sont sanctuarisés et décochés par défaut.
+                if (diff.status === FieldStatus.NEW) {
+                    newFormFields.add(diff.key);
                 }
             });
         }

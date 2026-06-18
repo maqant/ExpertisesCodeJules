@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
 import { useDossiersStore } from '../hooks/useDossiersStore';
+import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -1437,14 +1438,13 @@ export const ExpertiseProvider = ({ children }) => {
       // Capture pendingFiles AVANT de modifier le state
       const pendingFiles = data.pendingFiles || [];
 
-      // 1. FormData — écraser seulement les champs cochés
+      // 1. FormData — écraser seulement les champs cochés en utilisant la logique métier
       if (selections.formFields && selections.formFields.length > 0 && data.formData) {
+          const { next, applied } = applyValidatedMerge(formData, data.formData, selections.formFields);
+          
           const updates = {};
-          selections.formFields.forEach(key => {
-              if (data.formData[key] !== undefined && data.formData[key] !== '') {
-                  updates[key] = data.formData[key];
-              }
-          });
+          applied.forEach(key => updates[key] = next[key]);
+
           // v5.6.4 - Auto-fill refPechard : si l'IA renvoie vide, utiliser le nom du dossier courant
           if (!updates.refPechard && !formData.refPechard) {
               const currentDossier = savedDossiers.find(d => d.id === currentDossierId);
