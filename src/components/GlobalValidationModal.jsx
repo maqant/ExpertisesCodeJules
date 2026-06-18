@@ -2,6 +2,33 @@ import React, { useContext, useState, useMemo, useCallback, useEffect } from 're
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 import { useDatasetStore } from '../store/datasetStore';
+import DropZone from './DropZone';
+
+const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
+    const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
+    let files = attachedFiles[docId] || [];
+    if (!Array.isArray(files)) files = [files];
+
+    const handleFiles = (files) => {
+        files.forEach(f => handleAttachFile(docId, f));
+    };
+
+    return (
+        <div className="flex items-center gap-1 shrink-0 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            {files.map(file => {
+                if (!file.name) return null;
+                return (
+                    <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
+                        📎 {file.pages}p
+                        <button onClick={(e) => { e.preventDefault(); handleOpenFile(file.dbKey, true); }} className="text-blue-400 hover:text-blue-300 ml-0.5 mr-0.5" title="Ouvrir le document">👁️</button>
+                        <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
+                    </span>
+                );
+            })}
+            <DropZone onDragFinish={() => {}} onFiles={handleFiles} accept=".pdf" />
+        </div>
+    );
+};
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
@@ -484,47 +511,8 @@ const GlobalValidationModal = () => {
                                             <span>✅</span> CP déjà jointes au dossier. L'IA les utilisera pour la suite.
                                         </div>
                                     ) : (
-                                        <div 
-                                            className={`border-2 border-dashed border-orange-300 rounded p-3 bg-orange-50/50 flex items-center justify-between transition-colors ${attachedCpFile ? 'border-green-400 bg-green-50' : 'hover:border-orange-500'}`}
-                                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                            onDrop={(e) => {
-                                                e.preventDefault(); e.stopPropagation();
-                                                const file = e.dataTransfer.files?.[0];
-                                                if (file) {
-                                                    handleAttachFile('doc_cond_part', file);
-                                                    setAttachedCpFile(file);
-                                                }
-                                            }}
-                                        >
-                                            {!attachedCpFile ? (
-                                                <div className="w-full flex items-center justify-between">
-                                                    <span className="text-xs text-orange-700/70">Glisser le fichier ici ou</span>
-                                                    <input 
-                                                        type="file" 
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) {
-                                                                handleAttachFile('doc_cond_part', file);
-                                                                setAttachedCpFile(file);
-                                                            }
-                                                        }}
-                                                        className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer w-auto"
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="w-full flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-green-700 truncate max-w-[80%] flex items-center gap-2">
-                                                        ✅ {attachedCpFile.name}
-                                                    </span>
-                                                    <button 
-                                                        onClick={() => window.open(URL.createObjectURL(attachedCpFile), '_blank')}
-                                                        className="bg-slate-800 hover:bg-slate-700 text-white p-1.5 rounded flex items-center justify-center transition-colors shadow"
-                                                        title="Ouvrir pour voir"
-                                                    >
-                                                        👁️
-                                                    </button>
-                                                </div>
-                                            )}
+                                        <div className="bg-orange-50/50 border border-orange-300 rounded p-2 text-xs text-orange-800 flex items-center gap-2">
+                                            <span>💡</span> Ajoutez vos CP depuis le champ <b>N° Police</b> ci-dessous, ou depuis la barre latérale.
                                         </div>
                                     )}
                                 </div>
@@ -553,7 +541,11 @@ const GlobalValidationModal = () => {
                                             <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => {}} disabled={isIdentical}
                                                 className="mt-1 w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 pointer-events-none" />
                                             <div className="min-w-0 flex-1">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
+                                                <div className="flex justify-between items-center w-full">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
+                                                    {key === 'numPolice' && <MiniAttachmentUI docId="doc_cond_part" title="Cond. Particulières" />}
+                                                    {key === 'numConditionsGenerales' && <MiniAttachmentUI docId="doc_cond_gen" title="Cond. Générales" />}
+                                                </div>
                                                 <div className="mt-0.5">
                                                     {currentVal && (
                                                         <div className="text-[10px] text-red-400/70 line-through mb-0.5">{currentVal}</div>

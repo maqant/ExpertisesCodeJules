@@ -16,43 +16,12 @@ import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
+import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngestionDocumentSet.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import { ANALYSIS_PROMPTS } from '../ai/analysisPrompts.js';
-const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
-    const [isOver, setIsOver] = useState(false);
-    return (
-        <div 
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(false); if (onDragFinish) onDragFinish(); }}
-            onDrop={async (e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                setIsOver(false); 
-                if (onDragFinish) onDragFinish(); 
-                if (e.dataTransfer.files) {
-                    const { cloneFilesEagerly } = await import('../services/utils/aiHelpers.js');
-                    const safeFiles = await cloneFilesEagerly(e.dataTransfer.files);
-                    onFiles(safeFiles);
-                } 
-            }}
-            className={`relative z-[60] px-3 py-1.5 w-auto rounded border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${isOver ? 'border-indigo-400 bg-indigo-500 text-white scale-105' : 'border-indigo-500/50 hover:border-indigo-400 bg-indigo-900/80'} ${className}`}
-            title="Glisser-déposer vos fichiers ici"
-            onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.multiple = true;
-                input.accept = accept;
-                input.onchange = (e) => onFiles(Array.from(e.target.files));
-                input.click();
-            }}
-        >
-            <span className={`text-xs font-bold ${isOver ? 'text-white' : 'text-indigo-200'}`}>{label}</span>
-        </div>
-    );
-};
+
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -512,8 +481,18 @@ const Sidebar = () => {
                 return;
             }
 
+            const { files: ingestionFiles, provenance, missingContractualKeys } = await resolveIngestionDocumentSet({
+                droppedFiles: allFiles,
+                attachedFiles: attachedFiles,
+                contractualKeys: ['doc_cond_part', 'doc_cond_gen'],
+            });
+
+            if (typeof addDebugLog === 'function') {
+                addDebugLog({ type: 'ingestion_docset', provenance, missingContractualKeys });
+            }
+
             const result = await processGlobalIngestion({
-                files: allFiles,
+                files: ingestionFiles,
                 providedApiKey: aiConfig.apiKey,
                 onStatusChange: setAiStatus,
                 agentsModel: aiConfig.model,
@@ -855,10 +834,10 @@ const Sidebar = () => {
                             </div>
                             <button
                                 onClick={() => setShowPromptsMenu(!showPromptsMenu)}
-                                className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-slate-400 relative"
+                                className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-white hover:bg-slate-700 relative border border-transparent hover:border-slate-600"
                                 title="Prompts QA"
                             >
-                                📋
+                                📋 <span className="hidden sm:inline">Prompts QA</span>
                             </button>
                         </div>
                         <div className="flex gap-1.5">
