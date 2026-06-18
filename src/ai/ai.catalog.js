@@ -78,20 +78,19 @@ export const AI_ROLES = Object.freeze({
     REFINEMENT: 'refinement',
 });
 
+export const BASE_DEFAULT_MODEL = 'gpt-5.4';
+
 export const AI_ROLE_META = Object.freeze({
     [AI_ROLES.EXTRACTION]: { 
         label: 'Extraction (ingestion documents)', 
-        defaultModel: 'gpt-5.4',
         description: 'Lecture et structuration des documents entrants.'
     },
     [AI_ROLES.SYNTHESIS]: { 
         label: 'Synthèse (rapport final)', 
-        defaultModel: 'gpt-5.5',
         description: 'Rédaction et assemblage narratif complexe.'
     },
     [AI_ROLES.REFINEMENT]: { 
         label: 'Affinage (reformulation de texte)', 
-        defaultModel: 'gpt-5.4-nano',
         description: 'Triage rapide, déduplication et ajustement de texte.'
     },
 });

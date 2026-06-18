@@ -56,6 +56,13 @@ export const SCENARIO_REGISTRY = Object.freeze([
         source: 'Zones de dépôt annexes',
         description: 'Extraction isolée d\'un document glissé hors du flux principal.',
         processIds: ['extraction_dropzone']
+    },
+    {
+        id: 'magic_drop_financial',
+        label: 'Dépôt Frais Financiers / Devis',
+        source: 'Dropzone Frais Financiers',
+        description: 'Extraction isolée et intelligente d\'un devis ou d\'une facture rattaché à une dépense financière.',
+        processIds: ['agent_financial']
     }
 ]);
 

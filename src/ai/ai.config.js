@@ -1,5 +1,5 @@
 // src/ai/ai.config.js
-import { AI_ROLES, AI_ROLE_META, isValidModelId, AI_PROVIDERS } from './ai.catalog.js';
+import { AI_ROLES, AI_ROLE_META, isValidModelId, AI_PROVIDERS, BASE_DEFAULT_MODEL } from './ai.catalog.js';
 
 export const TEMPERATURE_BOUNDS = Object.freeze({ min: 0, max: 1, step: 0.05 });
 
@@ -8,9 +8,9 @@ export const buildDefaultAiConfig = () => ({
     provider: AI_PROVIDERS.OPENAI,
     parameters: { temperature: 0.1 },
     roles: {
-        [AI_ROLES.EXTRACTION]: AI_ROLE_META[AI_ROLES.EXTRACTION].defaultModel,
-        [AI_ROLES.SYNTHESIS]: AI_ROLE_META[AI_ROLES.SYNTHESIS].defaultModel,
-        [AI_ROLES.REFINEMENT]: AI_ROLE_META[AI_ROLES.REFINEMENT].defaultModel,
+        [AI_ROLES.EXTRACTION]: BASE_DEFAULT_MODEL,
+        [AI_ROLES.SYNTHESIS]: BASE_DEFAULT_MODEL,
+        [AI_ROLES.REFINEMENT]: BASE_DEFAULT_MODEL,
     },
 });
 
