@@ -2237,7 +2237,6 @@ const Sidebar = () => {
                                     const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
                                     const updated = [newDossier, ...savedDossiers];
                                     setSavedDossiers(updated);
-                                    localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
                                     setCurrentDossierId(newId);
                                     
                                     if (droppedMsgFile) {
@@ -2337,7 +2336,6 @@ const Sidebar = () => {
                                 const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
                                 const updated = [newDossier, ...savedDossiers];
                                 setSavedDossiers(updated);
-                                localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
                                 setCurrentDossierId(newId);
                                 
                                 if (droppedMsgFile) {

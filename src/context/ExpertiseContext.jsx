@@ -6,6 +6,7 @@ import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
+import { useDossiersStore } from '../hooks/useDossiersStore';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -289,7 +290,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [expandedExpId, setExpandedExpId] = useState(null);
 
   // Données globales
-  const [savedDossiers, setSavedDossiers] = useState([]);
+  const { savedDossiers, setSavedDossiersGlobal: setSavedDossiers, deleteDossierGlobal, isLoaded } = useDossiersStore();
   const [dossierSearch, setDossierSearch] = useState('');
   const [expertsList, setExpertsList] = useState([]);
   const [franchises, setFranchises] = useState([]);
@@ -375,7 +376,7 @@ export const ExpertiseProvider = ({ children }) => {
           )
       );
 
-      if (storedDossiers) setSavedDossiers(JSON.parse(storedDossiers));
+      // L'initialisation est gérée par useDossiersStore
   }, []);
 
   useEffect(() => {
@@ -447,7 +448,6 @@ export const ExpertiseProvider = ({ children }) => {
       const updated = [newDossier, ...savedDossiers];
       
       setSavedDossiers(updated);
-      localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
       setCurrentDossierId(newId);
       return true;
   };
@@ -471,7 +471,7 @@ export const ExpertiseProvider = ({ children }) => {
           setCurrentDossierId(newId);
       }
       
-      setSavedDossiers(updated); localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+      setSavedDossiers(updated);
       alert("✅ Dossier sauvegardé !");
   };
 
@@ -484,7 +484,7 @@ export const ExpertiseProvider = ({ children }) => {
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
       const updated = [newDossier, ...savedDossiers];
-      setSavedDossiers(updated); localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+      setSavedDossiers(updated);
       setCurrentDossierId(newId);
       alert("✅ Copie du dossier sauvegardée !");
   };
@@ -530,9 +530,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   const deleteDossier = (id) => {
       if(!window.confirm("Voulez-vous vraiment supprimer ce dossier définitivement ?")) return;
-      const updated = savedDossiers.filter(d => d.id !== id);
-      setSavedDossiers(updated);
-      localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
+      deleteDossierGlobal(id);
   };
 
   const generatePDF = () => {
@@ -1697,11 +1695,7 @@ Voici le format JSON :
               } else {
                   updated = [{ id: targetId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData }, ...prev];
               }
-              try {
-                  localStorage.setItem('expertise_dossiers_v1', JSON.stringify(updated));
-              } catch (err) {
-                  console.error('LocalStorage quota exceeded or save error:', err);
-              }
+              // La persistance IndexedDB est gérée automatiquement par setSavedDossiersGlobal
               return updated;
           });
           
