@@ -71,7 +71,7 @@ const fuzzyMatchExpense = (aiExp, existingExps) => {
 };
 
 const GlobalValidationModal = () => {
-    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises } = useContext(ExpertiseContext);
+    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles } = useContext(ExpertiseContext);
 
     // Editable deep copy of pendingAiData
     const [editableData, setEditableData] = useState(null);
@@ -378,6 +378,7 @@ const GlobalValidationModal = () => {
     // v5.6.6 - Condition d'alerte pour Franchise et Pertes Indirectes
     const isFranchiseMissing = !(editableData?.formData?.franchise || formData?.franchise);
     const isPertesMissing = !(editableData?.formData?.pertesIndirectes || formData?.pertesIndirectes);
+    const hasCpAlready = attachedFiles && attachedFiles['doc_cond_part'] && attachedFiles['doc_cond_part'].length > 0;
     const showMissingWarning = isFranchiseMissing || isPertesMissing;
 
     return (
@@ -447,49 +448,55 @@ const GlobalValidationModal = () => {
                                     </select>
                                 </div>
                                 <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-orange-800 mb-1">Joindre le document des Conditions Particulières (CP) :</label>
-                                    <div 
-                                        className={`border-2 border-dashed border-orange-300 rounded p-3 bg-orange-50/50 flex items-center justify-between transition-colors ${attachedCpFile ? 'border-green-400 bg-green-50' : 'hover:border-orange-500'}`}
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={(e) => {
-                                            e.preventDefault(); e.stopPropagation();
-                                            const file = e.dataTransfer.files?.[0];
-                                            if (file) {
-                                                handleAttachFile('doc_cond_part', file);
-                                                setAttachedCpFile(file);
-                                            }
-                                        }}
-                                    >
-                                        {!attachedCpFile ? (
-                                            <div className="w-full flex items-center justify-between">
-                                                <span className="text-xs text-orange-700/70">Glisser le fichier ici ou</span>
-                                                <input 
-                                                    type="file" 
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) {
-                                                            handleAttachFile('doc_cond_part', file);
-                                                            setAttachedCpFile(file);
-                                                        }
-                                                    }}
-                                                    className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer w-auto"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-full flex items-center justify-between">
-                                                <span className="text-xs font-bold text-green-700 truncate max-w-[80%] flex items-center gap-2">
-                                                    ✅ {attachedCpFile.name}
-                                                </span>
-                                                <button 
-                                                    onClick={() => window.open(URL.createObjectURL(attachedCpFile), '_blank')}
-                                                    className="bg-slate-800 hover:bg-slate-700 text-white p-1.5 rounded flex items-center justify-center transition-colors shadow"
-                                                    title="Ouvrir pour voir"
-                                                >
-                                                    👁️
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <label className="block text-xs font-bold text-orange-800 mb-1">Document des Conditions Particulières (CP) :</label>
+                                    {hasCpAlready ? (
+                                        <div className="bg-green-100 border border-green-300 rounded p-2 text-xs text-green-800 flex items-center gap-2">
+                                            <span>✅</span> CP déjà jointes au dossier. L'IA les utilisera pour la suite.
+                                        </div>
+                                    ) : (
+                                        <div 
+                                            className={`border-2 border-dashed border-orange-300 rounded p-3 bg-orange-50/50 flex items-center justify-between transition-colors ${attachedCpFile ? 'border-green-400 bg-green-50' : 'hover:border-orange-500'}`}
+                                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onDrop={(e) => {
+                                                e.preventDefault(); e.stopPropagation();
+                                                const file = e.dataTransfer.files?.[0];
+                                                if (file) {
+                                                    handleAttachFile('doc_cond_part', file);
+                                                    setAttachedCpFile(file);
+                                                }
+                                            }}
+                                        >
+                                            {!attachedCpFile ? (
+                                                <div className="w-full flex items-center justify-between">
+                                                    <span className="text-xs text-orange-700/70">Glisser le fichier ici ou</span>
+                                                    <input 
+                                                        type="file" 
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                handleAttachFile('doc_cond_part', file);
+                                                                setAttachedCpFile(file);
+                                                            }
+                                                        }}
+                                                        className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-orange-500 file:text-white hover:file:bg-orange-600 cursor-pointer w-auto"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="w-full flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-green-700 truncate max-w-[80%] flex items-center gap-2">
+                                                        ✅ {attachedCpFile.name}
+                                                    </span>
+                                                    <button 
+                                                        onClick={() => window.open(URL.createObjectURL(attachedCpFile), '_blank')}
+                                                        className="bg-slate-800 hover:bg-slate-700 text-white p-1.5 rounded flex items-center justify-center transition-colors shadow"
+                                                        title="Ouvrir pour voir"
+                                                    >
+                                                        👁️
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -621,10 +628,22 @@ const GlobalValidationModal = () => {
                     {/* Section 3: Occupants (Accordion) */}
                     {hasOccupants && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
-                            <div className="p-3 bg-slate-800 border-b border-slate-700">
+                            <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
                                 <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">
                                     👥 Occupants <span className="text-[10px] font-normal text-slate-400">({occupantAnalysis.length})</span>
                                 </h3>
+                                <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newId = crypto.randomUUID();
+                                    setEditableData(prev => ({
+                                        ...prev,
+                                        occupants: [...prev.occupants, { id: newId, nom: 'Nouvel Occupant', statut: 'Locataire' }]
+                                    }));
+                                    setOccActions(prev => new Map(prev).set(newId, 'add'));
+                                    setExpandedOcc(prev => new Set(prev).add(newId));
+                                }} className="text-[10px] bg-indigo-500 hover:bg-indigo-400 text-white px-2 py-1 rounded transition-colors shadow">
+                                    + Créer
+                                </button>
                             </div>
                             <div className="divide-y divide-slate-700/50">
                                 {occupantAnalysis.map(occ => {
@@ -774,6 +793,28 @@ const GlobalValidationModal = () => {
                                             {/* Expanded details */}
                                             {isExpanded && !isIgnored && (
                                                 <div className="px-4 pb-3 pt-1 bg-slate-800/30 grid grid-cols-2 gap-2">
+                                                    <div className="col-span-2">
+                                                        <label className="text-[9px] text-slate-500 uppercase">Bénéficiaire (Imputer à)</label>
+                                                        <select 
+                                                            value={exp.compteDe || 'unassigned'} 
+                                                            onChange={(e) => updateExpField(exp.id, 'compteDe', e.target.value)}
+                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none"
+                                                        >
+                                                            <option value="unassigned">-- Non assigné --</option>
+                                                            <optgroup label="Nouveaux (IA & Créés)">
+                                                                {editableData.occupants.filter(o => occActions.get(o.id) !== 'ignore' && !occupants.some(ex => ex.id === o.id)).map(o => (
+                                                                    <option key={o.id} value={o.id}>{o.nom || 'Sans nom'}</option>
+                                                                ))}
+                                                            </optgroup>
+                                                            {occupants.length > 0 && (
+                                                                <optgroup label="Existants dans le dossier">
+                                                                    {occupants.map(o => (
+                                                                        <option key={o.id} value={o.id}>{o.nom || 'Sans nom'}</option>
+                                                                    ))}
+                                                                </optgroup>
+                                                            )}
+                                                        </select>
+                                                    </div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Prestataire</label><input type="text" data-telemetry-id="exp_prestataire" value={exp.prestataire || ''} onChange={(e) => updateExpField(exp.id, 'prestataire', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Type</label>
                                                         <select data-telemetry-id="exp_type" value={exp.type || 'Facture'} onChange={(e) => updateExpField(exp.id, 'type', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none">

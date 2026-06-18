@@ -1414,6 +1414,7 @@ export const ExpertiseProvider = ({ children }) => {
       }
 
       // 2. Occupants — ajouter ou mettre à jour
+      const idMapping = {}; // Keeps track of new IDs mapped from temporary AI IDs
       if (selections.occupants && selections.occupants.length > 0) {
           selections.occupants.forEach(sel => {
               const aiOcc = data.occupants.find(o => o.id === sel.id);
@@ -1433,8 +1434,11 @@ export const ExpertiseProvider = ({ children }) => {
                           financeStore.updateOccupant(sel.existingId, updates);
                       }
                   }
+                  idMapping[aiOcc.id] = sel.existingId;
               } else {
-                  financeStore.addOccupant({ ...aiOcc, id: crypto.randomUUID() });
+                  const newOccId = crypto.randomUUID();
+                  idMapping[aiOcc.id] = newOccId;
+                  financeStore.addOccupant({ ...aiOcc, id: newOccId });
               }
           });
       }
@@ -1446,13 +1450,18 @@ export const ExpertiseProvider = ({ children }) => {
               if (!aiExp) continue;
 
               const newId = crypto.randomUUID();
+              let compteDeFinal = aiExp.compteDe || 'unassigned';
+              if (idMapping[compteDeFinal]) {
+                  compteDeFinal = idMapping[compteDeFinal];
+              }
+
               financeStore.addExpense({
                   ...aiExp,
                   id: newId,
                   montant: aiExp.montant || aiExp.montantReclame || '',
                   montantReclame: aiExp.montant || aiExp.montantReclame || '',
                   montantValide: aiExp.montant || aiExp.montantReclame || '',
-                  compteDe: aiExp.compteDe || 'unassigned'
+                  compteDe: compteDeFinal
               });
 
               // v5.4.0 Magic Drop: auto-attach file via fuzzy matching
