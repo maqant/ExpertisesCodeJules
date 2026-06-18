@@ -23,7 +23,7 @@ import { AI_ROLES } from '../../ai/ai.catalog.js';
  */
 export const extractFinancialData = async (files, providedApiKey = null, onStatusChange = null, occupantsList = []) => {
     const fileArray = Array.isArray(files) ? files : [files];
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     const mode = apiKey ? 'live' : 'mock';

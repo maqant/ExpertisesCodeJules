@@ -16,7 +16,7 @@ export const runMergeAgent = async (occupants, expenses, providedApiKey = null) 
         return { success: true, data: { occupants: occupants || [], expenses: expenses || [] } };
     }
 
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
 

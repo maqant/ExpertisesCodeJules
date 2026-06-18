@@ -191,7 +191,7 @@ export const ExpertiseProvider = ({ children }) => {
   // AI Mode Config
   const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
   const [aiConfig, setAiConfig] = useState(() => {
-      const stored = localStorage.getItem('expertise_aiConfig_v2');
+      const stored = localStorage.getItem('expertise_aiConfig_v3');
       if (stored) {
           try {
               return sanitizeAiConfig(JSON.parse(stored));
@@ -242,7 +242,7 @@ export const ExpertiseProvider = ({ children }) => {
           }
           
           const next = sanitizeAiConfig(rawNext);
-          localStorage.setItem('expertise_aiConfig_v2', JSON.stringify(next));
+          localStorage.setItem('expertise_aiConfig_v3', JSON.stringify(next));
           
           // Compatibilité legacy (à supprimer plus tard si besoin)
           localStorage.setItem('aiApiKey', next.apiKey);
@@ -267,7 +267,7 @@ export const ExpertiseProvider = ({ children }) => {
               rawNext.processOverrides = nextOverrides;
           }
           const next = sanitizeAiConfig(rawNext);
-          localStorage.setItem('expertise_aiConfig_v2', JSON.stringify(next));
+          localStorage.setItem('expertise_aiConfig_v3', JSON.stringify(next));
           return next;
       });
   };

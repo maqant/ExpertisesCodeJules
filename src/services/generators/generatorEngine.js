@@ -38,7 +38,7 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
     const prompt = promptTemplate.replace('{{declaration_brute}}', mailText);
 
     const callApi = async () => {
-        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const configStr = localStorage.getItem('expertise_aiConfig_v3');
         const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
         const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
 
@@ -91,7 +91,7 @@ export const generateDocument = async (type, dossierState, apiKey) => {
 
     // v5.9.3 - Smart Retry & Résilience
     const callApi = async () => {
-        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const configStr = localStorage.getItem('expertise_aiConfig_v3');
         const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
         const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
 
@@ -185,7 +185,7 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
         .replace(/{{demandes_parties}}/g, demandesPartiesStr);
 
     const callApi = async () => {
-        const configStr = localStorage.getItem('expertise_aiConfig_v2');
+        const configStr = localStorage.getItem('expertise_aiConfig_v3');
         const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
         const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
 

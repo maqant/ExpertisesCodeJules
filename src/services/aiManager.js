@@ -55,7 +55,7 @@ import { AI_ROLES } from '../ai/ai.catalog.js';
 // AGENT BALAI (Phase 2)
 // ═══════════════════════════════════════════════════════════════
 const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const resolvedApiKey = apiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
 
@@ -344,7 +344,7 @@ Si l'information que tu extrais provient du texte encadré par [DÉBUT DE LA PI�
 Si l'information se trouve dans l'email principal et pas dans une pièce jointe, laisse \`sourceFileName\` totalement vide ("").`;
 
             // Payload générique pour un modèle multimodal
-            const configStr = localStorage.getItem('expertise_aiConfig_v2');
+            const configStr = localStorage.getItem('expertise_aiConfig_v3');
             const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
             
             const payload = buildAiPayload(
@@ -438,7 +438,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
  * Reformate les notes brutes du courtier en un compte rendu structuré.
  */
 export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-5.4', providedApiKey = null) => {
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     
@@ -532,7 +532,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
         return { success: false, error: "Aucun texte à affiner." };
     }
 
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     
@@ -581,7 +581,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
 };
 
 export const refineCauseWithInput = async (existingCause, newInput, providedApiKey = null) => {
-    const configStr = localStorage.getItem('expertise_aiConfig_v2');
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
     const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
     
