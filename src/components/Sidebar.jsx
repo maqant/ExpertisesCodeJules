@@ -2234,7 +2234,7 @@ const Sidebar = () => {
                                 try {
                                     handleReset();
                                     const newId = crypto.randomUUID();
-                                    const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
+                                    const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: { formData: {} } };
                                     const updated = [newDossier, ...savedDossiers];
                                     setSavedDossiers(updated);
                                     setCurrentDossierId(newId);
@@ -2333,7 +2333,7 @@ const Sidebar = () => {
                             try {
                                 handleReset();
                                 const newId = crypto.randomUUID();
-                                const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: {} };
+                                const newDossier = { id: newId, name: aiDossierRef.trim(), date: new Date().toLocaleString('fr-FR'), data: { formData: {} } };
                                 const updated = [newDossier, ...savedDossiers];
                                 setSavedDossiers(updated);
                                 setCurrentDossierId(newId);
