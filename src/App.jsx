@@ -17,7 +17,7 @@ function App() {
     <ExpertiseProvider>
       <div className="flex flex-col h-screen w-full bg-slate-200 relative">
 
-        <div className="bg-slate-900 text-white p-2 flex justify-center gap-4 z-50 shadow-md">
+        <div className="bg-slate-900 text-white p-2 flex justify-center gap-4 z-50 shadow-md print:hidden no-print">
           <button
             className={`px-4 py-1 rounded font-bold transition-colors ${viewMode === 'bureau' ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-slate-600'}`}
             onClick={() => setViewMode('bureau')}

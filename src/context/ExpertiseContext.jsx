@@ -1123,26 +1123,54 @@ export const ExpertiseProvider = ({ children }) => {
           // Constantes PDF
           const A4W = 595.28, A4H = 841.89;
 
-          // Helper de capture html2canvas (réutilisé pour les 2 passes)
-          const captureEl = () => html2canvas(el, {
-              scale: 2,
-              useCORS: true,
-              allowTaint: true,
-              backgroundColor: '#ffffff',
-              logging: false,
-              scrollX: 0,
-              scrollY: -window.scrollY,
-              ignoreElements: (node) => {
-                  if (!node.classList) return false;
-                  return node.classList.contains('block-controls') ||
-                         node.classList.contains('print:hidden') ||
-                         node.getAttribute?.('data-html2canvas-ignore') === 'true';
+          // Helper de capture via un clone off-screen
+          const captureElOffScreen = async () => {
+              // Créer un host container pour isoler le rendu du layout écran
+              const host = document.createElement('div');
+              host.style.position = 'fixed';
+              host.style.top = '0';
+              host.style.left = '-9999px'; // Hors de vue
+              host.style.width = '794px'; // Largeur absolue (210mm @ 96dpi)
+              host.style.background = '#ffffff';
+              host.style.zIndex = '-9999';
+
+              // Cloner l'élément #a4-page actuel
+              const clone = el.cloneNode(true);
+              host.appendChild(clone);
+              document.body.appendChild(host);
+
+              // Laisser le navigateur appliquer le reflow
+              await new Promise(resolve => requestAnimationFrame(resolve));
+
+              try {
+                  const canvas = await html2canvas(clone, {
+                      scale: 2,
+                      useCORS: true,
+                      allowTaint: true,
+                      backgroundColor: '#ffffff',
+                      logging: false,
+                      width: 794,
+                      windowWidth: 794,
+                      ignoreElements: (node) => {
+                          if (!node.classList) return false;
+                          return node.classList.contains('block-controls') ||
+                                 node.classList.contains('print:hidden') ||
+                                 node.classList.contains('no-print') ||
+                                 node.getAttribute?.('data-html2canvas-ignore') === 'true';
+                      }
+                  });
+                  return canvas;
+              } finally {
+                  // Nettoyage critique du clone hors-écran
+                  if (host.parentNode) {
+                      host.parentNode.removeChild(host);
+                  }
               }
-          });
+          };
 
           // --- PASSE 1 : capture avec coverPageCount = 1 (valeur actuelle) ---
           // → mesure la hauteur réelle du canvas pour déterminer le nb de pages de la page de garde
-          const canvas1 = await captureEl();
+          const canvas1 = await captureElOffScreen();
           const pxPerPt   = canvas1.width / A4W;
           const slicePixH = A4H * pxPerPt;
           const significantH = slicePixH * 0.05; // Tolérance de 5% de page pour éviter les sauts de page vides
@@ -1156,7 +1184,7 @@ export const ExpertiseProvider = ({ children }) => {
               // Attendre que React refasse le rendu avec les nouveaux numéros du Master Index
               await new Promise(resolve => setTimeout(resolve, 500));
 
-              canvas = await captureEl(); // Nouvelle capture avec les bons numéros affichés !
+              canvas = await captureElOffScreen(); // Nouvelle capture avec les bons numéros affichés !
           }
 
           el.style.boxShadow = prevShadow;
