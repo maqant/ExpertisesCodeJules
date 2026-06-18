@@ -929,7 +929,7 @@ const Sidebar = () => {
                                                     return (
                                                         <div key={process.id} className="flex flex-col gap-1 bg-slate-800/30 p-2 rounded border border-slate-700/50 relative overflow-hidden">
                                                             {isOverridden && (
-                                                                <div className="absolute top-0 right-0 bg-indigo-500/80 text-[8px] px-1.5 py-0.5 font-bold uppercase text-white rounded-bl shadow z-10 pointer-events-none">Surchargé</div>
+                                                                <div className="absolute top-0 right-0 bg-indigo-500/80 text-[8px] px-1.5 py-0.5 font-bold uppercase text-white rounded-bl shadow z-10 pointer-events-none">Personnalisé</div>
                                                             )}
                                                             <div className="flex items-center gap-1 mb-1 pr-12">
                                                                 <label className="text-[11px] font-medium text-slate-300 flex-1">{process.label}</label>
@@ -949,14 +949,14 @@ const Sidebar = () => {
                                                                 >
                                                                     {Object.entries(MODEL_CATALOG).map(([id, meta]) => (
                                                                         <option key={id} value={id}>
-                                                                            {meta.label} {!isOverridden && id === resolution.modelId ? '(Hérité)' : ''}
+                                                                            {meta.label} {!isOverridden && id === resolution.modelId ? '(Modèle Global)' : ''}
                                                                         </option>
                                                                     ))}
                                                                 </select>
                                                                 {isOverridden && (
                                                                     <button 
                                                                         onClick={() => clearProcessOverride(process.id)}
-                                                                        title="Réinitialiser"
+                                                                        title="Repasser sur le modèle global"
                                                                         className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700"
                                                                     >
                                                                         ✕
@@ -966,7 +966,7 @@ const Sidebar = () => {
                                                             
                                                             {(!isOverridden && otherProcesses.length > 0) && (
                                                                 <div className="text-[9px] text-amber-500/80 leading-tight mt-1">
-                                                                    ⚠️ Hérité: une modif globale impactera {otherProcesses.map(p => p.label).join(', ')}
+                                                                    💡 Lié au modèle global (partagé avec : {otherProcesses.map(p => p.label).join(', ')})
                                                                 </div>
                                                             )}
                                                             
