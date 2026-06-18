@@ -2,6 +2,7 @@
 import React, { useState, useRef, useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { cloneFilesEagerly } from '../services/utils/aiHelpers.js';
+import { resolveDroppedFiles, setFullPath, getFullPath } from '../services/ingestion/fileDropResolver';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.docx', '.doc', '.edi', '.xls', '.xlsx'];
 const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'];
@@ -40,54 +41,43 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
 
     const removeFile = (i) => setFiles(prev => prev.filter((_, idx) => idx !== i));
 
-    const getFilesFromEntry = async (entry) => {
-        if (entry.isFile) {
-            const file = await new Promise(resolve => entry.file(resolve));
-            // Ajout du chemin complet pour aider au matching
-            Object.defineProperty(file, 'fullPath', { value: entry.fullPath });
-            return [file];
-        } else if (entry.isDirectory) {
-            const dirReader = entry.createReader();
-            const entries = await new Promise(resolve => dirReader.readEntries(resolve));
-            let files = [];
-            for (const subEntry of entries) {
-                files = files.concat(await getFilesFromEntry(subEntry));
-            }
-            return files;
-        }
-        return [];
-    };
-
     const handleDrop = async (e) => {
-        e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
-        let filesList = [];
-        if (e.dataTransfer.items) {
-            for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                const item = e.dataTransfer.items[i];
-                if (item.kind === 'file') {
-                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-                    if (entry) {
-                        filesList = filesList.concat(await getFilesFromEntry(entry));
-                    } else {
-                        filesList.push(item.getAsFile());
-                    }
-                }
-            }
-        } else if (e.dataTransfer.files?.length > 0) {
-            filesList = Array.from(e.dataTransfer.files);
-        }
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        setIsDragOver(false);
 
-        if (filesList.length > 0) {
-            const safeFiles = await cloneFilesEagerly(filesList);
-            // Report fullPath to safeFiles
-            safeFiles.forEach((sf, idx) => {
-                if (filesList[idx].fullPath) {
-                    Object.defineProperty(sf, 'fullPath', { value: filesList[idx].fullPath });
+        let filesList = [];
+        try {
+            filesList = await resolveDroppedFiles(e, ({ entry, error }) => {
+                // Remontée non bloquante : on n'interrompt JAMAIS un import de masse.
+                console.error(`[SmartBridge] Échec lecture: ${entry}`, error);
+                if (telemetry) {
+                    telemetry.logEvent('DROP_ENTRY_ERROR', 'smartbridge_zone', {
+                        entry, message: error?.message,
+                    });
                 }
             });
-            if (telemetry) telemetry.logEvent('DROP', 'smartbridge_zone', { fileCount: safeFiles.length });
-            addFiles(safeFiles);
+        } catch (err) {
+            if (telemetry) {
+                telemetry.logEvent('DROP_FATAL', 'smartbridge_zone', { message: err?.message });
+            }
+            console.error('[SmartBridge] Échec global du drop', err);
+            return;
         }
+
+        if (filesList.length === 0) return;
+
+        const safeFiles = await cloneFilesEagerly(filesList);
+
+        // Report fullPath par RÉFÉRENCE de chemin (pas par index : robuste au
+        // réordonnancement / filtrage éventuel de cloneFilesEagerly).
+        safeFiles.forEach((sf, idx) => {
+            const fp = getFullPath(filesList[idx]);
+            if (fp) setFullPath(sf, fp);
+        });
+
+        if (telemetry) telemetry.logEvent('DROP', 'smartbridge_zone', { fileCount: safeFiles.length });
+        addFiles(safeFiles);
     };
 
     const handlePasteText = async (e) => {
