@@ -1299,7 +1299,22 @@ TON OBJECTIF :
                                 </div>
 
                                 <div className="flex gap-2 pt-2 border-t border-slate-600"><div className="flex-1"><label>Nom Compagnie</label><input type="text" name="nomCie" value={formData.nomCie} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Contrat</label><input type="text" name="nomContrat" value={formData.nomContrat} onChange={handleChange} className="input-field" /></div></div>
-                                <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" onUpload={(files) => handleContractMagicDrop(files)} /></label><input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" /></div><div className="flex-1"><label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label><input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" /></div></div>
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1">
+                                        <label className="flex items-center w-full">N° Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_part" title="Cond. Particulières" onUpload={(files) => handleContractMagicDrop(files)} /></label>
+                                        <input type="text" name="numPolice" value={formData.numPolice} onChange={handleChange} className="input-field mb-2" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="flex items-center w-full">N° PV Police <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_pv_police" title="PV de Police" /></label>
+                                        <input type="text" name="numeroPVPolice" value={formData.numeroPVPolice} onChange={handleChange} className="input-field mb-2" />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1">
+                                        <label className="flex items-center w-full">N° Cond. Générales <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_cond_gen" title="Cond. Générales" /></label>
+                                        <input type="text" name="numConditionsGenerales" value={formData.numConditionsGenerales} onChange={handleChange} className="input-field mb-2" />
+                                    </div>
+                                </div>
                                 <div><label>N° Sinistre Cie</label><input type="text" name="numSinistreCie" value={formData.numSinistreCie} onChange={handleChange} className="input-field mb-0" /></div>
                                 {/* v6.0.0 - Bouton de génération de déclaration */}
                                 {isAiModeActive && aiConfig.apiKey && (

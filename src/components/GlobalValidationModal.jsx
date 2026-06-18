@@ -37,8 +37,9 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
 
 const FORM_FIELD_LABELS = {
     dateSinistre: 'Date du sinistre', dateDeclaration: 'Date de déclaration', declarant: 'Déclarant',
-    nomCie: 'Compagnie', nomContrat: 'Contrat', numPolice: 'N° Police',
-    numSinistreCie: 'N° Sinistre Cie', adresse: 'Adresse', cause: 'Cause'
+    nomCie: 'Compagnie', nomContrat: 'Contrat', numPolice: 'N° Police', numeroPVPolice: 'N° PV Police',
+    numSinistreCie: 'N° Sinistre Cie', adresse: 'Adresse', cause: 'Cause',
+    numConditionsGenerales: 'N° Cond. Gen.', franchise: 'Franchise',
 };
 
 const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Propriétaire (occupation inconnue)', 'ACP'];

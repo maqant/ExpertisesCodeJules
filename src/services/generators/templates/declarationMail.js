@@ -20,6 +20,7 @@ export const buildDeclarationPrompt = (dossierState) => {
     const nomCie = formData.nomCie || '[COMPAGNIE INCONNUE]';
     const numPolice = formData.numPolice || '';
     const numSinistreCie = formData.numSinistreCie || '';
+    const numeroPVPolice = formData.numeroPVPolice || '';
     const declarant = formData.declarant || '';
 
     // Contexte brut concaténé
@@ -81,6 +82,7 @@ Date du sinistre : ${dateSinistre}
 Adresse : ${adresse}
 Compagnie : ${nomCie}
 ${numPolice ? `N° Police : ${numPolice}` : ''}
+${numeroPVPolice ? `N° PV Police : ${numeroPVPolice}` : ''}
 ${numSinistreCie ? `N° Sinistre Cie : ${numSinistreCie}` : ''}
 ${declarant ? `Déclaré par : ${declarant}` : ''}
 ${refsStr ? `Références : ${refsStr}` : ''}
