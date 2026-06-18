@@ -16,6 +16,7 @@ import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
+import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
