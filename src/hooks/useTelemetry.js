@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import localforage from 'localforage';
+import { telemetryBus } from '../ai/telemetryBus.js';
 
 // Clé de stockage pour localforage
 export const TELEMETRY_STORAGE_KEY = 'expertise_telemetry_logs';
@@ -13,6 +14,21 @@ export const TELEMETRY_STORAGE_KEY = 'expertise_telemetry_logs';
 export function useTelemetry(sessionId, dossierId = null) {
     const timers = useRef(new Map());
     const focusValues = useRef(new Map());
+
+    // S'abonner aux événements du Bus IA
+    useEffect(() => {
+        if (!sessionId) return;
+        const handleAiEvent = (event) => {
+            const entry = {
+                id: crypto.randomUUID(),
+                sessionId,
+                dossierId,
+                ...event
+            };
+            persistLog(entry);
+        };
+        return telemetryBus.subscribe(handleAiEvent);
+    }, [sessionId, dossierId]);
 
     // --- Fonction interne de log vers localforage ---
     const persistLog = async (logEntry) => {

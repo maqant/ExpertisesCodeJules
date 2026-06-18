@@ -12,6 +12,7 @@ import { usePromptStore } from '../../store/promptStore.js';
 import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
+import { executeAiCall } from '../../ai/apiClient.js';
 
 // v5.5.3
 /**
@@ -77,21 +78,12 @@ Voici le format EXACT attendu :
                 { forceJsonResponse: true }
             );
 
-            const response = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(payload)
+            const data = await executeAiCall({
+                apiKey,
+                payload,
+                componentId: 'agent_narrative'
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
             const parsedData = JSON.parse(data.choices[0].message.content);
             
             // Accumuler : la cause de ce lot devient le contexte du lot suivant

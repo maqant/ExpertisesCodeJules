@@ -5,6 +5,7 @@ import { usePromptStore } from '../../store/promptStore.js';
 import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
+import { executeAiCall } from '../../ai/apiClient.js';
 
 /**
  * Registre des templates disponibles.
@@ -51,21 +52,12 @@ export const runBrioPrepAnalysis = async (mailText, apiKey, promptTemplate) => {
             { forceJsonResponse: true }
         );
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${resolvedApiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey: resolvedApiKey,
+            payload,
+            componentId: 'brio_summary'
         });
 
-        if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`API ${response.status}: ${errBody}`);
-        }
-
-        const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
 
         if (!text) {
@@ -105,21 +97,12 @@ export const generateDocument = async (type, dossierState, apiKey) => {
             { forceJsonResponse: false, maxTokensOverride: 2000 }
         );
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${resolvedApiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey: resolvedApiKey,
+            payload,
+            componentId: 'final_document'
         });
 
-        if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`API ${response.status}: ${errBody}`);
-        }
-
-        const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
 
         if (!text) {
@@ -198,21 +181,12 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
             { forceJsonResponse: false }
         );
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${resolvedApiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey: resolvedApiKey,
+            payload,
+            componentId: 'ar_modal'
         });
 
-        if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`API AR Generator ${response.status}: ${errBody}`);
-        }
-
-        const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
         if (!text) throw new Error('[Generator] Réponse vide de l\'API (AR).');
         return text;

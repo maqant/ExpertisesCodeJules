@@ -14,6 +14,7 @@ import { buildContentArrayParallel } from '../utils/aiHelpers.js';
 import { usePromptStore } from '../../store/promptStore.js';
 import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { executeAiCall } from '../../ai/apiClient.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 // v6.1.0 - Routeur Individuel : 1 appel par document, lecture complète, gpt-5.4-nano
@@ -63,26 +64,12 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
                     { forceJsonResponse: true }
                 );
 
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify(payload)
+                const data = await executeAiCall({
+                    apiKey,
+                    payload,
+                    componentId: 'agent_router'
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error(`[router v6.1.0] ❌ Erreur API pour "${fileName}":`, errorData);
-                    // Fallback : MSG → ADMIN+SOCIAL+RECITS, PDF → ADMIN, autre → ADMIN
-                    const fallback = fileName.toLowerCase().endsWith('.msg')
-                        ? ['ADMIN', 'SOCIAL', 'RECITS']
-                        : ['ADMIN'];
-                    return { [fileName]: fallback };
-                }
-
-                const data = await response.json();
                 let parsed = JSON.parse(data.choices[0].message.content);
 
                 // Normaliser : si l'IA renvoie un string au lieu d'un tableau, le convertir

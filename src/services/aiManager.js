@@ -50,6 +50,7 @@ import { processIngestedFile } from './utils/filePreprocessor.js';
 import { buildAiPayload } from '../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../ai/ai.config.js';
 import { AI_ROLES } from '../ai/ai.catalog.js';
+import { executeAiCall } from '../ai/apiClient.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
@@ -69,17 +70,12 @@ const runFallbackAgent = async (documentText, missingKeysList, apiKey) => {
         { forceJsonResponse: true }
     );
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${resolvedApiKey}`
-        },
-        body: JSON.stringify(payload)
+    const data = await executeAiCall({
+        apiKey: resolvedApiKey,
+        payload,
+        componentId: 'agent_fallback'
     });
 
-    if (!response.ok) throw new Error("Erreur API Agent Balai");
-    const data = await response.json();
     return JSON.parse(data.choices[0].message.content);
 };
 
@@ -361,21 +357,12 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
             );
 
             if (onStatusChange) onStatusChange('sending');
-            const response = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(payload)
+            const data = await executeAiCall({
+                apiKey,
+                payload,
+                componentId: 'extraction_dropzone'
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
             const contentString = data.choices[0].message.content;
             if (onStatusChange) onStatusChange('thinking');
 
@@ -485,21 +472,12 @@ export const reformatCompteRendu = async (rawNotes, provider = 'openai', model =
             { forceJsonResponse: false }
         );
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey,
+            payload,
+            componentId: 'agent_narrative_reformat'
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
         return {
             success: true,
             data: data.choices[0].message.content.trim()
@@ -556,21 +534,12 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
             {}
         );
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey,
+            payload,
+            componentId: 'manual_refine'
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
         const refinedText = data.choices[0].message.content.trim();
         return { success: true, text: refinedText };
 
@@ -620,21 +589,12 @@ RÈGLES :
             { forceJsonResponse: true, maxTokensOverride: 2000 }
         );
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
+        const data = await executeAiCall({
+            apiKey,
+            payload,
+            componentId: 'manual_refine_cause'
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `Erreur API HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
         const parsed = JSON.parse(data.choices[0].message.content);
         return {
             success: true,

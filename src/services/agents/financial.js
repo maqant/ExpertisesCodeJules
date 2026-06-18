@@ -9,10 +9,12 @@
 
 import { fileToBase64, pdfExtractHybrid } from '../utils/pdfUtils.js';
 import { usePromptStore } from '../../store/promptStore.js';
+import { buildContentArrayParallel, withRetry } from '../utils/aiHelpers.js';
 import { parseMsgFile } from '../utils/msgUtils.js';
 import { isPdfDeep } from '../utils/fileUtils.js';
 import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { executeAiCall } from '../../ai/apiClient.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 
 // v5.5.4
@@ -124,22 +126,12 @@ Format EXACT attendu :
             );
 
             try {
-                const response = await fetch("https://api.openai.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify(payload)
+                const data = await executeAiCall({
+                    apiKey,
+                    payload,
+                    componentId: 'agent_financial',
+                    meta: { fileName }
                 });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error(`[Agent Financier] Erreur API pour le fichier ${fileName}:`, errorData);
-                    return { expenses: [] }; // On ne casse pas Promise.all pour un fichier échoué
-                }
-
-                const data = await response.json();
                 return JSON.parse(data.choices[0].message.content);
             } catch (err) {
                 console.error(`[Agent Financier] Erreur d'analyse pour le fichier ${fileName}:`, err);
