@@ -509,16 +509,16 @@ const Sidebar = () => {
                 return;
             }
 
-            const result = await processGlobalIngestion(
-                allFiles,
-                aiConfig.apiKey,
-                setAiStatus,
-                aiConfig.model,
+            const result = await processGlobalIngestion({
+                files: allFiles,
+                providedApiKey: aiConfig.apiKey,
+                onStatusChange: setAiStatus,
+                agentsModel: aiConfig.model,
                 // v7.0.0 - Utiliser la cause lue depuis Zustand, pas la closure
-                currentCause ? { cause: currentCause } : {},
+                existingContext: currentCause ? { cause: currentCause } : {},
                 addDebugLog,
                 isDeepThinkingMode
-            );
+            });
 
             if (result.success && result.data) {
                 const aiData = result.data;
@@ -2253,14 +2253,14 @@ const Sidebar = () => {
                                             }
                                         } else {
                                             // v5.5.15 - Chef d'Orchestre via SAS (corrigé : plus de processJsonData)
-                                            const result = await processGlobalIngestion(
-                                                [droppedMsgFile],
-                                                aiConfig.apiKey,
-                                                setAiStatus,
-                                                aiConfig.model,
-                                                { cause: formData?.cause },
+                                            const result = await processGlobalIngestion({
+                                                files: [droppedMsgFile],
+                                                providedApiKey: aiConfig.apiKey,
+                                                onStatusChange: setAiStatus,
+                                                agentsModel: aiConfig.model,
+                                                existingContext: { cause: formData?.cause },
                                                 addDebugLog
-                                            );
+                                            });
                                             
                                             if (result.success && result.data) {
                                                 const aiData = result.data;
@@ -2353,14 +2353,14 @@ const Sidebar = () => {
                                     } else {
                                         // v5.5.10 - Chef d'Orchestre : on passe UNIQUEMENT le .msg
                                         // processGlobalIngestion gère lui-même l'extraction des PJ
-                                        const result = await processGlobalIngestion(
-                                            [droppedMsgFile],
-                                            aiConfig.apiKey,
-                                            setAiStatus,
-                                            aiConfig.model,
-                                            { cause: formData?.cause },
+                                        const result = await processGlobalIngestion({
+                                            files: [droppedMsgFile],
+                                            providedApiKey: aiConfig.apiKey,
+                                            onStatusChange: setAiStatus,
+                                            agentsModel: aiConfig.model,
+                                            existingContext: { cause: formData?.cause },
                                             addDebugLog
-                                        );
+                                        });
                                         
                                         if (result.success && result.data) {
                                             const aiData = result.data;

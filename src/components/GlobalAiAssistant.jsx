@@ -92,14 +92,14 @@ const GlobalAiAssistant = () => {
             const inputArray = [...files];
             if (rawText.trim()) inputArray.push(rawText.trim());
 
-            const result = await processGlobalIngestion(
-                inputArray,
-                aiConfig.apiKey,
-                setAiStatus,
-                aiConfig.model,
-                { cause: formData?.cause },
+            const result = await processGlobalIngestion({
+                files: inputArray,
+                providedApiKey: aiConfig.apiKey,
+                onStatusChange: setAiStatus,
+                agentsModel: aiConfig.model,
+                existingContext: { cause: formData?.cause },
                 addDebugLog
-            );
+            });
 
             if (result.success && result.data) {
                 const aiData = result.data;

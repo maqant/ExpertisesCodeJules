@@ -51,6 +51,7 @@ import { buildAiPayload } from '../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../ai/ai.config.js';
 import { AI_ROLES } from '../ai/ai.catalog.js';
 import { executeAiCall } from '../ai/apiClient.js';
+import { makeSafeDebugLog } from './logging/safeDebugLog.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
@@ -620,15 +621,29 @@ RÈGLES :
  * et assemble le JSON final pour la modale globale.
  */
 // v6.3.2 - Mode Lourd vs Mode Rapide via isDeepThinkingMode
-export const processGlobalIngestion = async (files, providedApiKey = null, onStatusChange = null, existingContext = {}, addDebugLog = null) => {
+export const processGlobalIngestion = async ({
+    files,
+    providedApiKey = null,
+    onStatusChange = null,
+    existingContext = {},
+    addDebugLog = null,
+    isDeepThinkingMode = false,
+    agentsModel = null,
+    fallbackModel = null
+} = {}) => {
     
+    const log = makeSafeDebugLog(addDebugLog);
+    if (!files) {
+        throw new Error('[processGlobalIngestion] paramètre "files" manquant.');
+    }
+
     // v6.3.3 - Metrics & Chrono
     const startTime = Date.now();
 
     let originalConsole = null;
     
     // Interception des logs F12 pour les envoyer dans la Console Développeur
-    if (addDebugLog) {
+    if (addDebugLog && typeof addDebugLog === 'function') {
         originalConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
         const createInterceptor = (type) => (...args) => {
             originalConsole[type](...args); // Conserver le log original F12
@@ -653,7 +668,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             else if (message.includes('[aiManager]')) step = 'ORCHESTRATOR';
             else step = 'LOG';
 
-            addDebugLog(step, status, message);
+            log(step, status, message);
         };
 
         console.log = createInterceptor('log');
@@ -663,11 +678,10 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
     }
 
     try {
-        if (addDebugLog) {
-            const rawFilesCount = Array.from(files).length;
-            addDebugLog('INGESTION_START', 'INFO', `Début du traitement de ${rawFilesCount} fichier(s).`);
-            addDebugLog('MODE_STRATEGY', 'INFO', `Mode Lourd (Deep Thinking) : ${isDeepThinkingMode ? 'ACTIF' : 'INACTIF'} | Agents: ${agentsModel} | Balai: ${fallbackModel}`);
-        }
+        const rawFilesCount = Array.from(files).length;
+        log('INGESTION_START', 'INFO', `Début du traitement de ${rawFilesCount} fichier(s).`);
+        log('MODE_STRATEGY', 'INFO', `Mode Lourd (Deep Thinking) : ${isDeepThinkingMode ? 'ACTIF' : 'INACTIF'} | Agents: ${agentsModel ?? 'default'} | Balai: ${fallbackModel ?? 'default'}`);
+        
         if (onStatusChange) onStatusChange('routing');
         
         // On convertit les `files` en Array et on les pré-traite (convertit docx/edi en pdf)
@@ -684,7 +698,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             // v6.4.4 - Bypass Image Analysis to save time/tokens (they become unassigned photos)
             if (file.type && file.type.startsWith('image/')) {
                 allExtractedFiles.push(file); // Adds to 'unassigned' later
-                if (addDebugLog) addDebugLog('INGESTION_BYPASS', 'INFO', `Bypass IA pour l'image: ${file.name}`);
+                if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour l'image: ${file.name}`);
                 continue; 
             }
 
@@ -697,7 +711,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
                     for (const att of attachments) {
                         allExtractedFiles.push(att);
                         if (att.type && att.type.startsWith('image/')) {
-                            if (addDebugLog) addDebugLog('INGESTION_BYPASS', 'INFO', `Bypass IA pour la PJ image: ${att.name}`);
+                            if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour la PJ image: ${att.name}`);
                         } else {
                             filesToRoute.push(att);
                         }
@@ -723,12 +737,12 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         }
 
         // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
-        if (addDebugLog) addDebugLog('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
+        if (addDebugLog) log('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
         const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
         const routeMap = routeResult.data;
-        if (addDebugLog) addDebugLog('ROUTEUR', 'SUCCESS', routeMap);
+        if (addDebugLog) log('ROUTEUR', 'SUCCESS', routeMap);
 
         // 2. Séparation des fichiers
         const adminFiles = [];
@@ -754,11 +768,11 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             if (!categories && isMsg) {
                 // Fallback sécurité : MSG non classé par le routeur
                 categories = ['ADMIN', 'SOCIAL', 'RECITS'];
-                if (addDebugLog) addDebugLog('DISPATCH', 'WARNING', `MSG "${fileName}" non classé par le routeur → fallback ADMIN+SOCIAL+RECITS`);
+                if (addDebugLog) log('DISPATCH', 'WARNING', `MSG "${fileName}" non classé par le routeur → fallback ADMIN+SOCIAL+RECITS`);
             } else if (!categories) {
                 // Fallback sécurité : autre fichier non classé
                 categories = ['ADMIN'];
-                if (addDebugLog) addDebugLog('DISPATCH', 'WARNING', `"${fileName}" non classé par le routeur → fallback ADMIN`);
+                if (addDebugLog) log('DISPATCH', 'WARNING', `"${fileName}" non classé par le routeur → fallback ADMIN`);
             }
             
             const cats = Array.isArray(categories) ? [...categories] : [categories];
@@ -769,7 +783,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
                 ['ADMIN', 'SOCIAL'].forEach(c => {
                     if (!cats.includes(c)) {
                         cats.push(c);
-                        if (addDebugLog) addDebugLog('DISPATCH', 'INFO', `MSG "${fileName}" → ${c} forcé (minimum MSG)`);
+                        if (addDebugLog) log('DISPATCH', 'INFO', `MSG "${fileName}" → ${c} forcé (minimum MSG)`);
                     }
                 });
             }
@@ -777,7 +791,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             // Pour les PJ PDF extraites d'un MSG : forcer FINANCIER car très probablement facture/devis
             if (isExtractedFromMsg && !cats.includes('FINANCIER')) {
                 cats.push('FINANCIER');
-                if (addDebugLog) addDebugLog('DISPATCH', 'INFO', `PJ PDF "${fileName}" extraite de MSG → FINANCIER forcé`);
+                if (addDebugLog) log('DISPATCH', 'INFO', `PJ PDF "${fileName}" extraite de MSG → FINANCIER forcé`);
             }
             
             for (const cat of cats) {
@@ -794,19 +808,19 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         console.log(`  RECITS (${dispatchLog.RECITS.length}):`, dispatchLog.RECITS);
         console.log(`  FINANCIER (${dispatchLog.FINANCIER.length}):`, dispatchLog.FINANCIER);
         
-        if (addDebugLog) addDebugLog('DISPATCH', 'INFO', dispatchLog);
+        if (addDebugLog) log('DISPATCH', 'INFO', dispatchLog);
 
         if (onStatusChange) onStatusChange('extracting');
 
         // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE (v5.9.0 — cascade)
-        if (addDebugLog) addDebugLog('PHASE_1_AGENTS', 'INFO', 'Lancement Admin, Social, Récits en parallèle...');
+        if (addDebugLog) log('PHASE_1_AGENTS', 'INFO', 'Lancement Admin, Social, Récits en parallèle...');
         // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
         // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
         const adminPromise = adminFiles.length > 0
             ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Admin KO après retries:', err); 
-                    if (addDebugLog) addDebugLog('AGENT_ADMIN', 'ERROR', null, err.message);
+                    if (addDebugLog) log('AGENT_ADMIN', 'ERROR', null, err.message);
                     return { success: false, data: {} }; 
                 })
             : Promise.resolve({ success: true, data: {} });
@@ -815,7 +829,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             ? withRetry(() => extractNarrativeData(narrativeFiles, providedApiKey, null, existingContext.cause || ''))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Récits KO après retries:', err); 
-                    if (addDebugLog) addDebugLog('AGENT_RECITS', 'ERROR', null, err.message);
+                    if (addDebugLog) log('AGENT_RECITS', 'ERROR', null, err.message);
                     return { success: false, data: {} }; 
                 })
             : Promise.resolve({ success: true, data: {} });
@@ -824,7 +838,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             ? withRetry(() => extractSocialData(socialFiles, providedApiKey, null))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Social KO après retries:', err); 
-                    if (addDebugLog) addDebugLog('AGENT_SOCIAL', 'ERROR', null, err.message);
+                    if (addDebugLog) log('AGENT_SOCIAL', 'ERROR', null, err.message);
                     return { success: false, data: { occupants: [], experts: [], intervenants: [] } }; 
                 })
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
@@ -835,30 +849,30 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         ]);
         
         if (addDebugLog) {
-            if (adminFiles.length > 0) addDebugLog('AGENT_ADMIN', adminRes.success ? 'SUCCESS' : 'ERROR', adminRes.data, adminRes.error || null);
-            if (narrativeFiles.length > 0) addDebugLog('AGENT_RECITS', narrativeRes.success ? 'SUCCESS' : 'ERROR', narrativeRes.data, narrativeRes.error || null);
-            if (socialFiles.length > 0) addDebugLog('AGENT_SOCIAL', socialRes.success ? 'SUCCESS' : 'ERROR', socialRes.data, socialRes.error || null);
-            addDebugLog('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
+            if (adminFiles.length > 0) log('AGENT_ADMIN', adminRes.success ? 'SUCCESS' : 'ERROR', adminRes.data, adminRes.error || null);
+            if (narrativeFiles.length > 0) log('AGENT_RECITS', narrativeRes.success ? 'SUCCESS' : 'ERROR', narrativeRes.data, narrativeRes.error || null);
+            if (socialFiles.length > 0) log('AGENT_SOCIAL', socialRes.success ? 'SUCCESS' : 'ERROR', socialRes.data, socialRes.error || null);
+            log('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
         }
 
         // 4. Phase 2 : Agent Financier AVEC la liste des occupants (cascade v5.9.0)
         // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
         const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
         console.log(`[aiManager] 💰 Agent Financier: ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
-        if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'INFO', `Lancement Financier (${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus)`);
+        if (addDebugLog) log('AGENT_FINANCIER', 'INFO', `Lancement Financier (${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus)`);
 
         // v5.9.3 - Smart Retry & Résilience
         const financialRes = financialFiles.length > 0
             ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, occupantsForFinancial))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Financier KO après retries:', err); 
-                    if (addDebugLog) addDebugLog('AGENT_FINANCIER', 'ERROR', null, err.message);
+                    if (addDebugLog) log('AGENT_FINANCIER', 'ERROR', null, err.message);
                     return { success: false, data: { expenses: [] } }; 
                 })
             : { success: true, data: { expenses: [] } };
             
         if (addDebugLog && financialFiles.length > 0) {
-            addDebugLog('AGENT_FINANCIER', financialRes.success ? 'SUCCESS' : 'ERROR', financialRes.data, financialRes.error || null);
+            log('AGENT_FINANCIER', financialRes.success ? 'SUCCESS' : 'ERROR', financialRes.data, financialRes.error || null);
         }
 
         // --- DÉBUT DU BLOC : AGENT BALAI (Phase 2) ---
@@ -874,18 +888,18 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         if (narrativeRes.data && narrativeRes.data.cause === null) missingVitalData.push('Origine technique du sinistre (cause)');
 
         if (missingVitalData.length > 0) {
-            if (addDebugLog) addDebugLog('AGENT_BALAI', 'WARNING', `Trous détectés : ${missingVitalData.join(', ')}. Lancement de GPT-5.5 en renfort...`);
+            if (addDebugLog) log('AGENT_BALAI', 'WARNING', `Trous détectés : ${missingVitalData.join(', ')}. Lancement de GPT-5.5 en renfort...`);
             
             try {
                 // Utilisation du texte complet pour le rattrapage
                 console.log(`[aiManager] 🧹 Lancement de l'Agent Balai (Fallback)...`);
-                if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', `Lancement Agent Balai...`);
+                if (addDebugLog) log('AGENT_BALAI', 'INFO', `Lancement Agent Balai...`);
                 
                 const contentArray = await buildContentArrayParallel(filesToRoute, "");
                 const globalText = contentArray.map(c => c.text || "").join('\n');
                 
                 const fallbackResults = await withRetry(() => runFallbackAgent(globalText, missingVitalData, providedApiKey));
-                if (addDebugLog) addDebugLog('AGENT_BALAI', 'SUCCESS', fallbackResults);
+                if (addDebugLog) log('AGENT_BALAI', 'SUCCESS', fallbackResults);
 
                 // Fusion des trouvailles du Balai dans l'objet principal
                 if (fallbackResults['Numéro de Police (numPolice)'] && fallbackResults['Numéro de Police (numPolice)'] !== 'INTROUVABLE') {
@@ -899,11 +913,11 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
                 }
                 
             } catch (fallbackError) {
-                if (addDebugLog) addDebugLog('AGENT_BALAI', 'ERROR', null, fallbackError.message);
+                if (addDebugLog) log('AGENT_BALAI', 'ERROR', null, fallbackError.message);
                 // On ne throw pas l'erreur ! Si le balai échoue, le dossier continue avec ses trous.
             }
         } else {
-            if (addDebugLog) addDebugLog('AGENT_BALAI', 'INFO', 'Aucune donnée vitale manquante. Passage direct à la fusion.');
+            if (addDebugLog) log('AGENT_BALAI', 'INFO', 'Aucune donnée vitale manquante. Passage direct à la fusion.');
         }
         // --- FIN DU BLOC : AGENT BALAI ---
 
@@ -934,7 +948,7 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
         }
 
         // 6. PHASE FINALE : Agent de Synthèse (Merger)
-        if (addDebugLog) addDebugLog('AGENT_MERGER', 'INFO', 'Lancement de la déduplication intelligente (Merge Agent)...');
+        if (addDebugLog) log('AGENT_MERGER', 'INFO', 'Lancement de la déduplication intelligente (Merge Agent)...');
         console.log(`[aiManager] ✨ Lancement Merge Agent sur ${occupants.length} occupants et ${expenses.length} dépenses...`);
         
         let finalOccupants = occupants;
@@ -945,13 +959,13 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
             if (mergerRes.success && mergerRes.data) {
                 finalOccupants = mergerRes.data.occupants || occupants;
                 finalExpenses = mergerRes.data.expenses || expenses;
-                if (addDebugLog) addDebugLog('AGENT_MERGER', 'SUCCESS', mergerRes.data);
+                if (addDebugLog) log('AGENT_MERGER', 'SUCCESS', mergerRes.data);
             } else {
-                if (addDebugLog) addDebugLog('AGENT_MERGER', 'WARNING', 'Échec de la fusion intelligente, conservation des données brutes.', mergerRes.error);
+                if (addDebugLog) log('AGENT_MERGER', 'WARNING', 'Échec de la fusion intelligente, conservation des données brutes.', mergerRes.error);
             }
         } catch (mergeErr) {
             console.error('[aiManager] ❌ Erreur fatale Agent Merger:', mergeErr);
-            if (addDebugLog) addDebugLog('AGENT_MERGER', 'ERROR', null, mergeErr.message);
+            if (addDebugLog) log('AGENT_MERGER', 'ERROR', null, mergeErr.message);
         }
 
         // 7. Assemblage final
@@ -972,18 +986,18 @@ export const processGlobalIngestion = async (files, providedApiKey = null, onSta
 
         if (onStatusChange) onStatusChange('attaching'); // Fini
         
-        if (addDebugLog) addDebugLog('PIPELINE_GLOBAL', 'SUCCESS', 'Fusion et assemblage terminés.');
+        if (addDebugLog) log('PIPELINE_GLOBAL', 'SUCCESS', 'Fusion et assemblage terminés.');
         return { success: true, data: finalJson, extractedFiles: allExtractedFiles };
 
     } catch (error) {
         console.error("[aiManager] processGlobalIngestion error:", error);
-        if (addDebugLog) addDebugLog('PIPELINE_GLOBAL', 'ERROR', null, error.message || "Erreur inconnue");
+        if (addDebugLog) log('PIPELINE_GLOBAL', 'ERROR', null, error.message || "Erreur inconnue");
         return { success: false, error: error.message || "Erreur lors de l'ingestion globale." };
     } finally {
         if (addDebugLog) {
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(1);
-            addDebugLog('INGESTION_END', 'INFO', `⏱️ Traitement terminé en ${duration} secondes.`);
+            log('INGESTION_END', 'INFO', `⏱️ Traitement terminé en ${duration} secondes.`);
         }
         if (originalConsole) {
             console.log = originalConsole.log;
