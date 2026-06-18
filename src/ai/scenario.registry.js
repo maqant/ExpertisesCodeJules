@@ -63,6 +63,13 @@ export const SCENARIO_REGISTRY = Object.freeze([
         source: 'Dropzone Frais Financiers',
         description: 'Extraction isolée et intelligente d\'un devis ou d\'une facture rattaché à une dépense financière.',
         processIds: ['agent_financial']
+    },
+    {
+        id: 'magic_drop_cause',
+        label: 'Dépôt Rapports de Recherche',
+        source: 'Dropzone Rapports de Recherche',
+        description: 'Extraction narrative d\'un rapport de recherche de cause (handleCauseMagicDrop) via l\'agent récit.',
+        processIds: ['agent_narrative']
     }
 ]);
 
