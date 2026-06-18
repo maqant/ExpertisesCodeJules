@@ -1487,6 +1487,15 @@ export const ExpertiseProvider = ({ children }) => {
           });
       }
 
+      // 2.5 Responsables (v7.13.0)
+      if (selections.responsablesIds && selections.responsablesIds.length > 0) {
+          const finalRespIds = selections.responsablesIds.map(id => idMapping[id] || id);
+          // On ajoute les nouveaux responsables aux responsables existants (au cas où il y en a d'autres non présents dans l'import IA)
+          const currentRespIds = financeStore.metier?.responsablesIds || [];
+          const mergedRespIds = Array.from(new Set([...currentRespIds, ...finalRespIds]));
+          financeStore.setResponsables(mergedRespIds);
+      }
+
       // 3. Expenses — ajouter + Magic Drop auto-attach (séquentiel, pas de setTimeout)
       if (selections.expenses && selections.expenses.length > 0) {
           for (const expId of selections.expenses) {

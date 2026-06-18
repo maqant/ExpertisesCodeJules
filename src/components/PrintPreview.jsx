@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+import { useFinanceStore } from '../store/financeStore';
 
 const PrintPreview = () => {
     const context = useContext(ExpertiseContext);
@@ -12,6 +13,8 @@ const PrintPreview = () => {
         getSortedBlocks, getPaginationInfo, causeTimeline,
         intervenantsList, telemetry
     } = context;
+
+    const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
 
     const totalFrais = expenses.reduce((acc, curr) => {
         const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
@@ -134,12 +137,18 @@ const PrintPreview = () => {
                     <div className={`${styles.orga.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
                         {blockTitles.orga && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.orga.fontSize + 2}px` }}>{blockTitles.orga}</p>}
                         <ul className="list-none space-y-2">
-                            {occupants.map(o => (
-                                <li key={o.id} className="leading-snug break-inside-avoid">
+                            {occupants.map(o => {
+                                const isResponsible = responsablesIds.includes(o.id);
+                                return (
+                                <li key={o.id} className={`leading-snug break-inside-avoid p-1 rounded ${isResponsible ? 'bg-orange-50 border border-orange-200' : ''}`}>
                                     <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o.statut === 'Locataire' ? 'ml-12 text-slate-700' : ''}`}>
                                         <strong className="break-words">{o.etage || '-'}</strong>
                                         <span className="text-slate-800 break-words">- {o.statut}</span>
-                                        <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong>{o.iban ? <span className="ml-1 text-[10px] italic text-slate-500">(IBAN: {o.iban})</span> : ''} {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
+                                        <span className="break-words">
+                                            : <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong>
+                                            {isResponsible && <span className="ml-2 text-[10px] font-bold text-orange-600 bg-orange-100 px-1 py-0.5 rounded uppercase">Responsable</span>}
+                                            {o.iban ? <span className="ml-1 text-[10px] italic text-slate-500">(IBAN: {o.iban})</span> : ''} {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}
+                                        </span>
                                     </div>
                                     {orgaAdvancedMode && (o.rc === 'Oui' || o.secAssurance === 'Oui') && (
                                         <div className={`ml-[280px] ${o.statut === 'Locataire' ? 'pl-12' : ''}`}>
@@ -150,7 +159,8 @@ const PrintPreview = () => {
                                         </div>
                                     )}
                                 </li>
-                            ))}
+                                );
+                            })}
                             {occupants.length === 0 && <li className="italic opacity-50">Aucune partie impliquée.</li>}
                         </ul>
                         {/* v5.6.3 - Intervenants dans le rendu d'impression */}

@@ -1,4 +1,6 @@
 import { usePromptStore } from '../../../store/promptStore.js';
+import { useFinanceStore } from '../../../store/financeStore.js';
+import { buildFranchiseResponsibilitySentence } from '../../responsibility/responsibilityService.js';
 
 // v6.0.0 - Context Vault & Mail Generator
 
@@ -62,6 +64,14 @@ export const buildDeclarationPrompt = (dossierState) => {
         }).join('\n')
         : '';
 
+    // Phrase conditionnelle sur la responsabilité (CRE)
+    const responsablesIds = useFinanceStore.getState().metier?.responsablesIds || [];
+    const phraseResponsabilite = buildFranchiseResponsibilitySentence({
+        occupants,
+        responsablesIds,
+        franchiseMontant: formData.franchise || null
+    });
+
     const occupantName = declarant || "Le déclarant";
     const basePrompt = usePromptStore.getState().getPrompt('DECLARATION_MAIL');
     const systemPrompt = basePrompt.replace('${occupantName}', occupantName);
@@ -76,6 +86,7 @@ ${declarant ? `Déclaré par : ${declarant}` : ''}
 ${refsStr ? `Références : ${refsStr}` : ''}
 
 ${occupantsStr ? `--- PARTIES IMPLIQUÉES ---\n${occupantsStr}\n` : ''}
+${phraseResponsabilite ? `--- RESPONSABILITÉ ET FRANCHISE ---\nInclure mot pour mot cette phrase dans le compte rendu d'expertise :\n"${phraseResponsabilite}"\n` : ''}
 ${expensesStr ? `--- RÉCLAMATIONS (Frais) ---\n${expensesStr}\n` : ''}
 
 --- TEXTES BRUTS / EMAILS / NOTES ---

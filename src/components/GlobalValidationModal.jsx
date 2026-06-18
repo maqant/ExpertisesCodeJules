@@ -2,6 +2,7 @@ import React, { useContext, useState, useMemo, useCallback, useEffect } from 're
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 import { useDatasetStore } from '../store/datasetStore';
+import { useFinanceStore } from '../store/financeStore';
 import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
 import { FieldStatus } from '../domain/merge/mergeStrategies.js';
@@ -109,6 +110,10 @@ const GlobalValidationModal = () => {
     // Expanded row trackers
     const [expandedOcc, setExpandedOcc] = useState(new Set());
     const [expandedExp, setExpandedExp] = useState(new Set());
+    
+    const storeResponsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
+    const [localResponsablesIds, setLocalResponsablesIds] = useState(new Set());
+
     // Conflict resolution actions: Map<aiOccId, 'update'|'add'|'ignore'>
     const [occActions, setOccActions] = useState(new Map());
     const [expActions, setExpActions] = useState(new Map());
@@ -238,6 +243,8 @@ const GlobalValidationModal = () => {
         // v5.6.0 - Intervenants : TOUS décochés par défaut
         setSelectedIntervenants(new Set());
 
+        setLocalResponsablesIds(new Set(storeResponsablesIds));
+
         setInitialized(true);
     }
 
@@ -335,7 +342,8 @@ const GlobalValidationModal = () => {
                 .filter(([, action]) => action !== 'ignore')
                 .map(([id]) => id),
             // v5.6.0 - Intervenants sélectionnés (cochés manuellement)
-            intervenants: Array.from(selectedIntervenants)
+            intervenants: Array.from(selectedIntervenants),
+            responsablesIds: Array.from(localResponsablesIds)
         };
 
         // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
@@ -804,6 +812,19 @@ const GlobalValidationModal = () => {
                                                     {occ.contreExpert && (
                                                         <div><label className="text-[9px] text-slate-500 uppercase">Nom Expert Client</label><input type="text" value={occ.nomContreExpert || ''} onChange={(e) => updateOccField(occ.id, 'nomContreExpert', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
                                                     )}
+                                                    <div className="col-span-2 pt-2 border-t border-slate-700 mt-1">
+                                                        <label className="flex items-center space-x-2 cursor-pointer text-red-400 text-[10px] font-bold">
+                                                            <input type="checkbox" checked={localResponsablesIds.has(occ.id)} onChange={(e) => {
+                                                                setLocalResponsablesIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(occ.id)) next.delete(occ.id);
+                                                                    else next.add(occ.id);
+                                                                    return next;
+                                                                });
+                                                            }} className="w-3 h-3 rounded bg-slate-700 border-red-500 text-red-500 focus:ring-red-500" />
+                                                            <span>Désigner comme Responsable du Sinistre</span>
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
