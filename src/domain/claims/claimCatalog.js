@@ -6,14 +6,14 @@ const hasValue = (v) => v != null && String(v).trim() !== '';
 export const PARTY_CLAIMS = Object.freeze([
     {
         id: 'IBAN',
-        label: 'IBAN / RIB',
+        label: 'IBAN',
         scope: 'PARTY',
-        applies: () => true, // toute partie peut être indemnisée
+        applies: () => true,
         preChecked: ({ party }) => !hasValue(party.iban),
     },
     {
         id: 'RC_FAMILIALE',
-        label: 'Attestation RC familiale',
+        label: 'Coordonnées RC familiale (Compagnie + N° contrat)',
         scope: 'PARTY',
         applies: ({ party }) =>
             party.statut === PartyStatus.LOCATAIRE ||
@@ -35,13 +35,12 @@ export const PARTY_CLAIMS = Object.freeze([
         label: 'Coordonnées complètes du locataire (nom, prénom, email, téléphone)',
         scope: 'PARTY',
         applies: ({ party }) => party.statut === PartyStatus.PROPRIO_NON_OCCUPANT,
-        // Pré-coché si AUCUN locataire n'est déjà identifié dans le dossier.
         preChecked: ({ allOccupants }) =>
             !allOccupants.some((o) => o.statut === PartyStatus.LOCATAIRE),
     },
     {
         id: 'RC_LOCATIVE',
-        label: 'Attestation RC locative du locataire',
+        label: 'Coordonnées RC locative (Compagnie + N° contrat du locataire)',
         scope: 'PARTY',
         applies: ({ party }) => party.statut === PartyStatus.PROPRIO_NON_OCCUPANT,
         preChecked: ({ allOccupants }) => {
@@ -54,7 +53,7 @@ export const PARTY_CLAIMS = Object.freeze([
         label: 'Coordonnées complètes du propriétaire bailleur',
         scope: 'PARTY',
         applies: ({ party }) => party.statut === PartyStatus.LOCATAIRE,
-        preChecked: ({ allOccupants }) => 
+        preChecked: ({ allOccupants }) =>
             !allOccupants.some((o) => o.statut === PartyStatus.PROPRIO_NON_OCCUPANT),
     },
     {
@@ -62,44 +61,60 @@ export const PARTY_CLAIMS = Object.freeze([
         label: 'Attestation d\'assurance incendie de l\'immeuble',
         scope: 'PARTY',
         applies: ({ party }) => party.statut === PartyStatus.COPROPRIETE,
-        preChecked: () => true, // Souvent manquant ou demandé au syndic
+        preChecked: () => true,
     },
     {
         id: 'DEVIS_SYNDIC',
         label: 'Devis de réparation des parties communes',
         scope: 'PARTY',
         applies: ({ party }) => party.statut === PartyStatus.COPROPRIETE,
-        preChecked: () => false, 
+        preChecked: () => false,
     }
 ]);
 
 export const DOSSIER_CLAIMS = Object.freeze([
     {
+        id: 'CAUSE_DETAIL',
+        label: 'Description de l\'incident (cause, circonstances, photos)',
+        scope: 'DOSSIER',
+        targetable: false,
+        hasNano: true,   // déclenche l'analyse nano-IA de la cause
+        hasPhotos: true, // ouvre le sous-menu de sélection par partie
+        applies: () => true,
+        preChecked: ({ formData }) => String(formData?.cause ?? '').trim().length < 20,
+    },
+    {
         id: 'DEVIS',
         label: 'Devis de réparation',
         scope: 'DOSSIER',
+        targetable: true, // peut cibler des parties spécifiques
+        hasNano: false,
+        hasPhotos: false,
         applies: () => true,
         preChecked: ({ expenses }) =>
             !expenses.some((e) => String(e?.type ?? '').toLowerCase() === 'devis'),
     },
     {
-        id: 'PLAINTE',
-        label: 'Dépôt de plainte / récépissé (suite au vol/vandalisme)',
+        id: 'PERTE_CONTENU',
+        label: 'État de perte / liste chiffrée du contenu',
         scope: 'DOSSIER',
+        targetable: false,
+        hasNano: false,
+        hasPhotos: false,
+        applies: () => true,
+        preChecked: () => false,
+    },
+    {
+        id: 'PLAINTE',
+        label: 'Dépôt de plainte / récépissé',
+        scope: 'DOSSIER',
+        targetable: false,
+        hasNano: false,
+        hasPhotos: false,
         applies: ({ formData }) => {
             const c = String(formData?.cause ?? '').toLowerCase();
             return ['vol', 'vandalisme', 'effraction'].some((k) => c.includes(k));
         },
-        preChecked: () => true, // si applicable (cause = vol), c'est requis
-    },
-    {
-        id: 'CAUSE_DETAIL',
-        label: 'Précisions sur les circonstances exactes du sinistre',
-        scope: 'DOSSIER',
-        applies: () => true,
-        preChecked: ({ formData }) => {
-            const c = String(formData?.cause ?? '').trim();
-            return c.length < 20;
-        },
+        preChecked: () => true,
     },
 ]);
