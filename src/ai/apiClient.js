@@ -18,6 +18,11 @@ export class AiCallError extends Error {
   }
 }
 
+// Identifiant de corrélation : relie le START et le END d'un même appel.
+function generateCallId() {
+  return (crypto?.randomUUID?.() ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+}
+
 /**
  * Exécute un appel IA de bout en bout, instrumenté et sécurisé.
  *
@@ -40,6 +45,7 @@ export async function executeAiCall({
   if (!payload?.model) throw new AiCallError('Payload invalide : "model" manquant.', { kind: 'NETWORK' });
 
   const model = payload.model;
+  const callId = generateCallId();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const start = performance.now();
@@ -47,6 +53,16 @@ export async function executeAiCall({
   let outcome = 'success';
   let status = null;
   let caught = null;
+
+  // === ÉVÉNEMENT DE DÉBUT : émis AVANT le fetch ===
+  // Permet au superviseur de voir l'activité immédiatement (pas de faux "freeze").
+  telemetryBus.emit({
+    eventType: 'AI_START',
+    callId,
+    componentId,
+    timestamp: Date.now(),
+    details: { model, timeoutMs, ...meta },
+  });
 
   try {
     let response;
@@ -91,19 +107,22 @@ export async function executeAiCall({
     throw err;
   } finally {
     clearTimeout(timer);
-    const durationMs = performance.now() - start;
+    const durationMs = Math.round(performance.now() - start);
+
+    // === ÉVÉNEMENT DE FIN : même callId pour corrélation ===
     telemetryBus.emit({
       eventType: 'AI_PROCESSING',
+      callId,
       componentId,
       timestamp: Date.now(),
       details: {
         model,
         outcome,
-        durationMs: Math.round(durationMs),
+        durationMs,
         status,
         error: caught ? caught.message : null,
-        ...meta
-      }
+        ...meta,
+      },
     });
   }
 }
