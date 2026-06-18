@@ -40,13 +40,51 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
 
     const removeFile = (i) => setFiles(prev => prev.filter((_, idx) => idx !== i));
 
+    const getFilesFromEntry = async (entry) => {
+        if (entry.isFile) {
+            const file = await new Promise(resolve => entry.file(resolve));
+            // Ajout du chemin complet pour aider au matching
+            Object.defineProperty(file, 'fullPath', { value: entry.fullPath });
+            return [file];
+        } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            const entries = await new Promise(resolve => dirReader.readEntries(resolve));
+            let files = [];
+            for (const subEntry of entries) {
+                files = files.concat(await getFilesFromEntry(subEntry));
+            }
+            return files;
+        }
+        return [];
+    };
+
     const handleDrop = async (e) => {
         e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
-        if (e.dataTransfer.files?.length > 0) {
-            // v6.3.2 - IMPORTANT: On extrait immédatement les fichiers de e.dataTransfer
-            // avant tout await, sinon l'objet dataTransfer est vidé par le navigateur
-            const filesList = Array.from(e.dataTransfer.files);
+        let filesList = [];
+        if (e.dataTransfer.items) {
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                const item = e.dataTransfer.items[i];
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                    if (entry) {
+                        filesList = filesList.concat(await getFilesFromEntry(entry));
+                    } else {
+                        filesList.push(item.getAsFile());
+                    }
+                }
+            }
+        } else if (e.dataTransfer.files?.length > 0) {
+            filesList = Array.from(e.dataTransfer.files);
+        }
+
+        if (filesList.length > 0) {
             const safeFiles = await cloneFilesEagerly(filesList);
+            // Report fullPath to safeFiles
+            safeFiles.forEach((sf, idx) => {
+                if (filesList[idx].fullPath) {
+                    Object.defineProperty(sf, 'fullPath', { value: filesList[idx].fullPath });
+                }
+            });
             if (telemetry) telemetry.logEvent('DROP', 'smartbridge_zone', { fileCount: safeFiles.length });
             addFiles(safeFiles);
         }

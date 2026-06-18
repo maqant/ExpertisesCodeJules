@@ -52,11 +52,12 @@ const collectKeywords = (dossier) => {
  * @param {Array} existingDossiers La liste des dossiers sauvegardés
  * @returns {Object|null} Le dossier matchant ou null
  */
-export const findMatchingDossier = (filename, existingDossiers) => {
+export const findMatchingDossier = (filename, existingDossiers, fullPath = '') => {
     if (!filename || !existingDossiers || existingDossiers.length === 0) return null;
 
     const sanitizedFilename = sanitize(filename);
-    console.log(`[Smart Bridge] Filename sanitisé : "${sanitizedFilename}"`);
+    const sanitizedPath = fullPath ? sanitize(fullPath) : '';
+    console.log(`[Smart Bridge] Filename sanitisé : "${sanitizedFilename}"${fullPath ? ` (Path: ${sanitizedPath})` : ''}`);
 
     for (const dossier of existingDossiers) {
         const rawKeywords = collectKeywords(dossier);
@@ -69,7 +70,7 @@ export const findMatchingDossier = (filename, existingDossiers) => {
         console.log(`[Smart Bridge] Test du dossier: "${dossier.name}" avec les clés:`, keywords);
 
         for (const keyword of keywords) {
-            if (sanitizedFilename.includes(keyword)) {
+            if (sanitizedFilename.includes(keyword) || (sanitizedPath && sanitizedPath.includes(keyword))) {
                 console.log(`[Smart Bridge] ✅ Match trouvé ! Dossier "${dossier.name}" via clé "${keyword}"`);
                 return dossier;
             }

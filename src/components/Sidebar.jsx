@@ -478,7 +478,7 @@ const Sidebar = () => {
         setCurrentBridgeFile(filesArray); // stocke le tableau complet
         // Matching sur le premier .msg trouvé (ou le premier fichier)
         const msgFile = filesArray.find(f => f.name.toLowerCase().endsWith('.msg')) || filesArray[0];
-        const match = findMatchingDossier(msgFile.name, savedDossiers);
+        const match = findMatchingDossier(msgFile.name, savedDossiers, msgFile.fullPath);
         setBridgeMatchResult(match);
         setIsBridgeModalOpen(true);
     };
