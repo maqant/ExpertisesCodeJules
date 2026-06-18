@@ -3,8 +3,7 @@ import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
 import AcknowledgmentModal from './Post/AcknowledgmentModal';
-import FreeEmailModal from './Post/FreeEmailModal';
-import { Mail, Sparkles } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -160,7 +159,6 @@ const BlockContainer = ({ id, children }) => {
 const Workspace = () => {
     const context = useContext(ExpertiseContext);
     const [isAcknowledgmentModalOpen, setIsAcknowledgmentModalOpen] = useState(false);
-    const [isFreeEmailModalOpen, setIsFreeEmailModalOpen] = useState(false);
 
     if (!context) return null;
 
@@ -481,29 +479,17 @@ const Workspace = () => {
             {/* Generate AR Button in Workspace */}
             <div className="absolute top-4 right-4 z-[100] print:hidden no-print flex items-center gap-2">
                 <button
-                    onClick={() => setIsFreeEmailModalOpen(true)}
-                    className="px-4 py-2 bg-slate-700 text-white rounded shadow hover:bg-slate-600 flex items-center gap-2"
-                >
-                    <Sparkles className="w-4 h-4 text-indigo-300" />
-                    E-mail Magique
-                </button>
-                <button
                     onClick={() => setIsAcknowledgmentModalOpen(true)}
                     className="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700 flex items-center gap-2"
                 >
                     <Mail className="w-4 h-4" />
-                    Générer AR
+                    Générer AR / E-mail
                 </button>
             </div>
 
             <AcknowledgmentModal
                 isOpen={isAcknowledgmentModalOpen}
                 onClose={() => setIsAcknowledgmentModalOpen(false)}
-            />
-
-            <FreeEmailModal
-                isOpen={isFreeEmailModalOpen}
-                onClose={() => setIsFreeEmailModalOpen(false)}
             />
 
             <div id="a4-page" className="print-document relative bg-white text-slate-900 shadow-2xl print:shadow-none w-[210mm] max-w-full print:w-full min-h-[297mm] h-max p-[15mm] mx-auto print:mx-0 print:p-0 break-words flex flex-wrap content-start">

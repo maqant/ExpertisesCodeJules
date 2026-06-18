@@ -34,7 +34,7 @@ export const SCENARIO_REGISTRY = Object.freeze([
         label: 'Génération Accusé de Réception',
         source: 'Bouton Générer AR',
         description: 'Génération du courrier d’accusé de réception pour le client.',
-        processIds: ['ar_nano', 'ar_modal', 'ar_finisher']
+        processIds: ['ar_nano', 'ar_modal', 'ar_finisher', 'draft_email', 'modify_email']
     },
     {
         id: 'final_report',

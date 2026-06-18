@@ -32,6 +32,10 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'ar_finisher',     label: 'IA Balais AR',           group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_finisher',  hint: 'Naturalisation du mail AR généré pour un rendu humain.' },
 
     // --- Affinage / Reformulation ---
+    { id: 'draft_email',     label: 'Rédaction e-mail libre', group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_email_master', hint: 'Génération d\'un e-mail libre à partir d\'une consigne.' },
+    { id: 'modify_email',    label: 'Retouche e-mail libre',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_email_modifiers', hint: 'Retouche itérative d\'un e-mail.' },
+
+    // --- Affinage / Reformulation ---
     { id: 'agent_router',    label: 'Agent Routeur',       group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.4-nano', promptKey: 'ROUTER', hint: 'Triage initial rapide des données.' },
     { id: 'agent_merger',    label: 'Agent Merger',        group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'MERGER', hint: 'Déduplication finale.' },
     { id: 'agent_fallback',  label: 'Agent Balai',         group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FALLBACK', hint: 'Récupération des trous vitaux.' },
