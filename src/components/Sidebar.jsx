@@ -18,7 +18,7 @@ import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
-
+import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 const DropZone = ({ onFiles, label = "Glisser ici", accept = "*", className = "", onDragFinish }) => {
     const [isOver, setIsOver] = useState(false);
     return (
@@ -940,6 +940,21 @@ const Sidebar = () => {
                                                                     <Info size={12} />
                                                                 </div>
                                                             </div>
+
+                                                            {/* NOUVEAU : Affichage des déclencheurs (Scénarios) */}
+                                                            {PROCESS_TO_SCENARIOS[process.id] && PROCESS_TO_SCENARIOS[process.id].length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mb-2">
+                                                                    {PROCESS_TO_SCENARIOS[process.id].map(scenario => (
+                                                                        <span 
+                                                                            key={scenario.id} 
+                                                                            title={scenario.description}
+                                                                            className="bg-slate-700/50 text-[8.5px] px-1.5 py-0.5 rounded-sm text-slate-300 border border-slate-600/50 flex items-center gap-1 cursor-help"
+                                                                        >
+                                                                            📍 {scenario.label}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                             
                                                             <div className="flex items-center gap-1">
                                                                 <select
