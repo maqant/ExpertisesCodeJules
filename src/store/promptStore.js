@@ -237,7 +237,7 @@ ${HTML_FORMATTING_RULES}`,
     prompt_brio_prep: `Tu es un assistant spécialisé en gestion de sinistres pour un courtier. Ton rôle est de préparer les données pour la création administrative du dossier dans le logiciel Brio.
 Analyse le mail de déclaration ci-dessous AINSI QUE le texte de toutes ses pièces jointes (ex: rapports, constats, PV de police) et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
 
-- "date" : La date EXACTE du sinistre. Recherche impérativement dans les documents joints (comme les PV de police ou rapports). Si non trouvée, utilise la date de déclaration, au format xx/xx/xx.
+- "date" : La date EXACTE du sinistre. Recherche impérativement dans les documents joints (comme les PV de police ou rapports). Si non trouvée, utilise la date de déclaration, au format DD/MM/YYYY.
 - "titre" : Un titre court de 40 caractères maximum décrivant le sinistre, incluant obligatoirement (si mentionnés) les noms des propriétaires en cause et les étages concernés dans une nomenclature uniforme.
 - "description" : Une description détaillée STRICTEMENT sous la forme "[type de sinistre] au [lieu], provoquant [dégâts] au [lieu impacté]". Si inconnu, préciser "A déterminer".
 - "pertes_indirectes" : Le pourcentage de pertes indirectes si précisé dans les documents ou le texte, sinon "A confirmer".

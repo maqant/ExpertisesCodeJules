@@ -3,9 +3,10 @@ import { usePromptStore } from '../store/promptStore';
 import { runBrioPrepAnalysis } from '../services/generators/generatorEngine';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { sanitizeIngestedText } from '../services/ingestion/textSanitizer';
+import { resolveSinistreDate } from '../services/dates/dateResolver';
 
 const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
-    const { franchises, aiConfig } = useContext(ExpertiseContext);
+    const { formData, franchises, aiConfig } = useContext(ExpertiseContext);
     const { getPrompt } = usePromptStore();
 
     const [mailText, setMailText] = useState('');
@@ -54,6 +55,14 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
 
             const promptTemplate = getPrompt('prompt_brio_prep');
             const data = await runBrioPrepAnalysis(mailText, apiKey, promptTemplate);
+            
+            const { date, source } = resolveSinistreDate({
+                aiDate: data.date,
+                declarationDate: formData?.dateDeclaration || formData?.dateExp,
+            });
+            data.date = date;
+            data.dateSource = source;
+
             setResults(data);
 
             if (data.date) {
