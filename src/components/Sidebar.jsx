@@ -2183,35 +2183,7 @@ TON OBJECTIF :
         </div>
         <div className={`w-1.5 bg-slate-400 hover:bg-indigo-500 ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{cursor: 'col-resize'}}></div>
         <UniversalIngestionModal />
-        <BrioPrepModal
-            isOpen={isBrioPrepModalOpen}
-            initialText={brioPrepInitialText}
-            onClose={() => {
-                setIsBrioPrepModalOpen(false);
-                setBrioPrepInitialText('');
-            }}
-            onContinue={async (rawText, brioResults, brioFranchise) => {
-                setIsBrioPrepModalOpen(false);
-                setBrioPrepInitialText('');
-                
-                const overrides = {};
-                if (brioFranchise) overrides.franchise = brioFranchise;
-                if (brioResults?.date) overrides.dateSinistre = brioResults.date;
 
-                setBrioOverrides(overrides);
-                brioOverridesRef.current = overrides;
-
-                // Si l'analyse principale est DÉJÀ terminée, on met à jour pendingAiData immédiatement
-                setPendingAiData(prev => {
-                    if (prev) {
-                        return { ...prev, formData: { ...prev.formData, ...overrides } };
-                    }
-                    return prev;
-                });
-
-                console.log('[BrioPrep] ✅ Overrides stockés dans le sas. Ils seront fusionnés à la fin de l\'analyse.');
-            }}
-        />
 
         {/* Mini-dialog : Créer un dossier via IA (apparaît après drop ou clic) */}
         {showAiDossierPrompt && (
