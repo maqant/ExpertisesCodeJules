@@ -83,13 +83,12 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-900 rounded-xl border border-indigo-500/40 shadow-2xl p-6 w-full max-w-[700px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         <span className="text-xl">🪄</span> Préparation Brio
                     </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">✕</button>
                 </div>
 
                 {!results ? (
