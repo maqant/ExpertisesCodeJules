@@ -10,6 +10,8 @@ import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/
 import { sanitizeAiConfig } from "../ai/ai.config.js";
 import { useDossiersStore } from '../hooks/useDossiersStore';
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
+import { removeBlobs } from '../services/attachmentStorage';
+import { attachmentRegistry } from '../services/attachmentRegistry';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -720,28 +722,30 @@ export const ExpertiseProvider = ({ children }) => {
       }
   };
 
-  const handleRemoveFile = async (docId, dbKeyToRemove) => {
-      if (dbKeyToRemove) {
-          await localforage.removeItem(dbKeyToRemove);
-          setAttachedFiles(prev => {
-              const current = prev[docId] || [];
-              const updated = current.filter(f => f.dbKey !== dbKeyToRemove);
-              if (updated.length === 0) {
-                  const next = { ...prev };
-                  delete next[docId];
-                  return next;
-              }
-              return { ...prev, [docId]: updated };
-          });
-      } else {
-          const files = attachedFiles[docId] || [];
-          for (const f of files) await localforage.removeItem(f.dbKey);
-          setAttachedFiles(prev => {
-              const next = { ...prev };
-              delete next[docId];
-              return next;
-          });
+  const deleteAttachment = async (type, payload = {}) => {
+      const descriptor = attachmentRegistry[type];
+      if (!descriptor) {
+          console.error(`[deleteAttachment] Type inconnu: "${type}"`);
+          return { ok: false, error: 'Type inconnu' };
       }
+
+      const currentState = { attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
+      const dbKeys = descriptor.extractKeys(currentState, payload);
+
+      const { ok, failedKeys } = await removeBlobs(dbKeys);
+      if (!ok) {
+          console.error("[deleteAttachment] Erreur lors de la suppression DB :", failedKeys);
+          return { ok: false, error: 'Erreur de suppression base de données.' };
+      }
+
+      const stateUpdates = descriptor.removeFromState(currentState, payload);
+      if (stateUpdates.attachedFiles) setAttachedFiles(stateUpdates.attachedFiles);
+      if (stateUpdates.attachedPhotos) setAttachedPhotos(stateUpdates.attachedPhotos);
+      if (stateUpdates.attachedFreeAnnexes) setAttachedFreeAnnexes(stateUpdates.attachedFreeAnnexes);
+      if (stateUpdates.causeTimeline) setCauseTimeline(stateUpdates.causeTimeline);
+      if (stateUpdates.intervenantsList) setIntervenantsList(stateUpdates.intervenantsList);
+
+      return { ok: true };
   };
 
   const handleAttachPhoto = async (occupantId, rawFile) => {
@@ -776,19 +780,7 @@ export const ExpertiseProvider = ({ children }) => {
       }
   };
 
-  const handleRemovePhoto = async (occupantId, dbKey) => {
-      await localforage.removeItem(dbKey);
-      setAttachedPhotos(prev => {
-          const current = prev[occupantId] || [];
-          const updated = current.filter(p => p.dbKey !== dbKey);
-          if (updated.length === 0) {
-              const next = { ...prev };
-              delete next[occupantId];
-              return next;
-          }
-          return { ...prev, [occupantId]: updated };
-      });
-  };
+
   const handleAttachFreeAnnex = async (rawFile, generatedTitle = null, desc = '') => {
       if (!rawFile) return;
       const file = await processIngestedFile(rawFile);
@@ -813,10 +805,7 @@ export const ExpertiseProvider = ({ children }) => {
       }
   };
 
-  const handleRemoveFreeAnnex = async (id, dbKeyToRemove) => {
-      if (dbKeyToRemove) await localforage.removeItem(dbKeyToRemove);
-      setAttachedFreeAnnexes(prev => prev.filter(f => f.id !== id));
-  };
+
 
   const handleUpdateFreeAnnex = (id, field, value) => {
       setAttachedFreeAnnexes(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
@@ -1747,13 +1736,7 @@ Voici le format JSON :
       }]);
   };
 
-  const removeCauseTimelineItem = async (id) => {
-      const item = causeTimeline.find(i => i.id === id);
-      if (item && item.dbKey) {
-          await localforage.removeItem(item.dbKey);
-      }
-      setCauseTimeline(prev => prev.filter(i => i.id !== id));
-  };
+
 
   const toggleExpenseType = (id, targetType) => {
       const exp = expenses.find(e => e.id === id);
@@ -1845,11 +1828,9 @@ Voici le format JSON :
       occupants, setOccupants,
       expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
-      attachedFiles, handleAttachFile, handleRemoveFile,
-      attachedPhotos, setAttachedPhotos,
-      handleAttachPhoto, handleRemovePhoto,
-      attachedFreeAnnexes, setAttachedFreeAnnexes,
-      handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
+      attachedFiles, handleAttachFile, attachedPhotos, setAttachedPhotos,
+      handleAttachPhoto, attachedFreeAnnexes, setAttachedFreeAnnexes,
+      handleAttachFreeAnnex, handleUpdateFreeAnnex,
       isExpenseExcludedFromMain, dynamicFreeAnnexes,
       isMerging,
       getPaginationInfo, downloadSelectedPDF, downloadDossierPDF, getAnnexList,
@@ -1866,7 +1847,7 @@ Voici le format JSON :
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
       isDeepThinkingMode, toggleDeepThinkingMode,
       pendingAiData, setPendingAiData, commitPendingAiData,
-      causeTimeline, setCauseTimeline, addCauseTimelineItem, removeCauseTimelineItem,
+      causeTimeline, setCauseTimeline, addCauseTimelineItem,
       toggleExpenseType,
       aiStatus, setAiStatus,
       rawContexts, setRawContexts,
@@ -1874,7 +1855,8 @@ Voici le format JSON :
       globalAssistantFiles, setGlobalAssistantFiles, // v6.3.2 - SAS file queue
       isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs, // v6.2.0
       logHistory, commitLogSession, clearLogHistory, // v6.3.3
-      telemetry, exportTelemetryJson, clearTelemetryLogs
+      telemetry, exportTelemetryJson, clearTelemetryLogs,
+      deleteAttachment
   };
 
   return (

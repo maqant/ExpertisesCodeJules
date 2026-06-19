@@ -27,9 +27,11 @@ import DropZone from './DropZone.jsx';
 import { processBulkMsg } from '../services/annex/bulkMsgQueue.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
 import BulkProgressToast from './ui/BulkProgressToast.jsx';
+import { DeleteButton } from './ui/DeleteButton.jsx';
+import { ATTACHMENT_TYPES } from '../services/attachmentRegistry.js';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
-    const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
+    const { attachedFiles, deleteAttachment, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
 
@@ -49,7 +51,7 @@ const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUp
                     <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
                         📎 {file.pages}p
                         <button onClick={(e) => { e.preventDefault(); handleOpenFile(file.dbKey, true); }} className="text-blue-400 hover:text-blue-300 ml-0.5 mr-0.5" title="Ouvrir le document">👁️</button>
-                        <button onClick={(e) => { e.preventDefault(); handleRemoveFile(docId, file.dbKey); }} className="text-red-400 hover:text-red-300 ml-0.5">✕</button>
+                        <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.ATTACHED_FILE, { parentId: docId, dbKey: file.dbKey })} className="ml-0.5" />
                     </span>
                 );
             })}
@@ -206,11 +208,11 @@ const Sidebar = () => {
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
-        attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleRemoveFile, handleAttachPhoto, handleRemovePhoto,
-        handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
+        attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleAttachPhoto,
+        handleAttachFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
-        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem, removeCauseTimelineItem,
+        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
         toggleExpenseType,
         intervenantsList, setIntervenantsList,
         aiStatus, setAiStatus,
@@ -219,6 +221,7 @@ const Sidebar = () => {
         isDebugMode, toggleDebugMode, addDebugLog,  // v6.2.0 - Debug Mode
         isDeepThinkingMode, // v6.3.2 - Mode Lourd
         commitLogSession, clearDebugLogs, // v6.3.3
+        deleteAttachment, // v6.3.3
         telemetry: contextTelemetry,
         exportTelemetryJson
     } = context;
@@ -340,7 +343,7 @@ const Sidebar = () => {
                     const mime = photoObj.isPdf ? 'application/pdf' : 'image/jpeg';
                     const file = new File([bytes], photoObj.name, { type: mime });
                     await handleAttachPhoto(targetOccId, file);
-                    handleRemovePhoto(sourceId, dbKey);
+                    deleteAttachment(ATTACHMENT_TYPES.PHOTO, { parentId: sourceId, dbKey });
                 }
             }
         }
@@ -386,7 +389,7 @@ const Sidebar = () => {
                 await handleAttachPhoto(newId, file);
                 
                 // Retirer de 'unassigned'
-                handleRemovePhoto('unassigned', dbKey);
+                deleteAttachment(ATTACHMENT_TYPES.PHOTO, { parentId: 'unassigned', dbKey });
                 
                 alert("✅ Document financier analysé avec succès ! Une ligne de frais a été créée.");
             } else {
@@ -1489,13 +1492,13 @@ TON OBJECTIF :
                                                     <span className="text-xs text-blue-300 font-bold truncate max-w-[200px]" title={item.fileName}>{item.fileName}</span>
                                                     <div className="flex gap-2 items-center">
                                                         <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(item.dbKey); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir">👁️</button>
-                                                        <button onClick={(e) => { e.preventDefault(); if(window.confirm('Supprimer ce rapport ?')) removeCauseTimelineItem(item.id); }} className="text-[14px] text-red-400 hover:text-red-300" title="Supprimer">🗑️</button>
+                                                        <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.CAUSE_TIMELINE, { id: item.id })} confirmMessage="Supprimer ce rapport ?" />
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="relative group">
                                                     <p className="text-xs text-slate-300 whitespace-pre-wrap pr-6">{item.content}</p>
-                                                    <button onClick={(e) => { e.preventDefault(); if(window.confirm('Supprimer cette note ?')) removeCauseTimelineItem(item.id); }} className="absolute top-0 right-0 text-[12px] text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Supprimer">🗑️</button>
+                                                    <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.CAUSE_TIMELINE, { id: item.id })} confirmMessage="Supprimer cette note ?" className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
                                             )}
                                         </div>
@@ -1652,7 +1655,7 @@ TON OBJECTIF :
                                                         {inter.tel && <span>📞 {inter.tel}</span>}
                                                         {inter.email && <span>✉️ {inter.email}</span>}
                                                     </div>
-                                                    <button onClick={() => setIntervenantsList(prev => prev.filter(i => i.id !== inter.id))} className="text-red-400 hover:text-red-300 text-xs shrink-0" title="Supprimer">✕</button>
+                                                    <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.INTERVENANT, { id: inter.id })} confirmMessage="Supprimer cet intervenant ?" />
                                                 </div>
                                             ))}
                                         </div>
@@ -1859,7 +1862,7 @@ TON OBJECTIF :
                                                                     </div>
                                                                     <div className="flex items-center gap-2">
                                                                         <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(f.dbKey, true); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir le fichier">👁️</button>
-                                                                        <button onClick={() => handleRemoveFile(exp.id, f.dbKey)} className="text-[10px] text-red-400 hover:underline">✕</button>
+                                                                        <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.ATTACHED_FILE, { parentId: exp.id, dbKey: f.dbKey })} className="text-[10px]" />
                                                                     </div>
                                                                 </div>
                                                             ))}
@@ -1965,7 +1968,7 @@ TON OBJECTIF :
                                                             )}
                                                             <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(photo.dbKey, photo.isPdf); }} className="bg-blue-500 hover:bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Ouvrir">👁️</button>
-                                                                <button onClick={() => handleRemovePhoto(occ.id, photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
+                                                                <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.PHOTO, { parentId: occ.id, dbKey: photo.dbKey })} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" />
                                                             </div>
                                                         </div>
                                                     ))}
@@ -2031,7 +2034,7 @@ TON OBJECTIF :
                                                         >
                                                             {processingPhotoId === photo.dbKey ? '↻' : '🪄'}
                                                         </button>
-                                                        <button onClick={() => handleRemovePhoto('unassigned', photo.dbKey)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" title="Supprimer">✕</button>
+                                                        <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.PHOTO, { parentId: 'unassigned', dbKey: photo.dbKey })} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" />
                                                     </div>
                                                     {occupants.length > 0 && (
                                                         <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1">
@@ -2125,7 +2128,7 @@ TON OBJECTIF :
                                         <div key={file.id} className={`bg-slate-900 border ${file.isVirtual ? 'border-indigo-500 border-dashed' : 'border-slate-700'} p-2 rounded relative group`}>
                                             <div className="absolute top-1 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(file.dbKey, file.isPdf); }} className="text-blue-400 hover:text-blue-300 text-xs" title="Ouvrir">👁️</button>
-                                                {!file.isVirtual && <button onClick={() => handleRemoveFreeAnnex(file.id, file.dbKey)} className="text-red-500 text-xs" title="Supprimer">✕</button>}
+                                                {!file.isVirtual && <DeleteButton onDelete={() => deleteAttachment(ATTACHMENT_TYPES.FREE_ANNEX, { id: file.id })} className="text-xs" />}
                                             </div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-lg">{file.isPdf ? '📄' : '🖼️'}</span>
