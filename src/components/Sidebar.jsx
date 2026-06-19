@@ -844,7 +844,7 @@ const Sidebar = () => {
                             </button>
                         </div>
                         <div className="flex gap-1.5">
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); setIsBrioPrepModalOpen(true); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
