@@ -163,6 +163,7 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
     );
     const perteContenu = formSelections.askPerteContenu === true ? 'true' : 'false';
     const demandePlainte = formSelections.askPlainte === true ? 'true' : 'false';
+    const demandePv = formSelections.askPvPolice === true ? 'true' : 'false';
 
     // Demandes par parties (documents manquants)
     let demandesPartiesStr = '[]';
@@ -187,6 +188,7 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
         .replace(/{{devis_parties}}/g, devisPartiesStr)
         .replace(/{{perte_contenu}}/g, perteContenu)
         .replace(/{{demande_plainte}}/g, demandePlainte)
+        .replace(/{{demande_pv}}/g, demandePv)
         .replace(/{{demandes_parties}}/g, demandesPartiesStr)
         .replace(/{{salutation}}/g, formSelections.salutation || 'Bonjour,');
 

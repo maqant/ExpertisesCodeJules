@@ -320,6 +320,7 @@ Parties à qui demander un devis (JSON, liste vide si aucune) :
 
 Pertes de contenu à demander (true/false) : {{perte_contenu}}
 Dépôt de plainte à demander (true/false) : {{demande_plainte}}
+PV de police à demander (true/false) : {{demande_pv}}
 
 Demandes spécifiques aux parties — documents manquants (JSON) :
 {{demandes_parties}}
@@ -345,9 +346,10 @@ Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} 
    - [Si perte_contenu = true] Transmettez une liste chiffrée des contenus endommagés.
    - [Si perte_contenu = false] (Supprime ce point 3 entièrement)
 
-4. **Dépôt de plainte**
+4. **Dépôt de plainte et Procès-verbal**
    - [Si demande_plainte = true] Merci de préciser si un dépôt de plainte a été effectué et, le cas échéant, de nous en transmettre une copie.
-   - [Si demande_plainte = false] (Supprime ce point 4 entièrement)
+   - [Si demande_pv = true] Merci de bien vouloir nous faire parvenir la copie complète du procès-verbal de police.
+   - [Si demande_plainte = false ET demande_pv = false] (Supprime ce point 4 entièrement)
 
 5. **Demandes spécifiques aux parties**
    - [Pour chaque partie dans demandes_parties avec des manques, écrire une ligne : "Pour [Nom] : merci de nous transmettre [liste des manques]."]
@@ -362,7 +364,10 @@ Nous restons à votre disposition pour tout complément d'information.
     prompt_email_master: `Tu es un expert en communication pour un bureau d'expertise. Ton but est de rédiger un e-mail parfait d'après les instructions brutes de l'utilisateur.
 
 RÈGLES ABSOLUES :
-1. Ta réponse commence STRICTEMENT par "{{salutation}}".
+1. SALUTATION :
+   a) SI l'instruction utilisateur désigne nommément un destinataire (ex: "réponds à Madame Bran"), commence STRICTEMENT par cette civilité + nom suivi d'une virgule (ex: "Madame Bran,"). Ignore alors {{salutation}}.
+   b) SINON, commence STRICTEMENT par "{{salutation}}".
+   Ne combine JAMAIS les deux. Une seule formule de salutation.
 2. Adopte un ton professionnel, clair, humain mais PAS obséquieux.
 3. Termine toujours par 'Bien cordialement,'.
 4. Ne retourne JAMAIS de texte d'introduction ou de conclusion (ex: 'Voici votre e-mail:').
@@ -416,13 +421,19 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 4, // Incrémenté pour forcer la mise à jour des prompts (v7.15.0)
+            version: 5, // Incrémenté pour forcer la mise à jour des prompts (v7.19.1)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 5) {
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['prompt_email_master'];
+                        delete persistedState.customPrompts['prompt_ar_generator'];
                     }
                 }
                 if (version < 4) {

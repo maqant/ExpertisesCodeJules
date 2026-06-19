@@ -110,4 +110,17 @@ export const DOSSIER_CLAIMS = Object.freeze([
         },
         preChecked: () => true,
     },
+    {
+        id: 'PV_POLICE',
+        label: 'Copie complète du procès-verbal de police',
+        scope: 'DOSSIER',
+        targetable: false,
+        hasNano: false,
+        hasPhotos: false,
+        applies: ({ formData }) => {
+            const c = String(formData?.cause ?? '').toLowerCase();
+            return ['vol', 'vandalisme', 'effraction'].some((k) => c.includes(k));
+        },
+        preChecked: () => true,
+    },
 ]);

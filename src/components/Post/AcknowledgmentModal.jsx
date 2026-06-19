@@ -11,12 +11,12 @@ import {
 import EmailPreview from '../shared/EmailPreview';
 
 const AcknowledgmentModal = ({ isOpen, onClose }) => {
-    const { formData, occupants, expenses, aiConfig, isAiModeActive } = useContext(ExpertiseContext);
+    const { formData, occupants, expenses, aiConfig, isAiModeActive, intervenantsList } = useContext(ExpertiseContext);
 
     // Initialisation du hook de sélection des destinataires
     const recipientState = useRecipientSelection({
         occupants,
-        intervenants: formData?.intervenants || [],
+        intervenants: intervenantsList,
         defaultAllSelected: true
     });
 
@@ -191,6 +191,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                 devisParties: devisPartiesList,
                 askPerteContenu: dossierClaimsState['PERTE_CONTENU'] || false,
                 askPlainte: dossierClaimsState['PLAINTE'] || false,
+                askPvPolice: dossierClaimsState['PV_POLICE'] || false,
                 partiesGaps,
                 salutation: recipientState.salutation,
             };
