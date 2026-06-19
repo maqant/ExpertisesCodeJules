@@ -77,7 +77,13 @@ const _extractMsgRecursive = (rawBuffer, parentName = 'email', depth = 0) => {
     if (depth > 0) {
         const parts = [];
         if (fileData.subject) parts.push(`[Email imbriqué niv.${depth}] Sujet: ${fileData.subject}`);
-        if (fileData.senderName) parts.push(`De: ${fileData.senderName}`);
+        
+        const sender = fileData.senderName ? `${fileData.senderName} <${fileData.senderEmail || ''}>` : fileData.senderEmail;
+        if (sender) parts.push(`De: ${sender}`);
+        
+        const recipients = fileData.recipients ? fileData.recipients.map(r => r.name || r.email).join('; ') : '';
+        if (recipients) parts.push(`À: ${recipients}`);
+
         if (fileData.body) parts.push(fileData.body);
         if (parts.length > 0) result.nestedTexts.push(parts.join('\n'));
     }
@@ -230,7 +236,13 @@ export const parseMsgFile = async (file) => {
 
     const parts = [];
     if (fileData.subject) parts.push(`Sujet: ${fileData.subject}`);
-    if (fileData.senderName) parts.push(`De: ${fileData.senderName}`);
+    
+    const sender = fileData.senderName ? `${fileData.senderName} <${fileData.senderEmail || ''}>` : fileData.senderEmail;
+    if (sender) parts.push(`De: ${sender}`);
+    
+    const recipients = fileData.recipients ? fileData.recipients.map(r => r.name || r.email).join('; ') : '';
+    if (recipients) parts.push(`À: ${recipients}`);
+
     if (fileData.body) parts.push(fileData.body);
 
     // Extraction récursive (texte des sous-mails + PJ de tous les niveaux)

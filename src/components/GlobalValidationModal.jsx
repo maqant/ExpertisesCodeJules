@@ -171,8 +171,53 @@ const GlobalValidationModal = () => {
     if (pendingAiData && !initialized) {
         const normalized = normalizeAiData(pendingAiData);
         
+        // Deduplication interne des frais ramenés par l'IA (avant affichage)
+        const deduplicateAIExpenses = (exps) => {
+            const merged = [];
+            for (const current of exps) {
+                const currentName = (current.prestataire || '').toLowerCase().trim();
+                const existingIndex = merged.findIndex(e => {
+                    const existingName = (e.prestataire || '').toLowerCase().trim();
+                    if (!existingName || !currentName) return false;
+                    if (existingName.includes(currentName) || currentName.includes(existingName)) {
+                        const m1 = (current.montantReclame || current.montant || '').toString().trim();
+                        const m2 = (e.montantReclame || e.montant || '').toString().trim();
+                        if (!m1 || !m2 || m1 === '?' || m2 === '?' || m1 === m2) return true;
+                    }
+                    return false;
+                });
+
+                if (existingIndex !== -1) {
+                    const existing = merged[existingIndex];
+                    const m1 = (current.montantReclame || current.montant || '').toString().trim();
+                    const m2 = (existing.montantReclame || existing.montant || '').toString().trim();
+                    
+                    const bestMontant = (m2 && m2 !== '?') ? m2 : m1;
+                    const combinedFiles = [...new Set([
+                        ...(Array.isArray(existing.sourceFileNames) ? existing.sourceFileNames : (existing.sourceFileName ? [existing.sourceFileName] : [])),
+                        ...(Array.isArray(current.sourceFileNames) ? current.sourceFileNames : (current.sourceFileName ? [current.sourceFileName] : []))
+                    ])].filter(Boolean);
+
+                    merged[existingIndex] = {
+                        ...existing,
+                        prestataire: existing.prestataire.length > current.prestataire.length ? existing.prestataire : current.prestataire,
+                        montant: bestMontant,
+                        montantReclame: bestMontant,
+                        montantValide: bestMontant,
+                        type: existing.type || current.type,
+                        sourceFileNames: combinedFiles
+                    };
+                } else {
+                    merged.push(current);
+                }
+            }
+            return merged;
+        };
+
+        const deduplicatedExps = deduplicateAIExpenses(normalized.expenses);
+
         // Ticket D: Matching Intelligent du compteDe
-        const cleanExps = normalized.expenses.map(exp => {
+        const cleanExps = deduplicatedExps.map(exp => {
             let matchedCompteDe = exp.compteDe || 'unassigned';
             if (matchedCompteDe !== 'unassigned' && matchedCompteDe.trim() !== '') {
                 const searchName = matchedCompteDe.toLowerCase().trim();
