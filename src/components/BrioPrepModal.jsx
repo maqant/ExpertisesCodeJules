@@ -5,7 +5,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { sanitizeIngestedText } from '../services/ingestion/textSanitizer';
 import { resolveSinistreDate } from '../services/dates/dateResolver';
 
-const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
+const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
     const { formData, franchises, aiConfig } = useContext(ExpertiseContext);
     const { getPrompt } = usePromptStore();
 
@@ -15,16 +15,41 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
     const [error, setError] = useState(null);
     const [calculatedFranchise, setCalculatedFranchise] = useState('');
 
+    // Flag pour ne consommer le prefetch qu'une seule fois
+    const [hasConsumedPrefetch, setHasConsumedPrefetch] = useState(false);
+
     useEffect(() => {
         if (!isOpen) {
             setMailText('');
             setResults(null);
             setError(null);
             setCalculatedFranchise('');
-        } else if (initialText) {
-            setMailText(initialText);
+            setHasConsumedPrefetch(false);
+            setIsLoading(false);
         }
-    }, [isOpen, initialText]);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen && brioDeferred && !hasConsumedPrefetch) {
+            if (brioDeferred.status === 'pending') {
+                setIsLoading(true);
+                if (brioDeferred.initialText) setMailText(brioDeferred.initialText);
+            } else if (brioDeferred.status === 'fulfilled') {
+                setIsLoading(false);
+                if (brioDeferred.initialText) setMailText(brioDeferred.initialText);
+                setResults(brioDeferred.value);
+                if (brioDeferred.value?.date) {
+                    setCalculatedFranchise(getFranchiseAmount(brioDeferred.value.date));
+                }
+                setHasConsumedPrefetch(true);
+            } else if (brioDeferred.status === 'rejected') {
+                setIsLoading(false);
+                if (brioDeferred.initialText) setMailText(brioDeferred.initialText);
+                setError(brioDeferred.error);
+                setHasConsumedPrefetch(true);
+            }
+        }
+    }, [isOpen, brioDeferred, hasConsumedPrefetch]);
 
     const getFranchiseAmount = (dateString) => {
         if (!dateString || !dateString.includes('/')) return 'Date invalide ou absente';
@@ -77,11 +102,11 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
         }
     };
 
-    useEffect(() => {
-        if (isOpen && initialText && mailText === initialText && !results && !isLoading && !error) {
-            handleAnalyze();
-        }
-    }, [isOpen, initialText, mailText, results, isLoading, error]);
+    // Si on annule, on remet hasConsumedPrefetch à true pour ne pas re-consommer brioDeferred
+    const handleRecommencer = () => {
+        setResults(null);
+        setHasConsumedPrefetch(true);
+    };
 
     const handleCopy = (text) => {
         if (!text) return;
@@ -188,7 +213,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
 
                         <div className="mt-4 pt-4 border-t border-slate-700 flex justify-end gap-3">
                             <button
-                                onClick={() => setResults(null)}
+                                onClick={handleRecommencer}
                                 className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded transition-colors"
                             >
                                 🔄 Recommencer

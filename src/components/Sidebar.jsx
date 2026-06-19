@@ -17,6 +17,7 @@ import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { usePromptStore, DEFAULT_PROMPTS } from '../store/promptStore.js';
 import { useDatasetStore } from '../store/datasetStore.js';
 import { useFinanceStore } from '../store/financeStore.js';
+import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore.js';
 import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngestionDocumentSet.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
@@ -151,6 +152,10 @@ const AccordionHeader = ({ id, num }) => {
 
 const Sidebar = () => {
     const { telemetry } = useContext(ExpertiseContext);
+    
+    // v7.17.0 - State machine
+    const { step: ingestionStep, setStep: setIngestionStep, startIngestion, resetIngestion, brioDeferred, files: flowFiles } = useIngestionFlowStore();
+
     const toggleResponsable = useFinanceStore(state => state.toggleResponsable);
     const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
     
@@ -279,7 +284,6 @@ const Sidebar = () => {
     }, [formData?.cause]);
 
     // v5.9.4 - Smart Bridge State
-    const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
     const [currentBridgeFile, setCurrentBridgeFile] = useState(null);
     const [bridgeMatchResult, setBridgeMatchResult] = useState(null);
     const [contextVaultMenuAnchor, setContextVaultMenuAnchor] = useState(null);
@@ -295,51 +299,11 @@ const Sidebar = () => {
     // v6.4.4 - Convert photo to devis
     const [processingPhotoId, setProcessingPhotoId] = useState(null);
 
-    // Brio Prep State
-    const [isBrioPrepModalOpen, setIsBrioPrepModalOpen] = useState(false);
-    const [brioPrepInitialText, setBrioPrepInitialText] = useState('');
+    // Brio Overrides State (used by triggerSmartBridgeAnalysis)
     const [brioOverrides, setBrioOverrides] = useState({});
     const brioOverridesRef = useRef({});
 
-    const handleAutoBrioPrep = async (filesArray) => {
-        if (!filesArray) return;
-        const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
-        const msgFile = allFiles.find(f => f.name.toLowerCase().endsWith('.msg'));
-        
-        if (msgFile) {
-            try {
-                const { parseMsgFile } = await import('../services/utils/msgUtils.js');
-                const { buildContentArrayParallel } = await import('../services/utils/aiHelpers.js');
-                
-                const { bodyText, attachments } = await parseMsgFile(msgFile);
-                let fullText = bodyText ? `[Email principal]\n${bodyText}\n\n` : '';
-                
-                const filesToExtract = [...attachments];
-                
-                for (const f of allFiles) {
-                    if (f !== msgFile) filesToExtract.push(f);
-                }
-                
-                if (filesToExtract.length > 0) {
-                    const extractedContent = await buildContentArrayParallel(filesToExtract, "", { forceVision: false, maxPdfPages: 10, maxTextLength: 15000 });
-                    const extractedText = extractedContent
-                        .filter(c => c.type === 'text')
-                        .map(c => c.text)
-                        .join('\n');
-                    if (extractedText.trim()) {
-                        fullText += `[TEXTE EXTRAIT DES PIÈCES JOINTES ET AUTRES DOCUMENTS]\n${extractedText}`;
-                    }
-                }
-                
-                if (fullText.trim()) {
-                    setBrioPrepInitialText(fullText.trim());
-                    setIsBrioPrepModalOpen(true);
-                }
-            } catch (err) {
-                console.error("Erreur Auto Brio:", err);
-            }
-        }
-    };
+    // handleAutoBrioPrep a été déplacé dans le store pour le prefetching Brio.
 
     const handleTogglePhotoSelect = (dbKey) => {
         setSelectedPhotos(prev => prev.includes(dbKey) ? prev.filter(k => k !== dbKey) : [...prev, dbKey]);
@@ -467,12 +431,15 @@ const Sidebar = () => {
 
     const handleSmartBridgeDrop = (filesArray) => {
         if (!filesArray || filesArray.length === 0) return;
+        
+        // v7.17.0 - Prefetch Brio et ouverture du SmartBridge via state machine
+        startIngestion(filesArray, aiConfig);
+        
         setCurrentBridgeFile(filesArray); // stocke le tableau complet
         // Matching sur le premier .msg trouvé (ou le premier fichier)
         const msgFile = filesArray.find(f => f.name.toLowerCase().endsWith('.msg')) || filesArray[0];
         const match = findMatchingDossier(msgFile.name, savedDossiers, msgFile.fullPath);
         setBridgeMatchResult(match);
-        setIsBridgeModalOpen(true);
     };
 
     // v7.0.0 - Smart Bridge : analyse TOUS les fichiers d'un coup
@@ -2530,11 +2497,11 @@ TON OBJECTIF :
 
         {/* v5.9.4 - Smart Bridge Modal */}
         <SmartBridgeModal 
-            isOpen={isBridgeModalOpen}
+            isOpen={ingestionStep === INGESTION_STEPS.BRIDGE}
             matchedDossier={bridgeMatchResult}
             savedDossiers={savedDossiers}
             onClose={() => {
-                setIsBridgeModalOpen(false);
+                resetIngestion();
                 setCurrentBridgeFile(null);
                 setBridgeMatchResult(null);
             }}
@@ -2542,28 +2509,43 @@ TON OBJECTIF :
                 if (bridgeMatchResult) {
                     loadDossier(bridgeMatchResult);
                 }
-                setIsBridgeModalOpen(false);
-                // v5.9.4 - Fix SAS Trigger
-                triggerSmartBridgeAnalysis(currentBridgeFile);
-                handleAutoBrioPrep(currentBridgeFile);
+                setIngestionStep(INGESTION_STEPS.BRIO);
             }}
             onManualSelect={(dossier) => {
                 if (dossier) {
                     loadDossier(dossier);
                 }
-                setIsBridgeModalOpen(false);
-                triggerSmartBridgeAnalysis(currentBridgeFile);
-                handleAutoBrioPrep(currentBridgeFile);
+                setIngestionStep(INGESTION_STEPS.BRIO);
             }}
             onCreateNew={() => {
                 const created = handleNewDossier();
                 if (!created) return;
-                setIsBridgeModalOpen(false);
-                // v5.9.4 - Fix SAS Trigger
-                triggerSmartBridgeAnalysis(currentBridgeFile, true);
-                handleAutoBrioPrep(currentBridgeFile);
+                setIngestionStep(INGESTION_STEPS.BRIO);
             }}
         />
+
+        {/* Brio Prep Modal */}
+        <BrioPrepModal
+            isOpen={ingestionStep === INGESTION_STEPS.BRIO}
+            brioDeferred={brioDeferred}
+            onClose={() => resetIngestion()}
+            onContinue={(mailText, brioResults, franchiseStr) => {
+                const brioOverridesToSet = {};
+                if (brioResults) {
+                    if (brioResults.description) brioOverridesToSet.circonstances = brioResults.description;
+                    if (brioResults.titre) brioOverridesToSet.dommages = brioResults.titre;
+                    if (franchiseStr) brioOverridesToSet.franchise = franchiseStr;
+                    if (brioResults.pertes_indirectes) brioOverridesToSet.pertesIndirectes = brioResults.pertes_indirectes;
+                }
+                setBrioOverrides(brioOverridesToSet);
+                brioOverridesRef.current = brioOverridesToSet;
+                
+                // Déclencher l'analyse globale AVEC le bon dossier !
+                triggerSmartBridgeAnalysis(flowFiles);
+                setIngestionStep(INGESTION_STEPS.GENERAL);
+            }}
+        />
+
         {/* v6.0.0 - Generated Doc Modal */}
         <GeneratedDocModal
             isOpen={isGeneratorModalOpen}
