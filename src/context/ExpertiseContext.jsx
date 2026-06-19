@@ -9,6 +9,9 @@ import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
 import { useDossiersStore } from '../hooks/useDossiersStore';
+import { ConflictError } from '../services/storage/dossierStorage';
+import ConflictModal from '../components/shared/ConflictModal';
+import { subscribeToDossierUpdates } from '../services/utils/tabSync';
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 import { removeBlobs } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
@@ -112,6 +115,9 @@ export const ExpertiseProvider = ({ children }) => {
 
   const [telemetrySessionId, setTelemetrySessionId] = useState(() => crypto.randomUUID());
   const [currentDossierId, setCurrentDossierId] = useState(null);
+  const [currentVersion, setCurrentVersion] = useState(0);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictActionDossier, setConflictActionDossier] = useState(null);
   const telemetry = useTelemetry(telemetrySessionId, currentDossierId);
 
   const [activeTab, setActiveTab] = useState('builder');
@@ -156,6 +162,17 @@ export const ExpertiseProvider = ({ children }) => {
 
   // v6.3.3 - Historique des Logs
   const [logHistory, setLogHistory] = useState([]);
+
+  // Écoute des mises à jour inter-onglets (pour avertir l'utilisateur)
+  useEffect(() => {
+      if (!currentDossierId) return;
+      const unsubscribe = subscribeToDossierUpdates((payload) => {
+          if (payload.id === currentDossierId && payload.version > currentVersion) {
+              alert("⚠️ AVERTISSEMENT : Ce dossier vient d'être modifié dans un autre onglet. Si vous sauvegardez ici, vous ferez face à un conflit.");
+          }
+      });
+      return unsubscribe;
+  }, [currentDossierId, currentVersion]);
 
   useEffect(() => {
     import('localforage').then(localforage => {
@@ -479,7 +496,8 @@ export const ExpertiseProvider = ({ children }) => {
       }
       
       try {
-          await persistDossier(targetDossier);
+          const { version } = await persistDossier(targetDossier, currentVersion);
+          setCurrentVersion(version);
           
           let updated;
           if (currentDossierId) {
@@ -492,7 +510,12 @@ export const ExpertiseProvider = ({ children }) => {
           setSavedDossiers(updated);
           alert("✅ Dossier sauvegardé !");
       } catch (err) {
-          alert("❌ Erreur critique lors de la sauvegarde. Vos données n'ont pas été enregistrées. (" + err.message + ")");
+          if (err.name === 'ConflictError') {
+              setConflictActionDossier(targetDossier);
+              setShowConflictModal(true);
+          } else {
+              alert("❌ Erreur critique lors de la sauvegarde. Vos données n'ont pas été enregistrées. (" + err.message + ")");
+          }
       }
   };
 
@@ -505,7 +528,8 @@ export const ExpertiseProvider = ({ children }) => {
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
       try {
-          await persistDossier(newDossier);
+          const { version } = await persistDossier(newDossier, 0); // New dossier = expected version 0
+          setCurrentVersion(version);
           const updated = [newDossier, ...savedDossiers];
           setSavedDossiers(updated);
           setCurrentDossierId(newId);
@@ -517,6 +541,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   const loadDossier = (dossier) => {
       setTelemetrySessionId(crypto.randomUUID());
+      setCurrentVersion(dossier.version || 0);
       const d = dossier.data;
       if(d.formData) setFormData(d.formData); 
       if(d.blockTitles) {
@@ -1834,11 +1859,19 @@ Voici le format JSON :
           });
           
           // Persistance I/O Asynchrone hors du reducer
-          persistDossier(targetDossierToSave)
-            .then(() => setSaveStatus('saved'))
+          persistDossier(targetDossierToSave, currentVersion)
+            .then(({ version }) => {
+                setCurrentVersion(version);
+                setSaveStatus('saved');
+            })
             .catch(err => {
                 console.error("Autosave failed", err);
-                setSaveStatus('error');
+                if (err.name === 'ConflictError') {
+                    setConflictActionDossier(targetDossierToSave);
+                    setShowConflictModal(true);
+                } else {
+                    setSaveStatus('error');
+                }
             });
       }, 3000); // 3 seconds of inactivity
 
@@ -1892,9 +1925,31 @@ Voici le format JSON :
       deleteAttachment
   };
 
+  const handleConflictOverwrite = async () => {
+      if (!conflictActionDossier) return;
+      try {
+          const { version } = await persistDossier(conflictActionDossier, currentVersion, true);
+          setCurrentVersion(version);
+          setShowConflictModal(false);
+          setConflictActionDossier(null);
+          alert("✅ Dossier forcé et sauvegardé !");
+      } catch (err) {
+          alert("❌ Échec lors de la sauvegarde forcée : " + err.message);
+      }
+  };
+
+  const handleConflictReload = () => {
+      window.location.reload();
+  };
+
   return (
       <ExpertiseContext.Provider value={contextValue}>
           {children}
+          <ConflictModal 
+              isOpen={showConflictModal} 
+              onReload={handleConflictReload} 
+              onOverwrite={handleConflictOverwrite} 
+          />
       </ExpertiseContext.Provider>
   );
 };

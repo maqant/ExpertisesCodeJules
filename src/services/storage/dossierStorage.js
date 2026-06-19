@@ -1,6 +1,16 @@
 import localforage from 'localforage';
 import { StorageError, StorageErrorCode, isQuotaError } from './storageErrors';
 
+export class ConflictError extends Error {
+  constructor(currentVersion, attemptedVersion, currentUpdatedAt) {
+    super('CONFLICT: stored version is newer than the one being saved');
+    this.name = 'ConflictError';
+    this.currentVersion = currentVersion;
+    this.attemptedVersion = attemptedVersion;
+    this.currentUpdatedAt = currentUpdatedAt;
+  }
+}
+
 const INDEX_KEY = 'dossiers_index_v2';
 const DATA_PREFIX = 'dossier_data_';
 
@@ -83,19 +93,28 @@ export async function removeDossier(id) {
   });
 }
 
-export async function saveFullDossier(id, name, date, data) {
+export async function saveFullDossier(id, name, date, data, expectedVersion = 0, force = false) {
   return withLock(async () => {
+    const index = await readIndex();
+    const existingIdx = index.findIndex(d => d.id === id);
+    const currentVersion = existingIdx >= 0 ? (index[existingIdx].version || 0) : 0;
+
+    if (!force && currentVersion > (expectedVersion || 0)) {
+      throw new ConflictError(currentVersion, expectedVersion, index[existingIdx]?.updatedAt);
+    }
+
+    const newVersion = currentVersion + 1;
+    const updatedAt = Date.now();
+
     // Ordre sûr: on écrit les données D'ABORD, pour que l'index ne pointe pas vers le vide
     await writeData(id, data);
     
-    const index = await readIndex();
-    const existingIdx = index.findIndex(d => d.id === id);
     if (existingIdx >= 0) {
-        index[existingIdx] = { id, name, date };
+        index[existingIdx] = { id, name, date, version: newVersion, updatedAt };
     } else {
-        index.unshift({ id, name, date });
+        index.unshift({ id, name, date, version: newVersion, updatedAt });
     }
     await writeIndex(index);
-    return index;
+    return { version: newVersion, updatedAt };
   });
 }
