@@ -8,6 +8,7 @@ import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
 import { FieldStatus } from '../domain/merge/mergeStrategies.js';
 import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
 import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
+import FieldDiffIndicator from './validation/FieldDiffIndicator.jsx';
 import ComboboxField from './ui/ComboboxField.jsx';
 import DropZone from './DropZone';
 
@@ -127,6 +128,7 @@ const GlobalValidationModal = () => {
     const [selectedIntervenants, setSelectedIntervenants] = useState(new Set());
     // v8.1.0 - Références sélectionnées
     const [selectedReferences, setSelectedReferences] = useState(new Set());
+    const [fieldDiffs, setFieldDiffs] = useState([]);
     // v5.6.1 - Refining state
     // v5.6.1 - Refining state
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
@@ -202,6 +204,7 @@ const GlobalValidationModal = () => {
         const newFormFields = new Set();
         if (normalized.formData) {
             const diffs = buildFieldDiff(formData, normalized.formData);
+            setFieldDiffs(diffs);
             diffs.forEach(diff => {
                 // Seuls les NOUVEAUX champs (IA a trouvé qqch, humain n'avait rien mis) sont cochés par défaut.
                 // Les CONFLITS (humain avait déjà une valeur) sont sanctuarisés et décochés par défaut.
@@ -608,7 +611,7 @@ const GlobalValidationModal = () => {
                     {hasFormData && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-3 bg-slate-800 border-b border-slate-700">
-                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">📋 Informations Générales</h3>
+                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">📄 Informations Générales</h3>
                             </div>
                             <div className="p-3 space-y-1.5">
                                 {Object.keys(editableData.formData).map(key => {
@@ -616,28 +619,43 @@ const GlobalValidationModal = () => {
                                     const originalAiVal = pendingAiData?.formData?.[key];
                                     if (key === 'refPechard' || key === 'bureau') return null;
                                     if (!aiVal && !originalAiVal && !selectedFormFields.has(key)) return null;
+                                    
                                     const currentVal = formData[key] || '';
                                     const isIdentical = currentVal === aiVal;
                                     const label = FORM_FIELD_LABELS[key] || key;
+                                    
+                                    const diff = fieldDiffs.find(d => d.key === key);
+                                    const isConflict = diff?.status === FieldStatus.CONFLICT;
+                                    const isAccepted = selectedFormFields.has(key);
+                                    
+                                    // Affichage : la valeur éditée par l'IA (si acceptée/nouveau) ou la valeur actuelle
+                                    const displayVal = (isConflict && !isAccepted) ? currentVal : aiVal;
+
                                     // v5.6.1 - Détecter les champs narratifs pour le Refining
                                     const isNarrativeField = ['cause', 'divers'].includes(key);
+                                    
                                     return (
                                         <div key={key} onClick={() => !isIdentical && toggleFormField(key)} className={`flex items-start gap-2.5 p-2 rounded transition-colors ${isIdentical ? 'opacity-40' : 'hover:bg-slate-700/50 cursor-pointer'}`}>
                                             <input type="checkbox" checked={selectedFormFields.has(key)} onChange={() => {}} disabled={isIdentical}
                                                 className="mt-1 w-4 h-4 rounded border-slate-500 bg-slate-700 text-indigo-500 focus:ring-0 shrink-0 pointer-events-none" />
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex justify-between items-center w-full">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
+                                                    <div className="flex items-center">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
+                                                        <FieldDiffIndicator 
+                                                            diff={diff} 
+                                                            onAccept={(val) => {
+                                                                if (!selectedFormFields.has(key)) toggleFormField(key);
+                                                            }} 
+                                                        />
+                                                    </div>
                                                     {key === 'numPolice' && <MiniAttachmentUI docId="doc_cond_part" title="Cond. Particulières" />}
                                                     {key === 'numConditionsGenerales' && <MiniAttachmentUI docId="doc_cond_gen" title="Cond. Générales" />}
                                                 </div>
                                                 <div className="mt-0.5">
-                                                    {currentVal && (
-                                                        <div className="text-[10px] text-red-400/70 line-through mb-0.5">{currentVal}</div>
-                                                    )}
                                                     {isNarrativeField ? (
                                                         <>
-                                                            <textarea value={aiVal}
+                                                            <textarea value={displayVal}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={(e) => updateFormField(key, e.target.value)}
                                                                 rows={key === 'cause' ? 6 : 3}
@@ -651,7 +669,7 @@ const GlobalValidationModal = () => {
                                                         </>
                                                     ) : key === 'franchise' ? (
                                                         <ComboboxField
-                                                            value={aiVal}
+                                                            value={displayVal}
                                                             onChange={(v) => updateFormField(key, v)}
                                                             options={[
                                                                 ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
@@ -660,7 +678,7 @@ const GlobalValidationModal = () => {
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none"
                                                         />
                                                     ) : (
-                                                        <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
+                                                        <input type={key.startsWith('date') ? 'date' : 'text'} value={displayVal}
                                                             onClick={(e) => e.stopPropagation()}
                                                             onChange={(e) => updateFormField(key, e.target.value)}
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
