@@ -47,8 +47,9 @@ export function useTelemetry(sessionId, dossierId = null) {
      * @param {string} eventType - CLICK, EDIT, TOGGLE, DROP, AI_ACTION, TIME_SPENT, etc.
      * @param {string} componentId - L'identifiant clair de l'élément (ex: 'btn_dev_cause')
      * @param {object} details - Valeur avant/après, ou toute info contextuelle
+     * @param {object} meta - Métadonnées métier (source, entityType, fieldName, section, criticality, etc.)
      */
-    const logEvent = (eventType, componentId, details = {}) => {
+    const logEvent = (eventType, componentId, details = {}, meta = {}) => {
         if (!sessionId) return; // Ne pas loguer si pas de session active
 
         const entry = {
@@ -58,7 +59,17 @@ export function useTelemetry(sessionId, dossierId = null) {
             dossierId,
             eventType,
             componentId,
-            details
+            details,
+            meta: {
+                source: meta?.source || null,
+                entityType: meta?.entityType || null,
+                entityId: meta?.entityId || null,
+                fieldName: meta?.fieldName || null,
+                section: meta?.section || null,
+                criticality: meta?.criticality || null,
+                aiGenerated: meta?.aiGenerated ?? null,
+                validationContext: meta?.validationContext || null
+            }
         };
 
         // Optionnel : un console.log conditionnel pour le débug en local
@@ -70,16 +81,16 @@ export function useTelemetry(sessionId, dossierId = null) {
     /**
      * Enregistre le focus sur un champ (pour chronométrer ou voir l'ancienne valeur).
      */
-    const logFocus = (componentId, initialValue, inferred = false) => {
+    const logFocus = (componentId, initialValue, inferred = false, meta = {}) => {
         focusValues.current.set(componentId, initialValue);
-        logEvent('FOCUS', componentId, { initialValue, inferred });
+        logEvent('FOCUS', componentId, { initialValue, inferred }, meta);
         startTimer(componentId);
     };
 
     /**
      * Enregistre la perte de focus, en vérifiant si la valeur a changé (utile pour corrections post-IA).
      */
-    const logBlur = (componentId, finalValue, inferred = false) => {
+    const logBlur = (componentId, finalValue, inferred = false, meta = {}) => {
         const timeSpent = stopTimer(componentId);
         const initialValue = focusValues.current.get(componentId);
         focusValues.current.delete(componentId);
@@ -91,7 +102,7 @@ export function useTelemetry(sessionId, dossierId = null) {
             initialValue,
             finalValue,
             inferred
-        });
+        }, meta);
     };
 
     /**

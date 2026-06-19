@@ -11,6 +11,10 @@ import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
 import FieldDiffIndicator from './validation/FieldDiffIndicator.jsx';
 import ComboboxField from './ui/ComboboxField.jsx';
 import DropZone from './DropZone';
+import { useTelemetry } from '../hooks/useTelemetry';
+import { buildGoldenDiff } from '../services/telemetry/goldenDiff';
+import { buildTelemetryFieldId } from '../services/telemetry/telemetryUtils';
+import { getFieldMeta } from '../services/telemetry/fieldRegistry';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -112,7 +116,11 @@ const fuzzyMatchExpense = (aiExp, existingExps) => {
 };
 
 const GlobalValidationModal = () => {
-    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles } = useContext(ExpertiseContext);
+    const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles, currentDossierId } = useContext(ExpertiseContext);
+
+    // Initialiser la télémétrie de la modale
+    const [telemetrySessionId] = useState(() => crypto.randomUUID());
+    const telemetry = useTelemetry(telemetrySessionId, currentDossierId);
 
     // Editable deep copy of pendingAiData
     const [editableData, setEditableData] = useState(null);
@@ -467,7 +475,22 @@ const GlobalValidationModal = () => {
                 console.warn("[GoldenDataset] _rawInputText manquant dans pendingAiData", pendingAiData);
             }
                 
+            // Calculer le diff au moment de la validation
+            const { diffSummary, fieldDiffs: computedFieldDiffs } = buildGoldenDiff({ 
+                aiOutput: pendingAiData, 
+                userCorrection: editableData 
+            });
+
             addRecord({
+                metadata: {
+                    dossierId: currentDossierId ?? null,
+                    sessionId: telemetrySessionId,
+                    scenario: "smart_bridge_global_validation",
+                    source: "GlobalValidationModal",
+                    fileNames: (pendingAiData.pendingFiles || []).map(f => f.name)
+                },
+                diffSummary,
+                fieldDiffs: computedFieldDiffs,
                 feedback: hasFeedback ? {
                     categories: activeCategories,
                     note: feedbackNote.trim()
@@ -722,6 +745,20 @@ const GlobalValidationModal = () => {
                                                             <textarea value={displayVal}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={(e) => updateFormField(key, e.target.value)}
+                                                                onFocus={() => {
+                                                                    const meta = getFieldMeta(key);
+                                                                    telemetry.logFocus(
+                                                                        buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                        { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                    );
+                                                                }}
+                                                                onBlur={(e) => {
+                                                                    const meta = getFieldMeta(key);
+                                                                    telemetry.logBlur(
+                                                                        buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), e.target.value, false,
+                                                                        { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                    );
+                                                                }}
                                                                 rows={key === 'cause' ? 6 : 3}
                                                                 className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none resize-y" />
                                                             {key === 'cause' && pendingAiData.technicalFilesToAttach?.length > 0 && (
@@ -735,6 +772,20 @@ const GlobalValidationModal = () => {
                                                         <ComboboxField
                                                             value={displayVal}
                                                             onChange={(v) => updateFormField(key, v)}
+                                                            onFocus={() => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logFocus(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logBlur(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
                                                             options={[
                                                                 ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
                                                                 ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
@@ -745,6 +796,20 @@ const GlobalValidationModal = () => {
                                                         <input type={key.startsWith('date') ? 'date' : 'text'} value={displayVal}
                                                             onClick={(e) => e.stopPropagation()}
                                                             onChange={(e) => updateFormField(key, e.target.value)}
+                                                            onFocus={() => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logFocus(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logBlur(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), e.target.value, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none" />
                                                     )}
                                                     {/* v5.6.1 - Boutons de Refining pour les champs narratifs */}

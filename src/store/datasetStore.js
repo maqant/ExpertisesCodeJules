@@ -24,7 +24,12 @@ export const useDatasetStore = create((set, get) => ({
     addRecord: async (record) => {
         try {
             const currentRecords = get().records;
-            const newRecords = [...currentRecords, { ...record, id: crypto.randomUUID(), timestamp: new Date().toISOString() }];
+            const newRecords = [...currentRecords, { 
+                schemaVersion: record.schemaVersion || 1,
+                id: crypto.randomUUID(), 
+                timestamp: new Date().toISOString(),
+                ...record 
+            }];
             set({ records: newRecords });
             await datasetStorage.setItem('records', newRecords);
         } catch (e) {

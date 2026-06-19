@@ -1190,25 +1190,84 @@ const Sidebar = () => {
                             <p className="text-[10px] text-blue-200 leading-tight mb-3">
                                 Copiez ce prompt pour demander à une IA d'analyser vos fichiers Télémétrie et Golden Dataset.
                             </p>
-                            <button
-                                onClick={() => {
-                                    const prompt = `Agis en tant qu'Architecte Logiciel Senior et Expert Data / AI.
-Je te fournis deux fichiers d'export de mon application métier :
-1. "Golden Dataset" : capture les entrées brutes ("inputText"), les prédictions initiales de l'IA ("aiOutput") et les corrections finales manuelles de l'utilisateur ("userCorrection"). Il indique aussi les catégories d'erreurs signalées ("feedback").
-2. "Télémétrie" : trace les événements ("eventType"), les composants modifiés ("componentId") et le temps passé ("timeSpentMs") ou les changements ("initialValue", "finalValue").
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        const prompt = `Agis comme Architecte Logiciel Senior, Data Analyst et Prompt Engineer spécialisé en extraction documentaire assurance.
 
-TON OBJECTIF :
-1. Croise ces données pour identifier précisément où le système IA est le plus faible (temps passé le plus long pour corriger, champs les plus souvent rejetés/édités).
-2. Analyse les décalages entre "aiOutput" et "userCorrection" dans le Golden Dataset pour comprendre les schémas d'hallucination ou d'omission.
-3. Fournis une analyse technique approfondie point par point, en mettant en évidence le ROI de chaque correction potentielle.
-4. Propose 3 angles d'amélioration concrets et techniques (modifications de prompt, ajustement de température, nouvelle architecture de pipeline ou agent, etc.) basés EXCLUSIVEMENT sur ces résultats.`;
-                                    navigator.clipboard.writeText(prompt);
-                                    alert("Prompt copié dans le presse-papier !");
-                                }}
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
-                            >
-                                📋 Copier le prompt d'analyse
-                            </button>
+Tu reçois un export Golden Dataset contenant :
+- inputText : données brutes envoyées à l'IA
+- aiOutput : prédiction initiale de l'IA
+- userCorrection : version finale corrigée par l'utilisateur
+- feedback : catégories d'erreurs et note manuelle
+- diffSummary / fieldDiffs si présents
+
+Objectif :
+1. Identifier les champs les plus corrigés, rejetés ou ajoutés.
+2. Classer chaque erreur selon :
+   - hallucination : l'IA invente ou déduit sans source suffisante
+   - omission : l'IA rate une information présente
+   - confusion de rôle : déclarant / occupant / syndic / ACP / prestataire
+   - confusion de référence : police / sinistre compagnie / référence interne / facture / devis
+   - erreur financière : montant, TVA, type devis/facture, compteDe
+   - erreur de temporalité : date sinistre / déclaration / facture / devis
+   - erreur de fusion : doublon, faux intervenant, entité rejetée
+3. Pour chaque champ critique, fournir :
+   - fréquence d'erreur
+   - exemples représentatifs
+   - cause probable
+   - impact métier
+   - correction recommandée : prompt, post-traitement, règle déterministe ou UI
+   - ROI estimé : élevé / moyen / faible
+4. Ne propose pas d'amélioration générique. Chaque recommandation doit être reliée à un écart observé entre aiOutput et userCorrection.
+5. Si une information n'est pas mesurable dans l'export, indique explicitement quelle donnée manque et comment l'ajouter au dataset.`;
+                                        navigator.clipboard.writeText(prompt);
+                                        alert("Prompt Golden Dataset copié !");
+                                    }}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    📋 Prompt Golden Dataset
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const prompt = `Agis comme Product Analyst et Architecte Logiciel spécialisé en télémétrie UX métier.
+
+Tu reçois un export de télémétrie contenant :
+- eventType : CLICK, FOCUS, BLUR, DROP, TOGGLE, AI_START, AI_PROCESSING
+- componentId : identifiant stable du composant ou du champ
+- details.initialValue / finalValue / changed / timeSpentMs
+- meta : entityType, fieldName, section, criticality, source, validationContext si présent
+
+Objectif :
+1. Identifier les champs qui coûtent le plus de temps utilisateur.
+2. Distinguer :
+   - lecture/validation sans changement
+   - correction effective
+   - hésitation probable : temps élevé sans changement
+   - friction UI : recherche, dropdown, rattachement, navigation répétée
+3. Agréger les résultats par :
+   - fieldName
+   - section métier
+   - entityType
+   - criticality
+   - dossierId
+4. Produire un classement :
+   - top champs modifiés
+   - top champs avec temps cumulé élevé
+   - top champs avec temps médian élevé
+   - top champs critiques modifiés
+5. Croiser avec le Golden Dataset si disponible :
+   - si un champ est souvent corrigé dans le Golden Dataset et coûteux dans la télémétrie, priorité ROI élevée
+   - si un champ coûteux n'est pas corrigé, suspecter une friction UI ou une validation difficile
+6. Proposer uniquement des améliorations reliées aux signaux observés.`;
+                                        navigator.clipboard.writeText(prompt);
+                                        alert("Prompt Télémétrie copié !");
+                                    }}
+                                    className="flex-1 bg-teal-600 hover:bg-teal-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    📋 Prompt Télémétrie
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ) : (
