@@ -12,7 +12,7 @@ import FieldDiffIndicator from './validation/FieldDiffIndicator.jsx';
 import ComboboxField from './ui/ComboboxField.jsx';
 import DropZone from './DropZone';
 
-const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
+const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
     let files = attachedFiles[docId] || [];
     if (!Array.isArray(files)) files = [files];
@@ -22,8 +22,13 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
     };
 
     return (
-        <div className="flex items-center gap-1 shrink-0 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-            {files.map(file => {
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 shrink-0 pointer-events-auto mt-1" onClick={(e) => e.stopPropagation()}>
+            {pendingFile && (
+                <span className="text-[10px] bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/30 font-medium" title={pendingFile.name}>
+                    ✨ Détecté: {pendingFile.name}
+                </span>
+            )}
+            {files.length > 0 && files.map(file => {
                 if (!file.name) return null;
                 return (
                     <span key={file.dbKey} className="text-[9px] bg-indigo-900/50 text-indigo-300 px-1 py-0.5 rounded flex items-center gap-1 border border-indigo-500/30 font-normal" title={file.name}>
@@ -173,8 +178,17 @@ const GlobalValidationModal = () => {
         
         // Deduplication interne des frais ramenés par l'IA (avant affichage)
         const deduplicateAIExpenses = (exps) => {
+            // v8.2.0 - Filtrage des frais fantômes
+            const validExps = exps.filter(exp => {
+                const p = (exp.prestataire || '').trim().toLowerCase();
+                const m = (exp.montant || '').trim();
+                const d = (exp.desc || '').trim();
+                if ((p === 'inconnu' || p === '') && (m === '?' || m === '') && d === '') return false;
+                return true;
+            });
+
             const merged = [];
-            for (const current of exps) {
+            for (const current of validExps) {
                 const currentName = (current.prestataire || '').toLowerCase().trim();
                 const existingIndex = merged.findIndex(e => {
                     const existingName = (e.prestataire || '').toLowerCase().trim();
@@ -301,9 +315,16 @@ const GlobalValidationModal = () => {
 
         // Auto-assign CP and CG
         const newFileAssignments = new Map();
+        const cpName = pendingAiData.formData?.filenameCP;
+        const cgName = pendingAiData.formData?.filenameCG;
+
         (pendingAiData.pendingFiles || []).forEach(file => {
             const nameLow = (file.name || '').toLowerCase();
-            if (nameLow.includes('cg') || nameLow.includes('conditions générales') || nameLow.includes('conditions_generales')) {
+            if (cpName && file.name === cpName) {
+                newFileAssignments.set(file.name, 'doc_cond_part');
+            } else if (cgName && file.name === cgName) {
+                newFileAssignments.set(file.name, 'doc_cond_gen');
+            } else if (nameLow.includes('cg') || nameLow.includes('conditions générales') || nameLow.includes('conditions_generales')) {
                 newFileAssignments.set(file.name, 'doc_cond_gen');
             } else if (nameLow.includes('cp') || nameLow.includes('conditions particulières') || nameLow.includes('conditions_particulieres')) {
                 newFileAssignments.set(file.name, 'doc_cond_part');
@@ -692,8 +713,8 @@ const GlobalValidationModal = () => {
                                                             mode="inline"
                                                         />
                                                     </div>
-                                                    {key === 'numPolice' && <MiniAttachmentUI docId="doc_cond_part" title="Cond. Particulières" />}
-                                                    {key === 'numConditionsGenerales' && <MiniAttachmentUI docId="doc_cond_gen" title="Cond. Générales" />}
+                                                    {key === 'numPolice' && <MiniAttachmentUI docId="doc_cond_part" title="Cond. Particulières" pendingFile={pendingAiData.pendingFiles?.find(f => fileAssignments.get(f.name) === 'doc_cond_part')} />}
+                                                    {key === 'numConditionsGenerales' && <MiniAttachmentUI docId="doc_cond_gen" title="Cond. Générales" pendingFile={pendingAiData.pendingFiles?.find(f => fileAssignments.get(f.name) === 'doc_cond_gen')} />}
                                                 </div>
                                                 <div className="mt-0.5">
                                                     {isNarrativeField ? (

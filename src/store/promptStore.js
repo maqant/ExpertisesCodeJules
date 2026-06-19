@@ -46,12 +46,14 @@ RÈGLES ABSOLUES :
 5. "pertesIndirectes" doit être un pourcentage (ex: "10%") ou null si non trouvé.
 6. FRANCHISE : Extrait le montant exact ou le texte brut de la franchise tel qu'il apparaît dans le document (ex: "250", "1.500 EUR", "indice 119", "franchise anglaise de 500€").
 7. PV DE POLICE : Recherche la présence éventuelle d'un numéro de procès-verbal de police (souvent noté Numéro de PV ou PV de police). Si tu le trouves, assigne-le à la clé "numeroPVPolice". Sinon, retourne null.
-8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
+8. CLASSIFICATION CP/CG : Identifie si un des documents analysés correspond aux Conditions Particulières (CP) ou aux Conditions Générales (CG). Utilise le nom du fichier tel qu'indiqué dans le tag [DÉBUT DOCUMENT : nom_du_fichier]. Renseigne "filenameCP" et "filenameCG" avec le nom EXACT du fichier correspondant.
+9. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide, sans aucune introduction.
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
   "_raisonnement": "Ta réflexion étape par étape sur les entités, dates et chiffres identifiés avant de remplir le reste du JSON",
   "formData": {
+    "filenameCP": null, "filenameCG": null,
     "dateExp": null, "heureExp": null, "nomResidence": null, "adresse": null, "expertInfos": null,
     "dateSinistre": null, "dateDeclaration": null, "declarant": null, "nomCie": null, "nomContrat": null, "numPolice": null, "numSinistreCie": null, 
     "numConditionsGenerales": null, "numeroPVPolice": null, "franchise": null, "pertesIndirectes": null, "isAxa": false,
@@ -96,6 +98,9 @@ v7.0.0 - RÈGLE ANTI-DOUBLON (CRITIQUE) :
 v7.0.0 - EXTRACTION IBAN :
 - Si un IBAN ou des coordonnées bancaires (compte bancaire, numéro de compte) sont mentionnés
   pour un occupant, extrais-les dans le champ "iban".
+
+v8.2.0 - BOÎTE POSTALE / NUMÉRO DE BOÎTE :
+- Si une boîte (ex: "boîte 012", "bte 4") est mentionnée et que l'étage n'est pas précisé, mets cette information dans le champ "etage" en la préfixant explicitement par "Bte " (ex: "Bte 012"). Ne mets JAMAIS le numéro seul.
 
 v8.1.0 - RÈGLE EXPERT CLIENT (CONTRE-EXPERT) (CRITIQUE) :
 - L'expert client (ou contre-expert) désigne l'expert privé désigné personnellement par l'assuré/occupant pour défendre ses intérêts propres (distinct de l'expert de la compagnie d'assurance ou du Bureau Péchard).
