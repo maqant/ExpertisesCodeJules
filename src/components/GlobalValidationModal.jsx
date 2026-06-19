@@ -467,6 +467,18 @@ const GlobalValidationModal = () => {
         setEditableData(prev => ({ ...prev, expenses: prev.expenses.filter(x => x.id !== id) }));
     };
 
+    const handleAddOccupant = () => {
+        const newId = crypto.randomUUID();
+        const newOccupant = { id: newId, nom: 'Nouvel Occupant', statut: 'Locataire', source: 'manual' };
+        setEditableData(prev => ({
+            ...prev,
+            occupants: [...(prev.occupants || []), newOccupant]
+        }));
+        setOccActions(prev => new Map(prev).set(newId, 'add'));
+        setExpandedOcc(prev => new Set(prev).add(newId));
+        return newId;
+    };
+
     const hasFormData = editableData.formData && Object.keys(editableData.formData).some(k => editableData.formData[k] && editableData.formData[k] !== '');
     const hasReferences = editableData.references && editableData.references.length > 0;
     const hasOccupants = editableData.occupants && editableData.occupants.length > 0;
@@ -766,7 +778,7 @@ const GlobalValidationModal = () => {
                     )}
 
                     {/* Section 3: Occupants (Accordion) */}
-                    {hasOccupants && (
+                    {true && (
                         <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
                                 <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">
@@ -774,19 +786,18 @@ const GlobalValidationModal = () => {
                                 </h3>
                                 <button onClick={(e) => {
                                     e.stopPropagation();
-                                    const newId = crypto.randomUUID();
-                                    setEditableData(prev => ({
-                                        ...prev,
-                                        occupants: [...prev.occupants, { id: newId, nom: 'Nouvel Occupant', statut: 'Locataire' }]
-                                    }));
-                                    setOccActions(prev => new Map(prev).set(newId, 'add'));
-                                    setExpandedOcc(prev => new Set(prev).add(newId));
+                                    handleAddOccupant();
                                 }} className="text-[10px] bg-indigo-500 hover:bg-indigo-400 text-white px-2 py-1 rounded transition-colors shadow">
                                     + Créer
                                 </button>
                             </div>
                             <div className="divide-y divide-slate-700/50">
-                                {occupantAnalysis.map(occ => {
+                                {!hasOccupants && (
+                                    <div className="p-4 text-center text-xs text-slate-400 italic">
+                                        Aucune partie détectée par l'IA. Créez-en une manuellement pour lui imputer un frais.
+                                    </div>
+                                )}
+                                {hasOccupants && occupantAnalysis.map(occ => {
                                     const action = occActions.get(occ.id) || 'add';
                                     const isExpanded = expandedOcc.has(occ.id);
                                     const isIgnored = action === 'ignore';
@@ -955,7 +966,20 @@ const GlobalValidationModal = () => {
                                             {isExpanded && !isIgnored && (
                                                 <div className="px-4 pb-3 pt-1 bg-slate-800/30 grid grid-cols-2 gap-2">
                                                     <div className="col-span-2">
-                                                        <label className="text-[9px] text-slate-500 uppercase">Bénéficiaire (Imputer à)</label>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="text-[9px] text-slate-500 uppercase">Bénéficiaire (Imputer à)</label>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const newOccId = handleAddOccupant();
+                                                                    updateExpField(exp.id, 'compteDe', newOccId);
+                                                                }}
+                                                                className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold"
+                                                                title="Créer une nouvelle partie et y imputer ce frais"
+                                                            >
+                                                                + Créer et Imputer
+                                                            </button>
+                                                        </div>
                                                         <select 
                                                             value={exp.compteDe || 'unassigned'} 
                                                             onChange={(e) => updateExpField(exp.id, 'compteDe', e.target.value)}
