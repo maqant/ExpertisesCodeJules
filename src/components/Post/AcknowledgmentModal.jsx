@@ -11,6 +11,7 @@ import {
 import EmailPreview from '../shared/EmailPreview';
 import { makeDraft } from '../../services/utils/htmlNormalizer';
 import { buildSimpleAr } from '../../services/generators/buildSimpleAr';
+import { AR_FRAGMENT_TRANSMISSION, AR_FRAGMENT_ATTENTE } from '../../config/arTemplates';
 
 const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const { formData, occupants, expenses, aiConfig, isAiModeActive, intervenantsList } = useContext(ExpertiseContext);
@@ -410,7 +411,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                                     onChange={(e) => setIncludeTransmission(e.target.checked)}
                                                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                                                 />
-                                                <span className="text-sm font-medium text-slate-700">Inclure "Dossier transmis à l'expertise"</span>
+                                                <span className="text-sm font-medium text-slate-700">{AR_FRAGMENT_TRANSMISSION.label}</span>
                                             </label>
 
                                             <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
@@ -420,7 +421,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                                     onChange={(e) => setIncludeAttente(e.target.checked)}
                                                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                                                 />
-                                                <span className="text-sm font-medium text-slate-700">Inclure "En attente des pièces"</span>
+                                                <span className="text-sm font-medium text-slate-700">{AR_FRAGMENT_ATTENTE.label}</span>
                                             </label>
 
                                             {includeAttente && (
@@ -737,41 +738,47 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                         {/* Bouton pour Instruction Spécifique */}
                                         <button
                                             onClick={() => setShowSpecificInstruction(!showSpecificInstruction)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-xs font-medium shadow-sm transition-colors hover:bg-slate-50 border-slate-200 text-slate-700`}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-xs font-medium shadow-sm transition-colors hover:bg-slate-50 border-slate-200 ${showSpecificInstruction ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-slate-700'}`}
                                         >
-                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            <span className="text-sm">✏️</span>
                                             Donner une instruction
                                         </button>
                                     </div>
+                                </div>
+                            )}
 
-                                    {/* Input pour Instruction Spécifique */}
-                                    {showSpecificInstruction && (
-                                        <div className="flex items-center gap-2 mt-3 p-2 bg-white rounded-lg border border-indigo-100 shadow-sm">
+                            {/* Modale d'Instruction Spécifique Escamotable */}
+                            {draftEmail && showSpecificInstruction && (
+                                <div className="mt-2 p-4 bg-white border-2 border-indigo-400 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-4 ring-indigo-50 flex flex-col gap-3 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="flex items-center gap-3 w-full">
+                                        <div className="flex-1">
                                             <input
                                                 type="text"
                                                 value={specificInstruction}
                                                 onChange={(e) => setSpecificInstruction(e.target.value)}
-                                                placeholder="Ex: Ajoute que nous attendons le devis du vitrier..."
-                                                className="flex-1 text-sm bg-transparent border-none focus:outline-none focus:ring-0 px-2"
+                                                placeholder="Que voulez-vous modifier dans ce texte ?"
+                                                className="w-full text-sm bg-indigo-50/50 border border-indigo-200 rounded-lg py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800 placeholder-slate-400"
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter' && specificInstruction.trim()) {
                                                         handleModifyFreeDraft('specific', specificInstruction);
                                                     }
                                                 }}
+                                                autoFocus
                                             />
-                                            <button
-                                                onClick={() => handleModifyFreeDraft('specific', specificInstruction)}
-                                                disabled={!specificInstruction.trim() || isFreeLoading || isLoadingData}
-                                                className="p-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                                            >
-                                                {activeModifier === 'specific' && isFreeLoading ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <Send className="w-4 h-4" />
-                                                )}
-                                            </button>
                                         </div>
-                                    )}
+                                        <button
+                                            onClick={() => handleModifyFreeDraft('specific', specificInstruction)}
+                                            disabled={!specificInstruction.trim() || isFreeLoading || isLoadingData}
+                                            className="px-5 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 shadow-sm"
+                                        >
+                                            {activeModifier === 'specific' && isFreeLoading ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Send className="w-4 h-4" />
+                                            )}
+                                            Appliquer
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
