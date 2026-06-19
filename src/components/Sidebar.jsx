@@ -2522,13 +2522,19 @@ TON OBJECTIF :
                 if (bridgeMatchResult) {
                     loadDossier(bridgeMatchResult);
                 }
-                setIngestionStep(INGESTION_STEPS.BRIO);
+                setBrioOverrides({});
+                brioOverridesRef.current = {};
+                triggerSmartBridgeAnalysis(flowFiles);
+                setIngestionStep(INGESTION_STEPS.GENERAL);
             }}
             onManualSelect={(dossier) => {
                 if (dossier) {
                     loadDossier(dossier);
                 }
-                setIngestionStep(INGESTION_STEPS.BRIO);
+                setBrioOverrides({});
+                brioOverridesRef.current = {};
+                triggerSmartBridgeAnalysis(flowFiles);
+                setIngestionStep(INGESTION_STEPS.GENERAL);
             }}
             onCreateNew={() => {
                 const created = handleNewDossier();
