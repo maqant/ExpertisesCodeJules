@@ -25,7 +25,7 @@ const EmailPreview = ({ htmlText, isFinalized, isLoading, onContentChange }) => 
         }
     };
 
-    const handleInput = () => {
+    const handleBlur = () => {
         if (onContentChange && contentRef.current) {
             onContentChange(contentRef.current.innerHTML);
         }
@@ -68,7 +68,7 @@ const EmailPreview = ({ htmlText, isFinalized, isLoading, onContentChange }) => 
                         ref={contentRef}
                         contentEditable={true}
                         suppressContentEditableWarning={true}
-                        onInput={handleInput}
+                        onBlur={handleBlur}
                         dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                         className="text-sm text-slate-200 font-sans leading-relaxed outline-none 
                                    [&>p]:mb-4 [&>br]:my-1

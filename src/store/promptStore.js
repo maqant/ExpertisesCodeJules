@@ -333,29 +333,29 @@ Je fais suite à votre déclaration reprise ci-dessous.
 
 Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} au {{adresse_bien}}, merci de bien vouloir nous transmettre, dans la mesure du possible, les informations et documents suivants afin de compléter votre dossier :
 
-1. **Description de l'incident**
+1. <strong>Description de l'incident</strong>
    - [Intègre ici la phrase {{cause_nano_phrase}} si fournie. Sinon, écris : "Précisez la nature et la cause exacte de l'incident, et indiquez si celle-ci est désormais réparée."]
    - [Si ask_photos = true ET photos_parties non vide] Merci de bien vouloir nous transmettre des photos illustrant la cause et les dommages. Ceci concerne : [lister les noms des parties issues de photos_parties].
    - [Si ask_photos = true ET photos_parties vide] Merci de joindre des photos illustrant à la fois la cause de l'incident et les dommages subis.
 
-2. **Documents relatifs aux réparations**
+2. <strong>Documents relatifs aux réparations</strong>
    - [Si devis_parties non vide] Merci de nous transmettre un devis détaillé des réparations. Ceci concerne : [lister les noms des parties issues de devis_parties]. Précisez si des améliorations par rapport à l'état initial sont envisagées.
    - [Si devis_parties vide] (Supprime ce point 2 entièrement)
 
-3. **État des pertes**
+3. <strong>État des pertes</strong>
    - [Si perte_contenu = true] Transmettez une liste chiffrée des contenus endommagés.
    - [Si perte_contenu = false] (Supprime ce point 3 entièrement)
 
-4. **Dépôt de plainte et Procès-verbal**
+4. <strong>Dépôt de plainte et Procès-verbal</strong>
    - [Si demande_plainte = true] Merci de préciser si un dépôt de plainte a été effectué et, le cas échéant, de nous en transmettre une copie.
    - [Si demande_pv = true] Merci de bien vouloir nous faire parvenir la copie complète du procès-verbal de police.
    - [Si demande_plainte = false ET demande_pv = false] (Supprime ce point 4 entièrement)
 
-5. **Demandes spécifiques aux parties**
+5. <strong>Demandes spécifiques aux parties</strong>
    - [Pour chaque partie dans demandes_parties avec des manques, écrire une ligne : "Pour [Nom] : merci de nous transmettre [liste des manques]."]
    - [Si demandes_parties est vide ou [], supprime ce point 5 entièrement]
 
-Pour information, votre contrat est assorti d'une franchise de **{{montant_franchise}}**, qui sera déduite de la première indemnité versée par la compagnie. Cette franchise reste à la charge du responsable du sinistre.
+Pour information, votre contrat est assorti d'une franchise de <strong>{{montant_franchise}}</strong>, qui sera déduite de la première indemnité versée par la compagnie. Cette franchise reste à la charge du responsable du sinistre.
 
 Nous restons à votre disposition pour tout complément d'information.
 

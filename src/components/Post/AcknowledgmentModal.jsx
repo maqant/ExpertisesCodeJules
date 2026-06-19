@@ -6,9 +6,11 @@ import { evaluateClaims } from '../../domain/claims/claimEngine';
 import { useRecipientSelection } from '../../hooks/useRecipientSelection';
 import RecipientSelector from '../common/RecipientSelector';
 import {
-    X, Mail, Check, CopyPlus, Loader2, AlertTriangle, FileText, User, Sparkles, Wand2, Minus, Plus, Snowflake, Flame
+    X, Mail, Check, CopyPlus, Loader2, AlertTriangle, FileText, User, Sparkles, Wand2, Minus, Plus, Snowflake, Flame, MessageSquare, Send, Settings
 } from 'lucide-react';
 import EmailPreview from '../shared/EmailPreview';
+import { makeDraft } from '../../services/utils/htmlNormalizer';
+import { buildSimpleAr } from '../../services/generators/buildSimpleAr';
 
 const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const { formData, occupants, expenses, aiConfig, isAiModeActive, intervenantsList } = useContext(ExpertiseContext);
@@ -21,11 +23,23 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
     });
 
     // Mode
-    const [mode, setMode] = useState('structured'); // 'structured' | 'free'
+    const [mode, setMode] = useState('structured'); // 'simple' | 'structured' | 'free'
+
+    // Draft Unifié
+    const [draftEmail, setDraftEmail] = useState(null);
+
+    // AR Simple
+    const [includeTransmission, setIncludeTransmission] = useState(true);
+    const [includeAttente, setIncludeAttente] = useState(false);
+    const [attenteDelai, setAttenteDelai] = useState('');
 
     // Free Mode State
     const [freeInstruction, setFreeInstruction] = useState('');
-    const [freeHtml, setFreeHtml] = useState('');
+    
+    // Instruction Spécifique
+    const [showSpecificInstruction, setShowSpecificInstruction] = useState(false);
+    const [specificInstruction, setSpecificInstruction] = useState('');
+
     const [activeModifier, setActiveModifier] = useState(null);
     const [isFreeLoading, setIsFreeLoading] = useState(false);
 
@@ -53,7 +67,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
     // Génération
     const [isGenerating, setIsGenerating] = useState(false);
     const [isFinishing, setIsFinishing] = useState(false);
-    const [generatedText, setGeneratedText] = useState('');
     const [finisherWarning, setFinisherWarning] = useState('');
     const [error, setError] = useState(null);
     const [emailsCopied, setEmailsCopied] = useState(false);
@@ -92,7 +105,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
             }
 
             // Reset génération
-            setGeneratedText('');
+            setDraftEmail(null);
             setFinisherWarning('');
             setError(null);
             setEmailsCopied(false);
@@ -102,7 +115,6 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
             // Reset free mode
             setMode('structured');
             setFreeInstruction('');
-            setFreeHtml('');
         }
     }, [isOpen, formData, occupants, expenses]);
 
@@ -149,7 +161,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         setIsGenerating(true);
         setIsFinishing(false);
         setError(null);
-        setGeneratedText('');
+        setDraftEmail(null);
         setFinisherWarning('');
 
         try {
@@ -198,13 +210,13 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
 
             // Génération mail structuré
             const structuredText = await generateAcknowledgmentEmail(dossierData, formSelections, aiConfig.apiKey);
-            setGeneratedText(structuredText);
+            setDraftEmail(makeDraft(structuredText, 'structured', 'generator'));
             setIsGenerating(false);
 
             // IA Balais
             setIsFinishing(true);
             const finisherResult = await runArFinisher(structuredText, dossierData, aiConfig.apiKey);
-            setGeneratedText(finisherResult.text);
+            setDraftEmail(makeDraft(finisherResult.text, 'structured', 'generator'));
             if (finisherResult.warning) {
                 setFinisherWarning(finisherResult.warning);
             }
@@ -215,6 +227,19 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
             setIsGenerating(false);
             setIsFinishing(false);
         }
+    };
+
+    const handleGenerateSimple = () => {
+        const html = buildSimpleAr({
+            dossier: formData,
+            withTransmission: includeTransmission,
+            withAttente: includeAttente,
+            attenteDelai: attenteDelai,
+            salutation: recipientState.salutation
+        });
+        setDraftEmail(makeDraft(html, 'simple', 'generator'));
+        setFinisherWarning('');
+        setError(null);
     };
 
     const handleGenerateFreeDraft = async () => {
@@ -231,7 +256,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         setError(null);
         try {
             const html = await draftMagicEmail(freeInstruction, recipientState.salutation, aiConfig.apiKey);
-            setFreeHtml(html);
+            setDraftEmail(makeDraft(html, 'free', 'generator'));
         } catch (err) {
             console.error('Erreur draftMagicEmail:', err);
             setError('Erreur lors de la génération libre.');
@@ -240,16 +265,21 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         }
     };
 
-    const handleModifyFreeDraft = async (modifierKey) => {
-        if (!freeHtml) return;
+    const handleModifyFreeDraft = async (modifierKey, customInstruction = null) => {
+        if (!draftEmail?.html) return;
         if (!isAiModeActive || !aiConfig.apiKey) return;
 
         setIsFreeLoading(true);
         setActiveModifier(modifierKey);
         setError(null);
         try {
-            const newHtml = await modifyDraftEmail(freeHtml, modifierKey, aiConfig.apiKey);
-            setFreeHtml(newHtml);
+            const instruction = customInstruction || modifierKey;
+            const newHtml = await modifyDraftEmail(draftEmail.html, instruction, aiConfig.apiKey);
+            setDraftEmail(makeDraft(newHtml, draftEmail.origin, 'ai-adjusted'));
+            if (modifierKey === 'specific') {
+                setSpecificInstruction('');
+                setShowSpecificInstruction(false);
+            }
         } catch (err) {
             console.error('Erreur modifyDraftEmail:', err);
             setError('Erreur lors de la modification libre.');
@@ -291,7 +321,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         return claim?.eligibleParties || [];
     };
 
-    const isLoading = isGenerating || isFinishing;
+    const isLoadingData = isGenerating || isFinishing;
 
     // ── Rendu ─────────────────────────────────────────────────────────────────
 
@@ -310,11 +340,18 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                         {/* Segmented Control */}
                         <div className="flex bg-slate-100 p-1 rounded-lg ml-4">
                             <button
+                                onClick={() => setMode('simple')}
+                                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${mode === 'simple' ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                <Mail className="w-4 h-4" />
+                                AR Simple
+                            </button>
+                            <button
                                 onClick={() => setMode('structured')}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${mode === 'structured' ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 <FileText className="w-4 h-4" />
-                                Mode Structuré (AR)
+                                AR Structuré
                             </button>
                             <button
                                 onClick={() => setMode('free')}
@@ -358,7 +395,57 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                     <div className="grid grid-cols-2 gap-8">
                         {/* Colonne gauche : configuration */}
                         <div className="space-y-6 flex flex-col h-full">
-                            {mode === 'structured' ? (
+                            {mode === 'simple' && (
+                                <div className="space-y-4 flex-1 flex flex-col">
+                                    <div className="flex-1 space-y-4">
+                                        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 border-b pb-2">
+                                            <Mail className="w-4 h-4 text-slate-500" />
+                                            Accusé de réception simple
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={includeTransmission}
+                                                    onChange={(e) => setIncludeTransmission(e.target.checked)}
+                                                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700">Inclure "Dossier transmis à l'expertise"</span>
+                                            </label>
+
+                                            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={includeAttente}
+                                                    onChange={(e) => setIncludeAttente(e.target.checked)}
+                                                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700">Inclure "En attente des pièces"</span>
+                                            </label>
+
+                                            {includeAttente && (
+                                                <div className="ml-7">
+                                                    <input
+                                                        type="text"
+                                                        value={attenteDelai}
+                                                        onChange={(e) => setAttenteDelai(e.target.value)}
+                                                        placeholder="Ex: pour vendredi prochain (facultatif)"
+                                                        className="w-full text-sm border border-slate-200 rounded-md p-2"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleGenerateSimple}
+                                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                                    >
+                                        Générer l'AR
+                                    </button>
+                                </div>
+                            )}
+
+                            {mode === 'structured' && (
                                 <>
                                     {/* ── Section : Documents du Dossier ──────────────── */}
                                     <div className="space-y-2">
@@ -542,7 +629,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                     {/* ── Bouton Générer ──────────────────────────────── */}
                                     <button
                                         onClick={handleGenerate}
-                                        disabled={isLoading || !isAiModeActive}
+                                        disabled={isLoadingData || !isAiModeActive}
                                         className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-200 mt-4"
                                     >
                                         {isGenerating ? (
@@ -558,7 +645,9 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                         <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded text-sm">{error}</div>
                                     )}
                                 </>
-                            ) : (
+                            )}
+                            
+                            {mode === 'free' && (
                                 <div className="space-y-4 flex-1 flex flex-col">
                                     <div className="flex-1 space-y-2 flex flex-col">
                                         <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 border-b pb-2">
@@ -591,51 +680,100 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                         <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded text-sm">{error}</div>
                                     )}
 
-                                    {freeHtml && (
-                                        <div className="pt-4 border-t border-slate-100">
-                                            <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">Ajustements magiques</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {[
-                                                    { key: 'rewrite', label: 'Réécrire', icon: Wand2, color: 'text-indigo-600', bg: 'hover:bg-indigo-50 border-indigo-200' },
-                                                    { key: 'shorter', label: 'Plus court', icon: Minus, color: 'text-slate-600', bg: 'hover:bg-slate-50 border-slate-200' },
-                                                    { key: 'longer', label: 'Plus long', icon: Plus, color: 'text-slate-600', bg: 'hover:bg-slate-50 border-slate-200' },
-                                                    { key: 'colder', label: 'Plus formel', icon: Snowflake, color: 'text-cyan-600', bg: 'hover:bg-cyan-50 border-cyan-200' },
-                                                    { key: 'warmer', label: 'Plus chaleureux', icon: Flame, color: 'text-orange-600', bg: 'hover:bg-orange-50 border-orange-200' },
-                                                ].map(mod => (
-                                                    <button
-                                                        key={mod.key}
-                                                        onClick={() => handleModifyFreeDraft(mod.key)}
-                                                        disabled={isFreeLoading}
-                                                        className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-xs font-medium shadow-sm transition-colors disabled:opacity-50 ${mod.color} ${mod.bg}`}
-                                                    >
-                                                        {activeModifier === mod.key && isFreeLoading ? (
-                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                        ) : (
-                                                            <mod.icon className="w-3.5 h-3.5" />
-                                                        )}
-                                                        {mod.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
 
                         {/* Colonne droite : aperçu via composant partagé */}
-                        <div className="w-full flex flex-col relative h-[500px]">
-                            {mode === 'structured' && finisherWarning && (
-                                <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-700 flex items-center gap-1.5 rounded-t-xl">
-                                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                                    {finisherWarning}
+                        <div className="w-full flex flex-col relative h-[600px] gap-4">
+                            <div className="flex-1 flex flex-col relative">
+                                {finisherWarning && (
+                                    <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-700 flex items-center gap-1.5 rounded-t-xl">
+                                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                        {finisherWarning}
+                                    </div>
+                                )}
+                                <EmailPreview 
+                                    htmlText={draftEmail?.html || ''}
+                                    isLoading={isLoadingData || isFreeLoading}
+                                    isFinalized={!!draftEmail && !isLoadingData && !isFreeLoading && !finisherWarning}
+                                    onContentChange={(newHtml) => {
+                                        setDraftEmail(prev => prev ? { ...prev, html: newHtml, origin: 'manual', lastModifiedBy: 'user' } : null);
+                                    }}
+                                />
+                            </div>
+
+                            {/* Barre d'outils Magiques Globale (affichée si un brouillon existe) */}
+                            {draftEmail && (
+                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Wand2 className="w-3.5 h-3.5" />
+                                        Ajustements magiques
+                                    </p>
+                                    
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { key: 'rewrite', label: 'Réécrire', icon: Wand2, color: 'text-indigo-600', bg: 'hover:bg-indigo-50 border-indigo-200' },
+                                            { key: 'shorter', label: 'Plus court', icon: Minus, color: 'text-slate-600', bg: 'hover:bg-slate-50 border-slate-200' },
+                                            { key: 'longer', label: 'Plus long', icon: Plus, color: 'text-slate-600', bg: 'hover:bg-slate-50 border-slate-200' },
+                                            { key: 'colder', label: 'Plus formel', icon: Snowflake, color: 'text-cyan-600', bg: 'hover:bg-cyan-50 border-cyan-200' },
+                                            { key: 'warmer', label: 'Plus chaleureux', icon: Flame, color: 'text-orange-600', bg: 'hover:bg-orange-50 border-orange-200' },
+                                        ].map(mod => (
+                                            <button
+                                                key={mod.key}
+                                                onClick={() => handleModifyFreeDraft(mod.key)}
+                                                disabled={isFreeLoading || isLoadingData}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-xs font-medium shadow-sm transition-colors disabled:opacity-50 ${mod.color} ${mod.bg}`}
+                                            >
+                                                {activeModifier === mod.key && isFreeLoading ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                ) : (
+                                                    <mod.icon className="w-3.5 h-3.5" />
+                                                )}
+                                                {mod.label}
+                                            </button>
+                                        ))}
+
+                                        {/* Bouton pour Instruction Spécifique */}
+                                        <button
+                                            onClick={() => setShowSpecificInstruction(!showSpecificInstruction)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-xs font-medium shadow-sm transition-colors hover:bg-slate-50 border-slate-200 text-slate-700`}
+                                        >
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            Donner une instruction
+                                        </button>
+                                    </div>
+
+                                    {/* Input pour Instruction Spécifique */}
+                                    {showSpecificInstruction && (
+                                        <div className="flex items-center gap-2 mt-3 p-2 bg-white rounded-lg border border-indigo-100 shadow-sm">
+                                            <input
+                                                type="text"
+                                                value={specificInstruction}
+                                                onChange={(e) => setSpecificInstruction(e.target.value)}
+                                                placeholder="Ex: Ajoute que nous attendons le devis du vitrier..."
+                                                className="flex-1 text-sm bg-transparent border-none focus:outline-none focus:ring-0 px-2"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && specificInstruction.trim()) {
+                                                        handleModifyFreeDraft('specific', specificInstruction);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => handleModifyFreeDraft('specific', specificInstruction)}
+                                                disabled={!specificInstruction.trim() || isFreeLoading || isLoadingData}
+                                                className="p-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                                            >
+                                                {activeModifier === 'specific' && isFreeLoading ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Send className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                            <EmailPreview 
-                                htmlText={mode === 'structured' ? generatedText : freeHtml}
-                                isLoading={mode === 'structured' ? isLoading : isFreeLoading}
-                                isFinalized={mode === 'structured' ? (!!generatedText && !isLoading && !finisherWarning) : (!!freeHtml && !isFreeLoading)}
-                            />
                         </div>
                     </div>
                 </div>
