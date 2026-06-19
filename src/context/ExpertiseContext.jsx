@@ -115,7 +115,12 @@ export const ExpertiseProvider = ({ children }) => {
 
   const [telemetrySessionId, setTelemetrySessionId] = useState(() => crypto.randomUUID());
   const [currentDossierId, setCurrentDossierId] = useState(null);
-  const [currentVersion, setCurrentVersion] = useState(0);
+  const [currentVersion, _setCurrentVersion] = useState(0);
+  const currentVersionRef = useRef(0);
+  const setCurrentVersion = useCallback((v) => {
+      currentVersionRef.current = v;
+      _setCurrentVersion(v);
+  }, []);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictActionDossier, setConflictActionDossier] = useState(null);
   const telemetry = useTelemetry(telemetrySessionId, currentDossierId);
@@ -496,8 +501,9 @@ export const ExpertiseProvider = ({ children }) => {
       }
       
       try {
-          const { version } = await persistDossier(targetDossier, currentVersion);
+          const { version } = await persistDossier(targetDossier, currentVersionRef.current);
           setCurrentVersion(version);
+          targetDossier.version = version;
           
           let updated;
           if (currentDossierId) {
@@ -530,6 +536,7 @@ export const ExpertiseProvider = ({ children }) => {
       try {
           const { version } = await persistDossier(newDossier, 0); // New dossier = expected version 0
           setCurrentVersion(version);
+          newDossier.version = version;
           const updated = [newDossier, ...savedDossiers];
           setSavedDossiers(updated);
           setCurrentDossierId(newId);
@@ -1859,9 +1866,10 @@ Voici le format JSON :
           });
           
           // Persistance I/O Asynchrone hors du reducer
-          persistDossier(targetDossierToSave, currentVersion)
+          persistDossier(targetDossierToSave, currentVersionRef.current)
             .then(({ version }) => {
                 setCurrentVersion(version);
+                targetDossierToSave.version = version;
                 setSaveStatus('saved');
             })
             .catch(err => {
@@ -1928,7 +1936,7 @@ Voici le format JSON :
   const handleConflictOverwrite = async () => {
       if (!conflictActionDossier) return;
       try {
-          const { version } = await persistDossier(conflictActionDossier, currentVersion, true);
+          const { version } = await persistDossier(conflictActionDossier, currentVersionRef.current, true);
           setCurrentVersion(version);
           setShowConflictModal(false);
           setConflictActionDossier(null);

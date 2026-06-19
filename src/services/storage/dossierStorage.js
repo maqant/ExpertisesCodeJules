@@ -1,6 +1,12 @@
 import localforage from 'localforage';
 import { StorageError, StorageErrorCode, isQuotaError } from './storageErrors';
 
+// Flag de diagnostic — passer à false une fois le bug identifié.
+const DEBUG_STORAGE = true;
+function dlog(...args) {
+  if (DEBUG_STORAGE) console.log('[dossierStorage]', ...args);
+}
+
 export class ConflictError extends Error {
   constructor(currentVersion, attemptedVersion, currentUpdatedAt) {
     super('CONFLICT: stored version is newer than the one being saved');
@@ -94,12 +100,16 @@ export async function removeDossier(id) {
 }
 
 export async function saveFullDossier(id, name, date, data, expectedVersion = 0, force = false) {
+  dlog(`saveFullDossier START | id: ${id}, expectedVersion: ${expectedVersion}, force: ${force}`);
   return withLock(async () => {
+    dlog(`withLock Acquired | id: ${id}`);
     const index = await readIndex();
     const existingIdx = index.findIndex(d => d.id === id);
     const currentVersion = existingIdx >= 0 ? (index[existingIdx].version || 0) : 0;
+    dlog(`Index Read | existingIdx: ${existingIdx}, currentVersion: ${currentVersion}`);
 
     if (!force && currentVersion > (expectedVersion || 0)) {
+      dlog(`CONFLICT DETECTED | current: ${currentVersion} > expected: ${expectedVersion}`);
       throw new ConflictError(currentVersion, expectedVersion, index[existingIdx]?.updatedAt);
     }
 
@@ -107,14 +117,18 @@ export async function saveFullDossier(id, name, date, data, expectedVersion = 0,
     const updatedAt = Date.now();
 
     // Ordre sûr: on écrit les données D'ABORD, pour que l'index ne pointe pas vers le vide
+    dlog(`Writing Data...`);
     await writeData(id, data);
+    dlog(`Data Written`);
     
     if (existingIdx >= 0) {
         index[existingIdx] = { id, name, date, version: newVersion, updatedAt };
     } else {
         index.unshift({ id, name, date, version: newVersion, updatedAt });
     }
+    dlog(`Writing Index...`);
     await writeIndex(index);
+    dlog(`Index Written | newVersion: ${newVersion}`);
     return { version: newVersion, updatedAt };
   });
 }
