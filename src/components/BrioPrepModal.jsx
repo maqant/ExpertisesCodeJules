@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { usePromptStore } from '../store/promptStore';
 import { runBrioPrepAnalysis } from '../services/generators/generatorEngine';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { sanitizeIngestedText } from '../services/ingestion/textSanitizer';
 
 const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
     const { franchises, aiConfig } = useContext(ExpertiseContext);
@@ -98,7 +99,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, initialText }) => {
                         </p>
                         <textarea
                             value={mailText}
-                            onChange={(e) => setMailText(e.target.value)}
+                            onChange={(e) => setMailText(sanitizeIngestedText(e.target.value))}
                             placeholder="Coller le texte brut ici..."
                             className="flex-1 w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-white focus:border-indigo-500 outline-none resize-none mb-4 min-h-[300px]"
                         />
