@@ -13,6 +13,7 @@ import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 import { executeAiCall } from '../../ai/apiClient.js';
+import { parseAiJson } from '../utils/aiJsonParser.js';
 
 // v5.5.3
 /**
@@ -84,7 +85,7 @@ Voici le format EXACT attendu :
                 componentId: 'agent_narrative'
             });
 
-            const parsedData = JSON.parse(data.choices[0].message.content);
+            const parsedData = parseAiJson(data.choices[0].message.content, { componentId: 'agent_narrative' });
             
             // Accumuler : la cause de ce lot devient le contexte du lot suivant
             if (parsedData.cause) {

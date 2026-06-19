@@ -628,6 +628,8 @@ const Sidebar = () => {
                     const dbKey = `cause_${crypto.randomUUID()}_${f.name}`;
                     await localforage.setItem(dbKey, arrayBuffer);
                     addCauseTimelineItem('file', f, dbKey);
+                    // Rattachement global au dossier avec le tag métier approprié
+                    handleAttachFile('doc_rapport_cause', f);
                 }
             } else {
                 alert("Erreur lors de la synthèse : " + (result.error || "Réponse invalide"));

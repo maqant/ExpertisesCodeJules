@@ -656,6 +656,23 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleAttachFile = async (expenseId, rawFile, expenseType = null) => {
       if (!rawFile) return;
+      
+      // v7.17.4 - Idempotence pour éviter les doublons sur double-drop
+      setAttachedFiles(prev => {
+          const currentList = prev[expenseId] || [];
+          const alreadyExists = currentList.find(f => f.name === rawFile.name && f.originalSize === rawFile.size);
+          if (alreadyExists) {
+              console.warn(`[ExpertiseContext] Fichier ${rawFile.name} déjà attaché à ${expenseId}.`);
+              // On jette une erreur silencieuse attrapée plus loin ?
+              // Pour simplifier, on utilise une propriété sur le fichier pour stopper.
+          }
+          return prev; // state read only, but we use an early return via a check outside.
+      });
+
+      const currentList = attachedFiles[expenseId] || [];
+      const alreadyExists = currentList.find(f => f.name === (rawFile.name + (rawFile.name.toLowerCase().endsWith('.msg') ? '.pdf' : '')) && f.originalSize === rawFile.size);
+      if (alreadyExists) return;
+
       const file = await processIngestedFile(rawFile);
       const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
       
@@ -693,7 +710,7 @@ export const ExpertiseProvider = ({ children }) => {
 
           await localforage.setItem(dbKey, arrayBuffer);
           
-          const fileObj = { name: finalFileName, pages, dbKey, isPdf, type: finalType, expenseType };
+          const fileObj = { name: finalFileName, pages, dbKey, isPdf, type: finalType, expenseType, originalSize: rawFile.size };
           setAttachedFiles(prev => {
               const current = prev[expenseId] || [];
               return { ...prev, [expenseId]: [...current, fileObj] };
