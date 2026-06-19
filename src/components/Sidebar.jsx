@@ -11,6 +11,7 @@ import { generateDocument } from '../services/generators/generatorEngine.js'; //
 import { Eye, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
+import GlobalDocumentLibrary from './GlobalDocumentLibrary';
 import packageInfo from '../../package.json';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
@@ -433,7 +434,7 @@ const Sidebar = () => {
         if (!filesArray || filesArray.length === 0) return;
         
         // v7.17.0 - Prefetch Brio et ouverture du SmartBridge via state machine
-        startIngestion(filesArray, aiConfig);
+        startIngestion(filesArray, aiConfig, { declarationDate: formData?.dateDeclaration || formData?.dateExp });
         
         setCurrentBridgeFile(filesArray); // stocke le tableau complet
         // Matching sur le premier .msg trouvé (ou le premier fichier)
@@ -839,6 +840,7 @@ const Sidebar = () => {
 
                 <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
+                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'library' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_library'); setActiveTab('library'); }}>Bibliothèque</button>
                     <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
                 </div>
             </div>
@@ -1173,6 +1175,8 @@ TON OBJECTIF :
                             </button>
                         </div>
                     </div>
+                ) : activeTab === 'library' ? (
+                    <GlobalDocumentLibrary />
                 ) : (
                     <div>
                         {/* v5.9.4 - Relocation & Restore */}

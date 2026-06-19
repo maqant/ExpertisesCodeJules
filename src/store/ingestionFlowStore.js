@@ -24,7 +24,7 @@ export const useIngestionFlowStore = create((set, get) => ({
   setStep: (step) => set({ step }),
   setFiles: (files) => set({ files }),
 
-  startIngestion: async (files, aiConfig) => {
+  startIngestion: async (files, aiConfig, context = {}) => {
     // Generate a unique session ID to prevent race conditions
     const sessionId = Date.now().toString() + '_' + Math.random().toString(36).substring(2);
     
@@ -43,8 +43,15 @@ export const useIngestionFlowStore = create((set, get) => ({
     }
 
     try {
-      // 1. Extraire le texte (comme dans handleAutoBrioPrep)
+      // 0. Verser TOUS les fichiers dans la bibliothèque globale
+      const { useDocumentStore } = await import('./useDocumentStore.js');
       const allFiles = Array.isArray(files) ? files : [files];
+      
+      // On fera la sauvegarde documentaire globale avec les fichiers originaux + les pièces jointes
+      // mais on peut déjà sauvegarder les originaux.
+      useDocumentStore.getState().addDocuments(allFiles);
+
+      // 1. Extraire le texte (comme dans handleAutoBrioPrep)
       const msgFile = allFiles.find(f => f.name.toLowerCase().endsWith('.msg'));
       
       if (!msgFile) {
@@ -59,6 +66,11 @@ export const useIngestionFlowStore = create((set, get) => ({
       
       const { bodyText, attachments } = await parseMsgFile(msgFile);
       let fullText = bodyText ? `[Email principal]\n${bodyText}\n\n` : '';
+      
+      // Ajouter les pièces jointes MSG à la bibliothèque globale
+      if (attachments && attachments.length > 0) {
+          useDocumentStore.getState().addDocuments(attachments);
+      }
       
       const filesToExtract = [...attachments];
       for (const f of allFiles) {
@@ -99,9 +111,12 @@ export const useIngestionFlowStore = create((set, get) => ({
       const promptTemplate = usePromptStore.getState().getPrompt('prompt_brio_prep');
       const data = await runBrioPrepAnalysis(fullText, apiKey, promptTemplate);
 
-      // Validation de la date
+      // Validation de la date (avec contexte)
       const { resolveSinistreDate } = await import('../services/dates/dateResolver.js');
-      const { date, source } = resolveSinistreDate({ aiDate: data.date });
+      const { date, source } = resolveSinistreDate({ 
+          aiDate: data.date, 
+          declarationDate: context.declarationDate 
+      });
       data.date = date;
       data.dateSource = source;
 

@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+import { useDocumentStore } from '../store/useDocumentStore';
 import AcknowledgmentModal from './Post/AcknowledgmentModal';
 import { Mail } from 'lucide-react';
 
@@ -123,19 +124,56 @@ const PageBreakLines = () => {
 
 const BlockContainer = ({ id, children }) => {
     const { blockWidths, styles, setStyles } = useContext(ExpertiseContext);
+    const { attachToBlock, getByBlock } = useDocumentStore();
+    const [isDragOver, setIsDragOver] = useState(false);
+
     const isHalf = blockWidths[id] === '50%';
     const marginMm = styles[id]?.marginBottom;
+    const linkedDocs = getByBlock(id);
+
     const adjustMargin = (delta) => {
         setStyles(p => ({ ...p, [id]: { ...p[id], marginBottom: Math.max(0, (p[id]?.marginBottom || 0) + delta) } }));
     };
+
+    const handleDragOver = (e) => {
+        if (e.dataTransfer.types.includes('application/expertises-doc-id')) {
+            e.preventDefault();
+            setIsDragOver(true);
+        }
+    };
+
+    const handleDragLeave = (e) => {
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e) => {
+        const docId = e.dataTransfer.getData('application/expertises-doc-id');
+        if (docId) {
+            e.preventDefault();
+            setIsDragOver(false);
+            attachToBlock(docId, id);
+        }
+    };
+
     return (
         <div
             id={`block-${id}`}
-            className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full'}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full'} ${isDragOver ? 'bg-indigo-900/20 ring-2 ring-indigo-500 rounded' : ''}`}
             style={{ marginBottom: marginMm !== undefined ? `${marginMm}mm` : '0.5rem' }}
         >
             <BlockHeaderControls id={id} />
             <BlockToolbar id={id} />
+
+            {/* TROMBONE INDICATOR (No print) */}
+            {linkedDocs && linkedDocs.length > 0 && (
+                <div className="absolute -top-3 left-2 z-50 print:hidden flex gap-1 items-center bg-indigo-900/90 border border-indigo-500/50 rounded-full px-2 py-0.5 shadow-lg text-[9px] text-indigo-200 font-bold" title={linkedDocs.map(d => d.name).join('\n')}>
+                    📎 {linkedDocs.length} doc(s)
+                </div>
+            )}
+
             <div style={{ fontSize: `${styles[id]?.fontSize || 12}px`, color: styles[id]?.color || '#000', fontFamily: styles[id]?.fontFamily || 'Arial', textAlign: styles[id]?.textAlign || 'left' }}>
                 <div className={`pt-6 ${styles[id]?.border ? 'border-2 border-current p-3 rounded' : ''} outline-none focus:ring-2 focus:ring-indigo-300`} contentEditable suppressContentEditableWarning>
                     {children}
