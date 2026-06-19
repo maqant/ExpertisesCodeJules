@@ -1457,8 +1457,12 @@ export const ExpertiseProvider = ({ children }) => {
 
       // 1. FormData — écraser seulement les champs cochés en utilisant la logique métier
       if (selections.formFields && selections.formFields.length > 0 && data.formData) {
-          const { next, applied } = applyValidatedMerge(formData, data.formData, selections.formFields);
+          const { next, applied, ignored } = applyValidatedMerge(formData, data.formData, selections.formFields);
           
+          if (ignored && ignored.length > 0) {
+              console.warn(`[commitPendingAiData] Champs de formulaire ignorés:`, ignored);
+          }
+
           const updates = {};
           applied.forEach(key => updates[key] = next[key]);
 

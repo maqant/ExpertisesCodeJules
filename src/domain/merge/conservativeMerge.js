@@ -74,22 +74,38 @@ export const buildFieldDiff = (current = {}, ai = {}) => {
  * @param {Record<string, unknown>} current
  * @param {Record<string, unknown>} ai
  * @param {Set<string>|string[]} selectedKeys - clés que l'utilisateur a validées
- * @returns {{ next: Record<string, unknown>, applied: string[] }}
+ * @param {Record<string, unknown>} [valueSource] - source optionnelle (ex: editableData.formData)
+ * @returns {{ next: Record<string, unknown>, applied: string[], ignored: Array<{key:string, reason:string}> }}
  */
-export const applyValidatedMerge = (current, ai, selectedKeys) => {
+export const applyValidatedMerge = (current, ai, selectedKeys, valueSource) => {
   const selection =
     selectedKeys instanceof Set ? selectedKeys : new Set(selectedKeys);
 
+  const source = valueSource && typeof valueSource === 'object' ? valueSource : ai;
+
   const next = { ...current };
   const applied = [];
+  const ignored = [];
 
   for (const key of selection) {
-    if (!Object.prototype.hasOwnProperty.call(ai, key)) continue;
-    const aiValue = ai[key];
-    if (isEmptyValue(aiValue)) continue; // jamais écraser avec du vide
-    next[key] = aiValue;
+    const hasSourceValue = Object.prototype.hasOwnProperty.call(source, key);
+    const hasAiValue = Object.prototype.hasOwnProperty.call(ai, key);
+
+    if (!hasSourceValue && !hasAiValue) {
+      ignored.push({ key, reason: 'KEY_NOT_FOUND' });
+      continue;
+    }
+
+    const value = hasSourceValue ? source[key] : ai[key];
+
+    if (isEmptyValue(value)) {
+      ignored.push({ key, reason: 'EMPTY_VALUE' });
+      continue; // jamais écraser avec du vide
+    }
+
+    next[key] = value;
     applied.push(key);
   }
 
-  return { next, applied };
+  return { next, applied, ignored };
 };

@@ -345,6 +345,12 @@ const GlobalValidationModal = () => {
             ...prev,
             formData: { ...prev.formData, [key]: value }
         }));
+        // Auto-sélection : on suppose que si l'utilisateur modifie, il veut l'enregistrer
+        setSelectedFormFields(prev => {
+            const n = new Set(prev);
+            n.add(key);
+            return n;
+        });
     };
 
     const handleValidate = () => {
