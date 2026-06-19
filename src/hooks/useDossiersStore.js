@@ -37,19 +37,18 @@ export function useDossiersStore() {
 
     const setSavedDossiersGlobal = useCallback((updater) => {
         setSavedDossiers(prev => {
-            const updatedArray = typeof updater === 'function' ? updater(prev) : updater;
-            
-            // Lancer la persistance en tâche de fond pour tous les éléments qui ont changé.
-            // On fait simple: le store va juste ré-écrire le 1er élément car c'est toujours
-            // celui qui est modifié ou ajouté dans le flux applicatif actuel.
-            if (updatedArray && updatedArray.length > 0) {
-                const first = updatedArray[0];
-                saveFullDossier(first.id, first.name, first.date, first.data || {}).catch(e => {
-                    console.error("Failed to persist dossier:", e);
-                });
-            }
-            return updatedArray;
+            return typeof updater === 'function' ? updater(prev) : updater;
         });
+    }, []);
+
+    const persistDossier = useCallback(async (dossier) => {
+        if (!dossier || !dossier.id) return;
+        try {
+            await saveFullDossier(dossier.id, dossier.name, dossier.date, dossier.data || {});
+        } catch (e) {
+            console.error("Failed to persist dossier:", e);
+            throw e; // Laisse l'appelant gérer l'erreur (pour l'alerter)
+        }
     }, []);
 
     const deleteDossierGlobal = useCallback(async (id) => {
@@ -58,12 +57,14 @@ export function useDossiersStore() {
             await removeDossier(id);
         } catch (e) {
             console.error("Failed to delete dossier:", e);
+            throw e;
         }
     }, []);
 
     return {
         savedDossiers,
         setSavedDossiersGlobal,
+        persistDossier,
         deleteDossierGlobal,
         isLoaded
     };

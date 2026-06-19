@@ -62,18 +62,32 @@ export async function writeData(id, data) {
   }
 }
 
+let writeChain = Promise.resolve();
+function withLock(task) {
+  const run = writeChain.then(task, task); // exécute même si la précédente a rejeté
+  // On garde la chaîne "propre" pour ne pas propager les rejets aux suivants.
+  writeChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 export async function removeDossier(id) {
-  try {
-    await dataStore.removeItem(DATA_PREFIX + id);
-    const index = await readIndex();
-    const updatedIndex = index.filter(d => d.id !== id);
-    await writeIndex(updatedIndex);
-  } catch (err) {
-    throw new StorageError(StorageErrorCode.WRITE_FAILED, 'Échec suppression du dossier.', { cause: err, dossierId: id });
-  }
+  return withLock(async () => {
+    try {
+      await dataStore.removeItem(DATA_PREFIX + id);
+      const index = await readIndex();
+      const updatedIndex = index.filter(d => d.id !== id);
+      await writeIndex(updatedIndex);
+    } catch (err) {
+      throw new StorageError(StorageErrorCode.WRITE_FAILED, 'Échec suppression du dossier.', { cause: err, dossierId: id });
+    }
+  });
 }
 
 export async function saveFullDossier(id, name, date, data) {
+  return withLock(async () => {
+    // Ordre sûr: on écrit les données D'ABORD, pour que l'index ne pointe pas vers le vide
+    await writeData(id, data);
+    
     const index = await readIndex();
     const existingIdx = index.findIndex(d => d.id === id);
     if (existingIdx >= 0) {
@@ -82,6 +96,6 @@ export async function saveFullDossier(id, name, date, data) {
         index.unshift({ id, name, date });
     }
     await writeIndex(index);
-    await writeData(id, data);
     return index;
+  });
 }

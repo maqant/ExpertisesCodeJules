@@ -295,7 +295,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [expandedExpId, setExpandedExpId] = useState(null);
 
   // Données globales
-  const { savedDossiers, setSavedDossiersGlobal: setSavedDossiers, deleteDossierGlobal, isLoaded } = useDossiersStore();
+  const { savedDossiers, setSavedDossiersGlobal: setSavedDossiers, persistDossier, deleteDossierGlobal, isLoaded } = useDossiersStore();
   const [dossierSearch, setDossierSearch] = useState('');
   const [expertsList, setExpertsList] = useState([]);
   const [franchises, setFranchises] = useState([]);
@@ -457,7 +457,7 @@ export const ExpertiseProvider = ({ children }) => {
       return true;
   };
 
-  const saveDossier = () => {
+  const saveDossier = async () => {
       let name = formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`;
       if (!currentDossierId) {
           name = window.prompt("Nom de ce dossier (ex: Nom, Ref) ?", name);
@@ -466,21 +466,37 @@ export const ExpertiseProvider = ({ children }) => {
       
       const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
       
-      let updated;
+      const dateStr = new Date().toLocaleString('fr-FR');
+      let targetDossier;
+      let newIdToSet = null;
+      
       if (currentDossierId) {
-          updated = savedDossiers.map(d => d.id === currentDossierId ? { ...d, date: new Date().toLocaleString('fr-FR'), data: dossierData } : d);
+          targetDossier = { id: currentDossierId, name, date: dateStr, data: dossierData };
       } else {
           const newId = crypto.randomUUID();
-          const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
-          updated = [newDossier, ...savedDossiers];
-          setCurrentDossierId(newId);
+          targetDossier = { id: newId, name, date: dateStr, data: dossierData };
+          newIdToSet = newId;
       }
       
-      setSavedDossiers(updated);
-      alert("✅ Dossier sauvegardé !");
+      try {
+          await persistDossier(targetDossier);
+          
+          let updated;
+          if (currentDossierId) {
+              updated = savedDossiers.map(d => d.id === targetDossier.id ? targetDossier : d);
+          } else {
+              updated = [targetDossier, ...savedDossiers];
+              setCurrentDossierId(newIdToSet);
+          }
+          
+          setSavedDossiers(updated);
+          alert("✅ Dossier sauvegardé !");
+      } catch (err) {
+          alert("❌ Erreur critique lors de la sauvegarde. Vos données n'ont pas été enregistrées. (" + err.message + ")");
+      }
   };
 
-  const saveDossierAs = () => {
+  const saveDossierAs = async () => {
       const name = window.prompt("Nom de la copie de ce dossier ?", (formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`) + " (Copie)");
       if (!name) return;
       
@@ -488,10 +504,15 @@ export const ExpertiseProvider = ({ children }) => {
       const newId = crypto.randomUUID();
       const newDossier = { id: newId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData };
       
-      const updated = [newDossier, ...savedDossiers];
-      setSavedDossiers(updated);
-      setCurrentDossierId(newId);
-      alert("✅ Copie du dossier sauvegardée !");
+      try {
+          await persistDossier(newDossier);
+          const updated = [newDossier, ...savedDossiers];
+          setSavedDossiers(updated);
+          setCurrentDossierId(newId);
+          alert("✅ Copie du dossier sauvegardée !");
+      } catch (err) {
+          alert("❌ Erreur critique lors de la sauvegarde de la copie. (" + err.message + ")");
+      }
   };
 
   const loadDossier = (dossier) => {
@@ -1795,18 +1816,30 @@ Voici le format JSON :
           }
           const dossierData = { formData, blockTitles, references, occupants, expenses, blocksVisible, styles, blockOrder, blockWidths, customBlocks, showSubtotals, fitBlocks, attachedFiles, attachedPhotos: safePhotos, attachedFreeAnnexes, causeTimeline, intervenantsList, rawContexts };
 
+          const dateStr = new Date().toLocaleString('fr-FR');
+          const targetDossierToSave = { id: targetId, name, date: dateStr, data: dossierData };
+          
           setSavedDossiers(prev => {
               let updated;
               if (prev.some(d => d.id === targetId)) {
-                  updated = prev.map(d => d.id === targetId ? { ...d, date: new Date().toLocaleString('fr-FR'), data: dossierData, name: d.name || name } : d);
+                  const existing = prev.find(d => d.id === targetId);
+                  if (existing && existing.name) {
+                      targetDossierToSave.name = existing.name;
+                  }
+                  updated = prev.map(d => d.id === targetId ? targetDossierToSave : d);
               } else {
-                  updated = [{ id: targetId, name, date: new Date().toLocaleString('fr-FR'), data: dossierData }, ...prev];
+                  updated = [targetDossierToSave, ...prev];
               }
-              // La persistance IndexedDB est gérée automatiquement par setSavedDossiersGlobal
               return updated;
           });
           
-          setTimeout(() => setSaveStatus('saved'), 500);
+          // Persistance I/O Asynchrone hors du reducer
+          persistDossier(targetDossierToSave)
+            .then(() => setSaveStatus('saved'))
+            .catch(err => {
+                console.error("Autosave failed", err);
+                setSaveStatus('error');
+            });
       }, 3000); // 3 seconds of inactivity
 
       return () => clearTimeout(timer);
