@@ -210,7 +210,7 @@ const Sidebar = () => {
         handleAttachFreeAnnex, handleRemoveFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
-        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem,
+        processJsonData, setPendingAiData, causeTimeline, addCauseTimelineItem, removeCauseTimelineItem,
         toggleExpenseType,
         intervenantsList, setIntervenantsList,
         aiStatus, setAiStatus,
@@ -1487,10 +1487,16 @@ TON OBJECTIF :
                                             {item.type === 'file' ? (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-xs text-blue-300 font-bold truncate max-w-[200px]" title={item.fileName}>{item.fileName}</span>
-                                                    <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(item.dbKey); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir">👁️</button>
+                                                    <div className="flex gap-2 items-center">
+                                                        <button onClick={(e) => { e.preventDefault(); context.handleOpenFile(item.dbKey); }} className="text-[14px] text-blue-400 hover:text-blue-300" title="Ouvrir">👁️</button>
+                                                        <button onClick={(e) => { e.preventDefault(); if(window.confirm('Supprimer ce rapport ?')) removeCauseTimelineItem(item.id); }} className="text-[14px] text-red-400 hover:text-red-300" title="Supprimer">🗑️</button>
+                                                    </div>
                                                 </div>
                                             ) : (
-                                                <p className="text-xs text-slate-300 whitespace-pre-wrap">{item.content}</p>
+                                                <div className="relative group">
+                                                    <p className="text-xs text-slate-300 whitespace-pre-wrap pr-6">{item.content}</p>
+                                                    <button onClick={(e) => { e.preventDefault(); if(window.confirm('Supprimer cette note ?')) removeCauseTimelineItem(item.id); }} className="absolute top-0 right-0 text-[12px] text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Supprimer">🗑️</button>
+                                                </div>
                                             )}
                                         </div>
                                     )) : (

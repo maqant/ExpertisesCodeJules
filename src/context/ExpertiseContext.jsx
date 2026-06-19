@@ -1720,7 +1720,6 @@ Voici le format JSON :
 }`;
       navigator.clipboard.writeText(promptText).then(() => alert("✅ Prompt copié !")).catch(err => alert("Erreur copie."));
   };
-
   const exportGlobalData = () => {
       const data = {
           dossiers: savedDossiers,
@@ -1746,6 +1745,14 @@ Voici le format JSON :
           dbKey: dbKey,
           isPdf: type === 'file' ? contentOrFile.type === 'application/pdf' : false
       }]);
+  };
+
+  const removeCauseTimelineItem = async (id) => {
+      const item = causeTimeline.find(i => i.id === id);
+      if (item && item.dbKey) {
+          await localforage.removeItem(item.dbKey);
+      }
+      setCauseTimeline(prev => prev.filter(i => i.id !== id));
   };
 
   const toggleExpenseType = (id, targetType) => {
@@ -1859,7 +1866,7 @@ Voici le format JSON :
       isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
       isDeepThinkingMode, toggleDeepThinkingMode,
       pendingAiData, setPendingAiData, commitPendingAiData,
-      causeTimeline, setCauseTimeline, addCauseTimelineItem,
+      causeTimeline, setCauseTimeline, addCauseTimelineItem, removeCauseTimelineItem,
       toggleExpenseType,
       aiStatus, setAiStatus,
       rawContexts, setRawContexts,
