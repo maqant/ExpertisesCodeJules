@@ -1661,6 +1661,22 @@ export const ExpertiseProvider = ({ children }) => {
           }
       }
 
+      // 6.5 File assignments from Modal (v8.2.0)
+      if (selections.fileAssignments && pendingFiles.length > 0) {
+          for (const [fName, targetZone] of selections.fileAssignments) {
+              if (targetZone === 'unassigned') continue;
+              const matchedFile = findMatchingFile(pendingFiles, fName);
+              if (matchedFile) {
+                  try {
+                      await handleAttachFile(targetZone, matchedFile);
+                      console.log(`[Magic Drop] ✅ Pièce jointe assignée manuellement : "${matchedFile.name}" → ${targetZone}`);
+                  } catch (err) {
+                      console.warn(`[Magic Drop] ❌ Échec assignation manuelle pour "${matchedFile.name}":`, err);
+                  }
+              }
+          }
+      }
+
       // 7. Nettoyer APRÈS tous les attachements
       setPendingAiData(null);
       setActiveTab('builder');

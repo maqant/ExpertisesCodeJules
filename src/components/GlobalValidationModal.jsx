@@ -133,6 +133,9 @@ const GlobalValidationModal = () => {
     const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
     const [isMerging, setIsMerging] = useState(false);
+    
+    // v8.2.0 - File Assignments
+    const [fileAssignments, setFileAssignments] = useState(new Map());
 
     // v7.2.1 - Feedback Dataset
     const [feedbackOptions, setFeedbackOptions] = useState({
@@ -248,6 +251,20 @@ const GlobalValidationModal = () => {
 
         setLocalResponsablesIds(new Set(storeResponsablesIds));
 
+        // Auto-assign CP and CG
+        const newFileAssignments = new Map();
+        (pendingAiData.pendingFiles || []).forEach(file => {
+            const nameLow = (file.name || '').toLowerCase();
+            if (nameLow.includes('cg') || nameLow.includes('conditions générales') || nameLow.includes('conditions_generales')) {
+                newFileAssignments.set(file.name, 'doc_cond_gen');
+            } else if (nameLow.includes('cp') || nameLow.includes('conditions particulières') || nameLow.includes('conditions_particulieres')) {
+                newFileAssignments.set(file.name, 'doc_cond_part');
+            } else {
+                newFileAssignments.set(file.name, 'unassigned');
+            }
+        });
+        setFileAssignments(newFileAssignments);
+
         setInitialized(true);
     }
 
@@ -346,7 +363,8 @@ const GlobalValidationModal = () => {
                 .map(([id]) => id),
             // v5.6.0 - Intervenants sélectionnés (cochés manuellement)
             intervenants: Array.from(selectedIntervenants),
-            responsablesIds: Array.from(localResponsablesIds)
+            responsablesIds: Array.from(localResponsablesIds),
+            fileAssignments: Array.from(fileAssignments.entries())
         };
 
         // v5.4.0: Merge editableData INTO pendingAiData synchronously, EXPLICITLY preserving pendingFiles
@@ -466,6 +484,17 @@ const GlobalValidationModal = () => {
     const pendingFiles = pendingAiData.pendingFiles || [];
     // Count pending photos (images not matched to expenses)
     const pendingPhotoCount = pendingFiles.filter(f => f.type && f.type.startsWith('image/')).length;
+
+    // v8.2.0 - Unassigned files logic
+    const matchedFileNames = new Set();
+    expenseAnalysis.forEach(exp => {
+        if (exp.sourceFileName) matchedFileNames.add(exp.sourceFileName);
+        if (exp.sourceFileNames) exp.sourceFileNames.forEach(f => matchedFileNames.add(f));
+    });
+    if (pendingAiData?.technicalFilesToAttach) {
+        pendingAiData.technicalFilesToAttach.forEach(f => matchedFileNames.add(f));
+    }
+    const unassignedFilesList = pendingFiles.filter(f => !matchedFileNames.has(f.name) && !(f.type && f.type.startsWith('image/')));
 
     const toggleExpert = (name) => {
         setSelectedExperts(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
@@ -999,6 +1028,55 @@ const GlobalValidationModal = () => {
                                                     )}
                                                 </div>
                                             )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Section 5: Unassigned Files (v8.2.0) */}
+                    {unassignedFilesList.length > 0 && (
+                        <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden mt-4">
+                            <div className="p-3 bg-slate-800 border-b border-slate-700">
+                                <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-1.5">
+                                    📎 Documents détectés non assignés <span className="text-[10px] font-normal text-slate-400">({unassignedFilesList.length})</span>
+                                </h3>
+                                <p className="text-[10px] text-slate-400 mt-1">Liez manuellement ces documents ou laissez-les tels quels (ils resteront dans la bibliothèque).</p>
+                            </div>
+                            <div className="divide-y divide-slate-700/50">
+                                {unassignedFilesList.map((file, idx) => {
+                                    const currentAssign = fileAssignments.get(file.name) || 'unassigned';
+                                    const isAutoMatched = currentAssign === 'doc_cond_part' || currentAssign === 'doc_cond_gen';
+                                    return (
+                                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 hover:bg-slate-700/30 transition-colors">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className="text-sm">📄</span>
+                                                <span className="text-xs font-bold text-white truncate" title={file.name}>{file.name}</span>
+                                                {isAutoMatched && (
+                                                    <span className="text-[9px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold border border-green-500/30 ml-2">Match Auto</span>
+                                                )}
+                                                <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(file)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1 ml-2">👁️ Aperçu</button>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <label className="text-[10px] text-slate-400 uppercase">Lier à :</label>
+                                                <select 
+                                                    value={currentAssign}
+                                                    onChange={(e) => {
+                                                        const newMap = new Map(fileAssignments);
+                                                        newMap.set(file.name, e.target.value);
+                                                        setFileAssignments(newMap);
+                                                    }}
+                                                    className="bg-slate-900 border border-slate-600 text-xs text-white rounded px-2 py-1 focus:border-indigo-500 outline-none w-[200px]"
+                                                >
+                                                    <option value="unassigned">-- Ne pas lier --</option>
+                                                    <option value="doc_cond_part">N° Police (Conditions Particulières)</option>
+                                                    <option value="doc_cond_gen">Conditions Générales</option>
+                                                    <option value="doc_mail_expertise">Mail Expertise</option>
+                                                    <option value="doc_mail_declaration">Mail Déclaration</option>
+                                                    <option value="doc_rapport_cause">Cause (Rapport technique)</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     );
                                 })}
