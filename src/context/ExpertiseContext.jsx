@@ -1010,6 +1010,7 @@ export const ExpertiseProvider = ({ children }) => {
           const activeFiles = files.filter(f => !f.expenseType || f.expenseType === exp.type);
           processDoc(exp.id, exp.prestataire || 'Frais', activeFiles);
       });
+      processDoc('doc_pv_police', 'PV de Police', attachedFiles['doc_pv_police']);
       processDoc('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
       processDoc('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
 
@@ -1062,6 +1063,7 @@ export const ExpertiseProvider = ({ children }) => {
           const activeFiles = files.filter(f => !f.expenseType || f.expenseType === exp.type);
           addEntry(exp.id, exp.prestataire || 'Frais', activeFiles);
       }
+      addEntry('doc_pv_police', 'PV de Police', attachedFiles['doc_pv_police']);
       addEntry('doc_cond_part', 'Conditions particulières', attachedFiles['doc_cond_part']);
       addEntry('doc_cond_gen', 'Conditions générales', attachedFiles['doc_cond_gen']);
 
@@ -1167,6 +1169,7 @@ export const ExpertiseProvider = ({ children }) => {
               await appendPdfFiles(exp.id, exp.type);
           }
 
+          await appendPdfFiles('doc_pv_police');
           await appendPdfFiles('doc_cond_part');
           await appendPdfFiles('doc_cond_gen');
 
@@ -1413,6 +1416,7 @@ export const ExpertiseProvider = ({ children }) => {
           }
 
           for (const exp of expenses) await appendPdfFiles(exp.id, exp.type);
+          await appendPdfFiles('doc_pv_police');
           await appendPdfFiles('doc_cond_part');
           await appendPdfFiles('doc_cond_gen');
 

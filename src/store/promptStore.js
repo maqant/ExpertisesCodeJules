@@ -335,11 +335,11 @@ Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} 
 
 1. <strong>Description de l'incident</strong>
    - [Intègre ici la phrase {{cause_nano_phrase}} si fournie. Sinon, écris : "Précisez la nature et la cause exacte de l'incident, et indiquez si celle-ci est désormais réparée."]
-   - [Si ask_photos = true ET photos_parties non vide] Merci de bien vouloir nous transmettre des photos illustrant la cause et les dommages. Ceci concerne : [lister les noms des parties issues de photos_parties].
+   - [Si ask_photos = true ET photos_parties non vide] Formule une demande polie et naturelle pour obtenir des photos illustrant la cause et les dommages, en t'adressant spécifiquement aux personnes concernées (Noms issus de photos_parties). Ne fais PAS de liste froide comme "Ceci concerne :".
    - [Si ask_photos = true ET photos_parties vide] Merci de joindre des photos illustrant à la fois la cause de l'incident et les dommages subis.
 
 2. <strong>Documents relatifs aux réparations</strong>
-   - [Si devis_parties non vide] Merci de nous transmettre un devis détaillé des réparations. Ceci concerne : [lister les noms des parties issues de devis_parties]. Précisez si des améliorations par rapport à l'état initial sont envisagées.
+   - [Si devis_parties non vide] Demande poliment un devis détaillé des réparations, en t'adressant naturellement aux personnes concernées (Noms issus de devis_parties). Précisez si des améliorations par rapport à l'état initial sont envisagées. Ne fais PAS de liste froide comme "Ceci concerne :".
    - [Si devis_parties vide] (Supprime ce point 2 entièrement)
 
 3. <strong>État des pertes</strong>
@@ -352,7 +352,7 @@ Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} 
    - [Si demande_plainte = false ET demande_pv = false] (Supprime ce point 4 entièrement)
 
 5. <strong>Demandes spécifiques aux parties</strong>
-   - [Pour chaque partie dans demandes_parties avec des manques, écrire une ligne : "Pour [Nom] : merci de nous transmettre [liste des manques]."]
+   - [Pour chaque partie dans demandes_parties avec des manques, adresse-toi directement et naturellement à la personne concernée pour lui demander les documents manquants (ex: "Nous invitons [Nom] à nous transmettre..."). Ne fais PAS de liste froide ou de formulation de type "Pour [Nom] :".]
    - [Si demandes_parties est vide ou [], supprime ce point 5 entièrement]
 
 Pour information, votre contrat est assorti d'une franchise de <strong>{{montant_franchise}}</strong>, qui sera déduite de la première indemnité versée par la compagnie. Cette franchise reste à la charge du responsable du sinistre.
@@ -421,13 +421,18 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 5, // Incrémenté pour forcer la mise à jour des prompts (v7.19.1)
+            version: 6, // Incrémenté pour forcer la mise à jour des prompts (v7.23.8)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 6) {
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['prompt_ar_generator'];
                     }
                 }
                 if (version < 5) {

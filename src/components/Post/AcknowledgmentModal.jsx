@@ -621,7 +621,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                                                     value={franchiseInput}
                                                     onChange={e => setFranchiseInput(e.target.value)}
                                                     placeholder="Ex: 350€ (laisser vide si inconnue)"
-                                                    className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                                    className="w-full px-3 py-2 text-sm text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                                                 />
                                             )}
                                         </div>

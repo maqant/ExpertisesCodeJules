@@ -291,7 +291,7 @@ const Workspace = () => {
                     <p className="break-words"><strong>Compagnie :</strong> {formData.nomCie}</p>
                     <p className="break-words"><strong>Contrat :</strong> {formData.nomContrat}</p>
                     <p className="break-words"><strong>N° Police :</strong> {formData.numPolice} {getPaginationInfo('doc_cond_part') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_cond_part').text}</span>}</p>
-                    {formData.numeroPVPolice && <p className="break-words text-indigo-700 bg-indigo-50 inline-block px-2 py-0.5 rounded mt-1 mb-1"><strong>N° PV Police :</strong> {formData.numeroPVPolice} {getPaginationInfo('doc_pv_police') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_pv_police').text}</span>}</p>}
+                    {formData.numeroPVPolice && <p className="break-words"><strong>N° PV Police :</strong> {formData.numeroPVPolice} {getPaginationInfo('doc_pv_police') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_pv_police').text}</span>}</p>}
                     {formData.numConditionsGenerales && <p className="break-words"><strong>N° Cond. Générales :</strong> {formData.numConditionsGenerales} {getPaginationInfo('doc_cond_gen') && <span className="text-[0.8em] text-slate-500 italic font-normal ml-1">{getPaginationInfo('doc_cond_gen').text}</span>}</p>}
                     <p className="break-words"><strong>N° Sinistre Cie :</strong> {formData.numSinistreCie}</p>
                     {references.length > 0 && <div>{references.map(r => <p key={r.id} className="break-words"><strong>{r.nom} {r.nom ? ':' : ''}</strong> {r.ref}</p>)}</div>}

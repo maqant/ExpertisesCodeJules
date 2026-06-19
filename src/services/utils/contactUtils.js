@@ -142,7 +142,7 @@ export const buildSalutation = (contacts = []) => {
     }
     
     if (lastName && lastName !== c.email) {
-      return `Monsieur/Madame ${lastName}`.trim();
+      return c.displayName.trim();
     }
     
     return c.displayName; // fallback neutre extrême
