@@ -305,12 +305,34 @@ const Sidebar = () => {
         if (!filesArray) return;
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         const msgFile = allFiles.find(f => f.name.toLowerCase().endsWith('.msg'));
+        
         if (msgFile) {
             try {
                 const { parseMsgFile } = await import('../services/utils/msgUtils.js');
-                const { bodyText } = await parseMsgFile(msgFile);
-                if (bodyText) {
-                    setBrioPrepInitialText(bodyText);
+                const { buildContentArrayParallel } = await import('../services/utils/aiHelpers.js');
+                
+                const { bodyText, attachments } = await parseMsgFile(msgFile);
+                let fullText = bodyText ? `[Email principal]\n${bodyText}\n\n` : '';
+                
+                const filesToExtract = [...attachments];
+                
+                for (const f of allFiles) {
+                    if (f !== msgFile) filesToExtract.push(f);
+                }
+                
+                if (filesToExtract.length > 0) {
+                    const extractedContent = await buildContentArrayParallel(filesToExtract, "", { forceVision: false, maxPdfPages: 10, maxTextLength: 15000 });
+                    const extractedText = extractedContent
+                        .filter(c => c.type === 'text')
+                        .map(c => c.text)
+                        .join('\n');
+                    if (extractedText.trim()) {
+                        fullText += `[TEXTE EXTRAIT DES PIÈCES JOINTES ET AUTRES DOCUMENTS]\n${extractedText}`;
+                    }
+                }
+                
+                if (fullText.trim()) {
+                    setBrioPrepInitialText(fullText.trim());
                     setIsBrioPrepModalOpen(true);
                 }
             } catch (err) {

@@ -235,9 +235,9 @@ Et tu le termineras par : "<br>&nbsp;<br>À vous lire & bien cordialement"
 ${HTML_FORMATTING_RULES}`,
 
     prompt_brio_prep: `Tu es un assistant spécialisé en gestion de sinistres pour un courtier. Ton rôle est de préparer les données pour la création administrative du dossier dans le logiciel Brio.
-Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
+Analyse le mail de déclaration ci-dessous AINSI QUE le texte de toutes ses pièces jointes (ex: rapports, constats, PV de police) et extrais les informations UNIQUEMENT au format JSON strict avec les clés suivantes :
 
-- "date" : La date du sinistre, ou la date de déclaration si la date du sinistre n'est pas connue/précisée, au format xx/xx/xx.
+- "date" : La date EXACTE du sinistre. Recherche impérativement dans les documents joints (comme les PV de police ou rapports). Si non trouvée, utilise la date de déclaration, au format xx/xx/xx.
 - "titre" : Un titre court de 40 caractères maximum décrivant le sinistre, incluant obligatoirement (si mentionnés) les noms des propriétaires en cause et les étages concernés dans une nomenclature uniforme.
 - "description" : Une description détaillée STRICTEMENT sous la forme "[type de sinistre] au [lieu], provoquant [dégâts] au [lieu impacté]". Si inconnu, préciser "A déterminer".
 - "pertes_indirectes" : Le pourcentage de pertes indirectes si précisé dans les documents ou le texte, sinon "A confirmer".
@@ -245,7 +245,7 @@ Analyse le mail de déclaration ci-dessous et extrais les informations UNIQUEMEN
   RÈGLES DE DÉLÉGATION : La délégation est possible ("OK") quand il n'y a pas de tiers à qui réclamer des débours (ex: vandalisme, infiltration eau de pluie). Dégât des eaux entre deux lots dans une résidence : "OK", SAUF SI la cause vient d'une cause apparente (imputable au locataire, qui devient un tiers). Note : dans une résidence, les copropriétaires et les communs ne SONT PAS considérés comme des tiers entre eux.
 - "intervenants" : Une liste des intervenants sous la forme d'un tableau de strings : "Nom - Fonction (si précisé) - Téléphone".
 
---- DÉCLARATION DU CLIENT ---
+--- DÉCLARATION DU CLIENT ET PIÈCES JOINTES ---
 """{{declaration_brute}}"""
 
 Réponds uniquement avec le JSON valide, sans aucune introduction ni formatage Markdown autour.`,
