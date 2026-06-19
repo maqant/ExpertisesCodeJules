@@ -24,6 +24,9 @@ import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import DropZone from './DropZone.jsx';
+import { processBulkMsg } from '../services/annex/bulkMsgQueue.js';
+import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
+import BulkProgressToast from './ui/BulkProgressToast.jsx';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -550,36 +553,63 @@ const Sidebar = () => {
     const [showAnnexModal, setShowAnnexModal] = useState(false);
     const [annexModalMode, setAnnexModalMode] = useState('annexes-only');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
-    // Magic Drop states
+    
+    // Bulk MSG states
+    const [bulkMsgProgress, setBulkMsgProgress] = useState(null);
+    const [bulkMsgReport, setBulkMsgReport] = useState(null);
 
     // Contract Magic Drop states
     const [isCauseAiLoading, setIsCauseAiLoading] = useState(false);
 
     const handleAnnexMagicDrop = async (files) => {
         if (!files || files.length === 0) return;
+
+        // --- Interception des .msg en lot ---
+        const msgFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.msg'));
+        const otherFiles = Array.from(files).filter(f => !f.name.toLowerCase().endsWith('.msg'));
+
+        if (msgFiles.length > 0) {
+            setBulkMsgReport(null);
+            setBulkMsgProgress({ done: 0, total: msgFiles.length, name: '' });
+
+            const { results, successCount, errorCount } = await processBulkMsg(msgFiles, {
+                convertFn: msgToSinglePagePdf,
+                onProgress: (done, total, name) => setBulkMsgProgress({ done, total, name }),
+            });
+
+            // Pour chaque succès, on attache comme annexe libre
+            for (const res of results) {
+                if (res.status === 'success') {
+                    // Création d'un File valide à partir du Uint8Array généré
+                    const pdfFile = new File([res.pdfBytes], res.fileName + '.pdf', { type: 'application/pdf' });
+                    // On utilise le nom d'origine comme titre
+                    await handleAttachFreeAnnex(pdfFile, res.fileName, '');
+                }
+            }
+
+            setBulkMsgProgress(null);
+            setBulkMsgReport({
+                successCount,
+                errorCount,
+                errors: results.filter(r => r.status === 'error'),
+            });
+        }
+
+        // --- Logique existante pour les autres fichiers ---
+        if (otherFiles.length === 0) return;
+
         setIsAnnexAiLoading(true);
         const aiProvider = aiConfig.provider;
         const aiModel = aiConfig.model;
 
         try {
-            const file = files[0];
-            if (!isAiModeActive) {
-                if (file.name.toLowerCase().endsWith('.msg')) {
-                    const { files: extractedFiles } = await extractValidAttachmentsFromMsg(file);
-                    if (extractedFiles.length === 0) {
-                        alert("Aucune pièce jointe valide (PDF/Image) trouvée dans cet email.");
-                        return;
-                    }
-                    extractedFiles.forEach(extractedFile => {
-                        openIngestion(extractedFile, 'annexe');
-                    });
-                } else {
+            // on boucle sur les AUTRES fichiers (non-msg)
+            for (const file of otherFiles) {
+                if (!isAiModeActive) {
                     openIngestion(file, 'annexe');
+                    continue;
                 }
-                return;
-            }
-
-            if (isAiModeActive) {
+                
                 const result = await extractDataFromDocument(file, 'annexe', aiProvider, aiModel, aiConfig.apiKey, setAiStatus);
                 if (result.success && result.data && result.data.title) {
                     openIngestion(file, 'annexe', { customName: result.data.title });
@@ -589,7 +619,7 @@ const Sidebar = () => {
             }
         } catch (err) {
             console.error("[Sidebar] Erreur lors du titrage de l'annexe :", err);
-            openIngestion(files[0], 'annexe');
+            openIngestion(otherFiles[0], 'annexe');
         } finally {
             setIsAnnexAiLoading(false);
             setAiStatus('idle');
@@ -2533,6 +2563,7 @@ TON OBJECTIF :
                 setGeneratedText(null);
             }}
         />
+        <BulkProgressToast progress={bulkMsgProgress} report={bulkMsgReport} onDismiss={() => setBulkMsgReport(null)} />
         </>
     );
 };
