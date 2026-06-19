@@ -7,6 +7,8 @@ import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-re
 import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
 import { FieldStatus } from '../domain/merge/mergeStrategies.js';
 import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
+import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
+import ComboboxField from './ui/ComboboxField.jsx';
 import DropZone from './DropZone';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF" }) => {
@@ -510,20 +512,19 @@ const GlobalValidationModal = () => {
                             <div className="mt-3 grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs font-bold text-orange-800 mb-1">Franchise</label>
-                                    <input 
-                                        type="text" 
-                                        value={editableData?.formData?.franchise || ''} 
-                                        onChange={(e) => {
-                                            updateFormField('franchise', e.target.value);
-                                            if (e.target.value) setSelectedFormFields(prev => new Set(prev).add('franchise'));
+                                    <ComboboxField
+                                        value={editableData?.formData?.franchise || ''}
+                                        onChange={(v) => {
+                                            updateFormField('franchise', v);
+                                            if (v) setSelectedFormFields(prev => new Set(prev).add('franchise'));
                                         }}
-                                        list="franchise-list-warning"
-                                        className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none" 
+                                        options={[
+                                            ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
+                                            ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
+                                        ]}
+                                        className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none"
                                         placeholder="Ex: Légale..."
                                     />
-                                    <datalist id="franchise-list-warning">
-                                        {(franchises || []).map((f, idx) => <option key={idx} value={f} />)}
-                                    </datalist>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-orange-800 mb-1">Pertes indirectes</label>
@@ -601,6 +602,16 @@ const GlobalValidationModal = () => {
                                                                 </div>
                                                             )}
                                                         </>
+                                                    ) : key === 'franchise' ? (
+                                                        <ComboboxField
+                                                            value={aiVal}
+                                                            onChange={(v) => updateFormField(key, v)}
+                                                            options={[
+                                                                ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
+                                                                ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
+                                                            ]}
+                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none"
+                                                        />
                                                     ) : (
                                                         <input type={key.startsWith('date') ? 'date' : 'text'} value={aiVal}
                                                             onClick={(e) => e.stopPropagation()}
