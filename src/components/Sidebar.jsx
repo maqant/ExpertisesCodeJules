@@ -285,6 +285,7 @@ const Sidebar = () => {
 
     // v7.0.1 - Capture de la cause sans dépendance circulaire
     const causeRef = useRef(formData?.cause || '');
+    const aiBackgroundRunningRef = useRef(false);
     useEffect(() => {
         causeRef.current = formData?.cause || '';
     }, [formData?.cause]);
@@ -451,10 +452,11 @@ const Sidebar = () => {
     // v7.0.0 - Smart Bridge : analyse TOUS les fichiers d'un coup
     // Fix étanchéité : on lit la cause DEPUIS ZUSTAND directement (synchrone, pas de closure stale)
     // Quand ignoreContext=true (nouveau dossier), on garantit un contexte vide.
-    const triggerSmartBridgeAnalysis = async (filesArray, ignoreContext = false) => {
+    const triggerSmartBridgeAnalysis = async (filesArray, ignoreContext = false, silent = false) => {
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         if (allFiles.length === 0) return;
-        setIsAiDossierLoading(true);
+        if (!silent) setIsAiDossierLoading(true);
+        aiBackgroundRunningRef.current = true;
         if (typeof clearDebugLogs === 'function') clearDebugLogs();
 
         // v7.0.1 - Lire la cause depuis la Ref MAINTENANT (synchrone), pas depuis la closure React
@@ -507,7 +509,7 @@ const Sidebar = () => {
                     ...allFiles.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
 
-                const currentOverrides = brioOverridesRef.current;
+                const currentOverrides = brioOverridesRef.current || {};
                 setPendingAiData({
                     formData: { ...(aiData.formData || {}), ...currentOverrides },
                     occupants,
@@ -527,13 +529,16 @@ const Sidebar = () => {
                     console.log(`[Context Vault] +${newContexts.length} contexte(s) via SmartBridge`);
                 }
             } else {
-                alert("Erreur IA : " + (result.error || "Impossible d'extraire les données."));
+                alert("Erreur lors de l'analyse IA : " + result.error);
+                setPendingAiData(null);
             }
-        } catch (err) {
-            console.error("[SmartBridge] Erreur:", err);
-            alert("Erreur : " + err.message);
+        } catch (error) {
+            console.error("Critical error in ingestion:", error);
+            alert("Erreur critique lors de l'ingestion.");
+            setPendingAiData(null);
         } finally {
             setIsAiDossierLoading(false);
+            aiBackgroundRunningRef.current = false;
             setAiStatus('idle');
             // v6.1.1 - Vider la file du Smart Bridge après analyse
             setBridgeFiles([]);
@@ -2540,6 +2545,8 @@ TON OBJECTIF :
                 const created = handleNewDossier();
                 if (!created) return;
                 setIngestionStep(INGESTION_STEPS.BRIO);
+                // Launch analysis silently in background while user fills Brio!
+                triggerSmartBridgeAnalysis(flowFiles, false, true);
             }}
         />
 
@@ -2559,8 +2566,22 @@ TON OBJECTIF :
                 setBrioOverrides(brioOverridesToSet);
                 brioOverridesRef.current = brioOverridesToSet;
                 
-                // Déclencher l'analyse globale AVEC le bon dossier !
-                triggerSmartBridgeAnalysis(flowFiles);
+                // If analysis finished early, pendingAiData is already set, so we merge overrides directly
+                setPendingAiData(prev => {
+                    if (prev) {
+                        return {
+                            ...prev,
+                            formData: { ...(prev.formData || {}), ...brioOverridesToSet }
+                        };
+                    }
+                    return prev;
+                });
+                
+                // If analysis is still running in background, show the loader now that we leave Brio Modal
+                if (aiBackgroundRunningRef.current) {
+                    setIsAiDossierLoading(true);
+                }
+                
                 setIngestionStep(INGESTION_STEPS.GENERAL);
             }}
         />
