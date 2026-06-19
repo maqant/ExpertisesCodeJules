@@ -3,6 +3,18 @@ import { convertTextToPdfBytes } from './pdfConverter.js';
 
 // Fonction utilitaire pour lire les premiers octets
 const readMagicBytes = async (file, byteCount = 4) => {
+    // Contrat strict : doit exposer slice() + arrayBuffer() (interface Blob)
+    if (
+        !file ||
+        typeof file.slice !== 'function' ||
+        typeof file.arrayBuffer !== 'function'
+    ) {
+        throw new Error(
+            "[filePreprocessor] readMagicBytes a reçu une entrée non binaire " +
+            "(attendu: Blob/File). Vérifiez le typage en amont du pipeline d'ingestion."
+        );
+    }
+
     const slice = file.slice(0, byteCount);
     const buffer = await slice.arrayBuffer();
     const bytes = new Uint8Array(buffer);
@@ -19,6 +31,15 @@ const readMagicBytes = async (file, byteCount = 4) => {
  */
 export const processIngestedFile = async (file) => {
     if (!file) return file;
+
+    // --- GARDE PRIMAIRE : texte brut, pas un fichier ---
+    // Une string collée n'a ni magic bytes ni format à valider.
+    // Elle traverse le pré-traitement sans transformation.
+    if (typeof file === 'string') {
+        console.log('[filePreprocessor] Entrée texte brut détectée — bypass du scan binaire.');
+        return file;
+    }
+
     const name = file.name || '';
     const nameLower = name.toLowerCase();
 
