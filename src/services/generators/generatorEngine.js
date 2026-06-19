@@ -190,7 +190,8 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
         .replace(/{{demande_plainte}}/g, demandePlainte)
         .replace(/{{demande_pv}}/g, demandePv)
         .replace(/{{demandes_parties}}/g, demandesPartiesStr)
-        .replace(/{{salutation}}/g, formSelections.salutation || 'Bonjour,');
+        .replace(/\{\{salutation\}\}/g, formSelections.salutation || 'Bonjour,')
+        .replace(/\(\(salutation\)\)/g, formSelections.salutation || 'Bonjour,');
 
     const callApi = async () => {
         const configStr = localStorage.getItem('expertise_aiConfig_v3');
@@ -330,8 +331,9 @@ export const draftMagicEmail = async (instruction, salutation, apiKey) => {
 
     const { getPrompt } = usePromptStore.getState();
     const masterPrompt = getPrompt('prompt_email_master')
-        .replace('{{instruction}}', instruction.trim())
-        .replace('{{salutation}}', salutation || 'Bonjour,');
+        .replace(/\{\{instruction\}\}/g, instruction.trim())
+        .replace(/\{\{salutation\}\}/g, salutation || 'Bonjour,')
+        .replace(/\(\(salutation\)\)/g, salutation || 'Bonjour,');
 
     const callApi = async () => {
         const configStr = localStorage.getItem('expertise_aiConfig_v3');

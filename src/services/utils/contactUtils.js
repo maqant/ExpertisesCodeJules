@@ -27,6 +27,30 @@ const resolveCivility = (party) => {
 };
 
 /**
+ * Découpe une chaîne brute ("Dominique Jordan", "Jean-Pierre De La Tour")
+ * en { firstName, lastName }. Heuristique déterministe SANS deviner le genre.
+ * Règle: dernier token = nom de famille (les particules nl/de/van sont rattachées au nom de famille).
+ */
+export const parseFullName = (rawName) => {
+  if (typeof rawName !== 'string') return { firstName: '', lastName: '' };
+  const tokens = rawName.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return { firstName: '', lastName: '' };
+  if (tokens.length === 1) return { firstName: '', lastName: tokens[0] };
+
+  const PARTICLES = new Set(['de', 'du', 'des', 'van', 'von', 'le', 'la', 'el', "d'", 'da', 'di']);
+  let i = tokens.length - 1;
+  const lastParts = [tokens[i]];
+  i -= 1;
+  while (i >= 0 && PARTICLES.has(tokens[i].toLowerCase().replace(/'$/, "'"))) {
+    lastParts.unshift(tokens[i]);
+    i -= 1;
+  }
+  const lastName = lastParts.join(' ');
+  const firstName = tokens.slice(0, i + 1).join(' ');
+  return { firstName, lastName };
+};
+
+/**
  * Construit une partie normalisée à partir d'un objet occupant OU intervenant.
  * @param {object} raw
  * @param {string} origin - 'occupant' | 'intervenant'
@@ -36,8 +60,15 @@ const toContact = (raw, origin) => {
   const email = normalizeEmail(raw?.email);
   if (!email) return null;
 
-  const nom = (raw?.nom ?? '').trim();
-  const prenom = (raw?.prenom ?? '').trim();
+  let nom = (raw?.nom ?? '').trim();
+  let prenom = (raw?.prenom ?? '').trim();
+  
+  if (nom && !prenom && nom.includes(' ')) {
+      const parsed = parseFullName(nom);
+      nom = parsed.lastName;
+      prenom = parsed.firstName;
+  }
+
   const fullName = [prenom, nom].filter(Boolean).join(' ').trim();
 
   return {
@@ -103,12 +134,18 @@ export const buildSalutation = (contacts = []) => {
   if (list.length === 0) return 'Bonjour,';
 
   const parts = list.map((c) => {
+    const rawLastName = c.nom || c.displayName;
+    const lastName = rawLastName.includes(' ') ? parseFullName(rawLastName).lastName : rawLastName;
+    
     if (c.civility) {
-      // "Madame Dupont" — on privilégie le nom de famille pour le formalisme
-      const last = c.nom || c.displayName;
-      return `${c.civility} ${last}`.trim();
+      return `${c.civility} ${lastName}`.trim();
     }
-    return c.displayName; // fallback neutre maîtrisé
+    
+    if (lastName && lastName !== c.email) {
+      return `Monsieur/Madame ${lastName}`.trim();
+    }
+    
+    return c.displayName; // fallback neutre extrême
   });
 
   return `Bonjour ${parts.join(', ')},`;

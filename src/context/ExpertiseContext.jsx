@@ -433,6 +433,7 @@ export const ExpertiseProvider = ({ children }) => {
       setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
       setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
       setCauseTimeline([]);
+      setIntervenantsList([]);
       setRawContexts([]); // v6.0.0 - Context Vault
   };
 
