@@ -1,3 +1,8 @@
+/**
+ * [DÉSACTIVÉ UI - 2026-06-19] Composant retiré de la Sidebar à la demande métier.
+ * Conservé pour réintégration future éventuelle.
+ * Mécanique d'ingestion (SmartBridge / SAS IA / store) NON impactée.
+ */
 import React, { useEffect, useState } from 'react';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { FileText, Image as ImageIcon, File, Trash2, Eye } from 'lucide-react';
