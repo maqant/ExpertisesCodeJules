@@ -1,18 +1,21 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { useCombobox } from './useCombobox';
+import { usePortalPosition } from './usePortalPosition';
 
 /**
- * Champ hybride : saisie libre + sélection dans une liste.
- * Headless sur la donnée : ne sait rien de "franchise", il manipule
- * des { id, label }. Réutilisable pour tout champ standardisable.
+ * Champ combobox critique (ex. franchise).
+ * - Liste rendue dans un Portal => jamais coupée par overflow de modale.
+ * - activeIndex clampé en interne => aucune valeur fantôme commitée.
  *
- * @param {Object}   props
- * @param {string}   props.value
- * @param {(v: string) => void} props.onChange     Renvoie la valeur (brute pendant la frappe).
- * @param {(v: string) => void} [props.onCommit]   Renvoie la valeur normalisée (blur / sélection).
- * @param {Array<{id: string, label: string}>} props.options
- * @param {boolean}  [props.openOnEmpty=true]      Ouvre la liste quand le champ est vidé.
- * @param {string}   [props.className]
- * @param {string}   [props.placeholder]
+ * @param {Object} props
+ * @param {string} props.value
+ * @param {(v:string)=>void} props.onChange  édition libre
+ * @param {(v:string)=>void} props.onCommit  validation finale (blur / select / Enter)
+ * @param {Array<{id:string,label:string}>} props.options
+ * @param {boolean} props.openOnEmpty
+ * @param {string} props.className
+ * @param {string} props.placeholder
  */
 export default function ComboboxField({
   value = '',
@@ -23,95 +26,96 @@ export default function ComboboxField({
   className = '',
   placeholder = '',
 }) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   const rootRef = useRef(null);
+  const inputRef = useRef(null);
   const listId = useId();
 
-  // Filtrage + dédoublonnage par label (les options dynamiques peuvent dupliquer).
-  const query = (value || '').toLowerCase();
-  const filtered = options
-    .filter((o, i, arr) => arr.findIndex((x) => x.label === o.label) === i)
-    .filter((o) => o.label.toLowerCase().includes(query));
+  const {
+    open, setOpen, activeIndex, setActiveIndex,
+    filtered, move, reset, getActiveOption, shouldOpenOnEmpty,
+  } = useCombobox({ value, options, openOnEmpty });
 
-  // Fermeture au clic extérieur.
+  const coords = usePortalPosition(rootRef, open);
+
+  const commit = useCallback((raw) => { onCommit?.(raw); reset(); }, [onCommit, reset]);
+  const select = useCallback((label) => { onChange?.(label); commit(label); }, [onChange, commit]);
+
+  // Fermeture au clic extérieur (input + portal).
   useEffect(() => {
     if (!open) return undefined;
     const handler = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+      const inRoot = rootRef.current?.contains(e.target);
+      const listEl = document.getElementById(listId);
+      const inList = listEl?.contains(e.target);
+      if (!inRoot && !inList) { commit(value); }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  const commit = (raw) => {
-    onCommit?.(raw);
-    setOpen(false);
-    setActiveIndex(-1);
-  };
-
-  const select = (label) => {
-    onChange?.(label);
-    commit(label);
-  };
+  }, [open, listId, value, commit]);
 
   const handleChange = (e) => {
     const next = e.target.value;
     onChange?.(next);
-    // Exigence métier : ouverture automatique au vidage.
-    if (next.trim() === '' && openOnEmpty) setOpen(true);
+    if (next.trim() === '' && !shouldOpenOnEmpty) setOpen(false);
     else setOpen(true);
   };
 
   const handleKeyDown = (e) => {
-    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      setOpen(true);
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && activeIndex >= 0) {
-      e.preventDefault();
-      select(filtered[activeIndex].label);
-    } else if (e.key === 'Escape') {
-      setOpen(false);
+    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { setOpen(true); return; }
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); move(1); break;
+      case 'ArrowUp':   e.preventDefault(); move(-1); break;
+      case 'Enter': {
+        const opt = getActiveOption();
+        if (opt) { e.preventDefault(); select(opt.label); }
+        else { e.preventDefault(); commit(value); }
+        break;
+      }
+      case 'Escape': e.preventDefault(); setOpen(false); break;
+      default: break;
     }
   };
 
   return (
     <div ref={rootRef} className="relative w-full">
       <input
+        ref={inputRef}
         type="text"
         role="combobox"
         aria-expanded={open}
         aria-controls={listId}
+        aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
         aria-autocomplete="list"
         value={value}
         placeholder={placeholder}
         onChange={handleChange}
         onFocus={() => setOpen(true)}
-        onBlur={() => commit(value)}
         onKeyDown={handleKeyDown}
         className={className}
       />
 
-      {open && filtered.length > 0 && (
+      {open && filtered.length > 0 && coords && createPortal(
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-[1000] mt-1 w-full max-h-48 overflow-auto rounded border border-slate-600 bg-slate-800 shadow-lg"
+          style={{
+            position: 'fixed', // relative to viewport
+            left: coords.left,
+            width: coords.width,
+            top: coords.top,
+            bottom: coords.bottom,
+            maxHeight: coords.maxHeight,
+          }}
+          className="z-[10000] overflow-auto rounded border border-slate-500 bg-slate-800 shadow-xl backdrop-blur-md"
         >
           {filtered.map((o, idx) => (
             <li
               key={o.id}
               role="option"
+              id={`${listId}-opt-${idx}`}
               aria-selected={idx === activeIndex}
               onMouseDown={(e) => {
-                e.preventDefault();
+                e.preventDefault(); // évite de voler le focus de l'input
                 select(o.label);
               }}
               onMouseEnter={() => setActiveIndex(idx)}
@@ -124,7 +128,8 @@ export default function ComboboxField({
               {o.label}
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
