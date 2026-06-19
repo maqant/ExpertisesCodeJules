@@ -3,7 +3,8 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { generateAcknowledgmentEmail, analyzeNarrativeCause, runArFinisher, draftMagicEmail, modifyDraftEmail } from '../../services/generators/generatorEngine';
 import { evaluateClaims } from '../../domain/claims/claimEngine';
-import { extractEmailsForOutlook } from '../../services/utils/contactUtils';
+import { useRecipientSelection } from '../../hooks/useRecipientSelection';
+import RecipientSelector from '../common/RecipientSelector';
 import {
     X, Mail, Check, CopyPlus, Loader2, AlertTriangle, FileText, User, Sparkles, Wand2, Minus, Plus, Snowflake, Flame
 } from 'lucide-react';
@@ -11,6 +12,13 @@ import EmailPreview from '../shared/EmailPreview';
 
 const AcknowledgmentModal = ({ isOpen, onClose }) => {
     const { formData, occupants, expenses, aiConfig, isAiModeActive } = useContext(ExpertiseContext);
+
+    // Initialisation du hook de sélection des destinataires
+    const recipientState = useRecipientSelection({
+        occupants,
+        intervenants: formData?.intervenants || [],
+        defaultAllSelected: true
+    });
 
     // Mode
     const [mode, setMode] = useState('structured'); // 'structured' | 'free'
@@ -184,6 +192,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                 askPerteContenu: dossierClaimsState['PERTE_CONTENU'] || false,
                 askPlainte: dossierClaimsState['PLAINTE'] || false,
                 partiesGaps,
+                salutation: recipientState.salutation,
             };
 
             // Génération mail structuré
@@ -220,7 +229,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
         setIsFreeLoading(true);
         setError(null);
         try {
-            const html = await draftMagicEmail(freeInstruction, aiConfig.apiKey);
+            const html = await draftMagicEmail(freeInstruction, recipientState.salutation, aiConfig.apiKey);
             setFreeHtml(html);
         } catch (err) {
             console.error('Erreur draftMagicEmail:', err);
@@ -250,8 +259,8 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
     };
 
     const handleCopyEmails = () => {
-        const emails = extractEmailsForOutlook(occupants);
-        if (!emails) { alert('Aucune adresse e-mail trouvée dans les occupants du dossier.'); return; }
+        const emails = recipientState.emailsString;
+        if (!emails) { alert('Aucune adresse e-mail trouvée/sélectionnée.'); return; }
         navigator.clipboard.writeText(emails)
             .then(() => { setEmailsCopied(true); setTimeout(() => setEmailsCopied(false), 2000); });
     };
@@ -330,15 +339,19 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                         </div>
                     )}
 
-                    <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
-                        <p className="text-sm text-indigo-800">Cochez les éléments que vous souhaitez explicitement réclamer dans l'email.</p>
-                        <button
-                            onClick={handleCopyEmails}
-                            className="flex items-center gap-1.5 text-xs font-medium bg-white border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-50 transition-colors shadow-sm"
-                        >
-                            {emailsCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <CopyPlus className="w-4 h-4" />}
-                            {emailsCopied ? 'Copié !' : 'Copier les e-mails'}
-                        </button>
+                    <div className="flex flex-col gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm text-indigo-800">Cochez les éléments que vous souhaitez explicitement réclamer dans l'email.</p>
+                            <button
+                                onClick={handleCopyEmails}
+                                disabled={!recipientState.emailsString}
+                                className="flex items-center gap-1.5 text-xs font-medium bg-white border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-50 transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {emailsCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <CopyPlus className="w-4 h-4" />}
+                                {emailsCopied ? 'Copié !' : 'Copier les e-mails'}
+                            </button>
+                        </div>
+                        <RecipientSelector recipientState={recipientState} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-8">
