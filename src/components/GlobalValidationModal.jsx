@@ -644,9 +644,7 @@ const GlobalValidationModal = () => {
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
                                                         <FieldDiffIndicator 
                                                             diff={diff} 
-                                                            onAccept={(val) => {
-                                                                if (!selectedFormFields.has(key)) toggleFormField(key);
-                                                            }} 
+                                                            mode="inline"
                                                         />
                                                     </div>
                                                     {key === 'numPolice' && <MiniAttachmentUI docId="doc_cond_part" title="Cond. Particulières" />}
@@ -721,6 +719,13 @@ const GlobalValidationModal = () => {
                                                         </div>
                                                     )}
                                                 </div>
+                                                <FieldDiffIndicator 
+                                                    diff={diff} 
+                                                    mode="block"
+                                                    onAccept={(val) => {
+                                                        if (!selectedFormFields.has(key)) toggleFormField(key);
+                                                    }} 
+                                                />
                                             </div>
                                         </div>
                                     );

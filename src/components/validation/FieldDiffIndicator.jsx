@@ -11,14 +11,15 @@ import { Sparkles, AlertCircle, ArrowRightLeft } from 'lucide-react';
  * @param {{status:string, aiValue:unknown, currentValue:unknown}|null} props.diff
  * @param {(value:unknown)=>void} props.onAccept - appelé avec aiValue si l'utilisateur accepte
  * @param {(value:unknown)=>string} [props.formatValue] - formatage d'affichage
+ * @param {'inline'|'block'} [props.mode] - 'inline' affiche le badge NEW, 'block' affiche le bandeau CONFLICT
  */
-export default function FieldDiffIndicator({ diff, onAccept, formatValue }) {
+export default function FieldDiffIndicator({ diff, onAccept, formatValue, mode = 'inline' }) {
   if (!diff) return null;
 
   const display = (v) =>
     typeof formatValue === 'function' ? formatValue(v) : String(v ?? '');
 
-  if (diff.status === FieldStatus.NEW) {
+  if (diff.status === FieldStatus.NEW && mode === 'inline') {
     return (
       <span
         role="status"
@@ -31,9 +32,9 @@ export default function FieldDiffIndicator({ diff, onAccept, formatValue }) {
     );
   }
 
-  if (diff.status === FieldStatus.CONFLICT) {
+  if (diff.status === FieldStatus.CONFLICT && mode === 'block') {
     return (
-      <div className="mt-1.5 mb-2 bg-amber-500/10 border border-amber-500/30 rounded-md p-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
+      <div className="mt-2 mb-2 bg-amber-500/10 border border-amber-500/30 rounded-md p-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
         <div className="flex items-start gap-2 flex-1">
           <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div className="text-xs text-amber-200">
