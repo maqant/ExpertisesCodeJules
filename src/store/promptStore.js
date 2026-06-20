@@ -108,6 +108,10 @@ v8.1.0 - RÈGLE EXPERT CLIENT (CONTRE-EXPERT) (CRITIQUE) :
 - Ne confondez jamais l'expert client/contre-expert avec l'expert principal de la compagnie ou les employés du Bureau Péchard.
 - Si \`contreExpert\` est \`true\`, renseignez le nom de cet expert dans \`nomContreExpert\` (uniquement le NOM en majuscules, ex: "GALTIER").
 
+v8.3.0 - RÈGLE DU PROPRIÉTAIRE LIÉ (CRITIQUE) :
+- Pour chaque occupant de statut "Locataire", si un document mentionne explicitement le bailleur/propriétaire (bail, quittance, courrier), renseigne \`proprietaireLie\` avec son nom (et prénom si disponible) EXACTEMENT tel qu'écrit.
+- N'invente jamais ce lien et ne le déduis pas par recoupement entre documents. Si aucune mention explicite, laisse \`proprietaireLie.nom\` à \`null\`.
+
 Voici le format EXACT attendu, avec tous les champs présents :
 {
   "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
@@ -115,7 +119,8 @@ Voici le format EXACT attendu, avec tous les champs présents :
   "occupants": [
     {
       "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
-      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false, "nomContreExpert": null
+      "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false, "nomContreExpert": null,
+      "proprietaireLie": { "nom": null, "prenom": null, "source": null }
     }
   ],
   "intervenants": [

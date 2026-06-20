@@ -70,9 +70,42 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
             const parsedData = JSON.parse(data.choices[0].message.content);
 
+            const buildOccupantId = (occ) => {
+                const seed = [occ.nom, occ.prenom, occ.etage, occ.statut]
+                  .map((v) => (v ?? '').toString().trim().toLowerCase())
+                  .join('|');
+              
+                if (seed.replace(/\|/g, '') === '') return crypto.randomUUID();
+              
+                let h = 5381;
+                for (let i = 0; i < seed.length; i++) h = (h * 33) ^ seed.charCodeAt(i);
+                return `occ_${(h >>> 0).toString(16)}`;
+            };
+
+            const normalizeOccupant = (raw) => {
+                if (!raw || typeof raw !== 'object') return null;
+              
+                const link = raw.proprietaireLie && typeof raw.proprietaireLie === 'object'
+                  ? {
+                      nom: raw.proprietaireLie.nom ?? null,
+                      prenom: raw.proprietaireLie.prenom ?? null,
+                      source: raw.proprietaireLie.source ?? null,
+                    }
+                  : { nom: null, prenom: null, source: null };
+              
+                const occ = {
+                  ...raw,
+                  proprietaireLie: link,
+                  linkedProprietaireId: raw.linkedProprietaireId ?? null,
+                };
+              
+                occ.id = occ.id ?? buildOccupantId(occ);
+                return occ;
+            };
+
             // Ajout UUID pour chaque occupant et intervenant
             if (parsedData.occupants && Array.isArray(parsedData.occupants)) {
-                parsedData.occupants = parsedData.occupants.map(occ => ({ ...occ, id: crypto.randomUUID() }));
+                parsedData.occupants = parsedData.occupants.map(normalizeOccupant).filter(Boolean);
             }
             if (parsedData.intervenants && Array.isArray(parsedData.intervenants)) {
                 parsedData.intervenants = parsedData.intervenants.map(inter => ({ ...inter, id: crypto.randomUUID() }));

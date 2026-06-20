@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { resolveLinks } from '../services/resolution/linkResolver.js';
 
 // Utilitaire pour la génération d'ID sécurisée
 const generateId = () => crypto.randomUUID();
@@ -109,29 +110,27 @@ export const useFinanceStore = create((set, get) => ({
   addOccupant: (occupant) => set((state) => {
     const id = occupant.id || generateId();
     const formattedOcc = { ...occupant, nom: occupant.nom ? String(occupant.nom).toUpperCase() : '' };
-    return { pii: { ...state.pii, occupants: [...state.pii.occupants, { id, ...formattedOcc }] } };
+    return { pii: { ...state.pii, occupants: resolveLinks([...state.pii.occupants, { id, ...formattedOcc }]) } };
   }),
-  updateOccupant: (id, occupantData) => set((state) => ({
-    pii: {
-      ...state.pii,
-      occupants: state.pii.occupants.map(o => {
+  updateOccupant: (id, occupantData) => set((state) => {
+      const newOccupants = state.pii.occupants.map(o => {
           if (o.id === id) {
               const updated = { ...o, ...occupantData };
               if (updated.nom) updated.nom = String(updated.nom).toUpperCase();
               return updated;
           }
           return o;
-      })
-    }
-  })),
-  removeOccupant: (id) => set((state) => ({
-    pii: {
-      ...state.pii,
-      occupants: state.pii.occupants.filter(o => o.id !== id)
-    }
-  })),
+      });
+      return { pii: { ...state.pii, occupants: resolveLinks(newOccupants) } };
+  }),
+  removeOccupant: (id) => set((state) => {
+    const filtered = state.pii.occupants.filter(o => o.id !== id);
+    // On retire aussi les liens pointant vers l'occupant supprimé
+    const cleaned = filtered.map(o => o.linkedProprietaireId === id ? { ...o, linkedProprietaireId: null } : o);
+    return { pii: { ...state.pii, occupants: resolveLinks(cleaned) } };
+  }),
   setOccupants: (occupantsList) => set((state) => ({
-    pii: { ...state.pii, occupants: occupantsList }
+    pii: { ...state.pii, occupants: resolveLinks(occupantsList) }
   })),
 
   // --- Frais (Métier) ---
