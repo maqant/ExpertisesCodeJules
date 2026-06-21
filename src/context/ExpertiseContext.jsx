@@ -12,8 +12,7 @@ import { useDossiersStore } from '../hooks/useDossiersStore';
 import { ConflictError } from '../services/storage/dossierStorage';
 import ConflictModal from '../components/shared/ConflictModal';
 import { subscribeToDossierUpdates } from '../services/utils/tabSync';
-import { acquireLock, startHeartbeat, releaseLock, readLock, isLockStale } from '../services/utils/tabLock';
-import DossierLockModal from '../components/validation/DossierLockModal';
+
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 import { removeBlobs } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
@@ -171,15 +170,7 @@ export const ExpertiseProvider = ({ children }) => {
 
   // v6.3.3 - Historique des Logs
   const [logHistory, setLogHistory] = useState([]);
-  const [lockStatus, setLockStatus] = useState('idle');
-  const [lockInfo, setLockInfo] = useState(null);
-  const heartbeatCleanerRef = useRef(null);
 
-  useEffect(() => {
-      return () => {
-          if (heartbeatCleanerRef.current) heartbeatCleanerRef.current();
-      };
-  }, []);
 
   // Écoute des mises à jour inter-onglets (pour avertir l'utilisateur)
   useEffect(() => {
@@ -503,10 +494,6 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const saveDossier = async () => {
-      if (lockStatus === 'readonly' || lockStatus === 'blocked') {
-          alert("Mode lecture seule actif. Vous ne pouvez pas sauvegarder ce dossier.");
-          return;
-      }
       let name = formData.refPechard || formData.nomResidence || `Expertise_${new Date().toLocaleDateString()}`;
       if (!currentDossierId) {
           name = window.prompt("Nom de ce dossier (ex: Nom, Ref) ?", name);
@@ -574,21 +561,6 @@ export const ExpertiseProvider = ({ children }) => {
   };
 
   const loadDossier = async (dossier) => {
-      if (heartbeatCleanerRef.current) {
-          heartbeatCleanerRef.current();
-          heartbeatCleanerRef.current = null;
-      }
-      setLockStatus('idle');
-      
-      const lockAcquired = await acquireLock(dossier.id);
-      if (!lockAcquired) {
-          const info = readLock(dossier.id);
-          setLockInfo(info);
-          setLockStatus('blocked');
-      } else {
-          setLockStatus('owner');
-          heartbeatCleanerRef.current = startHeartbeat(dossier.id);
-      }
 
       setTelemetrySessionId(crypto.randomUUID());
       setCurrentVersion(dossier.version || 0);
@@ -1878,7 +1850,6 @@ Voici le format JSON :
       
       const timer = setTimeout(() => {
           if (!currentDossierId || !isLoaded) return;
-          if (lockStatus === 'readonly' || lockStatus === 'blocked') return;
           setSaveStatus('saving');
           
           let targetId = currentDossierId;
@@ -2007,19 +1978,6 @@ Voici le format JSON :
               isOpen={showConflictModal} 
               onReload={handleConflictReload} 
               onOverwrite={handleConflictOverwrite} 
-          />
-          <DossierLockModal
-              isOpen={lockStatus === 'blocked'}
-              isStale={isLockStale(lockInfo)}
-              onRetry={() => {
-                  window.location.reload();
-              }}
-              onReadOnly={() => setLockStatus('readonly')}
-              onForceEdit={() => {
-                  setLockStatus('owner');
-                  heartbeatCleanerRef.current = startHeartbeat(currentDossierId);
-              }}
-          />
       </ExpertiseContext.Provider>
   );
 };
