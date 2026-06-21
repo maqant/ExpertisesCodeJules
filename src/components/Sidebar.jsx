@@ -30,6 +30,7 @@ import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
 import BulkProgressToast from './ui/BulkProgressToast.jsx';
 import { DeleteButton } from './ui/DeleteButton.jsx';
 import { ATTACHMENT_TYPES } from '../services/attachmentRegistry.js';
+import ReferenceManagerPanel from './settings/ReferenceManagerPanel.jsx';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, deleteAttachment, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -1144,7 +1145,10 @@ const Sidebar = () => {
                             </div>
                         </div>
 
-                        {/* 6. SAUVEGARDE GLOBALE */}
+                        {/* 6. GESTION DES RÉFÉRENTIELS (EXPORTS/IMPORTS) */}
+                        <ReferenceManagerPanel />
+
+                        {/* 7. SAUVEGARDE GLOBALE */}
                         <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
                             <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
                             <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>

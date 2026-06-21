@@ -17,6 +17,8 @@ import DossierLockModal from '../components/validation/DossierLockModal';
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 import { removeBlobs } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
+import { safeRead, safeWrite, STORAGE_KEYS } from '../services/storage/referenceStorage';
+import { mergeExperts, mergeStringLists, buildExportPayload, parseImportPayload } from '../services/storage/referenceManager';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -387,44 +389,49 @@ export const ExpertiseProvider = ({ children }) => {
   }, [resize, stopResizing]);
 
   useEffect(() => {
-      const savedExperts = localStorage.getItem('expertise_experts_v2');
-      const savedFranchises = localStorage.getItem('expertise_franchises_v2');
-      const storedDossiers = localStorage.getItem('expertise_dossiers_v1');
-      const savedPrestataires = localStorage.getItem('expertise_prestataires_v1');
-      if (savedPrestataires) setPrestatairesList(JSON.parse(savedPrestataires));
-
-      const parsedExperts = savedExperts ? JSON.parse(savedExperts) : [];
-      const parsedFranchises = savedFranchises ? JSON.parse(savedFranchises) : [];
+      const savedExperts = safeRead(STORAGE_KEYS.EXPERTS, []);
+      const savedFranchises = safeRead(STORAGE_KEYS.FRANCHISES, []);
+      const savedPrestataires = safeRead(STORAGE_KEYS.PRESTATAIRES, []);
+      if (savedPrestataires && savedPrestataires.length > 0) setPrestatairesList(savedPrestataires);
 
       const mergedExpertsMap = new Map();
-
-      parsedExperts.forEach((exp) => {
-          const key = normalizeExpertKey(exp.nom) || normalizeExpertKey(exp.tel);
+      savedExperts.forEach((exp) => {
+          if (!exp) return;
+          const key = (exp.nom || '').trim().toLowerCase() || (exp.tel || '').trim().toLowerCase();
           if (!key) return;
-          mergedExpertsMap.set(key, {
-              nom: exp.nom || '',
-              tel: exp.tel || ''
-          });
+          mergedExpertsMap.set(key, { nom: exp.nom || '', tel: exp.tel || '' });
       });
 
       setExpertsList(Array.from(mergedExpertsMap.values()));
-
-      setFranchises(
-          Array.from(
-              new Set([
-                  ...(Array.isArray(parsedFranchises) ? parsedFranchises : []),
-                  ...BUILTIN_FRANCHISES
-              ])
-          )
-      );
-
-      // L'initialisation est gérée par useDossiersStore
+      setFranchises(Array.from(new Set([...savedFranchises, ...BUILTIN_FRANCHISES])));
   }, []);
 
   useEffect(() => {
-      localStorage.setItem('expertise_experts_v2', JSON.stringify(expertsList));
-      localStorage.setItem('expertise_franchises_v2', JSON.stringify(franchises));
+      safeWrite(STORAGE_KEYS.EXPERTS, expertsList);
+      safeWrite(STORAGE_KEYS.FRANCHISES, franchises);
   }, [expertsList, franchises]);
+
+  useEffect(() => {
+      safeWrite(STORAGE_KEYS.PRESTATAIRES, prestatairesList);
+  }, [prestatairesList]);
+
+  const exportReferenceData = () => {
+      const payload = buildExportPayload({ experts: expertsList, franchises, prestataires: prestatairesList });
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `expertises_references_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchorNode); // required for firefox
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+  };
+
+  const importReferenceData = (jsonString) => {
+      const data = parseImportPayload(jsonString);
+      setExpertsList(prev => mergeExperts(prev, data.experts));
+      setFranchises(prev => mergeStringLists(prev, data.franchises));
+      setPrestatairesList(prev => mergeStringLists(prev, data.prestataires));
+  };
 
   const performReset = () => {
       setTelemetrySessionId(crypto.randomUUID());
@@ -670,7 +677,6 @@ export const ExpertiseProvider = ({ children }) => {
       setPrestatairesList(prev => {
           if (prev.includes(trimmed)) return prev;
           const next = [...prev, trimmed].sort((a, b) => a.localeCompare(b));
-          localStorage.setItem('expertise_prestataires_v1', JSON.stringify(next));
           return next;
       });
   };
@@ -1973,7 +1979,8 @@ Voici le format JSON :
       isDebugMode, toggleDebugMode, debugLogs, addDebugLog, clearDebugLogs, // v6.2.0
       logHistory, commitLogSession, clearLogHistory, // v6.3.3
       telemetry, exportTelemetryJson, clearTelemetryLogs,
-      deleteAttachment
+      deleteAttachment,
+      exportReferenceData, importReferenceData
   };
 
   const handleConflictOverwrite = async () => {
