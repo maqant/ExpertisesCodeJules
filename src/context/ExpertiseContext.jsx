@@ -1978,6 +1978,7 @@ Voici le format JSON :
               isOpen={showConflictModal} 
               onReload={handleConflictReload} 
               onOverwrite={handleConflictOverwrite} 
+          />
       </ExpertiseContext.Provider>
   );
 };
