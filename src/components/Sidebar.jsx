@@ -22,6 +22,8 @@ import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngest
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
+import { useSortedOccupants } from '../hooks/useSortedOccupants.js';
+import { getEligibleParents } from '../domain/occupantsHierarchy.js';
 import DropZone from './DropZone.jsx';
 import { processBulkMsg } from '../services/annex/bulkMsgQueue.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
@@ -224,6 +226,8 @@ const Sidebar = () => {
         telemetry: contextTelemetry,
         exportTelemetryJson
     } = context;
+
+    const sortedOccupants = useSortedOccupants(occupants);
 
     const extractFieldTelemetry = (target) => {
         if (target.dataset.telemetryId) {
@@ -1626,12 +1630,12 @@ Objectif :
                                         }} className="w-4 h-4 rounded border-slate-600 bg-slate-700" />
                                         <span>Mode avancé</span>
                                     </label>
-                                    <button onClick={sortOccupantsByFloor} className="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-[10px] text-indigo-300 border border-slate-600 transition-colors">🔄 Trier par étage</button>
                                 </div>
-                                {occupants.map((o, index) => {
+                                {sortedOccupants.map((o, index) => {
                                     const isExp = expandedOccId === o.id;
+                                    const depthClass = o._depth === 1 ? 'ml-6 border-l-2 border-indigo-500' : '';
                                     return (
-                                    <div key={o.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } draggedOccRef.current = index; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const src = draggedOccRef.current; if (src === null || src === index) return; const newOccs = [...occupants]; const item = newOccs.splice(src, 1)[0]; newOccs.splice(index, 0, item); setOccupants(newOccs); draggedOccRef.current = null; }} onDragEnd={() => { draggedOccRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${!isExp ? 'cursor-move' : ''}`} >
+                                    <div key={o.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } draggedOccRef.current = index; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const src = draggedOccRef.current; if (src === null || src === index) return; const newOccs = [...occupants]; const item = newOccs.splice(src, 1)[0]; newOccs.splice(index, 0, item); setOccupants(newOccs); draggedOccRef.current = null; }} onDragEnd={() => { draggedOccRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${depthClass} ${!isExp ? 'cursor-move' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeOcc(o.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
                                         {isExp && <button onClick={(e) => { e.stopPropagation(); setExpandedOccId(null); }} className="absolute top-1 right-8 text-indigo-300 text-[10px] z-10 hover:text-white">▲ Réduire</button>}
                                         {!isExp ? (
@@ -1640,9 +1644,20 @@ Objectif :
                                             <div className="mt-1 grid grid-cols-2 gap-2">
                                                 <div><label>Étage / Unité</label><input type="text" autoFocus value={o.etage} onChange={e=>updateOcc(o.id, 'etage', e.target.value)} className="input-field mb-0" /></div>
                                                 <div><label>Statut</label><select value={o.statut} onChange={e=>updateOcc(o.id, 'statut', e.target.value)} className="input-field mb-0"><option>Locataire</option><option>Propriétaire occupant</option><option>Propriétaire non occupant</option><option>Propriétaire (occupation inconnue)</option><option>ACP</option></select></div>
-                                                <div><label>Nom de famille</label><input type="text" value={o.nom} onChange={e=>updateOcc(o.id, 'nom', e.target.value.toUpperCase())} placeholder="BIRON" className="input-field mb-0 font-bold" /></div>
+                                                <div><label>Nom de famille</label><input type="text" value={o.nom} onChange={e=>updateOcc(o.id, 'nom', e.target.value)} placeholder="BIRON" className="input-field mb-0 font-bold" /></div>
                                                 <div><label>Prénom</label><input type="text" value={o.prenom || ''} onChange={e=>updateOcc(o.id, 'prenom', e.target.value)} placeholder="Jean" className="input-field mb-0" /></div>
                                                 <div className="col-span-2"><label>Téléphone</label><input type="text" value={o.tel} onChange={e=>updateOcc(o.id, 'tel', e.target.value)} className="input-field mb-0" /></div>
+                                                {o.statut === 'Locataire' && (
+                                                    <div className="col-span-2 mt-1">
+                                                        <label className="text-cyan-300 font-bold text-[10px]">Propriétaire lié (optionnel)</label>
+                                                        <select value={o.linkedProprietaireId || ''} onChange={e=>updateOcc(o.id, 'linkedProprietaireId', e.target.value)} className="input-field mb-0 border-cyan-500/50 bg-slate-800">
+                                                            <option value="">Aucun lien</option>
+                                                            {getEligibleParents(occupants, o.id).map(prop => (
+                                                                <option key={prop.id} value={prop.id}>{prop.etage ? prop.etage + ' - ' : ''}{prop.nom} {prop.prenom}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-slate-700">
                                                     <label className="flex items-center space-x-2 cursor-pointer text-red-400 text-[10px] font-bold" title="Désigner cette partie comme responsable du sinistre">
                                                         <input type="checkbox" checked={responsablesIds.includes(o.id)} onChange={() => toggleResponsable(o.id)} className="w-3 h-3 rounded bg-slate-700 border-red-500 text-red-500 focus:ring-red-500" />

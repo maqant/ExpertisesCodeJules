@@ -1,8 +1,6 @@
 import { create } from 'zustand';
-import { resolveLinks } from '../services/resolution/linkResolver.js';
-
-// Utilitaire pour la génération d'ID sécurisée
-const generateId = () => crypto.randomUUID();
+import { resolveLinks } from '../domain/occupantLinks.js';
+import { generateOccupantId, normalizeOccupant } from '../domain/occupantNormalizer.js';
 
 export const cleanAmount = (val) => {
     if (val === null || val === undefined || val === '') return 0;
@@ -108,16 +106,13 @@ export const useFinanceStore = create((set, get) => ({
 
   // --- Occupants (PII) ---
   addOccupant: (occupant) => set((state) => {
-    const id = occupant.id || generateId();
-    const formattedOcc = { ...occupant, nom: occupant.nom ? String(occupant.nom).toUpperCase() : '' };
-    return { pii: { ...state.pii, occupants: resolveLinks([...state.pii.occupants, { id, ...formattedOcc }]) } };
+    const formattedOcc = normalizeOccupant(occupant);
+    return { pii: { ...state.pii, occupants: resolveLinks([...state.pii.occupants, formattedOcc]) } };
   }),
   updateOccupant: (id, occupantData) => set((state) => {
       const newOccupants = state.pii.occupants.map(o => {
           if (o.id === id) {
-              const updated = { ...o, ...occupantData };
-              if (updated.nom) updated.nom = String(updated.nom).toUpperCase();
-              return updated;
+              return normalizeOccupant({ ...o, ...occupantData });
           }
           return o;
       });
@@ -135,7 +130,7 @@ export const useFinanceStore = create((set, get) => ({
 
   // --- Frais (Métier) ---
   addExpense: (expense) => set((state) => {
-    const id = expense.id || generateId();
+    const id = expense.id || generateOccupantId();
     // Phase 2.3.1 : Enrichissement du modèle
     // Si l'ancien système n'a que "montant", on le map sur montantReclame et montantValide (par défaut)
     const baseMontant = expense.montantReclame || expense.montant || "";
@@ -229,7 +224,7 @@ export const useFinanceStore = create((set, get) => ({
 
     // Supprimer tout ancien frais franchise existant avant d'en créer un nouveau
     const cleanedExpenses = state.metier.expenses.filter(e => !e.isFranchise);
-    const id = generateId();
+    const id = generateOccupantId();
     const franchiseExp = {
       id,
       prestataire: 'Franchise contractuelle',
@@ -265,7 +260,7 @@ export const useFinanceStore = create((set, get) => ({
     const franchiseExps = splitMap
       .filter(entry => entry.montant > 0)
       .map(entry => ({
-        id: generateId(),
+        id: generateOccupantId(),
         prestataire: 'Franchise contractuelle',
         type: 'Franchise',
         ref: '',
@@ -294,7 +289,7 @@ export const useFinanceStore = create((set, get) => ({
 
   // --- Paiements (Phase 3) ---
   addPaiement: (paiement) => set((state) => {
-    const id = paiement.id || generateId();
+    const id = paiement.id || generateOccupantId();
     return {
       metier: { ...state.metier, paiements: [...(state.metier.paiements || []), { id, ...paiement }] }
     };
