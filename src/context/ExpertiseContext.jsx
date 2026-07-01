@@ -784,7 +784,7 @@ export const ExpertiseProvider = ({ children }) => {
           } else if (finalType === 'application/pdf') {
               isPdf = true;
               try {
-                  const pdfDoc = await PDFDocument.load(arrayBuffer);
+                  const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
                   pages = pdfDoc.getPageCount();
               } catch (e) {
                   console.error("Non-fatal error reading PDF pages:", e);
@@ -845,7 +845,7 @@ export const ExpertiseProvider = ({ children }) => {
           await localforage.setItem(dbKey, arrayBuffer);
 
           if (isPdf) {
-              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
               const pages = pdfDoc.getPageCount();
               setAttachedPhotos(prev => {
                   const current = prev[occupantId] || [];
@@ -879,7 +879,7 @@ export const ExpertiseProvider = ({ children }) => {
 
           let pages = 1;
           if (isPdf) {
-              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
               pages = pdfDoc.getPageCount();
           }
           
@@ -1079,7 +1079,7 @@ export const ExpertiseProvider = ({ children }) => {
                   const bytes = await localforage.getItem(file.dbKey);
                   if (!bytes) return;
                   if (file.isPdf) {
-                      const pdf = await PDFDocument.load(bytes);
+                      const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
                       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                       copiedPages.forEach((page) => mergedPdf.addPage(page));
                   } else {
@@ -1174,7 +1174,7 @@ export const ExpertiseProvider = ({ children }) => {
                   const bytes = await localforage.getItem(file.dbKey);
                   if (!bytes) continue;
                   if (file.isPdf) {
-                      const pdf = await PDFDocument.load(bytes);
+                      const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
                       const copied = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                       copied.forEach(p => mergedPdf.addPage(p));
                   } else {
@@ -1342,7 +1342,7 @@ export const ExpertiseProvider = ({ children }) => {
                   const bytes = await localforage.getItem(file.dbKey);
                   if (!bytes) return;
                   if (file.isPdf) {
-                      const pdf = await PDFDocument.load(bytes);
+                      const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
                       const copied = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                       copied.forEach(p => mergedPdf.addPage(p));
                   } else {
