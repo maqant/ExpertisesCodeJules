@@ -5,6 +5,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
+import { extractValidAttachmentsFromMsg } from '../services/utils/msgUtils.js';
 import html2canvas from 'html2canvas';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
@@ -725,6 +726,22 @@ export const ExpertiseProvider = ({ children }) => {
 
   const handleAttachFile = async (expenseId, rawFile, expenseType = null) => {
       if (!rawFile) return;
+      
+      // Si c'est un fichier .msg et qu'il est déposé ailleurs que dans les emails de fixation/déclaration,
+      // on essaie d'extraire ses pièces jointes (PDF, images) pour les attacher directement.
+      if (rawFile.name && rawFile.name.toLowerCase().endsWith('.msg') && expenseId !== 'doc_mail_expertise' && expenseId !== 'doc_mail_declaration') {
+          try {
+              const { files: attachments } = await extractValidAttachmentsFromMsg(rawFile);
+              if (attachments && attachments.length > 0) {
+                  for (const att of attachments) {
+                      await handleAttachFile(expenseId, att, expenseType);
+                  }
+                  return;
+              }
+          } catch (e) {
+              console.warn("Échec d'extraction des pièces jointes du MSG:", e);
+          }
+      }
       
       // v7.17.4 - Idempotence pour éviter les doublons sur double-drop
       setAttachedFiles(prev => {
