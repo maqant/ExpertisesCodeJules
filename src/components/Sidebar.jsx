@@ -210,7 +210,7 @@ const Sidebar = () => {
         saveDossier, saveDossierAs, loadDossier, deleteDossier, generatePDF, addRef, updateRef, removeRef,
         addOcc, updateOcc, removeOcc, sortOccupantsByFloor, addExpense, updateExpense, removeExpense,
         reorganizeExpenses, handleJsonImport, handlePasteImport, copyPrompt, exportGlobalData,
-        attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleAttachPhoto,
+        attachedFiles, attachedPhotos, attachedFreeAnnexes, dynamicFreeAnnexes, isMerging, handleAttachFile, handleAttachPhoto, handleMovePhoto,
         handleAttachFreeAnnex, handleUpdateFreeAnnex,
         getPaginationInfo, hideAnnexIndex, setHideAnnexIndex, coverPageCount, setCoverPageCount, downloadDossierPDF,
         isAiModeActive, aiConfig, toggleAiMode, updateAiConfig, setProcessOverride, clearProcessOverride,
@@ -327,29 +327,20 @@ const Sidebar = () => {
         
         for (const dbKey of selectedPhotos) {
             let sourceId = null;
-            let photoObj = null;
             
             if (attachedPhotos['unassigned']?.some(p => p.dbKey === dbKey)) {
                 sourceId = 'unassigned';
-                photoObj = attachedPhotos['unassigned'].find(p => p.dbKey === dbKey);
             } else {
                 for (const occId of Object.keys(attachedPhotos)) {
                     if (occId !== 'unassigned' && attachedPhotos[occId]?.some(p => p.dbKey === dbKey)) {
                         sourceId = occId;
-                        photoObj = attachedPhotos[occId].find(p => p.dbKey === dbKey);
                         break;
                     }
                 }
             }
             
-            if (sourceId && photoObj && sourceId !== targetOccId) {
-                const bytes = await localforage.getItem(dbKey);
-                if (bytes) {
-                    const mime = photoObj.isPdf ? 'application/pdf' : 'image/jpeg';
-                    const file = new File([bytes], photoObj.name, { type: mime });
-                    await handleAttachPhoto(targetOccId, file);
-                    deleteAttachment(ATTACHMENT_TYPES.PHOTO, { parentId: sourceId, dbKey });
-                }
+            if (sourceId && sourceId !== targetOccId) {
+                await handleMovePhoto(dbKey, sourceId, targetOccId);
             }
         }
         
@@ -2123,14 +2114,7 @@ Objectif :
                                                                 onChange={async (e) => {
                                                                     const targetOccId = e.target.value;
                                                                     if (!targetOccId) return;
-                                                                    // Récupérer le fichier depuis localforage et recréer un File object
-                                                                    const bytes = await localforage.getItem(photo.dbKey);
-                                                                    if (bytes) {
-                                                                        const mime = photo.isPdf ? 'application/pdf' : 'image/jpeg';
-                                                                        const file = new File([bytes], photo.name, { type: mime });
-                                                                        await handleAttachPhoto(targetOccId, file);
-                                                                        handleRemovePhoto('unassigned', photo.dbKey);
-                                                                    }
+                                                                    await handleMovePhoto(photo.dbKey, 'unassigned', targetOccId);
                                                                 }}
                                                             >
                                                                 <option value="">→ Attribuer à...</option>

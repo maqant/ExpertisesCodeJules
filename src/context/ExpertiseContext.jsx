@@ -813,8 +813,8 @@ export const ExpertiseProvider = ({ children }) => {
           return { ok: false, error: 'Type inconnu' };
       }
 
-      const currentState = { attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
-      const dbKeys = descriptor.extractKeys(currentState, payload);
+      const snapshotForExtract = { attachedFiles, attachedPhotos, attachedFreeAnnexes, causeTimeline, intervenantsList };
+      const dbKeys = descriptor.extractKeys(snapshotForExtract, payload);
 
       const { ok, failedKeys } = await removeBlobs(dbKeys);
       if (!ok) {
@@ -822,14 +822,51 @@ export const ExpertiseProvider = ({ children }) => {
           return { ok: false, error: 'Erreur de suppression base de données.' };
       }
 
-      const stateUpdates = descriptor.removeFromState(currentState, payload);
-      if (stateUpdates.attachedFiles) setAttachedFiles(stateUpdates.attachedFiles);
-      if (stateUpdates.attachedPhotos) setAttachedPhotos(stateUpdates.attachedPhotos);
-      if (stateUpdates.attachedFreeAnnexes) setAttachedFreeAnnexes(stateUpdates.attachedFreeAnnexes);
-      if (stateUpdates.causeTimeline) setCauseTimeline(stateUpdates.causeTimeline);
-      if (stateUpdates.intervenantsList) setIntervenantsList(stateUpdates.intervenantsList);
+      // Determine which state slice is modified by doing a dummy run
+      const dummyUpdates = descriptor.removeFromState(snapshotForExtract, payload);
+
+      // Stale-safe state updates using functional setters
+      if ('attachedFiles' in dummyUpdates) {
+          setAttachedFiles(prev => descriptor.removeFromState({ attachedFiles: prev }, payload).attachedFiles ?? prev);
+      }
+      if ('attachedPhotos' in dummyUpdates) {
+          setAttachedPhotos(prev => descriptor.removeFromState({ attachedPhotos: prev }, payload).attachedPhotos ?? prev);
+      }
+      if ('attachedFreeAnnexes' in dummyUpdates) {
+          setAttachedFreeAnnexes(prev => descriptor.removeFromState({ attachedFreeAnnexes: prev }, payload).attachedFreeAnnexes ?? prev);
+      }
+      if ('causeTimeline' in dummyUpdates) {
+          setCauseTimeline(prev => descriptor.removeFromState({ causeTimeline: prev }, payload).causeTimeline ?? prev);
+      }
+      if ('intervenantsList' in dummyUpdates) {
+          setIntervenantsList(prev => descriptor.removeFromState({ intervenantsList: prev }, payload).intervenantsList ?? prev);
+      }
 
       return { ok: true };
+  };
+
+  // v7.26.3 - Transactional move photo state mutation
+  const handleMovePhoto = async (dbKeys, sourceId, targetId) => {
+      const keys = Array.isArray(dbKeys) ? dbKeys : [dbKeys];
+      if (!keys.length || sourceId === targetId) return { moved: [], failed: [] };
+
+      setAttachedPhotos(prev => {
+          const next = { ...prev };
+          const sourceList = next[sourceId] || [];
+          const targetList = next[targetId] || [];
+          
+          const photosToMove = sourceList.filter(p => keys.includes(p.dbKey));
+          if (photosToMove.length === 0) return prev;
+          
+          const newSourceList = sourceList.filter(p => !keys.includes(p.dbKey));
+          if (newSourceList.length === 0) delete next[sourceId];
+          else next[sourceId] = newSourceList;
+          
+          next[targetId] = [...targetList, ...photosToMove];
+          return next;
+      });
+      
+      return { moved: keys, failed: [] };
   };
 
   const handleAttachPhoto = async (occupantId, rawFile) => {
@@ -1940,7 +1977,7 @@ Voici le format JSON :
       expenses, setExpenses, blocksVisible, setBlocksVisible,
       customBlocks, setCustomBlocks, blockOrder, setBlockOrder, blockWidths, setBlockWidths, styles, setStyles,
       attachedFiles, handleAttachFile, attachedPhotos, setAttachedPhotos,
-      handleAttachPhoto, attachedFreeAnnexes, setAttachedFreeAnnexes,
+      handleAttachPhoto, handleMovePhoto, attachedFreeAnnexes, setAttachedFreeAnnexes,
       handleAttachFreeAnnex, handleUpdateFreeAnnex,
       isExpenseExcludedFromMain, dynamicFreeAnnexes,
       isMerging,
