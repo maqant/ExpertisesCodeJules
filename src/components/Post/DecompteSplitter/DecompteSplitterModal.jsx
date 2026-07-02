@@ -72,13 +72,13 @@ const SplitterInner = ({ onClose }) => {
                             <UploadCloud className="w-10 h-10" />
                         </div>
                         <h2 className="text-2xl font-bold text-slate-800 mb-3">Importer le décompte de la compagnie</h2>
-                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez la lettre de décompte de la compagnie (PDF ou image) ici pour extraire automatiquement les postes d'indemnisation via l'IA.</p>
+                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler.</p>
                         
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <DropZone 
                                 onFiles={handleDrop} 
                                 accept=".pdf,image/*" 
-                                label="Déposer le PDF ou l'image du décompte" 
+                                label="Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler." 
                             />
                         </div>
                     </div>

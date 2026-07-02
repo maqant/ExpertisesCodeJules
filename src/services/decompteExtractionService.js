@@ -4,11 +4,14 @@ import { executeAiCall } from '../ai/apiClient.js';
 import { isPdfDeep } from './utils/fileUtils.js';
 import { pdfToBase64Images, fileToBase64 } from './utils/pdfUtils.js';
 
-const DECOMPTE_SYSTEM_PROMPT = `Tu es un expert en assurance. Extrais tous les postes d'indemnisation de ce document. Retourne UNIQUEMENT un objet JSON avec une clé "postes" contenant un tableau d'objets. Chaque objet doit avoir :
-- "libelle" (string) : le nom exact du poste (ex: Frais de syndic, Bâtiment (Dommages))
-- "montant" (number) : le montant positif en euros (sans le symbole).
+const DECOMPTE_SYSTEM_PROMPT = `Tu es un expert en assurance. Tu vas recevoir le texte d'une lettre de règlement d'indemnité. 
+Ta tâche est d'extraire uniquement les lignes de frais individuelles du tableau de décompte. 
+Retourne UNIQUEMENT un objet JSON avec une clé "postes" contenant un tableau d'objets. Chaque objet doit avoir :
+- "id" : un identifiant unique généré (uuid ou string aléatoire).
+- "libelle" (string) : le nom exact du poste.
+- "montant" (number) : le montant positif en euros.
 
-Ignore les totaux généraux, je ne veux que les lignes individuelles. Le format doit être strictement un JSON valide, sans markdown, sans autre texte.`;
+Exemple de données que tu vas rencontrer : 'Frais de syndic 760,00' ou 'Bâtiment (Dommages au 1er étage M. Willems) 4.800,00'. Ne récupère pas le montant total général.`;
 
 /**
  * Extrait les postes financiers d'une lettre de décompte PDF.
@@ -88,7 +91,7 @@ export function mapPostesToExpenses(postes) {
         // Formate le montant en string avec virgule, ex: "450,00"
         const montantStr = Number(p.montant || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return {
-            id: crypto.randomUUID(),
+            id: p.id || crypto.randomUUID(),
             desc: p.libelle || "Poste inconnu",
             montantReclame: montantStr,
             montantValide: montantStr, // Initialement, le montant validé est identique
