@@ -4,7 +4,7 @@ import { DecompteSplitterProvider, useDecompteSplitter } from './DecompteSplitte
 import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
 import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
-import { buildTsvExport } from '../../../services/export/tsvBuilder.js';
+import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
 import { extractDecomptePostes, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
@@ -21,6 +21,11 @@ const SplitterInner = ({ onClose }) => {
         const tsvContent = buildTsvExport(state, expenses, currentDate);
         navigator.clipboard.writeText(tsvContent);
         // Toast possible ici
+    };
+
+    const handleCopyING = () => {
+        const tsvContent = buildINGTsvExport(state, expenses);
+        navigator.clipboard.writeText(tsvContent);
     };
 
 
@@ -168,15 +173,29 @@ const SplitterInner = ({ onClose }) => {
                             <button 
                                 onClick={handleCopyTSV}
                                 disabled={!validation.isValid}
-                                className={`flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded shadow-sm transition-colors ${
+                                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded shadow-sm transition-colors ${
                                     validation.isValid 
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
-                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                        ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50' 
+                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-transparent'
                                 }`}
-                                title={!validation.isValid ? "Corrigez les erreurs pour exporter" : "Copier format TSV"}
+                                title={!validation.isValid ? "Corrigez les erreurs pour exporter" : "Copier format standard avec en-têtes"}
                             >
                                 {validation.isValid ? <Copy className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                                Copier pour Excel
+                                Format Complet
+                            </button>
+
+                            <button 
+                                onClick={handleCopyING}
+                                disabled={!validation.isValid}
+                                className={`flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded shadow-sm transition-colors ${
+                                    validation.isValid 
+                                        ? 'bg-[#ff6200] hover:bg-[#e65800] text-white' // Couleur orange ING
+                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                }`}
+                                title={!validation.isValid ? "Corrigez les erreurs pour exporter" : "Format exact pour coller dans la macro SEPA d'ING"}
+                            >
+                                {validation.isValid ? <Copy className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                Copier pour macro ING
                             </button>
                         </div>
                     </div>

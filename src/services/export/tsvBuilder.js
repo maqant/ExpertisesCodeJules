@@ -71,5 +71,50 @@ export const buildTsvExport = (draft, expenses, currentDate) => {
         });
     });
 
-    return lines.join('\n') + '\n';
+    return lines.join('\n');
+};
+
+/**
+ * Génère le contenu TSV spécifiquement pour la macro "ING Excel to SEPA".
+ * Colonnes attendues par ING (de gauche à droite en commençant là où l'utilisateur colle) :
+ * 1. Montant (obligatoire)
+ * 2. IBAN du bénéficiaire (obligatoire)
+ * 3. Nom du bénéficiaire (obligatoire)
+ * 4. Référence End-to-end (optionnel) - on le laisse vide
+ * 5. Communication (Remittance) (optionnel) - on met le libellé du poste
+ * 
+ * L'utilisateur se positionnera sur la première cellule jaune "Montant" et fera Ctrl+V.
+ */
+export const buildINGTsvExport = (draft, expenses) => {
+    const lines = [];
+
+    draft.blocks.forEach(block => {
+        if (!block.recipientRef && !block.recipientSnapshot?.displayName) return;
+
+        const beneficiaire = sanitizeTsvCell(block.recipientSnapshot?.displayName || 'Inconnu');
+        const iban = sanitizeTsvCell(block.ibanOverride || block.recipientSnapshot?.iban || '');
+
+        const blockAllocations = draft.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
+
+        blockAllocations.forEach(alloc => {
+            const exp = expenses.find(e => e.id === alloc.expenseId);
+            if (!exp) return;
+
+            const libelle = sanitizeTsvCell(exp.desc || exp.type || 'Poste inconnu');
+            const montantFormatte = formatAmountForExcel(alloc.montant);
+
+            const row = [
+                montantFormatte, // Col B: Montant
+                iban,            // Col C: IBAN
+                beneficiaire,    // Col D: Nom
+                '',              // Col E: Référence (vide)
+                libelle          // Col F: Communication
+            ];
+            
+            lines.push(row.join('\t'));
+        });
+    });
+
+    // Pas de ligne d'en-tête ni de saut de ligne final pour éviter de déborder sur les cellules verrouillées d'ING
+    return lines.join('\n');
 };
