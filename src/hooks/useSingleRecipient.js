@@ -1,38 +1,30 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
-import { buildRecipientCandidates, extractEmailsForOutlook, buildSalutation } from '../services/utils/contactUtils';
+import { useMemo } from 'react';
+import { buildAllCandidates, extractEmailsForOutlook, buildSalutation } from '../services/utils/contactUtils';
 
 /**
  * Hook réutilisable pour la sélection d'un UNIQUE destinataire.
  * Basé sur la même logique de candidats que `useRecipientSelection` mais pour des blocs 1:1.
+ * Devenu STATELESS (la source de vérité est le reducer du parent).
  *
- * @param {{ occupants?: Array, intervenants?: Array, initialSelectedId?: string }} args
+ * @param {{ occupants?: Array, intervenants?: Array, localContacts?: Array, recipientRef?: {kind:string, id:string} }} args
  */
 export const useSingleRecipient = ({
     occupants = [],
     intervenants = [],
-    initialSelectedId = null,
+    localContacts = [],
+    recipientRef = null,
 } = {}) => {
     const candidates = useMemo(
-        () => buildRecipientCandidates({ occupants, intervenants }),
-        [occupants, intervenants]
+        () => buildAllCandidates({ occupants, intervenants, localContacts }),
+        [occupants, intervenants, localContacts]
     );
 
-    const [selectedId, setSelectedId] = useState(initialSelectedId);
-
-    // Si le candidat sélectionné disparaît des candidats valides, on reset
-    useEffect(() => {
-        if (selectedId && !candidates.some(c => c.id === selectedId)) {
-            setSelectedId(null);
-        }
-    }, [candidates, selectedId]);
-
-    const select = useCallback((id) => {
-        setSelectedId(id);
-    }, []);
-
     const selectedContact = useMemo(
-        () => candidates.find(c => c.id === selectedId) || null,
-        [candidates, selectedId]
+        () => {
+            if (!recipientRef) return null;
+            return candidates.find(c => c.kind === recipientRef.kind && c.id === recipientRef.id) || null;
+        },
+        [candidates, recipientRef]
     );
 
     const emailString = useMemo(
@@ -48,8 +40,7 @@ export const useSingleRecipient = ({
     return {
         candidates,
         selectedContact,
-        selectedId,
-        select,
+        recipientRef,
         emailString,
         salutation,
         hasCandidates: candidates.length > 0,

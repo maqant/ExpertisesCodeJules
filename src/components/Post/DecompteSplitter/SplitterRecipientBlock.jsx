@@ -3,6 +3,7 @@ import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { CLOSURE_MODE, getResteAVentiler } from '../../../domain/decompteSplitter/allocationModel.js';
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
 import { useSingleRecipient } from '../../../hooks/useSingleRecipient.js';
+import { resolveRecipientSnapshot } from '../../../services/utils/contactUtils.js';
 import { Trash2, Plus, Copy, Mail } from 'lucide-react';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
@@ -14,7 +15,8 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
     const recipientState = useSingleRecipient({ 
         occupants, 
         intervenants, 
-        initialSelectedId: block.recipientId 
+        localContacts: state.localContacts,
+        recipientRef: block.recipientRef 
     });
 
     const [expenseToAdd, setExpenseToAdd] = useState('');
@@ -23,17 +25,17 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
     const blockAllocations = state.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
     const totalAlloue = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
 
-    const handleRecipientChange = (id) => {
-        const contact = recipientState.candidates.find(c => c.id === id);
+    const handleSelectRef = (ref) => {
         dispatch({
-            type: 'UPDATE_BLOCK',
-            payload: {
-                blockId: block.id,
-                updates: {
-                    recipientId: id,
-                    recipientSnapshot: contact || null
-                }
-            }
+            type: 'SET_BLOCK_RECIPIENT',
+            payload: { blockId: block.id, recipientRef: ref }
+        });
+    };
+
+    const handleCreateContact = (contact) => {
+        dispatch({
+            type: 'ADD_LOCAL_CONTACT',
+            payload: { blockId: block.id, contact }
         });
     };
 
@@ -61,7 +63,8 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
     };
 
     const handleCopyMail = () => {
-        const text = buildEmailTemplate(block, state.allocations, expenses);
+        const snapshot = block.recipientSnapshot || resolveRecipientSnapshot(block.recipientRef, recipientState.candidates);
+        const text = buildEmailTemplate({ ...block, recipientSnapshot: snapshot }, state.allocations, expenses);
         if (text) {
             navigator.clipboard.writeText(text);
             // On pourrait ajouter un toast de succès ici
@@ -74,7 +77,8 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
                 <div className="flex-1 max-w-sm">
                     <SingleRecipientSelector 
                         recipientState={recipientState} 
-                        onChange={handleRecipientChange} 
+                        onSelectRef={handleSelectRef}
+                        onCreateContact={handleCreateContact}
                     />
                 </div>
                 <button 
@@ -210,7 +214,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
                 </div>
                 <button 
                     onClick={handleCopyMail}
-                    disabled={blockAllocations.length === 0 || !block.recipientId}
+                    disabled={blockAllocations.length === 0 || !block.recipientRef}
                     className="flex items-center gap-1.5 text-xs font-medium bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors"
                 >
                     <Mail className="w-3.5 h-3.5" />

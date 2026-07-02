@@ -1,5 +1,5 @@
 // src/services/utils/contactUtils.js
-
+import { genId } from '../../domain/decompteSplitter/allocationModel.js';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -150,3 +150,63 @@ export const buildSalutation = (contacts = []) => {
 
   return `Bonjour ${parts.join(', ')},`;
 };
+
+/** Validation stricte — bloquante avant tout décaissement. */
+export function validateContactDraft(draft) {
+    const errors = {};
+    const name = (draft?.displayName ?? '').trim();
+    const email = (draft?.email ?? '').trim();
+
+    if (name.length < 2) errors.displayName = 'Nom requis (min. 2 caractères).';
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errors.email = 'Format e-mail invalide.';
+    }
+    if (draft?.iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(draft.iban.replace(/\s/g, ''))) {
+        errors.iban = 'IBAN invalide.';
+    }
+    return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/** @returns {object} */
+export function createLocalContact(draft, { fromSourceId = null } = {}) {
+    return {
+        id: `local:${genId()}`,
+        displayName: (draft.displayName ?? '').trim(),
+        email: (draft.email ?? '').trim(),
+        iban: (draft.iban ?? '').trim() || undefined,
+        origin: fromSourceId ? 'override' : 'custom',
+        sourceId: fromSourceId,
+    };
+}
+
+/**
+ * Fusionne les candidats du dossier avec les contacts locaux du splitter.
+ * Les overrides "masquent" leur source pour éviter les doublons visuels.
+ */
+export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [] } = {}) {
+    const dossierCandidates = buildRecipientCandidates({ occupants, intervenants })
+        .map(c => ({ ...c, kind: 'dossier' }));
+
+    const overriddenSourceIds = new Set(
+        localContacts.filter(c => c.origin === 'override' && c.sourceId).map(c => c.sourceId)
+    );
+
+    const visibleDossier = dossierCandidates.filter(c => !overriddenSourceIds.has(c.id));
+    const locals = localContacts.map(c => ({ ...c, kind: 'local' }));
+
+    return [...visibleDossier, ...locals];
+}
+
+/** Résout une RecipientRef en snapshot figé (appelé à la génération rapport). */
+export function resolveRecipientSnapshot(ref, allCandidates) {
+    if (!ref) return null;
+    const found = allCandidates.find(c => c.kind === ref.kind && c.id === ref.id);
+    if (!found) return null;
+    return {
+        displayName: found.displayName,
+        email: found.email ?? '',
+        iban: found.iban,
+        origin: found.origin,
+        resolvedAt: new Date().toISOString(),
+    };
+}

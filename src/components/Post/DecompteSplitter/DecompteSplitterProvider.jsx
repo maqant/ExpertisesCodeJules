@@ -9,6 +9,7 @@ const initialState = {
     sourceExpenseIds: [],
     allocations: [],
     blocks: [],
+    localContacts: [],
     unassignedPolicy: 'strict',
     extractedExpenses: [],
     ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
@@ -39,7 +40,7 @@ function splitterReducer(state, action) {
         case 'ADD_BLOCK': {
             const newBlock = {
                 id: genId(),
-                recipientId: null,
+                recipientRef: null,
                 recipientSnapshot: null,
                 ibanOverride: '',
                 closureMode: CLOSURE_MODE.ATTENTE,
@@ -60,6 +61,32 @@ function splitterReducer(state, action) {
                 b.id === action.payload.blockId ? { ...b, ...action.payload.updates } : b
             );
             return { ...state, blocks: newBlocks };
+        }
+
+        case 'SET_BLOCK_RECIPIENT': {
+            const { blockId, recipientRef } = action.payload;
+            return {
+                ...state,
+                blocks: state.blocks.map(b =>
+                    b.id === blockId ? { ...b, recipientRef, recipientSnapshot: null } : b
+                )
+            };
+        }
+
+        case 'ADD_LOCAL_CONTACT': {
+            const { contact, blockId } = action.payload;
+            const blocks = blockId
+                ? state.blocks.map(b =>
+                    b.id === blockId
+                        ? { ...b, recipientRef: { kind: 'local', id: contact.id }, recipientSnapshot: null }
+                        : b
+                )
+                : state.blocks;
+            return {
+                ...state,
+                localContacts: [...(state.localContacts || []), contact],
+                blocks
+            };
         }
 
         case 'ASSIGN_ALLOCATION': {
