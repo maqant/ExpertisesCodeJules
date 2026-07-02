@@ -11,6 +11,7 @@ import { generateDocument } from '../services/generators/generatorEngine.js'; //
 import { Eye, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
+import DecompteSplitterModal from './Post/DecompteSplitter/DecompteSplitterModal.jsx';
 import packageInfo from '../../package.json';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
@@ -303,6 +304,8 @@ const Sidebar = () => {
     // v6.0.0 - Generator State
     const [generatedText, setGeneratedText] = useState(null);
     const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
+    const [isDecompteModalOpen, setIsDecompteModalOpen] = useState(false);
+    const [activeGeneratorGroup, setActiveGeneratorGroup] = useState('ALL');
 
     // v6.4.1 - Bulk Photo Selection and Move
     const [selectedPhotos, setSelectedPhotos] = useState([]);
@@ -1955,6 +1958,15 @@ Objectif :
                                     </div>
                                 )})}
                                 <button id="add-exp-btn" onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
+                                {expenses.length > 0 && (
+                                    <button 
+                                        onClick={() => setIsDecompteModalOpen(true)} 
+                                        className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 py-1.5 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
+                                    >
+                                        <span className="text-sm">🔀</span>
+                                        <span>Ventiler les décomptes</span>
+                                    </button>
+                                )}
                                 <datalist id="prestataires-list">
                                     {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
                                         .sort((a, b) => a.localeCompare(b))

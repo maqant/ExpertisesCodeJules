@@ -1,0 +1,117 @@
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { useFinanceStore } from '../../../store/financeStore.js';
+import { ALLOCATION_STATUS, CLOSURE_MODE, genId } from '../../../domain/decompteSplitter/allocationModel.js';
+
+const SplitterContext = createContext(null);
+
+const initialState = {
+    version: 1,
+    sourceExpenseIds: [],
+    allocations: [],
+    blocks: [],
+    unassignedPolicy: 'strict'
+};
+
+function splitterReducer(state, action) {
+    switch (action.type) {
+        case 'INIT_DRAFT':
+            return action.payload || initialState;
+
+        case 'ADD_BLOCK': {
+            const newBlock = {
+                id: genId(),
+                recipientId: null,
+                recipientSnapshot: null,
+                ibanOverride: '',
+                closureMode: CLOSURE_MODE.ATTENTE,
+                remarque: ''
+            };
+            return { ...state, blocks: [...state.blocks, newBlock] };
+        }
+
+        case 'REMOVE_BLOCK': {
+            // Supprimer le bloc ET réaffecter ses allocations (les supprimer revient à les remettre "à ventiler")
+            const newBlocks = state.blocks.filter(b => b.id !== action.payload);
+            const newAllocations = state.allocations.filter(a => a.blockId !== action.payload);
+            return { ...state, blocks: newBlocks, allocations: newAllocations };
+        }
+
+        case 'UPDATE_BLOCK': {
+            const newBlocks = state.blocks.map(b => 
+                b.id === action.payload.blockId ? { ...b, ...action.payload.updates } : b
+            );
+            return { ...state, blocks: newBlocks };
+        }
+
+        case 'ASSIGN_ALLOCATION': {
+            // Assigner un montant d'un expenseId vers un blockId
+            const newAlloc = {
+                id: genId(),
+                expenseId: action.payload.expenseId,
+                blockId: action.payload.blockId,
+                montant: action.payload.montant,
+                status: ALLOCATION_STATUS.ASSIGNED
+            };
+            return { ...state, allocations: [...state.allocations, newAlloc] };
+        }
+
+        case 'REMOVE_ALLOCATION': {
+            return { 
+                ...state, 
+                allocations: state.allocations.filter(a => a.id !== action.payload) 
+            };
+        }
+
+        case 'SUSPEND_EXPENSE': {
+            // Retire toutes les allocations existantes pour cet expense et ajoute une allocation "SUSPENDED"
+            const otherAllocs = state.allocations.filter(a => a.expenseId !== action.payload.expenseId);
+            const suspendedAlloc = {
+                id: genId(),
+                expenseId: action.payload.expenseId,
+                blockId: null,
+                montant: '0', // montant symbolique
+                status: ALLOCATION_STATUS.SUSPENDED
+            };
+            return { ...state, allocations: [...otherAllocs, suspendedAlloc] };
+        }
+
+        case 'UNSUSPEND_EXPENSE': {
+            return { 
+                ...state, 
+                allocations: state.allocations.filter(a => !(a.expenseId === action.payload.expenseId && a.status === ALLOCATION_STATUS.SUSPENDED)) 
+            };
+        }
+
+        default:
+            return state;
+    }
+}
+
+export const DecompteSplitterProvider = ({ children }) => {
+    const { decompteSplitter, saveDecompteSplitterDraft } = useFinanceStore();
+    const [state, dispatch] = useReducer(splitterReducer, decompteSplitter.draft || initialState);
+    
+    // Auto-save debouncé vers le store global
+    const timerRef = useRef(null);
+    useEffect(() => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+            saveDecompteSplitterDraft(state);
+        }, 800);
+        return () => clearTimeout(timerRef.current);
+    }, [state, saveDecompteSplitterDraft]);
+
+    return (
+        <SplitterContext.Provider value={{ state, dispatch }}>
+            {children}
+        </SplitterContext.Provider>
+    );
+};
+
+export const useDecompteSplitter = () => {
+    const context = useContext(SplitterContext);
+    if (!context) {
+        throw new Error("useDecompteSplitter doit être utilisé dans un DecompteSplitterProvider");
+    }
+    return context;
+};

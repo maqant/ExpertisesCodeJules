@@ -72,6 +72,11 @@ export const useFinanceStore = create((set, get) => ({
     responsablesIds: [] // Liste des IDs des occupants responsables du sinistre
   },
 
+  // Nœud Temporaire (Session)
+  decompteSplitter: {
+    draft: null // Permet de persister le brouillon de ventilation en cours
+  },
+
   // ==========================================
   // 2. ACTIONS DE MODIFICATION
   // ==========================================
@@ -102,6 +107,11 @@ export const useFinanceStore = create((set, get) => ({
   })),
   replaceFormData: (newData) => set((state) => ({
     metier: { ...state.metier, formData: newData }
+  })),
+
+  // --- Decompte Splitter ---
+  saveDecompteSplitterDraft: (draft) => set((state) => ({
+    decompteSplitter: { ...state.decompteSplitter, draft }
   })),
 
   // --- Occupants (PII) ---
