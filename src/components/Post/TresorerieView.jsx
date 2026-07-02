@@ -14,6 +14,9 @@ const TresorerieView = () => {
   const isPVEClosed = store.metier.isPVEClosed;
   const franchiseOccId = store.metier.franchiseOccId;
 
+  const activeDossier = context?.savedDossiers?.find(d => d.id === context?.currentDossierId);
+  const dossierName = activeDossier?.name || context?.formData?.numSinistreCie || '';
+
   const expenses = store.metier.expenses.filter(exp => {
     if (!exp.isProcessed) return false;
     const occ = occupants.find(o => o.id === exp.compteDe);
@@ -393,6 +396,7 @@ const TresorerieView = () => {
       <DecompteSplitterModal
         isOpen={showDecompteSplitter}
         onClose={() => setShowDecompteSplitter(false)}
+        dossierName={dossierName}
       />
 
       {/* v5.1.0 + v5.3.1 : Modal d'attribution franchise en Post */}

@@ -9,7 +9,7 @@ import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, Clipboa
 import DropZone from '../../DropZone.jsx';
 import { extractDecomptePostes, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
 
-const SplitterInner = ({ onClose }) => {
+const SplitterInner = ({ onClose, dossierName }) => {
     const { pii } = useFinanceStore();
     const { state, dispatch } = useDecompteSplitter();
 
@@ -24,7 +24,7 @@ const SplitterInner = ({ onClose }) => {
     };
 
     const handleCopyING = () => {
-        const tsvContent = buildINGTsvExport(state, expenses);
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName);
         navigator.clipboard.writeText(tsvContent);
     };
 
@@ -222,6 +222,7 @@ const SplitterInner = ({ onClose }) => {
                                     expenses={expenses}
                                     occupants={pii.occupants}
                                     intervenants={pii.prestataires} // En supposant que intervenants = prestataires/experts selon la structure existante
+                                    dossierName={dossierName}
                                 />
                             ))
                         )}
@@ -264,12 +265,12 @@ const SplitterInner = ({ onClose }) => {
     );
 };
 
-export const DecompteSplitterModal = ({ isOpen, onClose }) => {
+export const DecompteSplitterModal = ({ isOpen, onClose, dossierName }) => {
     if (!isOpen) return null;
     
     return (
         <DecompteSplitterProvider>
-            <SplitterInner onClose={onClose} />
+            <SplitterInner onClose={onClose} dossierName={dossierName} />
         </DecompteSplitterProvider>
     );
 };

@@ -85,10 +85,11 @@ export const buildTsvExport = (draft, expenses, currentDate) => {
  * 
  * L'utilisateur se positionnera sur la première cellule jaune "Montant" et fera Ctrl+V.
  */
-export const buildINGTsvExport = (draft, expenses) => {
+export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlockId = null) => {
     const lines = [];
 
     draft.blocks.forEach(block => {
+        if (targetBlockId && block.id !== targetBlockId) return;
         if (!block.recipientRef && !block.recipientSnapshot?.displayName) return;
 
         const beneficiaire = sanitizeTsvCell(block.recipientSnapshot?.displayName || 'Inconnu');
@@ -108,7 +109,7 @@ export const buildINGTsvExport = (draft, expenses) => {
                 iban,            // Col C: IBAN
                 beneficiaire,    // Col D: Nom
                 '',              // Col E: Référence (vide)
-                libelle          // Col F: Communication
+                sanitizeTsvCell(dossierName) // Col F: Communication (Nom du dossier)
             ];
             
             lines.push(row.join('\t'));

@@ -8,7 +8,9 @@ import { Trash2, Plus, Copy, Mail } from 'lucide-react';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
 
-const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) => {
+import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
+
+const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
     
     // Hook local pour la sélection du destinataire
@@ -69,6 +71,11 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
             navigator.clipboard.writeText(text);
             // On pourrait ajouter un toast de succès ici
         }
+    };
+
+    const handleCopyING = () => {
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id);
+        navigator.clipboard.writeText(tsvContent);
     };
 
     return (
@@ -212,14 +219,25 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants }) =>
                 <div className="text-sm font-semibold text-slate-800">
                     Total : {totalAlloue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </div>
-                <button 
-                    onClick={handleCopyMail}
-                    disabled={blockAllocations.length === 0 || !block.recipientRef}
-                    className="flex items-center gap-1.5 text-xs font-medium bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                >
-                    <Mail className="w-3.5 h-3.5" />
-                    Copier le mail
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={handleCopyING}
+                        disabled={blockAllocations.length === 0 || (!block.recipientRef && !block.recipientSnapshot?.displayName)}
+                        className="flex items-center gap-1.5 text-xs font-medium bg-[#ff6200] text-white px-3 py-1.5 rounded hover:bg-[#e65800] disabled:opacity-50 transition-colors"
+                        title="Copier spécifiquement ce paiement pour la macro ING"
+                    >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copier (ING)
+                    </button>
+                    <button 
+                        onClick={handleCopyMail}
+                        disabled={blockAllocations.length === 0 || !block.recipientRef}
+                        className="flex items-center gap-1.5 text-xs font-medium bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                    >
+                        <Mail className="w-3.5 h-3.5" />
+                        Copier le mail
+                    </button>
+                </div>
             </div>
         </div>
     );
