@@ -2,7 +2,7 @@ import React from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw } from 'lucide-react';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
@@ -10,15 +10,28 @@ const SplitterGlobalBasket = ({ expenses }) => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200">
-            <div className="p-4 border-b border-slate-200 bg-white">
-                <h2 className="text-lg font-semibold text-slate-800">Panier Global</h2>
-                <p className="text-xs text-slate-500 mt-1">Postes financiers à ventiler</p>
+            <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+                <div>
+                    <h2 className="text-lg font-semibold text-slate-800">Panier Global</h2>
+                    <p className="text-xs text-slate-500 mt-1">Postes extraits du décompte</p>
+                </div>
+                <button 
+                    onClick={() => dispatch({ type: 'RESET_INGESTION' })}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Vider et importer un nouveau décompte"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                </button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                 {expenses.length === 0 ? (
-                    <div className="text-sm text-slate-400 italic text-center py-6">
-                        Aucun poste financier à ventiler.
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                            <AlertCircle className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-600">Aucun poste financier n'a pu être extrait de ce document.</p>
+                        <p className="text-xs text-slate-500 mt-2">Vérifiez le PDF ou recommencez.</p>
                     </div>
                 ) : (
                     expenses.map(exp => {

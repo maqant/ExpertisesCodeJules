@@ -9,13 +9,32 @@ const initialState = {
     sourceExpenseIds: [],
     allocations: [],
     blocks: [],
-    unassignedPolicy: 'strict'
+    unassignedPolicy: 'strict',
+    extractedExpenses: [],
+    ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
+    ingestionError: null
 };
 
 function splitterReducer(state, action) {
     switch (action.type) {
         case 'INIT_DRAFT':
             return action.payload || initialState;
+
+        case 'INGESTION_START':
+            return { ...state, ingestionStatus: 'parsing', ingestionError: null };
+            
+        case 'INGESTION_UPLOADING':
+            return { ...state, ingestionStatus: 'uploading', ingestionError: null };
+            
+        case 'INGESTION_SUCCESS':
+            return { ...state, ingestionStatus: 'ready', extractedExpenses: action.payload, ingestionError: null };
+            
+        case 'INGESTION_ERROR':
+            return { ...state, ingestionStatus: 'error', ingestionError: action.payload };
+            
+        case 'RESET_INGESTION':
+            // Reset ingestion and allocations since source changes
+            return { ...state, ingestionStatus: 'idle', extractedExpenses: [], ingestionError: null, allocations: [], blocks: [] };
 
         case 'ADD_BLOCK': {
             const newBlock = {
