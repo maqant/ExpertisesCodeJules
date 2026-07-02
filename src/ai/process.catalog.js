@@ -22,6 +22,7 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'agent_social',   label: 'Agent Social',        group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'SOCIAL', hint: 'Occupants, intervenants, parties.' },
     { id: 'agent_financial',label: 'Agent Financier',     group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FINANCIAL', hint: 'Devis, factures, montants.' },
     { id: 'extraction_dropzone', label: 'Extraction Dropzone', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Extraction générique des documents déposés.' },
+    { id: 'decompte_extraction', label: 'Extraction Décompte', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Extraction ciblée des postes d\'un décompte d\'assurance.' },
 
     // --- Synthèse / Génération ---
     { id: 'agent_narrative', label: 'Agent Récits',        group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'NARRATIVE_BASE', hint: 'Analyse narrative des récits.' },

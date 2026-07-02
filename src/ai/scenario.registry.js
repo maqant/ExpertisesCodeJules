@@ -70,6 +70,13 @@ export const SCENARIO_REGISTRY = Object.freeze([
         source: 'Dropzone Rapports de Recherche',
         description: 'Extraction narrative d\'un rapport de recherche de cause (handleCauseMagicDrop) via l\'agent récit.',
         processIds: ['agent_narrative']
+    },
+    {
+        id: 'decompte_splitter',
+        label: 'Ventilation de Décompte',
+        source: 'Gestionnaire de Décomptes',
+        description: 'Extraction des postes financiers d\'une lettre de décompte compagnie pour ventilation.',
+        processIds: ['decompte_extraction']
     }
 ]);
 
