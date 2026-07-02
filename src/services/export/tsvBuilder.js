@@ -96,24 +96,24 @@ export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlock
         const iban = sanitizeTsvCell(block.ibanOverride || block.recipientSnapshot?.iban || '');
 
         const blockAllocations = draft.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
+        if (blockAllocations.length === 0) return;
 
-        blockAllocations.forEach(alloc => {
-            const exp = expenses.find(e => e.id === alloc.expenseId);
-            if (!exp) return;
+        // On somme toutes les allocations pour ce destinataire
+        const totalAmount = blockAllocations.reduce((sum, alloc) => sum + cleanAmount(alloc.montant), 0);
+        const montantFormatte = formatAmountForExcel(totalAmount);
+        
+        // La communication est soit la valeur éditée par l'utilisateur, soit le nom du dossier par défaut
+        const communication = sanitizeTsvCell(block.referenceCommunication !== undefined ? block.referenceCommunication : dossierName);
 
-            const libelle = sanitizeTsvCell(exp.desc || exp.type || 'Poste inconnu');
-            const montantFormatte = formatAmountForExcel(alloc.montant);
-
-            const row = [
-                montantFormatte, // Col B: Montant
-                iban,            // Col C: IBAN
-                beneficiaire,    // Col D: Nom
-                '',              // Col E: Référence (vide)
-                sanitizeTsvCell(dossierName) // Col F: Communication (Nom du dossier)
-            ];
-            
-            lines.push(row.join('\t'));
-        });
+        const row = [
+            montantFormatte, // Col B: Montant (total du paiement)
+            iban,            // Col C: IBAN
+            beneficiaire,    // Col D: Nom
+            '',              // Col E: Référence End-to-end (vide)
+            communication    // Col F: Communication
+        ];
+        
+        lines.push(row.join('\t'));
     });
 
     // Pas de ligne d'en-tête ni de saut de ligne final pour éviter de déborder sur les cellules verrouillées d'ING

@@ -144,6 +144,20 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                 />
             </div>
 
+            <div className="mt-2">
+                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Référence (Communication)</label>
+                <input 
+                    type="text" 
+                    className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Référence de communication ING..."
+                    value={block.referenceCommunication !== undefined ? block.referenceCommunication : dossierName}
+                    onChange={e => dispatch({ 
+                        type: 'UPDATE_BLOCK', 
+                        payload: { blockId: block.id, updates: { referenceCommunication: e.target.value } } 
+                    })}
+                />
+            </div>
+
             <div className="border-t border-slate-200 pt-3">
                 <h4 className="text-xs font-semibold text-slate-700 mb-2">Postes alloués ({blockAllocations.length})</h4>
                 
