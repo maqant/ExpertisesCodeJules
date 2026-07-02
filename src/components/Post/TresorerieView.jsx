@@ -3,11 +3,13 @@ import { useFinanceStore } from '../../store/financeStore';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import PaymentWizardModal from './PaymentWizardModal';
 import { getCompteDeName } from '../../utils/formatters';
+import DecompteSplitterModal from './DecompteSplitter/DecompteSplitterModal.jsx';
 
 const TresorerieView = () => {
   const store = useFinanceStore();
   const context = useContext(ExpertiseContext);
   const [showWizard, setShowWizard] = useState(false);
+  const [showDecompteSplitter, setShowDecompteSplitter] = useState(false);
   const occupants = store.pii.occupants;
   const isPVEClosed = store.metier.isPVEClosed;
   const franchiseOccId = store.metier.franchiseOccId;
@@ -68,12 +70,20 @@ const TresorerieView = () => {
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white p-4 overflow-y-auto w-full relative">
       <div className="flex justify-between items-center mb-6 border-b-2 border-slate-300 dark:border-slate-700 pb-4">
         <h1 className="text-2xl font-bold">Suivi des Règlements (Répartition)</h1>
-        <button
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
-          onClick={() => setShowWizard(true)}
-        >
-          <span>💸</span> Enregistrer un Paiement
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
+            onClick={() => setShowDecompteSplitter(true)}
+          >
+            <span>🧮</span> Ventiler les décomptes
+          </button>
+          <button
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
+            onClick={() => setShowWizard(true)}
+          >
+            <span>💸</span> Enregistrer un Paiement
+          </button>
+        </div>
       </div>
 
       {/* v5.1.0 : Alerte franchise non attribuée */}
@@ -379,6 +389,11 @@ const TresorerieView = () => {
       )}
 
       {showWizard && <PaymentWizardModal onClose={() => setShowWizard(false)} />}
+      
+      <DecompteSplitterModal
+        isOpen={showDecompteSplitter}
+        onClose={() => setShowDecompteSplitter(false)}
+      />
 
       {/* v5.1.0 + v5.3.1 : Modal d'attribution franchise en Post */}
       {showFranchiseModal && (
