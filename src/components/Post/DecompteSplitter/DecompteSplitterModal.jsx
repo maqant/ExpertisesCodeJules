@@ -24,7 +24,12 @@ const SplitterInner = ({ onClose, dossierName }) => {
     };
 
     const handleCopyING = () => {
-        const tsvContent = buildINGTsvExport(state, expenses, dossierName);
+        const allCandidates = [
+            ...(pii?.occupants || []),
+            ...(pii?.prestataires || []),
+            ...(state.localContacts || [])
+        ];
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName, null, allCandidates);
         navigator.clipboard.writeText(tsvContent);
     };
 

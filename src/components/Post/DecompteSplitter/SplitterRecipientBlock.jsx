@@ -74,7 +74,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
     };
 
     const handleCopyING = () => {
-        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id);
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, recipientState.candidates);
         navigator.clipboard.writeText(tsvContent);
     };
 

@@ -85,15 +85,16 @@ export const buildTsvExport = (draft, expenses, currentDate) => {
  * 
  * L'utilisateur se positionnera sur la première cellule jaune "Montant" et fera Ctrl+V.
  */
-export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlockId = null) => {
+export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlockId = null, allCandidates = []) => {
     const lines = [];
 
     draft.blocks.forEach(block => {
         if (targetBlockId && block.id !== targetBlockId) return;
         if (!block.recipientRef && !block.recipientSnapshot?.displayName) return;
 
-        const beneficiaire = sanitizeTsvCell(block.recipientSnapshot?.displayName || 'Inconnu');
-        const iban = sanitizeTsvCell(block.ibanOverride || block.recipientSnapshot?.iban || '');
+        const snapshot = block.recipientSnapshot || resolveRecipientSnapshot(block.recipientRef, allCandidates) || {};
+        const beneficiaire = sanitizeTsvCell(snapshot.displayName || 'Inconnu');
+        const iban = sanitizeTsvCell(block.ibanOverride || snapshot.iban || '');
 
         const blockAllocations = draft.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
         if (blockAllocations.length === 0) return;
