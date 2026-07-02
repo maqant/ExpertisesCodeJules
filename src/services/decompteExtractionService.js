@@ -22,11 +22,11 @@ Exemple de données que tu vas rencontrer : 'Frais de syndic 760,00' ou 'Bâtime
 export async function extractDecomptePostes(file, providedApiKey = null) {
     if (!file) throw new Error("Aucun fichier fourni pour l'extraction.");
 
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) throw new Error("Clé API non configurée.");
-
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) throw new Error("Clé API non configurée.");
 
     const contentArray = [{ type: "text", text: "Voici le décompte de la compagnie à analyser." }];
 
