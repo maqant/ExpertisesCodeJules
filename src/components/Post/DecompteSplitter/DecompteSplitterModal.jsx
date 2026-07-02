@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { DecompteSplitterProvider, useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
 import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport } from '../../../services/export/tsvBuilder.js';
-import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud } from 'lucide-react';
+import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
 import { extractDecomptePostes, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
 
@@ -38,6 +38,47 @@ const SplitterInner = ({ onClose }) => {
         }
     };
 
+    useEffect(() => {
+        if (state.ingestionStatus !== 'idle') return;
+
+        const handleGlobalPaste = (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        e.preventDefault();
+                        handleDrop([blob]);
+                        break;
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('paste', handleGlobalPaste);
+        return () => window.removeEventListener('paste', handleGlobalPaste);
+    }, [state.ingestionStatus]);
+
+    const handlePasteButtonClick = async () => {
+        try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                const imageTypes = item.types.filter(type => type.startsWith('image/'));
+                if (imageTypes.length > 0) {
+                    const blob = await item.getType(imageTypes[0]);
+                    const file = new File([blob], 'screenshot.png', { type: imageTypes[0] });
+                    handleDrop([file]);
+                    return;
+                }
+            }
+            alert("Aucune image trouvée dans le presse-papier. Assurez-vous d'avoir fait une capture d'écran.");
+        } catch (err) {
+            console.error("Erreur d'accès au presse-papier:", err);
+            alert("Impossible de lire le presse-papier. Utilisez Ctrl+V ou autorisez l'accès dans votre navigateur.");
+        }
+    };
+
     const renderBody = () => {
         if (state.ingestionStatus === 'idle') {
             return (
@@ -55,6 +96,20 @@ const SplitterInner = ({ onClose }) => {
                                 accept=".pdf,image/*" 
                                 label="Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler." 
                             />
+                            
+                            <div className="mt-4 flex items-center justify-center">
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                                <span className="px-3 text-xs text-slate-400 font-medium">OU</span>
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                            </div>
+                            
+                            <button 
+                                onClick={handlePasteButtonClick}
+                                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition-colors font-medium text-sm"
+                            >
+                                <ClipboardPaste className="w-4 h-4 text-slate-500" />
+                                Coller une capture d'écran (Ctrl+V)
+                            </button>
                         </div>
                     </div>
                 </div>
