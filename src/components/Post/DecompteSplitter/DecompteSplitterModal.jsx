@@ -23,31 +23,6 @@ const SplitterInner = ({ onClose }) => {
         // Toast possible ici
     };
 
-    return (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center p-4 md:p-8">
-            <div className="bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-                
-                {/* Header */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-800 text-white">
-                    <div>
-                        <h1 className="text-xl font-bold">Gestionnaire de Décomptes</h1>
-                        <p className="text-xs text-slate-300 mt-0.5">Ventilation multi-destinataires</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        {!validation.isValid && (
-                            <div className="flex items-center gap-2 text-xs font-medium text-amber-300 bg-amber-900/50 px-3 py-1.5 rounded-full border border-amber-500/30">
-                                <AlertTriangle className="w-4 h-4" />
-                                {validation.errors.length} erreur(s) bloquante(s)
-                            </div>
-                        )}
-                        <button 
-                            onClick={onClose}
-                            className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-full transition-colors"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
 
     const handleDrop = async (files) => {
         if (!files || files.length === 0) return;
