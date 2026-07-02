@@ -50,7 +50,7 @@ export const validateDraft = (expenses, draft) => {
 
     // Vérification des blocs
     draft.blocks.forEach(b => {
-        if (!b.recipientId && !b.recipientSnapshot?.displayName) {
+        if (!b.recipientRef && !b.recipientSnapshot?.displayName) {
             errors.push({
                 type: 'INVALID_BLOCK',
                 blockId: b.id,
