@@ -1,5 +1,6 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
+import { resolveRecipientSnapshot } from '../utils/contactUtils.js';
 
 /**
  * Nettoie une chaîne de caractères pour être sûre dans un TSV.
