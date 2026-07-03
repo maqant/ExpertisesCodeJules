@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
-import { CLOSURE_MODE, getResteAVentiler } from '../../../domain/decompteSplitter/allocationModel.js';
+import { CLOSURE_MODE, getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
 import { useSingleRecipient } from '../../../hooks/useSingleRecipient.js';
 import { resolveRecipientSnapshot } from '../../../services/utils/contactUtils.js';
@@ -197,6 +197,9 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                         >
                             <option value="">-- Choisir un poste --</option>
                             {expenses.map(exp => {
+                                const isSuspended = state.allocations.some(a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED);
+                                if (isSuspended) return null;
+
                                 const reste = getResteAVentiler(exp, state.allocations);
                                 if (reste <= 0.001) return null;
                                 return (

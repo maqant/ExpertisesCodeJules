@@ -5,6 +5,7 @@ import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
 import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
+import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
 import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
 import { extractDecomptePostes, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
@@ -24,11 +25,11 @@ const SplitterInner = ({ onClose, dossierName }) => {
     };
 
     const handleCopyING = () => {
-        const allCandidates = [
-            ...(pii?.occupants || []),
-            ...(pii?.prestataires || []),
-            ...(state.localContacts || [])
-        ];
+        const allCandidates = buildAllCandidates({
+            occupants: pii?.occupants || [],
+            intervenants: pii?.prestataires || [],
+            localContacts: state.localContacts || []
+        });
         const tsvContent = buildINGTsvExport(state, expenses, dossierName, null, allCandidates);
         navigator.clipboard.writeText(tsvContent);
     };
