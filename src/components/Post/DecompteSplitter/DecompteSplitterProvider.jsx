@@ -12,47 +12,57 @@ const initialState = {
     localContacts: [],
     unassignedPolicy: 'strict',
     extractedExpenses: [],
-    ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'ready_payment' | 'error'
+    ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
     ingestionError: null,
-    documentType: null, // 'DECOMPTE' | 'LETTRE_PAIEMENT' | null
-    detectedPayment: null // { montant, beneficiaire, date, reference, communication }
+    ingestionRequestId: null,
+    detectedMeta: null // { beneficiaire: {nom, iban}, reference, dateISO }
 };
+
+const INGESTION_TRANSITIONS = {
+    idle: ['parsing'],
+    parsing: ['ready', 'error', 'idle'],
+    ready: ['parsing', 'idle'],
+    error: ['parsing', 'idle'],
+};
+
+function canTransition(from, to) {
+    return INGESTION_TRANSITIONS[from]?.includes(to) ?? false;
+}
 
 function splitterReducer(state, action) {
     switch (action.type) {
         case 'INIT_DRAFT':
             return action.payload || initialState;
 
-        case 'INGESTION_START':
-            return { ...state, ingestionStatus: 'parsing', ingestionError: null };
+        case 'INGESTION_START': {
+            if (!canTransition(state.ingestionStatus, 'parsing')) return state;
+            return { ...state, ingestionStatus: 'parsing', ingestionError: null, ingestionRequestId: action.payload.requestId };
+        }
             
-        case 'INGESTION_UPLOADING':
-            return { ...state, ingestionStatus: 'uploading', ingestionError: null };
+        case 'INGESTION_SUCCESS': {
+            if (state.ingestionRequestId !== action.payload.requestId) return state; // Ignore outdated responses
+            if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
-        case 'INGESTION_SUCCESS':
-            return { ...state, ingestionStatus: 'ready', documentType: 'DECOMPTE', extractedExpenses: action.payload, ingestionError: null };
-            
-        case 'INGESTION_ERROR':
-            return { ...state, ingestionStatus: 'error', ingestionError: action.payload };
-
-        case 'PAYMENT_INGESTION_SUCCESS':
+            const { expenses, meta, autoBlock } = action.payload;
             return {
                 ...state,
-                ingestionStatus: 'ready_payment',
-                documentType: 'LETTRE_PAIEMENT',
-                detectedPayment: action.payload,
-                ingestionError: null
+                ingestionStatus: 'ready',
+                ingestionRequestId: null,
+                extractedExpenses: expenses,
+                detectedMeta: meta || null,
+                ingestionError: null,
+                localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
+                blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
             };
-
-        case 'UPDATE_DETECTED_PAYMENT':
-            return {
-                ...state,
-                detectedPayment: { ...state.detectedPayment, ...action.payload }
-            };
+        }
+            
+        case 'INGESTION_ERROR': {
+            if (state.ingestionRequestId !== action.payload.requestId) return state;
+            return { ...state, ingestionStatus: 'error', ingestionError: action.payload.message, ingestionRequestId: null };
+        }
             
         case 'RESET_INGESTION':
-            // Reset ingestion and allocations since source changes
-            return { ...state, ingestionStatus: 'idle', documentType: null, extractedExpenses: [], detectedPayment: null, ingestionError: null, allocations: [], blocks: [] };
+            return { ...state, ingestionStatus: 'idle', extractedExpenses: [], detectedMeta: null, ingestionError: null, allocations: [], blocks: [], ingestionRequestId: null };
 
         case 'ADD_BLOCK': {
             const newBlock = {

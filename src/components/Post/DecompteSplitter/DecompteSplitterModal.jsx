@@ -1,15 +1,15 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { DecompteSplitterProvider, useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
 import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
-import SplitterPaymentMode from './SplitterPaymentMode.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
-import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste } from 'lucide-react';
+import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste, Save } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
-import { analyzeFinancialDocument, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
+import { ingestDocument } from './ingestionOrchestrator.js';
+import { integrateToDossier } from '../../../services/decompteIntegrationService.js';
 
 const SplitterInner = ({ onClose, dossierName }) => {
     const { pii } = useFinanceStore();
@@ -35,24 +35,26 @@ const SplitterInner = ({ onClose, dossierName }) => {
         navigator.clipboard.writeText(tsvContent);
     };
 
+    const [isSaved, setIsSaved] = useState(false);
 
     const handleDrop = async (files) => {
         if (!files || files.length === 0) return;
         const file = files[0];
         
-        dispatch({ type: 'INGESTION_START' });
-        try {
-            const result = await analyzeFinancialDocument(file);
+        // Délègue la complexité métier et l'appel IA à l'orchestrateur asynchrone pur
+        await ingestDocument(file, dispatch);
+    };
 
-            if (result.type === 'LETTRE_PAIEMENT') {
-                dispatch({ type: 'PAYMENT_INGESTION_SUCCESS', payload: result.paiement });
-            } else {
-                // DECOMPTE (default)
-                const mappedExpenses = mapPostesToExpenses(result.postes);
-                dispatch({ type: 'INGESTION_SUCCESS', payload: mappedExpenses });
-            }
+    const handleSendToDossier = () => {
+        if (!validation.isValid) return;
+        
+        try {
+            const result = integrateToDossier(state);
+            alert(`Succès ! \n${result.addedExpensesCount} frais créés.\n${result.paymentAdded ? `Paiement global de ${result.totalEuroStr} € enregistré.` : ''}`);
+            setIsSaved(true);
+            setTimeout(() => onClose(), 2000); // Ferme automatiquement après 2s
         } catch (err) {
-            dispatch({ type: 'INGESTION_ERROR', payload: err.message });
+            alert(`Erreur lors de l'intégration: ${err.message}`);
         }
     };
 
@@ -161,9 +163,16 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 </div>
             );
         }
-        // Mode Lettre de Paiement
-        if (state.ingestionStatus === 'ready_payment') {
-            return <SplitterPaymentMode dossierName={dossierName} />;
+        if (isSaved) {
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 bg-emerald-50">
+                    <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 text-emerald-600">
+                        <Check className="w-10 h-10" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Sauvegardé avec succès !</h2>
+                    <p className="text-slate-500">Les données ont été injectées dans le dossier.</p>
+                </div>
+            );
         }
 
         // Mode Décompte (ventilation classique)
@@ -187,6 +196,22 @@ const SplitterInner = ({ onClose, dossierName }) => {
                                 <Plus className="w-4 h-4 text-indigo-600" />
                                 Ajouter un paiement
                             </button>
+                            
+                            {dossierName && (
+                                <button 
+                                    onClick={handleSendToDossier}
+                                    disabled={!validation.isValid}
+                                    className={`flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded shadow-sm transition-colors ${
+                                        validation.isValid 
+                                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-transparent'
+                                    }`}
+                                    title={!validation.isValid ? "Corrigez les erreurs pour envoyer au dossier" : "Créer les lignes de frais et le versement dans le dossier"}
+                                >
+                                    {validation.isValid ? <Save className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                    Envoyer au dossier
+                                </button>
+                            )}
                             
                             <button 
                                 onClick={handleCopyTSV}
