@@ -19,7 +19,7 @@ const initialState = {
 };
 
 const INGESTION_TRANSITIONS = {
-    idle: ['parsing'],
+    idle: ['parsing', 'ready'], // Allow direct jump to ready for manual entry
     parsing: ['ready', 'error', 'idle'],
     ready: ['parsing', 'idle'],
     error: ['parsing', 'idle'],
@@ -54,11 +54,28 @@ function splitterReducer(state, action) {
                 localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
                 blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
             };
-        }
-            
         case 'INGESTION_ERROR': {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
             return { ...state, ingestionStatus: 'error', ingestionError: action.payload.message, ingestionRequestId: null };
+        }
+            
+        case 'MANUAL_ENTRY': {
+            if (!canTransition(state.ingestionStatus, 'ready')) return state;
+            return {
+                ...state,
+                ingestionStatus: 'ready',
+                ingestionRequestId: null,
+                extractedExpenses: [],
+                detectedMeta: null,
+                ingestionError: null
+            };
+        }
+            
+        case 'ADD_MANUAL_EXPENSE': {
+            return {
+                ...state,
+                extractedExpenses: [...state.extractedExpenses, action.payload]
+            };
         }
             
         case 'RESET_INGESTION':

@@ -123,13 +123,23 @@ const SplitterInner = ({ onClose, dossierName }) => {
                                 <div className="h-px bg-slate-200 flex-1"></div>
                             </div>
                             
-                            <button 
-                                onClick={handlePasteButtonClick}
-                                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition-colors font-medium text-sm"
-                            >
-                                <ClipboardPaste className="w-4 h-4 text-slate-500" />
-                                Coller une capture d'écran (Ctrl+V)
-                            </button>
+                            <div className="flex gap-3 mt-4">
+                                <button 
+                                    onClick={handlePasteButtonClick}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition-colors font-medium text-sm"
+                                >
+                                    <ClipboardPaste className="w-4 h-4 text-slate-500" />
+                                    Coller (Ctrl+V)
+                                </button>
+                                
+                                <button 
+                                    onClick={() => dispatch({ type: 'MANUAL_ENTRY' })}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl transition-colors font-medium text-sm shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 text-slate-500" />
+                                    Saisie manuelle
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus } from 'lucide-react';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
@@ -15,13 +15,32 @@ const SplitterGlobalBasket = ({ expenses }) => {
                     <h2 className="text-lg font-semibold text-slate-800">Panier Global</h2>
                     <p className="text-xs text-slate-500 mt-1">Postes extraits du décompte</p>
                 </div>
-                <button 
-                    onClick={() => dispatch({ type: 'RESET_INGESTION' })}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Vider et importer un nouveau décompte"
-                >
-                    <RotateCcw className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => {
+                            const newExp = {
+                                id: crypto.randomUUID(),
+                                desc: 'Nouveau poste',
+                                montantReclame: "0,00",
+                                montantValide: "0,00",
+                                typeMontant: 'HTVA',
+                                origine: 'manuel'
+                            };
+                            dispatch({ type: 'ADD_MANUAL_EXPENSE', payload: newExp });
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                        title="Ajouter une ligne de frais manuellement"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => dispatch({ type: 'RESET_INGESTION' })}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Vider et recommencer"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
