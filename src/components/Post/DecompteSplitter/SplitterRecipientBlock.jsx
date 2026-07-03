@@ -168,7 +168,12 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                             if (!exp) return null;
                             return (
                                 <li key={alloc.id} className="flex justify-between items-center text-sm py-1 border-b border-slate-100 last:border-0">
-                                    <span className="truncate pr-2 text-slate-600">{exp.desc || exp.type}</span>
+                                    <div className="flex items-center gap-2 truncate pr-2">
+                                        <span className="truncate text-slate-600">{exp.desc || exp.type}</span>
+                                        {alloc.origin === 'prorata' && (
+                                            <span className="px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-600 text-[9px] font-bold uppercase tracking-wider">Prorata</span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <span className="font-medium text-slate-800">{cleanAmount(alloc.montant).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                                         <button 

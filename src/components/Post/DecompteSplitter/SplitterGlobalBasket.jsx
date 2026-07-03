@@ -2,7 +2,8 @@ import React from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent } from 'lucide-react';
+import { computeProrataWeights } from '../../../domain/decompteSplitter/prorataDistribution.js';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
@@ -125,12 +126,30 @@ const SplitterGlobalBasket = ({ expenses }) => {
                                             Réactiver
                                         </button>
                                     ) : (
-                                        <button 
-                                            onClick={() => dispatch({ type: 'SUSPEND_EXPENSE', payload: { expenseId: exp.id } })}
-                                            className="flex-1 py-1 px-2 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded transition-colors"
-                                        >
-                                            Mettre en suspens
-                                        </button>
+                                        <>
+                                            <button 
+                                                onClick={() => dispatch({ type: 'SUSPEND_EXPENSE', payload: { expenseId: exp.id } })}
+                                                className="flex-1 py-1 px-2 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded transition-colors"
+                                            >
+                                                En suspens
+                                            </button>
+                                            {Math.abs(reste) > 0.001 && computeProrataWeights(exp.id, allocations).length > 0 && (
+                                                <button
+                                                    onClick={() => {
+                                                        try {
+                                                            dispatch({ type: 'DISTRIBUTE_PRORATA', payload: { expense: exp } });
+                                                        } catch (err) {
+                                                            alert(err.message || 'Erreur lors de la distribution au prorata.');
+                                                        }
+                                                    }}
+                                                    className="flex items-center justify-center py-1 px-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 hover:text-indigo-700 rounded transition-colors"
+                                                    title="Ventiler au prorata des autres postes"
+                                                >
+                                                    <Percent className="w-3.5 h-3.5 mr-1" />
+                                                    Prorata
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>

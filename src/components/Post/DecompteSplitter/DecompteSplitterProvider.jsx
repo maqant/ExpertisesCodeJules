@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { ALLOCATION_STATUS, CLOSURE_MODE, genId } from '../../../domain/decompteSplitter/allocationModel.js';
+import { buildProrataAllocations } from '../../../domain/decompteSplitter/prorataDistribution.js';
 
 const SplitterContext = createContext(null);
 
@@ -87,6 +88,20 @@ function splitterReducer(state, action) {
                     e.id === action.payload.id ? { ...e, ...action.payload.changes } : e
                 )
             };
+        }
+            
+        case 'DISTRIBUTE_PRORATA': {
+            try {
+                const newAllocations = buildProrataAllocations(action.payload.expense, state.allocations);
+                return {
+                    ...state,
+                    allocations: [...state.allocations, ...newAllocations]
+                };
+            } catch (err) {
+                // On délègue l'affichage de l'erreur au composant qui dispatche (ou on pourrait avoir un state.uiError)
+                // Pour rester simple et dans la ligne de ce qui existe, on throw pour que le composant l'attrape
+                throw err;
+            }
         }
             
         case 'RESET_INGESTION':
