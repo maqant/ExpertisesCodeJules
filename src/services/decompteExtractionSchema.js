@@ -62,11 +62,19 @@ export function normalizeFinancialDocument(rawAiResponse) {
     }
     const { postes, beneficiaire, reference, date } = parsed.data;
     return {
-        postes: postes.map(p => ({
-            libelle: p.libelle.trim(),
-            montantStr: p.montant, // On conserve le format string localisé
-            categorie: p.categorie,
-        })),
+        postes: postes.map(p => {
+            let montantStr = p.montant;
+            if (p.libelle && p.libelle.toLowerCase().includes('franchise')) {
+                if (!montantStr.startsWith('-') && montantStr !== '0,00') {
+                    montantStr = '-' + montantStr;
+                }
+            }
+            return {
+                libelle: p.libelle.trim(),
+                montantStr: montantStr,
+                categorie: p.categorie,
+            };
+        }),
         meta: { beneficiaire, reference, dateISO: date },
     };
 }

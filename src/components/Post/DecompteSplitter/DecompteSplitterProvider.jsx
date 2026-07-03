@@ -80,6 +80,15 @@ function splitterReducer(state, action) {
             };
         }
             
+        case 'UPDATE_MANUAL_EXPENSE': {
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => 
+                    e.id === action.payload.id ? { ...e, ...action.payload.changes } : e
+                )
+            };
+        }
+            
         case 'RESET_INGESTION':
             return { ...state, ingestionStatus: 'idle', extractedExpenses: [], detectedMeta: null, ingestionError: null, allocations: [], blocks: [], ingestionRequestId: null };
 

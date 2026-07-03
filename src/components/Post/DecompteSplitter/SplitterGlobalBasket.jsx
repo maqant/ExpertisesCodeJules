@@ -72,13 +72,35 @@ const SplitterGlobalBasket = ({ expenses }) => {
 
                         return (
                             <div key={exp.id} className={`p-3 rounded-lg border shadow-sm transition-colors ${statusConfig.bg} ${statusConfig.border}`}>
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-sm font-medium text-slate-700 truncate pr-2" title={exp.desc || exp.type}>
-                                        {exp.desc || exp.type || 'Poste inconnu'}
-                                    </span>
-                                    <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
-                                        {cible.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                                    </span>
+                                <div className="flex justify-between items-start mb-1 gap-2">
+                                    {exp.origine === 'manuel' ? (
+                                        <>
+                                            <input 
+                                                className="text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-1.5 py-0.5 w-3/5 outline-none transition-colors"
+                                                value={exp.desc}
+                                                onChange={(e) => dispatch({ type: 'UPDATE_MANUAL_EXPENSE', payload: { id: exp.id, changes: { desc: e.target.value } } })}
+                                                placeholder="Nom du poste"
+                                            />
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    className="text-sm font-bold text-slate-800 bg-white border border-slate-300 hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-1.5 py-0.5 w-20 text-right outline-none transition-colors"
+                                                    value={exp.montantReclame}
+                                                    onChange={(e) => dispatch({ type: 'UPDATE_MANUAL_EXPENSE', payload: { id: exp.id, changes: { montantReclame: e.target.value, montantValide: e.target.value } } })}
+                                                    placeholder="0,00"
+                                                />
+                                                <span className="text-sm font-bold text-slate-800">€</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-sm font-medium text-slate-700 truncate pr-2" title={exp.desc || exp.type}>
+                                                {exp.desc || exp.type || 'Poste inconnu'}
+                                            </span>
+                                            <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                                                {cible.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                                 
                                 <div className="flex justify-between items-center mt-2">
