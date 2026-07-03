@@ -19,6 +19,10 @@ export const PRORATA_ERRORS = {
  * @returns {Array<{blockId: string, poidsCentimes: number}>}
  */
 export const computeProrataWeights = (targetExpenseId, allocations, baseExpenseIds = null) => {
+    if (Array.isArray(baseExpenseIds) && baseExpenseIds.length === 0) {
+        throw Object.assign(new Error('La base de prorata sélectionnée est vide.'), { code: PRORATA_ERRORS.NO_BASE });
+    }
+
     const byBlock = new Map();
     for (const a of allocations) {
         if (a.expenseId === targetExpenseId) continue;            // pas d'auto-référence

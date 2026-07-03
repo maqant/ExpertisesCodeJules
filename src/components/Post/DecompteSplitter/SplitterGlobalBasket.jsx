@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
 import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent } from 'lucide-react';
 import { computeProrataWeights } from '../../../domain/decompteSplitter/prorataDistribution.js';
+import ProrataBasePopover from './ProrataBasePopover.jsx';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
     const { allocations } = state;
+    const [activePopoverExpId, setActivePopoverExpId] = useState(null);
 
     return (
         <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200">
@@ -72,7 +74,7 @@ const SplitterGlobalBasket = ({ expenses }) => {
                         }
 
                         return (
-                            <div key={exp.id} className={`p-3 rounded-lg border shadow-sm transition-colors ${statusConfig.bg} ${statusConfig.border}`}>
+                            <div key={exp.id} className={`relative p-3 rounded-lg border shadow-sm transition-colors ${statusConfig.bg} ${statusConfig.border}`}>
                                 <div className="flex justify-between items-start mb-1 gap-2">
                                     {exp.origine === 'manuel' ? (
                                         <>
@@ -135,13 +137,7 @@ const SplitterGlobalBasket = ({ expenses }) => {
                                             </button>
                                             {Math.abs(reste) > 0.001 && computeProrataWeights(exp.id, allocations).length > 0 && (
                                                 <button
-                                                    onClick={() => {
-                                                        try {
-                                                            dispatch({ type: 'DISTRIBUTE_PRORATA', payload: { expense: exp } });
-                                                        } catch (err) {
-                                                            alert(err.message || 'Erreur lors de la distribution au prorata.');
-                                                        }
-                                                    }}
+                                                    onClick={() => setActivePopoverExpId(activePopoverExpId === exp.id ? null : exp.id)}
                                                     className="flex items-center justify-center py-1 px-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 hover:text-indigo-700 rounded transition-colors"
                                                     title="Ventiler au prorata des autres postes"
                                                 >
@@ -152,6 +148,25 @@ const SplitterGlobalBasket = ({ expenses }) => {
                                         </>
                                     )}
                                 </div>
+                                {activePopoverExpId === exp.id && (
+                                    <ProrataBasePopover
+                                        targetExpense={exp}
+                                        expenses={expenses}
+                                        allocations={allocations}
+                                        onClose={() => setActivePopoverExpId(null)}
+                                        onApply={(baseExpenseIds) => {
+                                            try {
+                                                dispatch({ 
+                                                    type: 'DISTRIBUTE_PRORATA', 
+                                                    payload: { expense: exp, baseExpenseIds } 
+                                                });
+                                                setActivePopoverExpId(null);
+                                            } catch (err) {
+                                                alert(err.message || 'Erreur lors de la distribution au prorata.');
+                                            }
+                                        }}
+                                    />
+                                )}
                             </div>
                         );
                     })
