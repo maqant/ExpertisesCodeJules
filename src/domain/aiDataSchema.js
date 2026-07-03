@@ -44,7 +44,8 @@ const FORMDATA_DEFAULTS = {
   numPolice: null, numSinistreCie: null, numConditionsGenerales: null, numeroPVPolice: null, franchise: null,
   pertesIndirectes: null, isAxa: false,
   isContradictoire: false, cieContradictoire: null, bureauContradictoire: null,
-  expertContradictoire: null, compteDeContradictoire: null
+  expertContradictoire: null, compteDeContradictoire: null,
+  cause: null, divers: null
 };
 
 const mergeDefaults = (defaults, source) =>
