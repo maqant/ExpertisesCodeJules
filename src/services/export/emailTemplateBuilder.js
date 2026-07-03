@@ -17,7 +17,12 @@ export const buildEmailTemplate = (block, allocations, expenses) => {
     const recipientName = block.recipientSnapshot?.displayName || 'Monsieur, Madame';
     const salutation = block.recipientSnapshot ? buildSalutation([{ displayName: recipientName, civility: block.recipientSnapshot.civility, nom: recipientName, email: block.recipientSnapshot.email }]) : `Bonjour ${recipientName},`;
 
-    const ibanStr = block.ibanOverride || block.recipientSnapshot?.iban || '[IBAN MANQUANT]';
+    let rawIban = block.ibanOverride || block.recipientSnapshot?.iban;
+    let ibanStr = '[IBAN MANQUANT]';
+    if (rawIban) {
+        const cleanIban = rawIban.replace(/\s+/g, '');
+        ibanStr = cleanIban.match(/.{1,4}/g)?.join(' ') || cleanIban;
+    }
 
     // Trouver les allocations
     const blockAllocations = allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
@@ -34,14 +39,14 @@ export const buildEmailTemplate = (block, allocations, expenses) => {
         const val = cleanAmount(alloc.montant);
         total += val;
 
-        const isFranchise = exp.isFranchise || exp.type === 'Franchise';
+        const isFranchise = val < 0 || (exp.desc || '').toLowerCase().includes('franchise') || (exp.type || '').toLowerCase().includes('franchise') || exp.isFranchise;
         const sign = isFranchise ? '(-)' : '(+)';
         const libelle = exp.desc || exp.type || 'Poste inconnu';
         
         // Formatage du montant
         const formatMontant = Math.abs(val).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',');
         
-        itemsLines.push(`* ${sign} Poste ${libelle} : ${formatMontant} € ;`);
+        itemsLines.push(`${sign} Poste ${libelle} : ${formatMontant} € ;`);
     });
 
     const totalStr = total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',');
@@ -49,9 +54,9 @@ export const buildEmailTemplate = (block, allocations, expenses) => {
     // Clause de fin
     let closureText = '';
     if (block.closureMode === CLOSURE_MODE.CLOTURE) {
-        closureText = '"Sauf erreur, ce paiement clôture ce dossier."';
+        closureText = 'Sauf erreur, ce paiement clôture ce dossier.';
     } else {
-        closureText = '"Ce paiement constitue une avance de 80% du dommage chiffré pour le bâtiment HTVA, conformément à la loi des Assurances du 04 avril 2014 : Je me place en attente des factures pour réclamer le solde et la TVA."';
+        closureText = 'Ce paiement constitue une avance de 80% du dommage chiffré pour le bâtiment HTVA, conformément à la loi des Assurances du 04 avril 2014 : Je me place en attente des factures pour réclamer le solde et la TVA.';
     }
 
     const remarqueText = block.remarque ? `\n${block.remarque}\n` : '';
