@@ -879,13 +879,17 @@ export const processGlobalIngestion = async ({
         const missingVitalData = [];
         
         // 1. Scanner les données administratives vitales
-        if (adminRes.data?.formData) {
-            if (adminRes.data.formData.numPolice === null) missingVitalData.push('Numéro de Police (numPolice)');
-            if (adminRes.data.formData.dateSinistre === null) missingVitalData.push('Date du Sinistre (dateSinistre)');
+        if (!adminRes.data?.formData || !adminRes.data.formData.numPolice || String(adminRes.data.formData.numPolice).trim() === '') {
+            missingVitalData.push('Numéro de Police (numPolice)');
+        }
+        if (!adminRes.data?.formData || !adminRes.data.formData.dateSinistre || String(adminRes.data.formData.dateSinistre).trim() === '') {
+            missingVitalData.push('Date du Sinistre (dateSinistre)');
         }
         
         // 2. Scanner les causes narratives
-        if (narrativeRes.data && narrativeRes.data.cause === null) missingVitalData.push('Origine technique du sinistre (cause)');
+        if (!narrativeRes.data || !narrativeRes.data.cause || String(narrativeRes.data.cause).trim() === '') {
+            missingVitalData.push('Origine technique du sinistre (cause)');
+        }
 
         if (missingVitalData.length > 0) {
             if (addDebugLog) log('AGENT_BALAI', 'WARNING', `Trous détectés : ${missingVitalData.join(', ')}. Lancement de GPT-5.5 en renfort...`);
@@ -903,13 +907,18 @@ export const processGlobalIngestion = async ({
 
                 // Fusion des trouvailles du Balai dans l'objet principal
                 if (fallbackResults['Numéro de Police (numPolice)'] && fallbackResults['Numéro de Police (numPolice)'] !== 'INTROUVABLE') {
-                    if (adminRes.data.formData) adminRes.data.formData.numPolice = fallbackResults['Numéro de Police (numPolice)'];
+                    if (!adminRes.data) adminRes.data = {};
+                    if (!adminRes.data.formData) adminRes.data.formData = {};
+                    adminRes.data.formData.numPolice = fallbackResults['Numéro de Police (numPolice)'];
                 }
                 if (fallbackResults['Date du Sinistre (dateSinistre)'] && fallbackResults['Date du Sinistre (dateSinistre)'] !== 'INTROUVABLE') {
-                    if (adminRes.data.formData) adminRes.data.formData.dateSinistre = fallbackResults['Date du Sinistre (dateSinistre)'];
+                    if (!adminRes.data) adminRes.data = {};
+                    if (!adminRes.data.formData) adminRes.data.formData = {};
+                    adminRes.data.formData.dateSinistre = fallbackResults['Date du Sinistre (dateSinistre)'];
                 }
                 if (fallbackResults['Origine technique du sinistre (cause)'] && fallbackResults['Origine technique du sinistre (cause)'] !== 'INTROUVABLE') {
-                    if (narrativeRes.data) narrativeRes.data.cause = fallbackResults['Origine technique du sinistre (cause)'];
+                    if (!narrativeRes.data) narrativeRes.data = {};
+                    narrativeRes.data.cause = fallbackResults['Origine technique du sinistre (cause)'];
                 }
                 
             } catch (fallbackError) {
