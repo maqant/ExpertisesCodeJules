@@ -3,12 +3,13 @@ import { useFinanceStore } from '../../../store/financeStore.js';
 import { DecompteSplitterProvider, useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
 import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
+import SplitterPaymentMode from './SplitterPaymentMode.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
 import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
-import { extractDecomptePostes, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
+import { analyzeFinancialDocument, mapPostesToExpenses } from '../../../services/decompteExtractionService.js';
 
 const SplitterInner = ({ onClose, dossierName }) => {
     const { pii } = useFinanceStore();
@@ -41,9 +42,15 @@ const SplitterInner = ({ onClose, dossierName }) => {
         
         dispatch({ type: 'INGESTION_START' });
         try {
-            const postes = await extractDecomptePostes(file);
-            const mappedExpenses = mapPostesToExpenses(postes);
-            dispatch({ type: 'INGESTION_SUCCESS', payload: mappedExpenses });
+            const result = await analyzeFinancialDocument(file);
+
+            if (result.type === 'LETTRE_PAIEMENT') {
+                dispatch({ type: 'PAYMENT_INGESTION_SUCCESS', payload: result.paiement });
+            } else {
+                // DECOMPTE (default)
+                const mappedExpenses = mapPostesToExpenses(result.postes);
+                dispatch({ type: 'INGESTION_SUCCESS', payload: mappedExpenses });
+            }
         } catch (err) {
             dispatch({ type: 'INGESTION_ERROR', payload: err.message });
         }
@@ -98,8 +105,8 @@ const SplitterInner = ({ onClose, dossierName }) => {
                         <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 text-indigo-600 shadow-inner">
                             <UploadCloud className="w-10 h-10" />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-3">Importer le décompte de la compagnie</h2>
-                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler.</p>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-3">Importer un document financier</h2>
+                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez une lettre de décompte ou de paiement (PDF/image). L'IA détectera automatiquement le type de document.</p>
                         
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <DropZone 
@@ -132,7 +139,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50">
                     <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-6" />
                     <h2 className="text-xl font-semibold text-slate-800">Analyse par l'IA en cours...</h2>
-                    <p className="text-slate-500 mt-2 text-sm text-center max-w-md">Lecture du document et extraction structurée des postes financiers. Cette opération peut prendre quelques secondes.</p>
+                    <p className="text-slate-500 mt-2 text-sm text-center max-w-md">Lecture et classification du document financier. Cette opération peut prendre quelques secondes.</p>
                 </div>
             );
         }
@@ -154,7 +161,12 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 </div>
             );
         }
+        // Mode Lettre de Paiement
+        if (state.ingestionStatus === 'ready_payment') {
+            return <SplitterPaymentMode dossierName={dossierName} />;
+        }
 
+        // Mode Décompte (ventilation classique)
         return (
             <div className="flex flex-1 overflow-hidden">
                 {/* Colonne de gauche (1/3) */}
@@ -245,8 +257,8 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 {/* Header */}
                 <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-800 text-white">
                     <div>
-                        <h1 className="text-xl font-bold">Gestionnaire de Décomptes</h1>
-                        <p className="text-xs text-slate-300 mt-0.5">Ventilation multi-destinataires assistée par l'IA</p>
+                        <h1 className="text-xl font-bold">Gestionnaire financier</h1>
+                        <p className="text-xs text-slate-300 mt-0.5">Ingestion de décomptes et de paiements assistée par l'IA</p>
                     </div>
                     <div className="flex items-center gap-4">
                         {!validation.isValid && state.ingestionStatus === 'ready' && (

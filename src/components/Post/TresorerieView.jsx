@@ -1,14 +1,13 @@
 import React, { useState, useContext } from 'react';
 import { useFinanceStore } from '../../store/financeStore';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
-import PaymentWizardModal from './PaymentWizardModal';
 import { getCompteDeName } from '../../utils/formatters';
 import DecompteSplitterModal from './DecompteSplitter/DecompteSplitterModal.jsx';
 
 const TresorerieView = () => {
   const store = useFinanceStore();
   const context = useContext(ExpertiseContext);
-  const [showWizard, setShowWizard] = useState(false);
+
   const [showDecompteSplitter, setShowDecompteSplitter] = useState(false);
   const occupants = store.pii.occupants;
   const isPVEClosed = store.metier.isPVEClosed;
@@ -78,13 +77,7 @@ const TresorerieView = () => {
             className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
             onClick={() => setShowDecompteSplitter(true)}
           >
-            <span>🧮</span> Ventiler les décomptes
-          </button>
-          <button
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform transform active:scale-95"
-            onClick={() => setShowWizard(true)}
-          >
-            <span>💸</span> Enregistrer un Paiement
+            <span>📂</span> Gestionnaire financier
           </button>
         </div>
       </div>
@@ -111,7 +104,7 @@ const TresorerieView = () => {
             <div className="flex items-center gap-4">
                 <span className="font-bold text-2xl">{reliquatGlobal.toFixed(2)} €</span>
                 <button
-                    onClick={() => setShowWizard(true)}
+                    onClick={() => setShowDecompteSplitter(true)}
                     className="bg-amber-600 text-white px-4 py-2 rounded shadow hover:bg-amber-500 font-bold"
                 >
                     Reprendre la répartition
@@ -391,7 +384,7 @@ const TresorerieView = () => {
         </div>
       )}
 
-      {showWizard && <PaymentWizardModal onClose={() => setShowWizard(false)} />}
+
       
       <DecompteSplitterModal
         isOpen={showDecompteSplitter}

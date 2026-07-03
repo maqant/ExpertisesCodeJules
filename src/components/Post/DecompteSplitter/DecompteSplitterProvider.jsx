@@ -12,8 +12,10 @@ const initialState = {
     localContacts: [],
     unassignedPolicy: 'strict',
     extractedExpenses: [],
-    ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
-    ingestionError: null
+    ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'ready_payment' | 'error'
+    ingestionError: null,
+    documentType: null, // 'DECOMPTE' | 'LETTRE_PAIEMENT' | null
+    detectedPayment: null // { montant, beneficiaire, date, reference, communication }
 };
 
 function splitterReducer(state, action) {
@@ -28,14 +30,29 @@ function splitterReducer(state, action) {
             return { ...state, ingestionStatus: 'uploading', ingestionError: null };
             
         case 'INGESTION_SUCCESS':
-            return { ...state, ingestionStatus: 'ready', extractedExpenses: action.payload, ingestionError: null };
+            return { ...state, ingestionStatus: 'ready', documentType: 'DECOMPTE', extractedExpenses: action.payload, ingestionError: null };
             
         case 'INGESTION_ERROR':
             return { ...state, ingestionStatus: 'error', ingestionError: action.payload };
+
+        case 'PAYMENT_INGESTION_SUCCESS':
+            return {
+                ...state,
+                ingestionStatus: 'ready_payment',
+                documentType: 'LETTRE_PAIEMENT',
+                detectedPayment: action.payload,
+                ingestionError: null
+            };
+
+        case 'UPDATE_DETECTED_PAYMENT':
+            return {
+                ...state,
+                detectedPayment: { ...state.detectedPayment, ...action.payload }
+            };
             
         case 'RESET_INGESTION':
             // Reset ingestion and allocations since source changes
-            return { ...state, ingestionStatus: 'idle', extractedExpenses: [], ingestionError: null, allocations: [], blocks: [] };
+            return { ...state, ingestionStatus: 'idle', documentType: null, extractedExpenses: [], detectedPayment: null, ingestionError: null, allocations: [], blocks: [] };
 
         case 'ADD_BLOCK': {
             const newBlock = {
