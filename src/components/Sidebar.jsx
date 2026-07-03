@@ -882,31 +882,7 @@ const Sidebar = () => {
                 {activeTab === 'settings' ? (
                     <div className="space-y-6">
 
-                        {/* 1. BASE EXPERTS — en premier, usage métier quotidien */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">{editingExpert ? "✏️ Modifier l'Expert" : "➕ Base Experts"}</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Nom</label><input type="text" value={addExpertForm.nom} onChange={e=>setAddExpertForm({...addExpertForm, nom:e.target.value})} placeholder="GABER Lionel" className="input-field mb-0"/></div><div className="flex-1"><label>Tél</label><input type="text" value={addExpertForm.tel} onChange={e=>setAddExpertForm({...addExpertForm, tel:e.target.value})} placeholder="04XX XX XX" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddExpert} className="w-full mt-2 bg-green-700 hover:bg-green-600 py-1.5 rounded text-xs font-bold">{editingExpert ? "Enregistrer" : "Ajouter"}</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-48 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs">
-                                    {sortedExperts.map((exp, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{formatExpertDisplay(exp)}</span><div><button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button> <button onClick={()=>window.confirm('Supprimer ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button></div></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* 2. BASE FRANCHISES — en second, usage métier quotidien */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">➕ Base Franchises</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Mois/Année</label><input type="text" value={addFranchiseForm.moisAnnee} onChange={e=>setAddFranchiseForm({...addFranchiseForm, moisAnnee:e.target.value})} placeholder="Mai 2026" className="input-field mb-0"/></div><div className="flex-1"><label>Montant</label><input type="text" value={addFranchiseForm.montant} onChange={e=>setAddFranchiseForm({...addFranchiseForm, montant:e.target.value})} placeholder="335,00 €" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold">Ajouter</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-32 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs text-slate-300">
-                                    {franchises.map((f, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{f}</span><button onClick={()=>window.confirm('Supprimer ?')&&setFranchises(franchises.filter(x=>x!==f))} className="hover:text-red-400 shrink-0">🗑️</button></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* 3. GESTION DES DOSSIERS */}
+                        {/* 1. GESTION DES DOSSIERS */}
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
                             <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
                             <div className="flex gap-2 mb-3">
@@ -943,6 +919,32 @@ const Sidebar = () => {
                                 }
                             </div>
                         </div>
+
+                        {/* 2. BASE EXPERTS — usage métier quotidien */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                            <h3 className="text-sm font-bold text-white mb-2">{editingExpert ? "✏️ Modifier l'Expert" : "➕ Base Experts"}</h3>
+                            <div className="flex gap-2"><div className="flex-1"><label>Nom</label><input type="text" value={addExpertForm.nom} onChange={e=>setAddExpertForm({...addExpertForm, nom:e.target.value})} placeholder="GABER Lionel" className="input-field mb-0"/></div><div className="flex-1"><label>Tél</label><input type="text" value={addExpertForm.tel} onChange={e=>setAddExpertForm({...addExpertForm, tel:e.target.value})} placeholder="04XX XX XX" className="input-field mb-0"/></div></div>
+                            <button onClick={handleAddExpert} className="w-full mt-2 bg-green-700 hover:bg-green-600 py-1.5 rounded text-xs font-bold">{editingExpert ? "Enregistrer" : "Ajouter"}</button>
+                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-48 overflow-y-auto pr-1">
+                                <ul className="space-y-1 text-xs">
+                                    {sortedExperts.map((exp, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{formatExpertDisplay(exp)}</span><div><button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button> <button onClick={()=>window.confirm('Supprimer ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button></div></li>)}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* 2. BASE FRANCHISES — en second, usage métier quotidien */}
+                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                            <h3 className="text-sm font-bold text-white mb-2">➕ Base Franchises</h3>
+                            <div className="flex gap-2"><div className="flex-1"><label>Mois/Année</label><input type="text" value={addFranchiseForm.moisAnnee} onChange={e=>setAddFranchiseForm({...addFranchiseForm, moisAnnee:e.target.value})} placeholder="Mai 2026" className="input-field mb-0"/></div><div className="flex-1"><label>Montant</label><input type="text" value={addFranchiseForm.montant} onChange={e=>setAddFranchiseForm({...addFranchiseForm, montant:e.target.value})} placeholder="335,00 €" className="input-field mb-0"/></div></div>
+                            <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold">Ajouter</button>
+                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-32 overflow-y-auto pr-1">
+                                <ul className="space-y-1 text-xs text-slate-300">
+                                    {franchises.map((f, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{f}</span><button onClick={()=>window.confirm('Supprimer ?')&&setFranchises(franchises.filter(x=>x!==f))} className="hover:text-red-400 shrink-0">🗑️</button></li>)}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Section Dossiers moved to top */}
 
                         {/* 4. LABORATOIRE IA — Clé API & Modèles */}
                         <div className="bg-slate-800 p-4 rounded border border-slate-700">
