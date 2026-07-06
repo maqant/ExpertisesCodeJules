@@ -1,6 +1,9 @@
 // src/domain/aiDataSchema.js
 // Source de vérité unique pour la forme des données IA validables dans le sas.
 // Garantit qu'AUCUNE clé n'est jamais perdue entre l'IA et l'état applicatif.
+// La liaison locataire/propriétaire est déléguée à src/domain/occupantLinking.js.
+
+import { linkTenantsToOwners } from './occupantLinking';
 
 const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -61,7 +64,7 @@ const mergeDefaults = (defaults, source) =>
   }, {});
 
 export function normalizeAiData(raw = {}) {
-  const occupants = Array.isArray(raw.occupants)
+  const rawOccupants = Array.isArray(raw.occupants)
     ? raw.occupants
         .filter((o) => o && (o.nom || o.prenom))
         .map((o) => ({
@@ -72,34 +75,8 @@ export function normalizeAiData(raw = {}) {
         }))
     : [];
 
-  // Heuristique de liaison automatique (auto-link) pour les locataires sans lien
-  occupants.forEach(occ => {
-    if (occ.statut === 'Locataire' && !occ.linkedProprietaireId) {
-      let targetStr = occ.proprietaireLie?.nom ? String(occ.proprietaireLie.nom).toLowerCase() : '';
-      const nomLower = String(occ.nom || '').toLowerCase();
-      
-      // Nettoyage si le nom contient "locataire de XXX"
-      if (nomLower.includes('locataire de')) {
-        const parts = nomLower.split('locataire de');
-        if (parts[1]) targetStr = parts[1].trim();
-        occ.nom = parts[0].trim();
-      }
-
-      // Si on a identifié un nom de propriétaire cible, on le cherche
-      if (targetStr) {
-        const parent = occupants.find(p => 
-          p.id !== occ.id && 
-          String(p.statut).includes('Propriétaire') && 
-          String(p.nom || '').toLowerCase().includes(targetStr)
-        );
-        if (parent) {
-          occ.linkedProprietaireId = parent.id;
-        }
-      }
-    }
-    // Nettoyage des clés temporaires
-    delete occ.proprietaireLie;
-  });
+  // Liaison métier déléguée : pure, traçable, jamais silencieuse.
+  const { occupants, linkReport } = linkTenantsToOwners(rawOccupants);
 
   return {
     formData: raw.formData ? mergeDefaults(FORMDATA_DEFAULTS, raw.formData) : null,
@@ -118,6 +95,8 @@ export function normalizeAiData(raw = {}) {
              id: r.id || generateId()
           }))
       : [],
+    // Additif : rapport de liaison à surfacer dans le sas de validation (jamais avalé).
+    linkReport
   };
 }
 

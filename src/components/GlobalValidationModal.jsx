@@ -264,7 +264,8 @@ const GlobalValidationModal = () => {
             formData: normalized.formData,
             occupants: normalized.occupants,
             expenses: cleanExps,
-            references: cleanRefs
+            references: cleanRefs,
+            linkReport: normalized.linkReport
         });
 
         // FormData: select fields where current is empty or different using domain logic
@@ -952,6 +953,21 @@ const GlobalValidationModal = () => {
                                 </button>
                             </div>
                             <div className="divide-y divide-slate-700/50">
+                                {editableData?.linkReport?.unlinked?.length > 0 && (
+                                    <div className="m-3 p-3 bg-orange-900/30 border border-orange-500/50 rounded text-xs text-orange-200">
+                                        <p className="font-bold mb-1 flex items-center gap-1.5">⚠️ Attention : Locataires non liés automatiquement</p>
+                                        <ul className="list-disc pl-4 space-y-1">
+                                            {editableData.linkReport.unlinked.map((report, idx) => (
+                                                <li key={idx}>
+                                                    Le locataire <strong>{report.occupantNom || 'Inconnu'}</strong> n'a pas pu être lié au propriétaire <strong>{report.targetName}</strong> 
+                                                    <span className="opacity-75 italic ml-1">
+                                                        ({report.reason === 'PLUSIEURS_PROPRIETAIRES_CANDIDATS' ? 'Plusieurs propriétaires trouvés' : 'Propriétaire introuvable'})
+                                                    </span>. Vous pourrez le lier manuellement.
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                                 {!hasOccupants && (
                                     <div className="p-4 text-center text-xs text-slate-400 italic">
                                         Aucune partie détectée par l'IA. Créez-en une manuellement pour lui imputer un frais.
