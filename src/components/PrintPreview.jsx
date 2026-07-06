@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
 import { useFinanceStore } from '../store/financeStore';
+import { buildOccupantHierarchy } from '../domain/occupantsHierarchy';
 
 const PrintPreview = () => {
     const context = useContext(ExpertiseContext);
@@ -138,11 +139,11 @@ const PrintPreview = () => {
                     <div className={`${styles.orga.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
                         {blockTitles.orga && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.orga.fontSize + 2}px` }}>{blockTitles.orga}</p>}
                         <ul className="list-none space-y-2">
-                            {occupants.map(o => {
+                            {buildOccupantHierarchy(occupants).map(o => {
                                 const isResponsible = responsablesIds.includes(o.id);
                                 return (
                                 <li key={o.id} className={`leading-snug break-inside-avoid p-1 rounded ${isResponsible ? 'bg-orange-50 border border-orange-200' : ''}`}>
-                                    <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o.statut === 'Locataire' ? 'ml-12 text-slate-700' : ''}`}>
+                                    <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o._depth === 1 ? 'ml-12 text-slate-700' : ''}`}>
                                         <strong className="break-words">{o.etage || '-'}</strong>
                                         <span className="text-slate-800 break-words">- {o.statut}</span>
                                         <span className="break-words">
@@ -152,7 +153,7 @@ const PrintPreview = () => {
                                         </span>
                                     </div>
                                     {orgaAdvancedMode && (o.rc === 'Oui' || o.secAssurance === 'Oui') && (
-                                        <div className={`ml-[280px] ${o.statut === 'Locataire' ? 'pl-12' : ''}`}>
+                                        <div className={`ml-[280px] ${o._depth === 1 ? 'pl-12' : ''}`}>
                                             <table className="mt-1 border-l-2 border-slate-300 pl-2 text-[0.9em] italic opacity-90 text-slate-800 w-[95%]"><tbody>
                                                 {o.rc === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Assurance RC Familiale</td><td className="py-0.5 align-top font-medium break-words">: {o.rcPolice ? `Police ${o.rcPolice}` : 'Non précisé'}</td></tr>}
                                                 {o.secAssurance === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Autre assurance ({o.secType || 'Type'})</td><td className="py-0.5 align-top font-medium break-words">: {o.secCie || 'Compagnie non précisée'} {o.secPolice ? `(Police: ${o.secPolice})` : ''}</td></tr>}
