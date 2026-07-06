@@ -61,31 +61,61 @@ const mergeDefaults = (defaults, source) =>
   }, {});
 
 export function normalizeAiData(raw = {}) {
+  const occupants = Array.isArray(raw.occupants)
+    ? raw.occupants
+        .filter((o) => o && (o.nom || o.prenom))
+        .map((o) => ({
+           ...mergeDefaults(OCCUPANT_DEFAULTS, o),
+           id: o.id || generateId(),
+           proprietaireLie: o?.proprietaireLie,
+           linkedProprietaireId: o?.linkedProprietaireId || null
+        }))
+    : [];
+
+  // Heuristique de liaison automatique (auto-link) pour les locataires sans lien
+  occupants.forEach(occ => {
+    if (occ.statut === 'Locataire' && !occ.linkedProprietaireId) {
+      let targetStr = occ.proprietaireLie?.nom ? String(occ.proprietaireLie.nom).toLowerCase() : '';
+      const nomLower = String(occ.nom || '').toLowerCase();
+      
+      // Nettoyage si le nom contient "locataire de XXX"
+      if (nomLower.includes('locataire de')) {
+        const parts = nomLower.split('locataire de');
+        if (parts[1]) targetStr = parts[1].trim();
+        occ.nom = parts[0].trim();
+      }
+
+      // Si on a identifié un nom de propriétaire cible, on le cherche
+      if (targetStr) {
+        const parent = occupants.find(p => 
+          p.id !== occ.id && 
+          String(p.statut).includes('Propriétaire') && 
+          String(p.nom || '').toLowerCase().includes(targetStr)
+        );
+        if (parent) {
+          occ.linkedProprietaireId = parent.id;
+        }
+      }
+    }
+    // Nettoyage des clés temporaires
+    delete occ.proprietaireLie;
+  });
+
   return {
     formData: raw.formData ? mergeDefaults(FORMDATA_DEFAULTS, raw.formData) : null,
-    
-    occupants: Array.isArray(raw.occupants)
-      ? raw.occupants
-          .filter((o) => o && (o.nom || o.prenom))
-          .map((o) => ({
-             ...mergeDefaults(OCCUPANT_DEFAULTS, o),
-             id: o.id || generateId() // Assurer un ID temporaire unique
-          }))
-      : [],
-      
+    occupants,
     expenses: Array.isArray(raw.expenses)
       ? raw.expenses.filter(Boolean).map((e) => ({
           ...e,
-          id: e.id || generateId() // Assurer un ID temporaire unique
+          id: e.id || generateId()
         }))
       : [],
-      
     references: Array.isArray(raw.references)
       ? raw.references
           .filter((r) => r && (r.nom || r.ref))
           .map((r) => ({
              ...mergeDefaults(REFERENCE_DEFAULTS, r),
-             id: r.id || generateId() // Assurer un ID unique pour le sas
+             id: r.id || generateId()
           }))
       : [],
   };
