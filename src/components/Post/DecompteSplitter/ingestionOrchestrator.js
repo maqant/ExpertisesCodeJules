@@ -56,13 +56,27 @@ function buildAutoBlock(beneficiaire, expenses) {
         iban: beneficiaire.iban || '',
         origine: 'ai_detected',
     };
+    const blockId = crypto.randomUUID();
+    const block = {
+        id: blockId,
+        recipientRef: { kind: 'local', id: contact.id },
+        recipientSnapshot: null,
+        ibanOverride: '',
+        closureMode: 'attente',
+        remarque: ''
+    };
+    const allocations = expenses.map(e => ({
+        id: crypto.randomUUID(),
+        blockId: blockId,
+        expenseId: e.id,
+        montant: e.montantValide,
+        status: 'assigned'
+    }));
+
     return {
         contact,
-        block: {
-            id: crypto.randomUUID(),
-            recipientContactId: contact.id,
-            expenseIds: expenses.map(e => e.id), // pré-assignation totale
-        },
+        block,
+        allocations
     };
 }
 

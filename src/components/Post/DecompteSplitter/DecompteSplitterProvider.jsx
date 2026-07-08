@@ -54,6 +54,7 @@ function splitterReducer(state, action) {
                 ingestionError: null,
                 localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
                 blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
+                allocations: autoBlock && autoBlock.allocations ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
             };
         }
             
