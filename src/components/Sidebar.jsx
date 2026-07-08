@@ -3,6 +3,7 @@ import SidebarLegacy from './SidebarLegacy';
 import SidebarSlim from './SidebarSlim';
 import SidebarAccordion from './SidebarAccordion';
 import SidebarFloating from './SidebarFloating';
+import SidebarCommandPalette from './SidebarCommandPalette';
 import { useSidebarUI } from '../context/SidebarUIContext';
 
 const Sidebar = () => {
@@ -33,6 +34,15 @@ const Sidebar = () => {
             <SidebarFloating>
                 <SidebarLegacy />
             </SidebarFloating>
+        );
+    }
+
+    // Mode 5: Command Palette
+    if (uiMode === 5) {
+        return (
+            <SidebarCommandPalette>
+                <SidebarLegacy />
+            </SidebarCommandPalette>
         );
     }
 

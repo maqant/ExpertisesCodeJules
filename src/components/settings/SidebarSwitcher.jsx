@@ -35,6 +35,13 @@ const SidebarSwitcher = () => {
             >
                 4: Floating
             </button>
+            <button
+                onClick={() => setUiMode(5)}
+                className={`px-3 py-1 text-xs font-bold rounded transition-colors ${uiMode === 5 ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:bg-slate-700'}`}
+                title="Command Palette - Outils à la demande"
+            >
+                5: Command
+            </button>
         </div>
     );
 };
