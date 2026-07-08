@@ -514,7 +514,7 @@ const Workspace = () => {
     };
 
     return (
-        <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 print:py-0 print:block">
+        <div id="workspace-container" className="flex-1 overflow-auto bg-slate-200 flex justify-center py-12 relative print:py-0 print:block">
             {/* Generate AR Button in Workspace */}
             <div className="absolute top-4 right-4 z-[100] print:hidden no-print flex items-center gap-2">
                 <button

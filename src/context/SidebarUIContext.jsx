@@ -8,7 +8,7 @@ export const SidebarUIProvider = ({ children }) => {
     // 1: Slim & Expand (Icon Drawer)
     // 2: Accordion (Focus Mode) - à venir
     // 3: Floating Dock (Dynamic Island) - à venir
-    const [uiMode, setUiMode] = useState(1); // On active le mode 1 par défaut pour le test
+    const [uiMode, setUiMode] = useState(0); // Mode 0 (Legacy) par défaut
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     return (
