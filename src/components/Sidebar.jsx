@@ -2,6 +2,7 @@ import React from 'react';
 import SidebarLegacy from './SidebarLegacy';
 import SidebarSlim from './SidebarSlim';
 import SidebarAccordion from './SidebarAccordion';
+import SidebarFloating from './SidebarFloating';
 import { useSidebarUI } from '../context/SidebarUIContext';
 
 const Sidebar = () => {
@@ -23,6 +24,15 @@ const Sidebar = () => {
             <SidebarAccordion>
                 <SidebarLegacy />
             </SidebarAccordion>
+        );
+    }
+
+    // Mode 4: Floating Dock (Dynamic Island)
+    if (uiMode === 4) {
+        return (
+            <SidebarFloating>
+                <SidebarLegacy />
+            </SidebarFloating>
         );
     }
 

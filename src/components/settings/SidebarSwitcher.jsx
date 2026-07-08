@@ -28,6 +28,13 @@ const SidebarSwitcher = () => {
             >
                 3: Accordion
             </button>
+            <button
+                onClick={() => setUiMode(4)}
+                className={`px-3 py-1 text-xs font-bold rounded transition-colors ${uiMode === 4 ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:bg-slate-700'}`}
+                title="Floating - Dynamic Island"
+            >
+                4: Floating
+            </button>
         </div>
     );
 };
