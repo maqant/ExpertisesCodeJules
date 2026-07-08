@@ -1,6 +1,7 @@
 import React from 'react';
 import SidebarLegacy from './SidebarLegacy';
 import SidebarSlim from './SidebarSlim';
+import SidebarAccordion from './SidebarAccordion';
 import { useSidebarUI } from '../context/SidebarUIContext';
 
 const Sidebar = () => {
@@ -13,6 +14,15 @@ const Sidebar = () => {
             <SidebarSlim>
                 <SidebarLegacy />
             </SidebarSlim>
+        );
+    }
+
+    // Mode 3: Accordion (Focus Mode)
+    if (uiMode === 3) {
+        return (
+            <SidebarAccordion>
+                <SidebarLegacy />
+            </SidebarAccordion>
         );
     }
 
