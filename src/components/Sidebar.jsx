@@ -1923,7 +1923,7 @@ Objectif :
                                                     )}
                                                     <div className="flex justify-between items-center border-t border-slate-700 pt-2">
                                                         <label className="text-indigo-300 font-bold block">📄 Justificatif (PDF)</label>
-                                                        <DropZone onFiles={(files) => handleMagicDrop(files, exp.id)} accept=".pdf" />
+                                                        <DropZone onFiles={(files) => handleMagicDrop(files, exp.id)} onDragFinish={() => setIsDraggingOverFrais(false)} accept=".pdf" />
                                                     </div>
                                                     {(attachedFiles[exp.id] || []).length > 0 && (
                                                         <div className="mt-2 space-y-1">
