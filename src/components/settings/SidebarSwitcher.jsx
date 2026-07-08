@@ -42,6 +42,13 @@ const SidebarSwitcher = () => {
             >
                 5: Command
             </button>
+            <button
+                onClick={() => setUiMode(6)}
+                className={`px-3 py-1 text-xs font-bold rounded transition-colors ${uiMode === 6 ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:bg-slate-700'}`}
+                title="Dynamic Focus - Isolation visuelle sur l'outil actif"
+            >
+                6: Focus
+            </button>
         </div>
     );
 };

@@ -4,6 +4,7 @@ import SidebarSlim from './SidebarSlim';
 import SidebarAccordion from './SidebarAccordion';
 import SidebarFloating from './SidebarFloating';
 import SidebarCommandPalette from './SidebarCommandPalette';
+import SidebarFocusMode from './SidebarFocusMode';
 import { useSidebarUI } from '../context/SidebarUIContext';
 
 const Sidebar = () => {
@@ -43,6 +44,15 @@ const Sidebar = () => {
             <SidebarCommandPalette>
                 <SidebarLegacy />
             </SidebarCommandPalette>
+        );
+    }
+
+    // Mode 6: Dynamic Focus Mode
+    if (uiMode === 6) {
+        return (
+            <SidebarFocusMode>
+                <SidebarLegacy />
+            </SidebarFocusMode>
         );
     }
 
