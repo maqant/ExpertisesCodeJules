@@ -1,0 +1,44 @@
+<project_context>
+Application : ExpertisesCodeJules (Frontend React/Vite).
+Domaine : Courtage en assurance (Bureau Péchard) et gestion de sinistres.
+Finalité absolue : Ingérer un volume massif de données déstructurées pour générer et imprimer un rapport d'expertise final (avec ses annexes) qui soit 100% parfait et fiable.
+Contraintes critiques : 
+1. Fiabilité totale : Précision extrême exigée sur TOUS les postes (administratifs, techniques, financiers). Zéro tolérance pour l'erreur.
+2. Évolutivité (Scalabilité) : Le logiciel est appelé à grandir avec des modules de gestion "pendant" et "post" sinistre (actuellement en friche). 
+3. Architecture de Vrai Logiciel : Le code doit être ultra-modulaire, sain et scalable. Séparation stricte entre l'orchestration IA, la gestion d'état, et les composants UI.
+</project_context>
+
+<business_intent>
+Le métier demande une refonte complète de la navigation latérale (Sidebar) pour permettre à l'utilisateur de basculer à la volée entre 6 paradigmes UI (Slim, Dual-Tier, Accordéon, Floating, Command Palette, Focus Mode).
+L'objectif est d'optimiser l'ergonomie selon la densité des données à traiter, sans casser l'état global, ni les flux d'ingestion complexes (IA, DropZone) actuellement gérés dans la Sidebar.
+Risque métier majeur : La `Sidebar.jsx` actuelle fait 2669 lignes et contient l'intégralité du routing UI des composants d'ingestion (Frais, Occupants, Photos, IA). Si on remplace cette Sidebar par de simples coquilles vides (comme demandé temporairement), l'application devient inutilisable pour le développement et la validation de l'état global. Il faut une stratégie de transition robuste.
+</business_intent>
+
+<current_architecture_and_code>
+// src/components/Sidebar.jsx (Actuelle, 2669 lignes, contient la majorité des appels aux Stores et les DropZones IA)
+// Note: Le code complet de la Sidebar actuelle est trop massif (2669 lignes) pour être inclus ici, mais il exporte le composant `Sidebar` par défaut.
+// src/App.jsx importe `Sidebar` et l'affiche lorsque `viewMode === 'bureau'`.
+</current_architecture_and_code>
+
+<proposed_technical_paths>
+Solution 1 : Le Remplacement Brut (Risqué)
+Créer le `SidebarUIContext`, le `SidebarSwitcher`, et écraser `Sidebar.jsx` avec le Routeur + les 6 coquilles vides.
+Avantage : Répond strictement à la consigne.
+Inconvénient : L'application n'affiche plus rien de fonctionnel, l'état global et les fonctions métier logées dans l'ancienne Sidebar disparaissent le temps de coder les 6 modes.
+
+Solution 2 : Le Mode "Legacy" Conservatif (Recommandé)
+Renommer l'actuelle `Sidebar.jsx` en `SidebarLegacy.jsx`.
+Créer un nouveau `Sidebar.jsx` (le Routeur) qui importe `SidebarUIContext`.
+Définir les 6 modes vides comme demandé, MAIS temporairement brancher le Mode 1 (ou un Mode 0 caché) sur `<SidebarLegacy />` pour que l'app continue de tourner pendant qu'on développe les nouveaux modes.
+Avantage : Zéro régression, l'app reste testable.
+</proposed_technical_paths>
+
+<directive>
+Tu es l'Architecte Principal. Lis attentivement le contexte d'ExpertisesCodeJules.
+1. Challenge ces propositions techniques : la refonte en coquilles vides est dangereuse si on perd le code actuel de la Sidebar.
+2. Tranche pour la meilleure approche concernant la préservation de la Sidebar existante.
+3. Fournis le code final et robuste pour :
+   - src/context/SidebarUIContext.jsx
+   - src/components/settings/SidebarSwitcher.jsx
+   - src/components/Sidebar.jsx (le chef d'orchestre, avec les 6 composants vides, et ta stratégie de sauvegarde de l'existant).
+</directive>
