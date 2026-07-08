@@ -2,6 +2,7 @@ import React from 'react';
 import { ExpertiseProvider } from './context/ExpertiseContext';
 import TresorerieView from "./components/Post/TresorerieView";
 import Sidebar from './components/Sidebar';
+import { SidebarUIProvider } from './context/SidebarUIContext';
 import Workspace from './components/Workspace';
 import TerrainView from './components/Pendant/TerrainView';
 import GlobalValidationModal from './components/GlobalValidationModal';
@@ -40,10 +41,10 @@ function App() {
 
         <div className="flex flex-1 overflow-hidden print:overflow-visible print:block">
           {viewMode === 'bureau' && (
-            <>
+            <SidebarUIProvider>
               <Sidebar />
               <Workspace />
-            </>
+            </SidebarUIProvider>
           )}
           {viewMode === 'terrain' && <TerrainView />}
           {viewMode === 'tresorerie' && <TresorerieView />}
