@@ -4,7 +4,24 @@ import { adaptBlockStyle } from '../pdfStyleAdapter';
 
 const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
     if (!data) return null;
-    if (!showSubtotals || !data.decomptes || data.decomptes.length === 0) return null;
+
+    let decomptes = data.decomptes || [];
+    if (decomptes.length === 0 && data.dettesParPersonne) {
+        decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
+            compteDeCourt: d.compteDeFormatted || personne,
+            htvaFormate: d.HTVA ? d.HTVA.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00",
+            tvacFormate: d.TVAC ? d.TVAC.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00",
+            forfaitFormate: d.Forfait ? d.Forfait.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00",
+            franchiseFormate: d.Franchise ? d.Franchise.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00",
+            htvaNum: d.HTVA || 0,
+            tvacNum: d.TVAC || 0,
+            forfaitNum: d.Forfait || 0,
+            franchiseNum: d.Franchise || 0,
+            ...d
+        }));
+    }
+
+    if (!showSubtotals || decomptes.length === 0) return null;
 
     const adaptedStyle = adaptBlockStyle(styleBlock);
 
@@ -29,7 +46,7 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                 </Text>
 
                 <View style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {data.decomptes.map((dec, i) => (
+                    {decomptes.map((dec, i) => (
                         <View key={i} style={{
                             backgroundColor: '#f8fafc',
                             padding: 6,
@@ -62,7 +79,7 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                                     <View key={j} style={{ flexDirection: 'row', marginBottom: 2 }}>
                                         <Text style={{ marginRight: 5 }}>•</Text>
                                         <Text style={{ flex: 1, lineHeight: 1.3 }}>
-                                            {l.prestataire} - {l.desc} ({l.montantFormate || '0'} € {l.typeMontantBrut || l.typeMontant})
+                                            {l.prestataire} - {l.desc} ({l.montantFormate || l.montant || '0'} € {l.typeMontantBrut || l.typeMontant})
                                             {l.avisCouverture === 'Non' && (
                                                 <Text style={{ color: '#dc2626', fontWeight: 'bold', fontSize: (adaptedStyle.fontSize || 9) * 0.85, marginLeft: 5 }}>
                                                     {' '}[Pas de couverture]

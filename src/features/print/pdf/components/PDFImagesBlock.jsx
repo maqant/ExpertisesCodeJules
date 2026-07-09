@@ -5,6 +5,24 @@ import { adaptBlockStyle } from '../pdfStyleAdapter';
 const PDFImagesBlock = ({ data, styleBlock }) => {
     if (!data) return null;
 
+    let imagesToRender = data.images || [];
+
+    // Map from printDataAdapter new structure if needed,
+    // assuming resolvePdfImages populated `resolvedImages` in `occupantsWithPhotos`
+    if (imagesToRender.length === 0 && data.occupantsWithPhotos) {
+        data.occupantsWithPhotos.forEach(occ => {
+            if (occ.resolvedImages) {
+                occ.resolvedImages.forEach((url, idx) => {
+                    imagesToRender.push({
+                        id: `${occ.id}-${idx}`,
+                        dataUrl: url,
+                        caption: `Photos concernant ${occ.nom}`
+                    });
+                });
+            }
+        });
+    }
+
     const adaptedStyle = adaptBlockStyle(styleBlock);
 
     const containerStyle = {
@@ -27,7 +45,7 @@ const PDFImagesBlock = ({ data, styleBlock }) => {
             )}
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 }}>
-                {data.images && data.images.map((img, i) => (
+                {imagesToRender.map((img, i) => (
                     <View key={img.id} style={{
                         width: '48%',
                         marginBottom: 15,

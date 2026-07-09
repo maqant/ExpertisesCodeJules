@@ -21,6 +21,8 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
         fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
+    const occupantsList = data.occupantsHierarchy || data.occupants || [];
+
     return (
         <View style={containerStyle} wrap>
             {data.title && (
@@ -28,7 +30,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
             )}
 
             <View style={{ marginTop: 4 }}>
-                {data.occupants && data.occupants.map((o) => (
+                {occupantsList.map((o) => (
                     <View key={o.id} style={{
                         marginBottom: 4,
                         padding: o.isResponsible ? 4 : 2,
@@ -42,7 +44,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
                             <Text style={{ width: 140, color: '#334155' }}>- {o.statut}</Text>
                             <Text style={{ flex: 1, lineHeight: 1.3 }}>
                                 <Text>: </Text>
-                                <Text style={{ fontWeight: 'bold' }}>{o.nomComplet}</Text>
+                                <Text style={{ fontWeight: 'bold' }}>{o.formattedNomPrenom || o.nomComplet}</Text>
                                 {o.isResponsible && (
                                     <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#ea580c', marginLeft: 5 }}> [RESPONSABLE]</Text>
                                 )}
@@ -78,7 +80,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
                     </View>
                 ))}
                 
-                {data.occupants && data.occupants.length === 0 && (
+                {occupantsList.length === 0 && (
                     <Text style={{ fontStyle: 'italic', color: '#94a3b8' }}>Aucune partie impliquée.</Text>
                 )}
             </View>

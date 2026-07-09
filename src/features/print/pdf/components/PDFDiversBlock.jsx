@@ -20,13 +20,15 @@ const PDFDiversBlock = ({ data, styleBlock }) => {
         fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
+    const texteContent = data.formDataDivers || data.texte;
+
     return (
         <View style={containerStyle} wrap={false}>
             {data.title && (
                 <Text style={titleStyle}>{data.title}</Text>
             )}
-            {data.texte && (
-                <Text style={{ lineHeight: 1.4 }}>{data.texte}</Text>
+            {texteContent && (
+                <Text style={{ lineHeight: 1.4 }}>{texteContent}</Text>
             )}
         </View>
     );

@@ -62,10 +62,10 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
                 </View>
             ) : (
                 <View wrap={false}>
-                    <Text style={{ lineHeight: 1.4 }}>{data.texte}</Text>
-                    {data.rapportCauseAnnexe && (
+                    <Text style={{ lineHeight: 1.4 }}>{data.formDataCause || data.texte}</Text>
+                    {data.paginationDocRapportCause && (
                         <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.85, color: '#64748b', fontStyle: 'italic', marginTop: 4 }}>
-                            {data.rapportCauseAnnexe}
+                            {data.paginationDocRapportCause}
                         </Text>
                     )}
                 </View>

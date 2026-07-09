@@ -6,7 +6,8 @@ import PDFFeesTableRow from './PDFFeesTableRow';
 import PDFFeesTableFooter from './PDFFeesTableFooter';
 
 const PDFFeesTable = ({ data, styleBlock, metadata }) => {
-    if (!data || !data.lignes) return null;
+    const lignes = data?.expenses || data?.lignes;
+    if (!data || !lignes) return null;
 
     const adaptedStyle = adaptBlockStyle(styleBlock);
     const showSubtotals = metadata?.showSubtotals;
@@ -24,6 +25,18 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
         fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
+    const totalFraisFormate = data.totalFraisFormate || (data.totalFrais ? data.totalFrais.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00");
+    
+    // Fallback for decomptes if the adapter didn't map dettesParPersonne to decomptes array format expected
+    let decomptes = data.decomptes || [];
+    if (decomptes.length === 0 && data.dettesParPersonne) {
+        decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
+            compteDeCourt: d.compteDeFormatted || personne,
+            htvaFormate: d.HTVA ? d.HTVA.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "0,00",
+            ...d
+        }));
+    }
+
     return (
         <View style={containerStyle} wrap>
             {data.title && (
@@ -39,8 +52,8 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
                 marginTop: 5
             }}>
                 <PDFFeesTableHeader fontSize={adaptedStyle.fontSize || 9} />
-                {data.lignes.length > 0 ? (
-                    data.lignes.map((exp, idx) => (
+                {lignes.length > 0 ? (
+                    lignes.map((exp, idx) => (
                         <PDFFeesTableRow key={exp.id || idx} exp={exp} index={idx + 1} fontSize={adaptedStyle.fontSize || 9} />
                     ))
                 ) : (
@@ -50,15 +63,15 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
                         </Text>
                     </View>
                 )}
-                {data.lignes.length > 0 && (
-                    <PDFFeesTableFooter totalFraisFormate={data.totalFraisFormate} fontSize={adaptedStyle.fontSize || 9} />
+                {lignes.length > 0 && (
+                    <PDFFeesTableFooter totalFraisFormate={totalFraisFormate} fontSize={adaptedStyle.fontSize || 9} />
                 )}
             </View>
 
-            {showSubtotals && data.decomptes && data.decomptes.length > 0 && (
+            {showSubtotals && decomptes.length > 0 && (
                 <View style={{ marginTop: 15, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#cbd5e1' }} wrap={false}>
                     <Text style={{ fontWeight: 'bold', marginBottom: 6 }}>Décompte par partie impliquée (HTVA) :</Text>
-                    {data.decomptes.map((dec) => (
+                    {decomptes.map((dec) => (
                         <View key={dec.compteDeCourt} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%', marginBottom: 3 }}>
                             <Text style={{ color: '#334155' }}>- {dec.compteDeCourt}</Text>
                             <Text style={{ fontWeight: 'bold' }}>{dec.htvaFormate} €</Text>

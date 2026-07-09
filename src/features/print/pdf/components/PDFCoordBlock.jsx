@@ -5,12 +5,13 @@ import { adaptBlockStyle } from '../pdfStyleAdapter';
 const PDFCoordBlock = ({ data, styleBlock }) => {
     if (!data) return null;
 
+    const formData = data.formData || {};
     const adaptedStyle = adaptBlockStyle(styleBlock);
     
     const containerStyle = {
         marginBottom: 15,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || 9, // par défaut 12px -> 9pt
+        fontSize: adaptedStyle.fontSize || 9,
     };
 
     const textStyle = {
@@ -31,23 +32,24 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
                 <Text style={titleStyle}>{data.title}</Text>
             )}
             
-            {data.adresse && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Adresse :</Text> {data.adresse}</Text>}
-            {data.franchise && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Franchise applicable :</Text> {data.franchise}</Text>}
-            {data.pertesIndirectes && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pertes indirectes :</Text> {data.pertesIndirectes}</Text>}
-            {data.expert && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {data.expert}</Text>}
+            {formData.adresse && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Adresse :</Text> {formData.adresse}</Text>}
+            {formData.franchise && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Franchise applicable :</Text> {formData.franchise}</Text>}
+            {formData.pertesIndirectes && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pertes indirectes :</Text> {formData.pertesIndirectes}</Text>}
+            {formData.expertInfos && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expertInfos}</Text>}
+            {formData.expert && !formData.expertInfos && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expert}</Text>}
             
-            {data.mailExpertiseAnnexe && (
+            {data.paginationDocMailExpertise && (
                 <Text style={{ ...textStyle, fontSize: (adaptedStyle.fontSize || 9) * 0.85, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
-                    {data.mailExpertiseAnnexe}
+                    {data.paginationDocMailExpertise}
                 </Text>
             )}
 
-            {data.contradictoire && (
+            {formData.isContradictoire && (
                 <View style={{ marginLeft: 15, marginTop: 5, borderLeftWidth: 2, borderLeftColor: '#1e293b', paddingLeft: 10 }}>
                     <Text style={{ fontStyle: 'italic', textDecoration: 'underline', marginBottom: 3 }}>Expertise contradictoire avec :</Text>
-                    {data.contradictoire.cie && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Cie :</Text> {data.contradictoire.cie}</Text>}
-                    {data.contradictoire.expert && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {data.contradictoire.expert}</Text>}
-                    {data.contradictoire.compteDe && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pour le compte de :</Text> {data.contradictoire.compteDe}</Text>}
+                    {formData.cieContradictoire && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Cie :</Text> {formData.cieContradictoire}</Text>}
+                    {formData.expertContradictoire && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expertContradictoire}</Text>}
+                    {formData.compteDeContradictoire && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pour le compte de :</Text> {formData.compteDeContradictoire}</Text>}
                 </View>
             )}
         </View>

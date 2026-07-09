@@ -2,9 +2,10 @@ import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 
-const PDFInfoBlock = ({ data, styleBlock }) => {
+const PDFInfoBlock = ({ data, styleBlock, coordReferences }) => {
     if (!data) return null;
 
+    const formData = data.formData || {};
     const adaptedStyle = adaptBlockStyle(styleBlock);
 
     const containerStyle = {
@@ -25,6 +26,9 @@ const PDFInfoBlock = ({ data, styleBlock }) => {
         fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
+    // Note: references are in coord object, but sometimes passed as coordReferences if we can refactor PDFReportDocument. For now, we will check data.references as fallback.
+    const references = data.references || coordReferences || [];
+
     return (
         <View style={containerStyle} wrap={false}>
             {data.title && (
@@ -32,54 +36,56 @@ const PDFInfoBlock = ({ data, styleBlock }) => {
             )}
 
             <Text style={{ ...textStyle, fontWeight: 'bold', marginBottom: 4 }}>
-                {data.sinistreDu}, {data.declareLe} {data.declarant}{' '}
-                {data.declarationAnnexe && (
+                {formData.dateSinistre}, {formData.declareLe || formData.dateDeclaration} {formData.declarant}{' '}
+                {data.paginationDocMailDeclaration && (
                     <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#64748b', fontStyle: 'italic', fontWeight: 'normal' }}>
-                        {data.declarationAnnexe}
+                        {data.paginationDocMailDeclaration}
                     </Text>
                 )}
             </Text>
 
-            <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Compagnie :</Text> {data.nomCie}</Text>
+            {formData.nomCie && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Compagnie :</Text> {formData.nomCie}</Text>}
             
-            <Text style={textStyle}>
-                <Text style={{ fontWeight: 'bold' }}>Contrat :</Text> {data.nomContrat}{' '}
-                {data.condPartAnnexe && (
-                    <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#64748b', fontStyle: 'italic' }}>
-                        {data.condPartAnnexe}
-                    </Text>
-                )}
-            </Text>
-            
-            <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>N° Police :</Text> {data.numPolice}</Text>
-            
-            {data.numeroPVPolice && (
+            {formData.nomContrat && (
                 <Text style={textStyle}>
-                    <Text style={{ fontWeight: 'bold' }}>N° PV Police :</Text> {data.numeroPVPolice}{' '}
-                    {data.pvPoliceAnnexe && (
+                    <Text style={{ fontWeight: 'bold' }}>Contrat :</Text> {formData.nomContrat}{' '}
+                    {data.paginationDocCondPart && (
                         <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#64748b', fontStyle: 'italic' }}>
-                            {data.pvPoliceAnnexe}
+                            {data.paginationDocCondPart}
                         </Text>
                     )}
                 </Text>
             )}
             
-            {data.numConditionsGenerales && (
+            {formData.numPolice && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>N° Police :</Text> {formData.numPolice}</Text>}
+            
+            {formData.numeroPVPolice && (
                 <Text style={textStyle}>
-                    <Text style={{ fontWeight: 'bold' }}>N° Cond. Générales :</Text> {data.numConditionsGenerales}{' '}
-                    {data.condGenAnnexe && (
+                    <Text style={{ fontWeight: 'bold' }}>N° PV Police :</Text> {formData.numeroPVPolice}{' '}
+                    {data.paginationDocPvPolice && (
                         <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#64748b', fontStyle: 'italic' }}>
-                            {data.condGenAnnexe}
+                            {data.paginationDocPvPolice}
                         </Text>
                     )}
                 </Text>
             )}
             
-            <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>N° Sinistre Cie :</Text> {data.numSinistreCie}</Text>
+            {formData.numConditionsGenerales && (
+                <Text style={textStyle}>
+                    <Text style={{ fontWeight: 'bold' }}>N° Cond. Générales :</Text> {formData.numConditionsGenerales}{' '}
+                    {data.paginationDocCondGen && (
+                        <Text style={{ fontSize: (adaptedStyle.fontSize || 9) * 0.8, color: '#64748b', fontStyle: 'italic' }}>
+                            {data.paginationDocCondGen}
+                        </Text>
+                    )}
+                </Text>
+            )}
             
-            {data.references && data.references.length > 0 && (
+            {formData.numSinistreCie && <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>N° Sinistre Cie :</Text> {formData.numSinistreCie}</Text>}
+            
+            {references && references.length > 0 && (
                 <View style={{ marginTop: 2 }}>
-                    {data.references.map(r => (
+                    {references.map(r => (
                         <Text key={r.id} style={textStyle}>
                             <Text style={{ fontWeight: 'bold' }}>{r.nom} {r.nom ? ':' : ''}</Text> {r.ref}
                         </Text>
