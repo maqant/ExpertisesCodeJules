@@ -10,9 +10,9 @@ const PDFDiversBlock = ({ data, styleBlock }) => {
 
     const texteContent = data.formDataDivers || data.texte;
 
-    // Bloc vide complet = juste une ligne
-    if (!data.title && !texteContent) {
-        return <View style={{ marginBottom: DENSITY.emptyBlockGap }} />;
+    // Si aucune donnée pertinente, on ne rend rien du tout (pas de gaspillage vertical)
+    if (!texteContent || texteContent.trim() === '') {
+        return null;
     }
 
     const containerStyle = {

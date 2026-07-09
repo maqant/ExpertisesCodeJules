@@ -17,7 +17,7 @@ const PDFFeesTableHeader = ({ fontSize }) => {
     };
 
     return (
-        <View style={{ flexDirection: 'row' }} wrap={false} minPresenceAhead={40}>
+        <View style={{ flexDirection: 'row' }} wrap={false} minPresenceAhead={DENSITY.keepWithNext}>
             <Text style={[headerStyle, { width: '5%', textAlign: 'center' }]}>#</Text>
             <Text style={[headerStyle, { width: '15%' }]}>Prestataire</Text>
             <Text style={[headerStyle, { width: '15%' }]}>Type</Text>

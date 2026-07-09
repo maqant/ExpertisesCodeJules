@@ -25,12 +25,7 @@ const PDFImagesBlock = ({ data, styleBlock }) => {
     const adaptedStyle = adaptBlockStyle(styleBlock);
 
     if (imagesToRender.length === 0) {
-        return (
-            <View style={{ marginBottom: DENSITY.blockGap, ...adaptedStyle }}>
-                {data.title ? <Text style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: DENSITY.emptyBlockGap, fontSize: adaptedStyle.fontSize ? adaptedStyle.fontSize + 2 : DENSITY.fontTitle }}>{data.title}</Text> : null}
-                <Text style={{ fontSize: adaptedStyle.fontSize || DENSITY.fontBase, fontStyle: 'italic', color: '#94a3b8' }}>Aucune photo à afficher</Text>
-            </View>
-        );
+        return null;
     }
 
     const containerStyle = {

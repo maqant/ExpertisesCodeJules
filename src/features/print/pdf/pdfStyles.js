@@ -27,8 +27,12 @@ export const DENSITY = {
   lineHeight: 1.05,         // texte courant — plancher absolu technique
   lineHeightTight: 1.0,     // tableaux uniquement
 
-  // Espacement vertical
-  blockGap: 10,             // démarcation nette entre sections
+  // Espacement vertical global (Tokens centraux)
+  blockGap: 6,              // espace entre sections (réduit de 10)
+  headerGap: 6,             // sous le PDFReportHeader
+  sectionInnerGap: 3,       // espacements internes de section
+  itemGap: 3,               // entre items d'une liste (annexes, photos)
+  keepWithNext: 24,         // minPresenceAhead minimal : titre + 1 ligne
   sectionTitleGap: 3,       
   lineGap: 0,               // intra-bloc : aucun espace additionnel
   subBlockIndent: 8,        
@@ -47,9 +51,6 @@ export const DENSITY = {
   cellPaddingV: 1,          // plancher absolu
   cellPaddingH: 4,
   tableHeaderPaddingV: 2,
-
-  // Blocs vides
-  emptyBlockGap: 3,         
 
   // Spacers
   spacerCap: 12,            

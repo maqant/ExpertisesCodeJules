@@ -1,0 +1,55 @@
+SYNTHÈSE DES FICHIERS MODIFIÉS LORS DES AJUSTEMENTS DE DENSITÉ (v9.1.3 à v9.1.5)
+
+================================================================================
+1. ARCHITECTURE ET TRAITEMENT DES DONNÉES
+================================================================================
+Ces fichiers gèrent la préparation et le formatage des données avant leur injection dans le PDF.
+
+- src/features/print/printDataAdapter.js
+  (Mappage public de `depth`, et ajout d'un purificateur de sauts de lignes multiples `normalizeMultiline`)
+
+
+================================================================================
+2. SYSTÈME DE STYLE ET UTILITAIRES
+================================================================================
+Le cœur du système "DENSITY" et des couleurs, permettant un rendu compact.
+
+- src/features/print/pdf/pdfStyles.js
+  (Ajout de l'objet DENSITY complet, fonction solidBorder(), et ajustement des couleurs d'impression)
+- src/features/print/pdf/pdfStyleAdapter.js
+  (Adaptation de la police globale en utilisant les tokens DENSITY)
+- src/features/print/pdf/pdfFormatUtils.js  [NOUVEAU]
+  (Création d'un utilitaire dédié pour formater proprement les devises)
+
+
+================================================================================
+3. COMPOSANTS REACT-PDF
+================================================================================
+Tous les blocs ont été révisés pour supprimer les marges hardcodées, intégrer DENSITY et sécuriser les bordures (`borderStyle: 'solid'`).
+
+Parties et Frais (Les plus modifiés) :
+- src/features/print/pdf/components/PDFOrganisationBlock.jsx
+- src/features/print/pdf/components/PDFFeesTableRow.jsx
+- src/features/print/pdf/components/PDFFeesTable.jsx
+- src/features/print/pdf/components/PDFFeesTableHeader.jsx
+- src/features/print/pdf/components/PDFFeesTableFooter.jsx
+- src/features/print/pdf/components/PDFFeesDetailBlock.jsx
+
+Autres sections du rapport :
+- src/features/print/pdf/components/PDFCircumstancesBlock.jsx
+- src/features/print/pdf/components/PDFCoordBlock.jsx
+- src/features/print/pdf/components/PDFCustomBlock.jsx
+- src/features/print/pdf/components/PDFDiversBlock.jsx
+- src/features/print/pdf/components/PDFImagesBlock.jsx
+- src/features/print/pdf/components/PDFInfoBlock.jsx
+- src/features/print/pdf/components/PDFReportHeader.jsx
+- src/features/print/pdf/components/PDFSection.jsx
+
+
+================================================================================
+4. TESTS ET CONFIGURATION
+================================================================================
+- package.json
+  (Incrémentation des versions v9.1.3 -> v9.1.4 -> v9.1.5)
+- src/features/print/pdf/PDFReportDocument.test.jsx
+  (Ajustement des tests suite aux modifications structurelles)

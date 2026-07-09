@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
+import { DENSITY } from '../pdfStyles';
 
 const PDFReportHeader = ({ data, styleBlock }) => {
     if (!data || !data.formData) return null;
@@ -8,7 +9,7 @@ const PDFReportHeader = ({ data, styleBlock }) => {
     const adaptedStyle = adaptBlockStyle(styleBlock);
     
     const containerStyle = {
-        marginBottom: 10,
+        marginBottom: DENSITY.headerGap,
         fontSize: adaptedStyle.fontSize || 9,
         color: adaptedStyle.color || '#0f172a',
         textAlign: adaptedStyle.textAlign || 'left',
