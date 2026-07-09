@@ -1,18 +1,29 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
-import { pdfStyles as styles } from '../pdfStyles';
 
-const PDFFeesTableHeader = () => {
-  return (
-    <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
-      <Text style={[styles.tableHeaderCell, { flex: 0.5, textAlign: 'center' }]}>#</Text>
-      <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Prestataire</Text>
-      <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Type</Text>
-      <Text style={[styles.tableHeaderCell, styles.descriptionCell]}>Description</Text>
-      <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Pour le compte de</Text>
-      <Text style={[styles.tableHeaderCell, styles.amountCell]}>Montant</Text>
-    </View>
-  );
+const PDFFeesTableHeader = ({ fontSize }) => {
+    const headerStyle = {
+        padding: 5,
+        fontSize: fontSize,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        backgroundColor: '#f1f5f9',
+        borderBottomWidth: 1,
+        borderBottomColor: '#94a3b8',
+        borderRightWidth: 1,
+        borderRightColor: '#94a3b8',
+    };
+
+    return (
+        <View style={{ flexDirection: 'row' }} wrap={false}>
+            <Text style={[headerStyle, { width: '5%', textAlign: 'center' }]}>#</Text>
+            <Text style={[headerStyle, { width: '15%' }]}>Prestataire</Text>
+            <Text style={[headerStyle, { width: '15%' }]}>Type</Text>
+            <Text style={[headerStyle, { width: '35%' }]}>Description</Text>
+            <Text style={[headerStyle, { width: '15%' }]}>Compte de</Text>
+            <Text style={[headerStyle, { width: '15%', textAlign: 'right' }]}>Montant HTVA</Text>
+        </View>
+    );
 };
 
 export default PDFFeesTableHeader;

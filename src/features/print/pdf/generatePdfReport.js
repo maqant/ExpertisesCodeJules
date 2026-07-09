@@ -3,6 +3,18 @@ import { pdf } from '@react-pdf/renderer';
 import PDFReportDocument from './PDFReportDocument';
 import { resolvePdfImageBlobUrls } from './resolvePdfImages';
 
+export function auditReportParity(reportData) {
+  const issues = [];
+  const known = ['titre','coord','infos','cause','orga','frais','frais_liste','photos','divers'];
+  for (const key of reportData.meta.orderedBlocks || []) {
+    if (!known.includes(key) && !key.startsWith('custom_')) issues.push(`Bloc inconnu: ${key}`);
+    if (key.startsWith('custom_') && !reportData.customBlocks?.find(b => b.id === key)) issues.push(`Custom block sans données: ${key}`);
+    if (!key.startsWith('custom_') && known.includes(key) && key !== 'frais_liste' && !reportData[key]) issues.push(`Données absentes pour bloc visible: ${key}`);
+  }
+  if (issues.length) console.error('[PDF PARITY AUDIT]', issues);
+  return issues;
+}
+
 export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => {
   if (!reportData) {
     throw new Error("Les données du rapport (reportData) sont requises pour générer le PDF.");
@@ -22,6 +34,9 @@ export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => 
       }
     });
   }
+
+  // Audit de complétude avant rendu (Parité)
+  auditReportParity(resolvedReportData);
 
   // 2. Instanciation du document PDF avec les données résolues (Blob URLs)
   const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });

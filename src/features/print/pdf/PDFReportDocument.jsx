@@ -1,37 +1,59 @@
 import React from 'react';
-import { Document, Page, View, Text, Link } from '@react-pdf/renderer';
+import { Document, Page } from '@react-pdf/renderer';
 import { pdfStyles as styles } from './pdfStyles';
-import { PDF_SECTIONS } from './pdfSections';
+
+import PDFReportHeader from './components/PDFReportHeader';
+import PDFCoordBlock from './components/PDFCoordBlock';
 import PDFInfoBlock from './components/PDFInfoBlock';
+import PDFCircumstancesBlock from './components/PDFCircumstancesBlock';
+import PDFOrganisationBlock from './components/PDFOrganisationBlock';
 import PDFFeesTable from './components/PDFFeesTable';
-import PDFAnnexesBlock from './components/PDFAnnexesBlock';
+import PDFFeesDetailBlock from './components/PDFFeesDetailBlock';
 import PDFImagesBlock from './components/PDFImagesBlock';
-import PDFTextBlock from './components/PDFTextBlock';
+import PDFDiversBlock from './components/PDFDiversBlock';
+import PDFCustomBlock from './components/PDFCustomBlock';
+import PDFMissingBlock from './components/PDFMissingBlock';
 
-const SECTION_LABELS = {
-  infos: 'Informations Générales',
-  cause: 'Circonstances',
-  orga: 'Organisation',
-  frais: 'Frais',
-  frais_liste: 'Détail des Frais',
-  photos: 'Annexes Photographiques',
-  divers: 'Divers & Remarques',
-};
-
-const SECTION_IDS = {
-  infos: PDF_SECTIONS.GENERAL,
-  cause: PDF_SECTIONS.CIRCUMSTANCES,
-  orga: PDF_SECTIONS.ORGANISATION,
-  frais: PDF_SECTIONS.FEES,
-  frais_liste: PDF_SECTIONS.FEES,
-  photos: PDF_SECTIONS.IMAGES,
-  divers: 'divers',
-};
-
+// PARITÉ STRICTE : ce switch doit refléter renderBlocksInOrder() de PrintPreviewWeb.jsx.
+// Toute modification de l'un impose la modification de l'autre.
 export default function PDFReportDocument({ reportData }) {
   if (!reportData) return null;
-  const { meta, titre, coord, infos, cause, orga, frais, photos, divers } = reportData;
-  const blocks = meta?.orderedBlocks || [];
+  const blockStyles = reportData.meta.styles || {};
+  const { metadata } = reportData;
+
+  const renderBlock = (key) => {
+    switch (true) {
+      case key === 'titre':
+        return <PDFReportHeader key={key} data={reportData.titre} styleBlock={blockStyles.titre} />;
+      case key === 'coord':
+        return <PDFCoordBlock key={key} data={reportData.coord} styleBlock={blockStyles.coord} />;
+      case key === 'infos':
+        return <PDFInfoBlock key={key} data={reportData.infos} styleBlock={blockStyles.infos} />;
+      case key === 'cause':
+        return <PDFCircumstancesBlock key={key} data={reportData.cause} styleBlock={blockStyles.cause} />;
+      case key === 'orga':
+        return <PDFOrganisationBlock key={key} data={reportData.orga} styleBlock={blockStyles.orga} metadata={metadata} />;
+      case key === 'frais':
+        return <PDFFeesTable key={key} data={reportData.frais} styleBlock={blockStyles.frais} metadata={metadata} />;
+      case key === 'frais_liste':
+        return <PDFFeesDetailBlock key={key} data={reportData.frais} styleBlock={blockStyles.frais_liste || blockStyles.frais} showSubtotals={metadata.showSubtotals} />;
+      case key === 'photos':
+        return <PDFImagesBlock key={key} data={reportData.photos} styleBlock={blockStyles.photos} />;
+      case key === 'divers':
+        return <PDFDiversBlock key={key} data={reportData.divers} styleBlock={blockStyles.divers} />;
+      case key.startsWith('custom_'): {
+        const blockData = reportData.customBlocks?.find(b => b.id === key);
+        if (!blockData) {
+          console.error(`[PDF PARITY AUDIT] Custom block "${key}" présent dans orderedBlocks mais absent de customBlocks.`);
+          return <PDFMissingBlock key={key} blockKey={key} />;
+        }
+        return <PDFCustomBlock key={key} data={blockData} styleBlock={blockStyles[key]} />;
+      }
+      default:
+        console.error(`[PDF PARITY AUDIT] Bloc inconnu non rendu : "${key}".`);
+        return <PDFMissingBlock key={key} blockKey={key} />;
+    }
+  };
 
   return (
     <Document
@@ -41,43 +63,7 @@ export default function PDFReportDocument({ reportData }) {
       creator="React-PDF Native Engine"
     >
       <Page size="A4" style={styles.page} wrap>
-        {/* En-tête du rapport */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.title}>Rapport d'Expertise</Text>
-          <Text style={styles.subtitle}>
-            {titre?.formData?.refPechard ? `Réf. ${titre.formData.refPechard}` : 'Document de synthèse'}
-          </Text>
-          {titre?.formData?.dateExp && (
-            <Text style={[styles.mutedText, { textAlign: 'center', marginTop: 5 }]}>
-              Date d'expertise : {new Date(titre.formData.dateExp).toLocaleDateString('fr-FR')}
-              {titre.formData.heureExp ? ` à ${titre.formData.heureExp}` : ''}
-            </Text>
-          )}
-        </View>
-
-        {/* Coordonnées si présentes */}
-        {coord && (
-          <View style={[styles.section, { marginTop: 10 }]} wrap={false}>
-            {coord.formData?.adresse && (
-              <Text style={styles.text}>📍 {coord.formData.adresse}</Text>
-            )}
-            {coord.formData?.franchise && (
-              <Text style={styles.text}>Franchise : {coord.formData.franchise}</Text>
-            )}
-          </View>
-        )}
-
-        {/* ====== Contenu dynamique ====== */}
-        {blocks.map(key => {
-          if (key === 'titre' || key === 'coord') return null;
-          if (key === 'infos') return <PDFInfoBlock key={key} id={PDF_SECTIONS.GENERAL} title={infos?.title || 'Informations Générales'} data={infos} />;
-          if (key === 'cause') return <PDFTextBlock key={key} id={PDF_SECTIONS.CIRCUMSTANCES} title={cause?.title || 'Circonstances'} content={cause?.formDataCause} />;
-          if (key === 'orga') return <PDFTextBlock key={key} id={PDF_SECTIONS.ORGANISATION} title={orga?.title || 'Organisation'} content={orga?.occupantsHierarchy?.map(o => `${o.formattedNomPrenom} — ${o.statut}`).join('\n') || ''} />;
-          if (key === 'frais') return <PDFFeesTable key={key} id={PDF_SECTIONS.FEES} title={frais?.title || 'Frais'} data={frais} />;
-          if (key === 'photos') return <PDFImagesBlock key={key} id={PDF_SECTIONS.IMAGES} title={photos?.title || 'Images'} data={photos} />;
-          if (key === 'divers') return <PDFTextBlock key={key} id="divers" title={divers?.title || 'Divers'} content={divers?.formDataDivers} />;
-          return null;
-        })}
+        {(reportData.meta.orderedBlocks || []).map(renderBlock)}
       </Page>
     </Document>
   );
