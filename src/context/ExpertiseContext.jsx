@@ -1429,11 +1429,22 @@ export const ExpertiseProvider = ({ children }) => {
                                       const targetAnnex = finalIndex.find(x => x.id === expId);
                                       if (targetAnnex) {
                                           // 1-indexed to 0-indexed reference
-                                          const targetPageRef = mergedPdf.getPage(targetAnnex.startPage - 1).ref;
+                                          const targetPageObj = mergedPdf.getPage(targetAnnex.startPage - 1);
+                                          const targetPageRef = targetPageObj.ref;
+                                          const targetHeight = targetPageObj.getHeight();
+                                          
+                                          // Destination format: [page, /XYZ, left, top, zoom]
+                                          // Setting top to height ensures we arrive at the top of the page
                                           const newAction = mergedPdf.context.obj({
                                               Type: 'Action',
                                               S: 'GoTo',
-                                              D: [targetPageRef, 'XYZ', null, null, null]
+                                              D: [
+                                                  targetPageRef, 
+                                                  'XYZ', 
+                                                  0, // left 
+                                                  targetHeight, // top 
+                                                  null // zoom (null means retain current zoom)
+                                              ]
                                           });
                                           annot.set(PDFName.of('A'), newAction);
                                       }
