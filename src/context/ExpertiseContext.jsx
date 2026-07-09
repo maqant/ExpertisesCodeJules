@@ -7,6 +7,9 @@ import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
 import { extractValidAttachmentsFromMsg } from '../services/utils/msgUtils.js';
 import html2canvas from 'html2canvas';
+import { buildPrintReportData } from '../features/print/printDataAdapter';
+import { generatePdfReportBlob } from '../features/print/pdf/generatePdfReport';
+import { revokePdfImageBlobUrls } from '../features/print/pdf/resolvePdfImages';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
 import { useDossiersStore } from '../hooks/useDossiersStore';
@@ -1256,121 +1259,41 @@ export const ExpertiseProvider = ({ children }) => {
   // Capture la page de garde HTML + annexes → UN seul PDF
   const downloadDossierPDF = async (selectedKeys) => {
       setIsMerging(true);
+      let resolvedData = null;
       try {
-          const el = document.getElementById('a4-page');
-          if (!el) throw new Error('Élément A4 introuvable.');
+          // ====================================================================
+          // MOTEUR PDF NATIF React-PDF : Rapport principal vectoriel
+          // Remplace l'ancien pipeline html2canvas → JPEG → pdf-lib
+          // ====================================================================
 
-          // 1. Préparer l'élément : retirer ombre + min-h
-          const prevShadow = el.style.boxShadow;
-          const prevMinH   = el.style.minHeight;
-          el.style.boxShadow = 'none';
-          el.style.minHeight = '0';
-          await new Promise(r => requestAnimationFrame(r));
+          // 1. Construire reportData via l'adaptateur de données
+          const responsablesIds = useFinanceStore.getState().metier?.responsablesIds || [];
+          const reportData = buildPrintReportData({
+              formData, blockTitles, references, occupants, expenses,
+              customBlocks, styles, showSubtotals, orgaAdvancedMode,
+              getSortedBlocks, getPaginationInfo, causeTimeline,
+              intervenantsList, attachedPhotos, responsablesIds
+          });
 
-          // Constantes PDF
-          const A4W = 595.28, A4H = 841.89;
+          // 2. Générer le Blob PDF via @react-pdf/renderer (pdf().toBlob())
+          const { blob: reactPdfBlob, resolvedReportData } = await generatePdfReportBlob({ reportData });
+          resolvedData = resolvedReportData;
 
-          // Helper de capture via un clone off-screen
-          const captureElOffScreen = async () => {
-              // Créer un host container pour isoler le rendu du layout écran
-              const host = document.createElement('div');
-              host.style.position = 'fixed';
-              host.style.top = '0';
-              host.style.left = '-9999px'; // Hors de vue
-              host.style.width = '794px'; // Largeur absolue (210mm @ 96dpi)
-              host.style.background = '#ffffff';
-              host.style.zIndex = '-9999';
+          // 3. Charger le Blob React-PDF dans pdf-lib pour la fusion avec annexes
+          const reactPdfBytes = await reactPdfBlob.arrayBuffer();
+          const reactPdfDoc = await PDFDocument.load(reactPdfBytes);
 
-              // Cloner l'élément #a4-page actuel
-              const clone = el.cloneNode(true);
-              host.appendChild(clone);
-              document.body.appendChild(host);
-
-              // Laisser le navigateur appliquer le reflow
-              await new Promise(resolve => requestAnimationFrame(resolve));
-
-              try {
-                  const canvas = await html2canvas(clone, {
-                      scale: 2,
-                      useCORS: true,
-                      allowTaint: true,
-                      backgroundColor: '#ffffff',
-                      logging: false,
-                      width: 794,
-                      windowWidth: 794,
-                      ignoreElements: (node) => {
-                          if (!node.classList) return false;
-                          return node.classList.contains('block-controls') ||
-                                 node.classList.contains('print:hidden') ||
-                                 node.classList.contains('no-print') ||
-                                 node.getAttribute?.('data-html2canvas-ignore') === 'true';
-                      }
-                  });
-                  return canvas;
-              } finally {
-                  // Nettoyage critique du clone hors-écran
-                  if (host.parentNode) {
-                      host.parentNode.removeChild(host);
-                  }
-              }
-          };
-
-          // --- PASSE 1 : capture avec coverPageCount = 1 (valeur actuelle) ---
-          // → mesure la hauteur réelle du canvas pour déterminer le nb de pages de la page de garde
-          const canvas1 = await captureElOffScreen();
-          const pxPerPt   = canvas1.width / A4W;
-          const slicePixH = A4H * pxPerPt;
-          const significantH = slicePixH * 0.05; // Tolérance de 5% de page pour éviter les sauts de page vides
-          const actualCoverPages = Math.max(1, Math.ceil((canvas1.height - significantH) / slicePixH));
-
-          // --- PASSE 2 (si nécessaire) : mettre à jour le DOM et re-capturer ---
-          let canvas = canvas1;
-          if (actualCoverPages !== coverPageCount) {
-              setCoverPageCount(actualCoverPages); // Met à jour le State React
-
-              // Attendre que React refasse le rendu avec les nouveaux numéros du Master Index
-              await new Promise(resolve => setTimeout(resolve, 500));
-
-              canvas = await captureElOffScreen(); // Nouvelle capture avec les bons numéros affichés !
-          }
-
-          el.style.boxShadow = prevShadow;
-          el.style.minHeight = prevMinH;
-
-          // Helper: dataURL → Uint8Array sans fetch
-          const dataUrlToBytes = (dataUrl) => {
-              const base64 = dataUrl.split(',')[1];
-              const binStr = atob(base64);
-              const bytes = new Uint8Array(binStr.length);
-              for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-              return bytes;
-          };
-
-          // Split en pages A4
           const mergedPdf = await PDFDocument.create();
           const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
-          const pageCount = Math.ceil(canvas.height / slicePixH);
 
+          // 4. Copier toutes les pages du rapport React-PDF dans le document fusionné
+          const reportPages = await mergedPdf.copyPages(reactPdfDoc, reactPdfDoc.getPageIndices());
+          reportPages.forEach(page => mergedPdf.addPage(page));
 
-          for (let i = 0; i < pageCount; i++) {
-              const startY = Math.round(i * slicePixH);
-              const endY   = Math.min(Math.round((i + 1) * slicePixH), canvas.height);
-              const h = endY - startY;
-              if (h < significantH) continue; // ignorer les tranches quasi-vides (fin de min-h)
-
-              const sliceCanvas = document.createElement('canvas');
-              sliceCanvas.width  = canvas.width;
-              sliceCanvas.height = h;
-              const ctx = sliceCanvas.getContext('2d');
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-              ctx.drawImage(canvas, 0, startY, canvas.width, h, 0, 0, canvas.width, h);
-
-              const jpgBytes = dataUrlToBytes(sliceCanvas.toDataURL('image/jpeg', 0.92));
-              const img  = await mergedPdf.embedJpg(jpgBytes);
-              const drawnH = h / pxPerPt; // hauteur en points PDF
-              const page = mergedPdf.addPage([A4W, A4H]);
-              page.drawImage(img, { x: 0, y: A4H - drawnH, width: A4W, height: drawnH });
+          // Mettre à jour coverPageCount avec le nombre réel de pages du rapport
+          const actualCoverPages = reportPages.length;
+          if (actualCoverPages !== coverPageCount) {
+              setCoverPageCount(actualCoverPages);
           }
 
           // 3. Append annexes
@@ -1477,6 +1400,10 @@ export const ExpertiseProvider = ({ children }) => {
       } catch (err) {
           alert('Erreur lors de la génération : ' + err.message);
       } finally {
+          // Nettoyage des Blob URLs d'images résolues pour le PDF
+          if (resolvedData) {
+              revokePdfImageBlobUrls(resolvedData);
+          }
           setIsMerging(false);
           setCoverPageCount(1); // Réinitialiser pour la vue normale
       }
