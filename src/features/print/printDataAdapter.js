@@ -159,7 +159,8 @@ export const buildPrintReportData = (input) => {
                     return {
                         id: occ.id,
                         nom: occ.nom,
-                        annexReference: pagInfo ? pagInfo.text : null
+                        annexReference: pagInfo ? pagInfo.text : null,
+                        imageUuids: attachedPhotos[occ.id] || []
                     };
                 })
         },

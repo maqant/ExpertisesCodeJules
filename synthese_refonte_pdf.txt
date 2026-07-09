@@ -1,0 +1,83 @@
+DOCUMENT DE SYNTHÈSE : REFONTE ARCHITECTURE IMPRESSION ET MOTEUR PDF NATIF
+===========================================================================
+Date : Juillet 2026
+Auteur : Agent IA (Développeur Senior React / Architecte)
+
+1. LE PROBLÈME INITIAL ET LES OBJECTIFS
+---------------------------------------
+Avant cette refonte, le composant `PrintPreview.jsx` était un monolithe qui mélangeait :
+- La récupération des données métiers via le Context (Zustand, etc.)
+- La logique de transformation de ces données
+- Le rendu Web
+- L'injection dans le navigateur pour l'impression native.
+
+Cette architecture rendait impossible la génération d'un véritable PDF natif sans utiliser des "hacks" comme `html2canvas` (qui rasterise le texte, rendant le PDF illisible, lourd, et impossible à copier-coller) ou l'impression du navigateur (imprévisible, coupures de tableaux hasardeuses).
+
+L'objectif de cette refonte était :
+1. Isoler la donnée pour qu'elle soit universelle (contrat strict).
+2. Séparer l'affichage Web de l'affichage PDF.
+3. Implémenter un vrai moteur PDF pur avec `@react-pdf/renderer` offrant une pagination parfaite (tableaux de frais indivisibles, références d'annexes attachées à la description).
+4. Créer un système de génération asynchrone robuste (gestion des images par Blob, sans fuite mémoire).
+5. Mettre en place des garde-fous pour empêcher de futures régressions.
+
+
+2. ÉTAPE 1 : L'ISOLATION DE LA DONNÉE (L'Adaptateur)
+----------------------------------------------------
+- Fichier clé : `src/features/print/printDataAdapter.js`
+- Rôle : Extraire les données brutes des Contextes/Stores et retourner un objet `reportData` 100% pur (uniquement du JSON natif).
+- Pourquoi : Le rendu Web et le rendu PDF doivent consommer exactement le même arbre de données sans avoir à refaire le moindre calcul métier.
+- Principe : Plus aucune référence au DOM, aux Hooks React (`useContext`) ni de fonctions ne circulent. L'objet généré est structuré en blocs (`meta.orderedBlocks`, `titre`, `coord`, `cause`, `frais`, etc.).
+
+
+3. ÉTAPE 2 : REFONTE DU RENDU WEB EN ORCHESTRATEUR
+--------------------------------------------------
+- Dossier clé : `src/features/print/web/`
+- `PrintPreviewWeb.jsx` n'est plus qu'un orchestrateur : il lit la liste des blocs dans `reportData.meta.orderedBlocks` et appelle les sous-composants dédiés.
+- Les anciens gros blocs JSX ont été découpés en micro-composants (`PrintFeesTable.jsx`, `PrintCircumstancesBlock.jsx`, etc.).
+- Pourquoi : Garder l'Aperçu Avant Impression fonctionnel et maintenable, sans toucher au PDF, en utilisant CSS/Tailwind standard.
+
+
+4. ÉTAPE 3 : CRÉATION DU MOTEUR PDF PUR
+---------------------------------------
+- Dossier clé : `src/features/print/pdf/` et `src/features/print/pdf/components/`
+- Pourquoi : Pour générer un vrai fichier PDF vectoriel, interactif et structuré, le HTML/CSS classique est inutile. Nous devons utiliser les primitives `<Document>`, `<Page>`, `<View>`, `<Text>` de `@react-pdf/renderer`.
+- Composant racine : `PDFReportDocument.jsx`. Il itère sur `reportData.meta.orderedBlocks` et instancie les équivalents PDF (`PDFInfoBlock`, `PDFFeesTable`, etc.).
+- Design System strict (`pdfStyles.js`) : Tous les styles sont regroupés ici avec `StyleSheet.create`. Cela empêche les développeurs de coder en "inline" et garantit l'homogénéité visuelle.
+
+La règle d'or imposée : Le design system PDF a mis en place la classe `styles.annexReference` ({ fontSize: 8, fontStyle: 'italic', color: '#64748b' }). Il a été imposé que chaque référence d'annexe apparaisse en dessous de sa description, sans jamais créer une colonne dédiée.
+
+
+5. ÉTAPE 4 : LA PAGINATION ET LE WRAP
+-------------------------------------
+L'un des problèmes majeurs de la génération PDF est la coupure d'un élément entre deux pages.
+- Dans `PDFFeesTableRow.jsx` et `PDFSection.jsx`, nous avons utilisé systématiquement la propriété `wrap={false}`.
+- Pourquoi : Cela indique au moteur PDF : "Si cette ligne de frais (avec sa description et sa référence d'annexe) dépasse la page actuelle, transfère la totalité de la ligne sur la page suivante plutôt que de la tronçonner". Ainsi, une référence d'annexe n'est jamais orpheline.
+
+
+6. ÉTAPE 5 : LA GÉNÉRATION ASYNCHRONE ET LA GESTION DES IMAGES
+--------------------------------------------------------------
+L'utilisation historique du composant `<PDFDownloadLink>` cause de nombreux bugs (gels d'interface, rendus infinis) car il tente de générer le PDF dès que les propriétés changent.
+- Fichier clé : `generatePdfReport.js` et `resolvePdfImages.js`
+- Approche : Nous avons implémenté une fonction asynchrone `generatePdfReportBlob` déclenchée uniquement au clic de l'utilisateur. Elle instancie virtuellement le composant et appelle explicitement `pdf(doc).toBlob()`.
+
+Le problème des images : 
+Le moteur React-PDF ne sait pas résoudre des images depuis des bases de données asynchrones (IndexedDB) pendant qu'il compile le PDF.
+- Solution : Avant même de donner les données au PDF, `resolvePdfImages.js` parcours `reportData`, détecte toutes les images en attente (`imageUuids`), va chercher le binaire via la base locale, et utilise `URL.createObjectURL(blob)` pour obtenir une URL native lisible instantanément par React-PDF.
+- Une sécurité anti-regression a été ajoutée : Si un UUID brut passe cette étape, une erreur explicite est lancée, évitant de générer silencieusement un PDF troué.
+- Nettoyage : Une fois le PDF généré et téléchargé, `URL.revokeObjectURL` est appelé pour nettoyer la RAM.
+
+
+7. ÉTAPE 6 : SÉCURISATION ARCHITECTURALE (GARDE-FOUS)
+-----------------------------------------------------
+Pour s'assurer qu'un autre développeur ne détruira pas cette pureté, 4 garde-fous ont été codés :
+1. Tests unitaires des composants : Un test Vitest (`PDFFeesTableRow.test.jsx`) vérifie que le rendu de la référence d'annexe utilise bien la classe stricte et que `wrap` est désactivé.
+2. Test métier : Validation de `buildPrintReportData` pour s'assurer que l'objet reste un pur JSON.
+3. Garde-fou Statique (`architecture.test.js`) : Un script d'analyse statique audite automatiquement tout le dossier `src/features/print/pdf/`. S'il y trouve le mot `useContext`, `window.print`, `html2canvas` ou un import vers un fichier Web, l'intégration continue échouera.
+4. Mise à jour de la documentation `PRINT_DATA_MODEL.md` et `README.md` avec l'explication du "Contrat de rendu" entre le Web et le PDF.
+
+
+8. CONCLUSION ET RÉSULTAT OBTENU
+--------------------------------
+L'application dispose désormais de deux moteurs de rendus qui fonctionnent en miroir parfait, branchés sur une source de vérité unique et sérialisée :
+1. Un mode Web orchestré, réactif, qui maintient une expérience visuelle familière.
+2. Un mode d'export PDF "Vrai Vectoriel", paginé intelligemment, avec un sommaire cliquable natif (les ancres dynamiques), téléchargé de façon asynchrone sans jamais surcharger l'interface ou faire de fuites mémoires, avec des tableaux élégants aux lignes inséparables.
