@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY, COLORS } from '../pdfStyles';
+import { DENSITY, COLORS, solidBorder } from '../pdfStyles';
 
 const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
     if (!data) return null;
@@ -32,11 +32,10 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
                 {occupantsList.map((o) => (
                     <View key={o.id} style={{
                         marginBottom: DENSITY.occupantGap,
-                        marginLeft: (o.depth || 0) * DENSITY.occupantIndent,
+                        marginLeft: (o.depth ?? 0) * DENSITY.occupantIndent,
                         padding: o.isResponsible ? DENSITY.occupantPaddingResponsible : DENSITY.occupantPadding,
                         backgroundColor: o.isResponsible ? COLORS.cardResponsibleBg : COLORS.cardBg,
-                        borderWidth: 1,
-                        borderColor: o.isResponsible ? COLORS.cardResponsibleBorder : COLORS.cardBorder,
+                        ...solidBorder(1, o.isResponsible ? COLORS.cardResponsibleBorder : COLORS.cardBorder),
                         borderRadius: DENSITY.borderRadius
                     }} wrap={false}>
                         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>

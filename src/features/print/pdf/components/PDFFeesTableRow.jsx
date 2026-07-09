@@ -11,8 +11,10 @@ const PDFFeesTableRow = ({ exp, index, fontSize }) => {
         color: COLORS.text,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.tableBorder,
+        borderBottomStyle: 'solid',
         borderRightWidth: 1,
         borderRightColor: COLORS.tableBorder,
+        borderRightStyle: 'solid',
     };
 
     return (

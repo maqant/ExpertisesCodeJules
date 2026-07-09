@@ -3,11 +3,17 @@ import { StyleSheet } from '@react-pdf/renderer';
 export const COLORS = {
   text: '#1e293b',
   tableBorder: '#94a3b8',
-  cardBg: '#f8fafc',
-  cardBorder: '#e2e8f0',
+  cardBg: '#f1f5f9',
+  cardBorder: '#94a3b8',
   cardResponsibleBg: '#fff7ed',
   cardResponsibleBorder: '#fed7aa',
 };
+
+export const solidBorder = (width = 1, color = COLORS.cardBorder) => ({
+  borderWidth: width,
+  borderColor: color,
+  borderStyle: 'solid',
+});
 
 export const DENSITY = {
   // Page

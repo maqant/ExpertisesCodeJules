@@ -2,6 +2,21 @@ import { getCompteDeName, findOccByCompteDe, fmtOccName } from '../../utils/form
 import { buildOccupantHierarchy } from '../../domain/occupantsHierarchy';
 
 /**
+ * Normalise un texte multiligne issu de données déstructurées.
+ *  - \r\n → \n
+ *  - 2+ sauts consécutifs → 1 seul
+ *  - trim des lignes et du bloc
+ */
+export function normalizeMultiline(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .split('\n').map((l) => l.trim()).join('\n')
+    .trim();
+}
+
+/**
  * Construit une structure de données unique, stable et sérialisable.
  * Indépendante du rendu Web et du rendu PDF.
  * Ne contient aucun composant React, accès DOM, Context ou fonction non sérialisable.
@@ -96,14 +111,15 @@ export const buildPrintReportData = (input) => {
         },
         cause: {
             title: blockTitles.cause,
-            timeline: causeTimeline.map(item => ({ ...item })),
-            formDataCause: formData.cause,
+            timeline: causeTimeline.map(item => ({ ...item, content: normalizeMultiline(item.content) })),
+            formDataCause: normalizeMultiline(formData.cause),
             paginationDocRapportCause: getPaginationInfo('doc_rapport_cause')?.text
         },
         orga: {
             title: blockTitles.orga,
             occupantsHierarchy: buildOccupantHierarchy(occupants).map(o => ({
                 ...o,
+                depth: o._depth ?? 0,
                 isResponsible: responsablesIds.includes(o.id),
                 formattedNomPrenom: `${o.nom || '___'} ${o.prenom || ''}`.trim()
             })),
@@ -142,7 +158,7 @@ export const buildPrintReportData = (input) => {
                     Franchise: data.Franchise,
                     lignes: data.lignes.map(l => ({
                         prestataire: l.prestataire,
-                        desc: l.desc,
+                        desc: normalizeMultiline(l.desc),
                         montant: l.montant,
                         typeMontant: l.typeMontant,
                         avisCouverture: l.avisCouverture
@@ -166,7 +182,7 @@ export const buildPrintReportData = (input) => {
         },
         divers: {
             title: blockTitles.divers,
-            formDataDivers: formData.divers
+            formDataDivers: normalizeMultiline(formData.divers)
         },
         customBlocks: customBlocks.map(b => ({ ...b }))
     };
