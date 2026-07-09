@@ -38,14 +38,14 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
             {(formData.expert && !formData.expertInfos) ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expert}</Text> : null}
             
             {data.paginationDocMailExpertise ? (
-                <Text style={{ ...textStyle, fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
+                <Text style={{ ...textStyle, fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', marginTop: 0 }}>
                     {data.paginationDocMailExpertise}
                 </Text>
             ) : null}
 
             {formData.isContradictoire ? (
-                <View style={{ marginLeft: DENSITY.subBlockIndent, marginTop: 3, borderLeftWidth: 2, borderLeftColor: '#cbd5e1', paddingLeft: 6 }} wrap={false}>
-                    <Text style={{ fontStyle: 'italic', textDecoration: 'underline', marginBottom: 2 }}>Expertise contradictoire avec :</Text>
+                <View style={{ marginLeft: DENSITY.subBlockIndent, marginTop: 2, borderLeftWidth: 2, borderLeftColor: '#cbd5e1', paddingLeft: 6 }} wrap={false}>
+                    <Text style={{ fontStyle: 'italic', textDecoration: 'underline', marginBottom: 1 }}>Expertise contradictoire avec :</Text>
                     {formData.cieContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Cie :</Text> {formData.cieContradictoire}</Text> : null}
                     {formData.expertContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expertContradictoire}</Text> : null}
                     {formData.compteDeContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pour le compte de :</Text> {formData.compteDeContradictoire}</Text> : null}

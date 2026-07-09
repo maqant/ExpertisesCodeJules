@@ -20,7 +20,7 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
     const titleStyle = {
         fontWeight: 'bold',
         textDecoration: 'underline',
-        marginBottom: 6,
+        marginBottom: DENSITY.sectionTitleGap,
         fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
@@ -30,7 +30,7 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
                 {data.title && (
                     <Text style={titleStyle}>{data.title}</Text>
                 )}
-                <View style={{ marginTop: 4, marginBottom: DENSITY.itemGap }}>
+                <View style={{ marginTop: 2, marginBottom: DENSITY.itemGap }}>
                     <Text style={{ fontWeight: 'bold' }}>{data.annexes[0].nom || `Annexe 1`}</Text>
                     {data.annexes[0].description && <Text style={{ color: '#475569', fontSize: (adaptedStyle.fontSize || 9) * 0.9 }}>{data.annexes[0].description}</Text>}
                 </View>

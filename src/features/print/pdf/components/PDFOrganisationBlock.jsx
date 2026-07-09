@@ -28,7 +28,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
         <View style={containerStyle} wrap>
             {data.title ? <Text style={titleStyle} minPresenceAhead={30}>{data.title}</Text> : null}
 
-            <View style={{ marginTop: 2 }}>
+            <View style={{ marginTop: 0 }}>
                 {occupantsList.map((o) => (
                     <View key={o.id} style={{
                         marginBottom: DENSITY.occupantGap,
@@ -56,7 +56,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
                         {orgaAdvancedMode && (o.rc === 'Oui' || o.secAssurance === 'Oui') ? (
                             <View style={{
                                 marginLeft: (o.depth === 1 ? 20 : 0) + 200,
-                                marginTop: 2,
+                                marginTop: 1,
                                 borderLeftWidth: 2,
                                 borderLeftColor: '#cbd5e1',
                                 paddingLeft: 6,
@@ -85,10 +85,10 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
             </View>
 
             {data.intervenants && data.intervenants.length > 0 ? (
-                <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e2e8f0' }} wrap={false}>
-                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Autres intervenants :</Text>
+                <View style={{ marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#e2e8f0' }} wrap={false}>
+                    <Text style={{ fontWeight: 'bold', marginBottom: 2 }}>Autres intervenants :</Text>
                     {data.intervenants.map(inter => (
-                        <Text key={inter.id} style={{ marginLeft: 15, marginBottom: 2, lineHeight: DENSITY.lineHeight }}>
+                        <Text key={inter.id} style={{ marginLeft: 15, marginBottom: 1, lineHeight: DENSITY.lineHeight }}>
                             <Text style={{ fontWeight: 'bold' }}>{inter.nom || ''} {inter.prenom || ''}</Text>
                             {inter.role ? <Text style={{ fontStyle: 'italic' }}> — {inter.role}</Text> : null}
                             {inter.societe ? <Text> ({inter.societe})</Text> : null}

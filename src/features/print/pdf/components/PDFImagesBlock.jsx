@@ -45,22 +45,22 @@ const PDFImagesBlock = ({ data, styleBlock }) => {
         <View style={containerStyle} wrap>
             {data.title ? <Text style={titleStyle} minPresenceAhead={40}>{data.title}</Text> : null}
 
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 2 }}>
                 {imagesToRender.map((img, i) => (
                     <View key={img.id} style={{
                         width: '48%',
-                        marginBottom: 10,
+                        marginBottom: 6,
                         backgroundColor: '#ffffff',
-                        padding: 4,
+                        padding: 2,
                         borderWidth: 1,
                         borderColor: '#e2e8f0',
                         borderRadius: 3
                     }} wrap={false}>
                         <View style={{
-                            height: 120, // slightly smaller height for density
+                            height: 110, // slightly smaller height for density
                             backgroundColor: '#f1f5f9',
                             borderRadius: 2,
-                            marginBottom: 4
+                            marginBottom: 2
                         }}>
                             {img.dataUrl ? (
                                 <Image src={img.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />

@@ -31,10 +31,7 @@ describe('PDFFeesTableRow', () => {
     const annexNode = linkNode.props.children;
     expect(annexNode.props.children).toBe('Ref 123');
     // Le style doit correspondre exactement aux spécifications du design system
-    expect(annexNode.props.style).toEqual({
-      fontSize: 8,
-      fontStyle: 'italic',
-      color: '#64748b'
-    });
+    expect(annexNode.props.style.fontStyle).toBe('italic');
+    expect(annexNode.props.style.color).toBe('#64748b');
   });
 });

@@ -43,20 +43,20 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                 borderRadius: DENSITY.borderRadius
             }}>
                 <Text style={{ fontWeight: 'bold', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) + 1, marginBottom: 1 }}>Détail des justificatifs par partie</Text>
-                <Text style={{ fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.85, color: '#64748b', fontStyle: 'italic', marginBottom: 4 }}>
+                <Text style={{ fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.85, color: '#64748b', fontStyle: 'italic', marginBottom: 2 }}>
                     Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.
                 </Text>
 
-                <View style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <View style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {decomptes.map((dec, i) => (
                         <View key={i} style={{
                             backgroundColor: '#f8fafc',
-                            padding: 4,
+                            padding: 2,
                             borderRadius: 2,
                             borderWidth: 1,
                             borderColor: '#e2e8f0'
                         }} wrap={false}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
                                     <Text style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{dec.compteDeCourt}</Text>
                                     {dec.isExpertClient ? (
@@ -76,9 +76,9 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                                 </View>
                             </View>
 
-                            <View style={{ paddingLeft: 6, marginTop: 2 }}>
+                            <View style={{ paddingLeft: 6, marginTop: 0 }}>
                                 {dec.lignes && dec.lignes.map((l, j) => (
-                                    <View key={j} style={{ flexDirection: 'row', marginBottom: 2 }} wrap={false}>
+                                    <View key={j} style={{ flexDirection: 'row', marginBottom: 0 }} wrap={false}>
                                         <Text style={{ marginRight: 4 }}>•</Text>
                                         <Text style={{ flex: 1, lineHeight: DENSITY.lineHeight }}>
                                             {l.prestataire} - {l.desc} ({l.montantFormate || formatPDFAmount(l.montant) || '0'} € {l.typeMontantBrut || l.typeMontant})

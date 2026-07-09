@@ -34,7 +34,7 @@ const PDFInfoBlock = ({ data, styleBlock, coordReferences }) => {
         <View style={containerStyle} wrap>
             {data.title ? <Text style={titleStyle} minPresenceAhead={30}>{data.title}</Text> : null}
 
-            <Text style={{ ...textStyle, fontWeight: 'bold', marginBottom: 4 }}>
+            <Text style={{ ...textStyle, fontWeight: 'bold', marginBottom: 1 }}>
                 {formData.dateSinistre || ''}{formData.dateSinistre && (formData.declareLe || formData.dateDeclaration) ? ', ' : ''}{formData.declareLe || formData.dateDeclaration || ''} {formData.declarant || ''}{' '}
                 {data.paginationDocMailDeclaration ? (
                     <Text style={{ fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', fontWeight: 'normal' }}>
@@ -83,7 +83,7 @@ const PDFInfoBlock = ({ data, styleBlock, coordReferences }) => {
             {formData.numSinistreCie ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>N° Sinistre Cie :</Text> {formData.numSinistreCie}</Text> : null}
             
             {references && references.length > 0 ? (
-                <View style={{ marginTop: 2 }}>
+                <View style={{ marginTop: 0 }}>
                     {references.map(r => (
                         <Text key={r.id} style={textStyle}>
                             <Text style={{ fontWeight: 'bold' }}>{r.nom ? `${r.nom} : ` : ''}</Text>{r.ref || ''}

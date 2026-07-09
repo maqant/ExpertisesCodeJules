@@ -28,13 +28,13 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
             ) : null}
 
             {data.timeline && data.timeline.length > 0 ? (
-                <View style={{ marginTop: 2 }}>
+                <View style={{ marginTop: 0 }}>
                     {data.timeline.map((item) => {
                         const isFile = item.type === 'file';
                         return (
                             <View key={item.id} style={{
-                                padding: 6,
-                                marginBottom: 6,
+                                padding: 4,
+                                marginBottom: 3,
                                 backgroundColor: isFile ? '#f8fafc' : '#ffffff',
                                 borderLeftWidth: 3,
                                 borderLeftColor: isFile ? '#3b82f6' : '#f59e0b',
@@ -44,7 +44,7 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
                                 borderColor: '#e2e8f0',
                                 borderRadius: 3
                             }} wrap={false}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 1 }}>
                                     {item.date ? <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#64748b', marginRight: 5 }}>{item.date}</Text> : null}
                                     <View style={{ borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
                                         <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#475569' }}>
@@ -69,7 +69,7 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
                 <View wrap>
                     <Text style={{ lineHeight: DENSITY.lineHeight }}>{data.formDataCause || data.texte || ''}</Text>
                     {data.paginationDocRapportCause ? (
-                        <Text style={{ fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
+                        <Text style={{ fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', marginTop: 0 }}>
                             {data.paginationDocRapportCause}
                         </Text>
                     ) : null}

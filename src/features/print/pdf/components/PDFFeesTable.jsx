@@ -70,10 +70,10 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
             </View>
 
             {(showSubtotals && decomptes.length > 0) ? (
-                <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#cbd5e1' }} wrap={false}>
-                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Décompte par partie impliquée (HTVA) :</Text>
+                <View style={{ marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#cbd5e1' }} wrap={false}>
+                    <Text style={{ fontWeight: 'bold', marginBottom: 2 }}>Décompte par partie impliquée (HTVA) :</Text>
                     {decomptes.map((dec) => (
-                        <View key={dec.compteDeCourt} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%', marginBottom: 2 }}>
+                        <View key={dec.compteDeCourt} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%', marginBottom: 1 }}>
                             <Text style={{ color: '#334155' }}>- {dec.compteDeCourt}</Text>
                             <Text style={{ fontWeight: 'bold' }}>{dec.htvaFormate} €</Text>
                         </View>

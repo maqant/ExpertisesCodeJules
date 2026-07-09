@@ -28,23 +28,23 @@ export const DENSITY = {
   lineHeightTight: 1.0,     // tableaux uniquement
 
   // Espacement vertical global (Tokens centraux)
-  blockGap: 6,              // espace entre sections (réduit de 10)
-  headerGap: 6,             // sous le PDFReportHeader
-  sectionInnerGap: 3,       // espacements internes de section
-  itemGap: 3,               // entre items d'une liste (annexes, photos)
+  blockGap: 4,              // espace entre sections (très compact)
+  headerGap: 4,             // sous le PDFReportHeader
+  sectionInnerGap: 1,       // espacements internes de section
+  itemGap: 2,               // entre items d'une liste (annexes, photos)
   keepWithNext: 24,         // minPresenceAhead minimal : titre + 1 ligne
-  sectionTitleGap: 3,       
+  sectionTitleGap: 1,
   lineGap: 0,               // intra-bloc : aucun espace additionnel
-  subBlockIndent: 8,        
+  subBlockIndent: 6,
 
   // Cartes occupants (organisation)
-  occupantIndent: 14,       // décalage par niveau de profondeur
-  occupantGap: 2,           // entre cartes
+  occupantIndent: 12,       // décalage par niveau de profondeur
+  occupantGap: 1,           // entre cartes
   occupantPadding: 2,
-  occupantPaddingResponsible: 3,
+  occupantPaddingResponsible: 2,
 
   // Blocs bordés
-  borderedPadding: 4,       
+  borderedPadding: 2,
   borderRadius: 2,
 
   // Tableaux
@@ -53,7 +53,7 @@ export const DENSITY = {
   tableHeaderPaddingV: 2,
 
   // Spacers
-  spacerCap: 12,            
+  spacerCap: 4,
 };
 
 export const pdfStyles = StyleSheet.create({
@@ -70,11 +70,11 @@ export const pdfStyles = StyleSheet.create({
     fontSize: DENSITY.fontTitle,
     fontWeight: 'bold',
     marginBottom: DENSITY.sectionTitleGap,
-    marginTop: 8,
+    marginTop: 2,
     color: '#0f172a',
     borderBottomWidth: 1,
     borderBottomColor: '#cbd5e1',
-    paddingBottom: 2,
+    paddingBottom: 1,
   },
   bodyText: {
     fontSize: DENSITY.fontBase,

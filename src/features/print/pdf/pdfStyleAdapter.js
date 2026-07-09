@@ -4,7 +4,9 @@
  */
 import { DENSITY } from './pdfStyles';
 
-const PX_TO_PT = 0.75;
+// On réduit drastiquement l'influence des espacements envoyés par la Sidebar
+// pour garantir un PDF ultra-compact (priorité au DENSITY core)
+const PX_TO_PT = 0.35;
 
 export function adaptSpacerHeight(px) {
   if (!px || px <= 0) return 0;
