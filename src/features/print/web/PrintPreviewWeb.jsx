@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import PrintReportHeader from './PrintReportHeader';
 import PrintCoordBlock from './PrintCoordBlock';
@@ -11,9 +11,42 @@ import PrintImagesBlock from './PrintImagesBlock';
 import PrintDiversBlock from './PrintDiversBlock';
 import PrintCustomBlock from './PrintCustomBlock';
 
+import { generatePdfReportBlob } from '../pdf/generatePdfReport';
+import { revokePdfImageBlobUrls } from '../pdf/resolvePdfImages';
+
 const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [pdfError, setPdfError] = useState(null);
+
     if (!reportData) return null;
     const styles = reportData.meta.styles;
+
+    const handleExportPdf = async () => {
+        setIsGeneratingPdf(true);
+        setPdfError(null);
+        let generatedData = null;
+        try {
+            const { blob, resolvedReportData } = await generatePdfReportBlob({ reportData });
+            generatedData = resolvedReportData;
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Rapport_Expertise_${reportData?.infos?.formData?.numSinistreCie || 'Export'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Erreur lors de la génération PDF:", error);
+            setPdfError(error.message || "Une erreur est survenue lors de la génération du PDF.");
+        } finally {
+            if (generatedData) {
+                revokePdfImageBlobUrls(generatedData);
+            }
+            setIsGeneratingPdf(false);
+        }
+    };
 
     const renderBlocksInOrder = () => {
         return reportData.meta.orderedBlocks.map(key => {
@@ -59,10 +92,18 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
                 <div>
                     <h2 className="text-lg font-bold">👁️ Aperçu Avant Impression</h2>
                     <p className="text-xs text-slate-400">Le contenu est automatiquement paginé. Redimensionnez ou appuyez sur Imprimer pour voir le rendu exact.</p>
+                    {pdfError && <p className="text-xs text-red-400 mt-1">{pdfError}</p>}
                 </div>
                 <div className="flex gap-4">
                     <button onClick={onBack} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-bold text-sm transition-colors">
                         ⬅️ Retour à l'éditeur
+                    </button>
+                    <button 
+                        onClick={handleExportPdf} 
+                        disabled={isGeneratingPdf}
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors flex items-center gap-2"
+                    >
+                        {isGeneratingPdf ? '⏳ Génération...' : '📄 Exporter PDF'}
                     </button>
                     <button onClick={onPrint} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors">
                         🖨️ Lancer l'impression

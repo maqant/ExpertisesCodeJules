@@ -2,97 +2,69 @@ import React from 'react';
 import { Document, Page, View, Text, Link } from '@react-pdf/renderer';
 import { pdfStyles as styles } from './pdfStyles';
 import { PDF_SECTIONS } from './pdfSections';
+import PDFInfoBlock from './components/PDFInfoBlock';
+import PDFFeesTable from './components/PDFFeesTable';
+import PDFAnnexesBlock from './components/PDFAnnexesBlock';
+import PDFImagesBlock from './components/PDFImagesBlock';
+import PDFTextBlock from './components/PDFTextBlock';
 
 export default function PDFReportDocument({ reportData }) {
-  const { title = "Rapport d'Expertise", sections = {} } = reportData || {};
+  if (!reportData) return null;
+  const { meta, titre, infos, cause, orga, frais, photos } = reportData;
+  const blocks = meta?.orderedBlocks || [];
+
+  const getSectionTitle = (key) => {
+    switch (key) {
+      case 'infos': return 'Informations Générales';
+      case 'cause': return 'Circonstances';
+      case 'orga': return 'Organisation';
+      case 'frais': return 'Frais';
+      case 'photos': return 'Images';
+      default: return 'Section';
+    }
+  };
+
+  const getSectionId = (key) => {
+    switch (key) {
+      case 'infos': return PDF_SECTIONS.GENERAL;
+      case 'cause': return PDF_SECTIONS.CIRCUMSTANCES;
+      case 'orga': return PDF_SECTIONS.ORGANISATION;
+      case 'frais': return PDF_SECTIONS.FEES;
+      case 'photos': return PDF_SECTIONS.IMAGES;
+      default: return key;
+    }
+  };
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Page de titre */}
         <View style={styles.section}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>Rapport d'Expertise</Text>
           <Text style={styles.subtitle}>Document de synthèse</Text>
         </View>
 
         {/* Sommaire */}
         <View style={styles.section} wrap={false}>
           <Text id={PDF_SECTIONS.SUMMARY} style={styles.tocTitle}>Sommaire</Text>
-          <View style={styles.tocItem}>
-            <Link src={`#${PDF_SECTIONS.GENERAL}`}>
-              <Text style={styles.tocLink}>Informations Générales</Text>
-            </Link>
-          </View>
-          <View style={styles.tocItem}>
-            <Link src={`#${PDF_SECTIONS.CIRCUMSTANCES}`}>
-              <Text style={styles.tocLink}>Circonstances</Text>
-            </Link>
-          </View>
-          <View style={styles.tocItem}>
-            <Link src={`#${PDF_SECTIONS.ORGANISATION}`}>
-              <Text style={styles.tocLink}>Organisation</Text>
-            </Link>
-          </View>
-          <View style={styles.tocItem}>
-            <Link src={`#${PDF_SECTIONS.FEES}`}>
-              <Text style={styles.tocLink}>Frais</Text>
-            </Link>
-          </View>
-          {sections.annexes && (
-            <View style={styles.tocItem}>
-              <Link src={`#${PDF_SECTIONS.ANNEXES}`}>
-                <Text style={styles.tocLink}>Annexes</Text>
+          {blocks.filter(b => b !== 'titre' && b !== 'coord').map(key => (
+            <View key={key} style={styles.tocItem}>
+              <Link src={`#${getSectionId(key)}`}>
+                <Text style={styles.tocLink}>{getSectionTitle(key)}</Text>
               </Link>
             </View>
-          )}
+          ))}
         </View>
 
-        {/* Section Informations Générales */}
-        <View style={styles.section} wrap={false}>
-          <Text id={PDF_SECTIONS.GENERAL} style={styles.sectionTitle}>Informations Générales</Text>
-          <Text style={styles.text}>Contenu des informations générales...</Text>
-        </View>
-
-        {/* Section Circonstances */}
-        <View style={styles.section} wrap={false}>
-          <Text id={PDF_SECTIONS.CIRCUMSTANCES} style={styles.sectionTitle}>Circonstances</Text>
-          <Text style={styles.text}>Contenu des circonstances...</Text>
-        </View>
-
-        {/* Section Organisation */}
-        <View style={styles.section} wrap={false}>
-          <Text id={PDF_SECTIONS.ORGANISATION} style={styles.sectionTitle}>Organisation</Text>
-          <Text style={styles.text}>Contenu de l'organisation...</Text>
-        </View>
-
-        {/* Section Frais */}
-        <View style={styles.section} wrap={false}>
-          <Text id={PDF_SECTIONS.FEES} style={styles.sectionTitle}>Frais</Text>
-          
-          <View style={styles.table}>
-            <View style={[styles.tableRow, styles.tableHeader]}>
-              <Text style={[styles.tableHeaderCell, styles.descriptionCell]}>Description</Text>
-              <Text style={[styles.tableHeaderCell, styles.amountCell]}>Montant</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <View style={[styles.tableCell, styles.descriptionCell]}>
-                <Text>Frais de déplacement</Text>
-                {/* Exemple d'utilisation de annexReference demandée */}
-                <Text style={styles.annexReference}>Réf. Annexe 1</Text>
-              </View>
-              <Text style={[styles.tableCell, styles.amountCell]}>150.00 €</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Section Annexes (Conditionnelle) */}
-        {sections.annexes && (
-          <View style={styles.section} wrap={false}>
-            <Text id={PDF_SECTIONS.ANNEXES} style={styles.sectionTitle}>Annexes</Text>
-            <Text style={styles.text}>Contenu des annexes...</Text>
-          </View>
-        )}
-
+        {/* Dynamic Blocks */}
+        {blocks.map(key => {
+          if (key === 'infos') return <PDFInfoBlock key={key} id={PDF_SECTIONS.GENERAL} title={infos?.title || "Informations Générales"} data={infos} />;
+          if (key === 'cause') return <PDFTextBlock key={key} id={PDF_SECTIONS.CIRCUMSTANCES} title={cause?.title || "Circonstances"} content={cause?.formDataCause} />;
+          if (key === 'orga') return <PDFTextBlock key={key} id={PDF_SECTIONS.ORGANISATION} title={orga?.title || "Organisation"} content="Détails de l'organisation..." />;
+          if (key === 'frais') return <PDFFeesTable key={key} id={PDF_SECTIONS.FEES} title={frais?.title || "Frais"} data={frais} />;
+          if (key === 'photos') return <PDFImagesBlock key={key} id={PDF_SECTIONS.IMAGES} title={photos?.title || "Images"} data={photos} />;
+          return null;
+        })}
       </Page>
     </Document>
   );
