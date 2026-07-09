@@ -1,7 +1,4 @@
-import React, { useContext } from 'react';
-import { ExpertiseContext } from '../../../context/ExpertiseContext';
-import { useFinanceStore } from '../../../store/financeStore';
-import { buildPrintReportData } from '../printDataAdapter';
+import React from 'react';
 
 import PrintReportHeader from './PrintReportHeader';
 import PrintCoordBlock from './PrintCoordBlock';
@@ -14,28 +11,12 @@ import PrintImagesBlock from './PrintImagesBlock';
 import PrintDiversBlock from './PrintDiversBlock';
 import PrintCustomBlock from './PrintCustomBlock';
 
-const WebReportPreview = () => {
-    const context = useContext(ExpertiseContext);
-    if (!context) return null;
-
-    const {
-        setIsPreviewMode, formData, blockTitles, references, occupants, expenses,
-        customBlocks, styles, showSubtotals, orgaAdvancedMode,
-        getSortedBlocks, getPaginationInfo, causeTimeline,
-        intervenantsList, telemetry, attachedPhotos
-    } = context;
-
-    const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
-
-    const reportData = buildPrintReportData({
-        formData, blockTitles, references, occupants, expenses,
-        customBlocks, styles, showSubtotals, orgaAdvancedMode,
-        getSortedBlocks, getPaginationInfo, causeTimeline, intervenantsList,
-        responsablesIds, attachedPhotos
-    });
+const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
+    if (!reportData) return null;
+    const styles = reportData.meta.styles;
 
     const renderBlocksInOrder = () => {
-        return reportData.blocks.map(key => {
+        return reportData.meta.orderedBlocks.map(key => {
             if (key === 'titre') {
                 return <PrintReportHeader key="titre" data={reportData.titre} styleBlock={styles.titre} />;
             }
@@ -80,16 +61,10 @@ const WebReportPreview = () => {
                     <p className="text-xs text-slate-400">Le contenu est automatiquement paginé. Redimensionnez ou appuyez sur Imprimer pour voir le rendu exact.</p>
                 </div>
                 <div className="flex gap-4">
-                    <button onClick={() => {
-                        if (telemetry) telemetry.logEvent('CLICK', 'btn_print_preview_retour');
-                        setIsPreviewMode(false);
-                    }} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-bold text-sm transition-colors">
+                    <button onClick={onBack} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-bold text-sm transition-colors">
                         ⬅️ Retour à l'éditeur
                     </button>
-                    <button onClick={() => {
-                        if (telemetry) telemetry.logEvent('CLICK', 'btn_print_preview_lancer');
-                        window.print();
-                    }} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors">
+                    <button onClick={onPrint} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded font-bold text-sm shadow-lg transition-colors">
                         🖨️ Lancer l'impression
                     </button>
                 </div>
@@ -122,4 +97,4 @@ const WebReportPreview = () => {
     );
 };
 
-export default WebReportPreview;
+export default PrintPreviewWeb;
