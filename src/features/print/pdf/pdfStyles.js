@@ -1,36 +1,52 @@
 import { StyleSheet } from '@react-pdf/renderer';
 
+export const COLORS = {
+  text: '#1e293b',
+  tableBorder: '#94a3b8',
+  cardBg: '#f8fafc',
+  cardBorder: '#e2e8f0',
+  cardResponsibleBg: '#fff7ed',
+  cardResponsibleBorder: '#fed7aa',
+};
+
 export const DENSITY = {
   // Page
-  pageMarginV: 28,          // pt (~1cm) — au lieu des marges par défaut
+  pageMarginV: 28,          // pt (~1cm)
   pageMarginH: 32,
 
   // Typographie
-  fontBase: 8.5,            // pt — lisible en impression, dense
+  fontBase: 8.5,            // pt
   fontTitle: 10,            // titres de section
   fontSmall: 7,             // mentions, pagination annexes
-  lineHeight: 1.18,         // seuil plancher de lisibilité. NE PAS descendre sous 1.15
+  lineHeight: 1.05,         // texte courant — plancher absolu technique
+  lineHeightTight: 1.0,     // tableaux uniquement
 
   // Espacement vertical
-  blockGap: 6,              // marginBottom entre blocs (au lieu de 20)
-  sectionTitleGap: 3,       // sous les titres (au lieu de 8)
-  lineGap: 1.5,             // entre Text intra-bloc (au lieu de 5)
-  subBlockIndent: 8,        // au lieu de 15 (contradictoire)
+  blockGap: 10,             // démarcation nette entre sections
+  sectionTitleGap: 3,       
+  lineGap: 0,               // intra-bloc : aucun espace additionnel
+  subBlockIndent: 8,        
+
+  // Cartes occupants (organisation)
+  occupantIndent: 14,       // décalage par niveau de profondeur
+  occupantGap: 2,           // entre cartes
+  occupantPadding: 2,
+  occupantPaddingResponsible: 3,
 
   // Blocs bordés
-  borderedPadding: 4,       // au lieu de 7.5
+  borderedPadding: 4,       
   borderRadius: 2,
 
   // Tableaux
-  cellPaddingV: 2,
+  cellPaddingV: 1,          // plancher absolu
   cellPaddingH: 4,
-  tableHeaderPaddingV: 3,
+  tableHeaderPaddingV: 2,
 
   // Blocs vides
-  emptyBlockGap: 3,         // un bloc vide = 1 ligne + 3pt, rien d'autre
+  emptyBlockGap: 3,         
 
   // Spacers
-  spacerCap: 12,            // plafond absolu en pt
+  spacerCap: 12,            
 };
 
 export const pdfStyles = StyleSheet.create({

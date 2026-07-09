@@ -1,18 +1,18 @@
 import React from 'react';
 import { View, Text, Link } from '@react-pdf/renderer';
 import { formatPDFAmount } from '../pdfFormatUtils';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, COLORS } from '../pdfStyles';
 
 const PDFFeesTableRow = ({ exp, index, fontSize }) => {
     const cellStyle = {
         paddingVertical: DENSITY.cellPaddingV,
         paddingHorizontal: DENSITY.cellPaddingH,
         fontSize: fontSize,
-        color: '#1e293b',
+        color: COLORS.text,
         borderBottomWidth: 1,
-        borderBottomColor: '#94a3b8',
+        borderBottomColor: COLORS.tableBorder,
         borderRightWidth: 1,
-        borderRightColor: '#94a3b8',
+        borderRightColor: COLORS.tableBorder,
     };
 
     return (
@@ -22,7 +22,7 @@ const PDFFeesTableRow = ({ exp, index, fontSize }) => {
             <Text style={[cellStyle, { width: '15%' }]}>{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</Text>
             
             <View style={[cellStyle, { width: '35%' }]}>
-                <Text style={{ lineHeight: DENSITY.lineHeight }}>{exp.desc}</Text>
+                <Text style={{ lineHeight: DENSITY.lineHeightTight }}>{exp.desc}</Text>
                 {exp.annexReference ? (
                     <Link src={`https://expertises.local/annex/${exp.id}`} style={{ textDecoration: 'none' }}>
                         <Text style={{ fontSize: fontSize * 0.85, fontStyle: 'italic', color: '#64748b', marginTop: 1 }}>

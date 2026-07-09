@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, COLORS } from '../pdfStyles';
 
 const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
     if (!data) return null;
@@ -31,14 +31,15 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
             <View style={{ marginTop: 2 }}>
                 {occupantsList.map((o) => (
                     <View key={o.id} style={{
-                        marginBottom: 3,
-                        padding: o.isResponsible ? 4 : 2,
-                        backgroundColor: o.isResponsible ? '#fff7ed' : '#f8fafc',
+                        marginBottom: DENSITY.occupantGap,
+                        marginLeft: (o.depth || 0) * DENSITY.occupantIndent,
+                        padding: o.isResponsible ? DENSITY.occupantPaddingResponsible : DENSITY.occupantPadding,
+                        backgroundColor: o.isResponsible ? COLORS.cardResponsibleBg : COLORS.cardBg,
                         borderWidth: 1,
-                        borderColor: o.isResponsible ? '#fed7aa' : '#e2e8f0',
-                        borderRadius: 3
+                        borderColor: o.isResponsible ? COLORS.cardResponsibleBorder : COLORS.cardBorder,
+                        borderRadius: DENSITY.borderRadius
                     }} wrap={false}>
-                        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginLeft: o.depth === 1 ? 20 : 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
                             <Text style={{ width: 60, fontWeight: 'bold' }}>{o.etage}</Text>
                             <Text style={{ width: 140, color: '#334155' }}>- {o.statut}</Text>
                             <Text style={{ flex: 1, lineHeight: DENSITY.lineHeight }}>
