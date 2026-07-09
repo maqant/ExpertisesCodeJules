@@ -7,6 +7,15 @@ Cet objet est le **seul contrat de données** autorisé entre la logique métier
 1. **Pureté et Sérialisation :** L'objet `reportData` ne contient aucune fonction, aucune référence au DOM, aucun Context React. Il peut être transformé en JSON via `JSON.stringify()` sans perte de données.
 2. **Indépendance Visuelle :** La logique d'affichage (tailles, marges, composants) est gérée par le composant de rendu, mais les informations conditionnelles métiers (`showSubtotals`, `orgaAdvancedMode`) sont fournies dans le champ `meta`.
 
+## Contrats de Rendu (Web vs PDF)
+Le projet repose sur la promesse stricte que le rendu Web et le moteur PDF consomment **exactement** le même objet `reportData`.
+Cependant, l'implémentation de leur affichage obéit à des règles propres :
+- **Web (`src/features/print/web/`)** : Autorisé à utiliser TailwindCSS, le DOM (`<div>`, `<span>`), et les styles inline si nécessaire, tant qu'il ne pollue pas `reportData`.
+- **PDF (`src/features/print/pdf/`)** : 
+  - Doit utiliser **exclusivement** les primitives de `@react-pdf/renderer`.
+  - Le design system PDF est strictement confiné à `pdfStyles.js`.
+  - **Règle absolue pour les références d'annexes (`annexReference`)** : Que ce soit en Web ou en PDF, si une ligne de frais contient une référence d'annexe, celle-ci doit être rendue **sous la description principale**, et jamais dans une colonne séparée. Dans le PDF, elle doit utiliser strictement le style `styles.annexReference` (petit, italique, gris).
+
 ## Structure de `reportData`
 
 ```json

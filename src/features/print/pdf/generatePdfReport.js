@@ -24,7 +24,7 @@ export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => 
   }
 
   // 2. Instanciation du document PDF avec les données résolues (Blob URLs)
-  const doc = <PDFReportDocument reportData={resolvedReportData} />;
+  const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });
 
   // 3. Génération du Blob via @react-pdf/renderer
   const asPdf = pdf();
