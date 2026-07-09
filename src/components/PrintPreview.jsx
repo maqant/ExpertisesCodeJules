@@ -3,6 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
 import { useFinanceStore } from '../store/financeStore';
 import { buildOccupantHierarchy } from '../domain/occupantsHierarchy';
+import { buildPrintReportData } from '../features/print/printDataAdapter';
 
 const PrintPreview = () => {
     const context = useContext(ExpertiseContext);
@@ -12,56 +13,20 @@ const PrintPreview = () => {
         setIsPreviewMode, formData, blockTitles, references, occupants, expenses,
         blocksVisible, customBlocks, positions, styles, showSubtotals, orgaAdvancedMode,
         getSortedBlocks, getPaginationInfo, causeTimeline,
-        intervenantsList, telemetry
+        intervenantsList, telemetry, attachedPhotos
     } = context;
 
     const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
 
-    const totalFrais = expenses.reduce((acc, curr) => {
-        const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-        return acc + (isNaN(val) ? 0 : val);
-    }, 0);
-
-    const dettesParPersonne = expenses.reduce((acc, exp) => {
-        const p = getCompteDeName(exp.compteDe, occupants);
-        if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, Franchise: 0, lignes: [] };
-        const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
-        const safeVal = isNaN(val) ? 0 : val;
-        
-        if (exp.isFranchise) {
-            acc[p].Franchise += safeVal;
-        } else if (exp.typeMontant === 'HTVA') {
-            acc[p].HTVA += safeVal;
-        } else if (exp.typeMontant === 'TVAC') {
-            acc[p].TVAC += safeVal;
-        } else if (exp.typeMontant === 'Forfait') {
-            acc[p].Forfait += safeVal;
-        }
-        
-        acc[p].lignes.push(exp);
-        return acc;
-    }, {});
-
-    const formatShortCompteDe = (compteDeStr) => {
-        if (!compteDeStr || typeof compteDeStr !== 'string') return '';
-        
-        const occupant = findOccByCompteDe(compteDeStr, occupants);
-        
-        if (occupant) {
-            const nomAffiche = occupant.nom || '';
-            if (occupant.etage && occupant.etage.trim() !== '') {
-                return `${nomAffiche} (${occupant.etage.trim()})`;
-            }
-            return nomAffiche;
-        }
-        
-        // Fallback
-        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
-        return namePart.split(' ')[0];
-    };
+    const reportData = buildPrintReportData({
+        formData, blockTitles, references, occupants, expenses,
+        customBlocks, styles, showSubtotals, orgaAdvancedMode,
+        getSortedBlocks, getPaginationInfo, causeTimeline,
+        intervenantsList, attachedPhotos, responsablesIds
+    });
 
     const renderBlocksInOrder = () => {
-        const orderedKeys = getSortedBlocks();
+        const orderedKeys = reportData.meta.orderedBlocks;
         return orderedKeys.map(key => {
             if (key === 'titre') return (
                 <div key="titre" className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.titre.fontSize}px`, color: styles.titre.color, fontFamily: styles.titre.fontFamily, textAlign: styles.titre.textAlign }}>
@@ -139,15 +104,15 @@ const PrintPreview = () => {
                     <div className={`${styles.orga.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
                         {blockTitles.orga && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.orga.fontSize + 2}px` }}>{blockTitles.orga}</p>}
                         <ul className="list-none space-y-2">
-                            {buildOccupantHierarchy(occupants).map(o => {
-                                const isResponsible = responsablesIds.includes(o.id);
+                            {reportData.orga.occupantsHierarchy.map(o => {
+                                const isResponsible = o.isResponsible;
                                 return (
                                 <li key={o.id} className={`leading-snug break-inside-avoid p-1 rounded ${isResponsible ? 'bg-orange-50 border border-orange-200' : ''}`}>
                                     <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o._depth === 1 ? 'ml-12 text-slate-700' : ''}`}>
                                         <strong className="break-words">{o.etage || '-'}</strong>
                                         <span className="text-slate-800 break-words">- {o.statut}</span>
                                         <span className="break-words">
-                                            : <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong>
+                                            : <strong>{o.formattedNomPrenom}</strong>
                                             {isResponsible && <span className="ml-2 text-[10px] font-bold text-orange-600 bg-orange-100 px-1 py-0.5 rounded uppercase">Responsable</span>}
                                             {o.iban ? <span className="ml-1 text-[10px] italic text-slate-500">(IBAN: {o.iban})</span> : ''} {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {orgaAdvancedMode && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}
                                         </span>
@@ -166,11 +131,11 @@ const PrintPreview = () => {
                             {occupants.length === 0 && <li className="italic opacity-50">Aucune partie impliquée.</li>}
                         </ul>
                         {/* v5.6.3 - Intervenants dans le rendu d'impression */}
-                        {intervenantsList && intervenantsList.length > 0 && (
+                        {reportData.orga.intervenants.length > 0 && (
                             <div className="mt-3 pt-2 border-t border-slate-200">
                                 <p className="font-bold text-[0.95em] mb-1">Autres intervenants :</p>
                                 <ul className="list-none space-y-1">
-                                    {intervenantsList.map(inter => (
+                                    {reportData.orga.intervenants.map(inter => (
                                         <li key={inter.id} className="leading-snug ml-4">
                                             <strong>{inter.nom} {inter.prenom}</strong>
                                             {inter.role && <span className="italic"> — {inter.role}</span>}
@@ -201,15 +166,14 @@ const PrintPreview = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {expenses.map((exp, index) => {
-                                    const pagInfo = getPaginationInfo(exp.id);
+                                {reportData.frais.expenses.map((exp, index) => {
                                     return (
                                         <tr key={exp.id} className="break-inside-avoid">
                                             <td className="border border-slate-400 p-1 text-center align-top">{index + 1}</td>
                                             <td className="border border-slate-400 p-1 break-words align-top">{exp.prestataire}</td>
                                             <td className="border border-slate-400 p-1 break-words align-top text-[0.9em]">{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</td>
-                                            <td className="border border-slate-400 p-1 break-words align-top">{exp.desc} {pagInfo && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{pagInfo.text}</span>}</td>
-                                            <td className="border border-slate-400 p-1 break-words align-top">{formatShortCompteDe(exp.compteDe)}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top">{exp.desc} {exp.annexReference && <span className="block text-[0.8em] text-slate-500 mt-1 italic">{exp.annexReference}</span>}</td>
+                                            <td className="border border-slate-400 p-1 break-words align-top">{exp.compteDeFormatted}</td>
                                             <td className="border border-slate-400 p-1 text-right font-bold align-top leading-tight">
                                                 {exp.montant ? (
                                                     <>
@@ -225,17 +189,17 @@ const PrintPreview = () => {
                                         </tr>
                                     );
                                 })}
-                                {expenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-1.5 text-right uppercase text-[0.85em] tracking-tight">TOTAL DE LA RÉCLAMATION</td><td className="border border-slate-400 p-1.5 text-right whitespace-nowrap text-indigo-900 align-top">{totalFrais.toFixed(2).replace('.', ',')} €</td></tr>}
-                                {expenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais encodé</td></tr>}
+                                {reportData.frais.expenses.length > 0 && <tr className="bg-slate-50 font-bold break-inside-avoid"><td colSpan="5" className="border border-slate-400 p-1.5 text-right uppercase text-[0.85em] tracking-tight">TOTAL DE LA RÉCLAMATION</td><td className="border border-slate-400 p-1.5 text-right whitespace-nowrap text-indigo-900 align-top">{reportData.frais.totalFraisFormatted} €</td></tr>}
+                                {reportData.frais.expenses.length === 0 && <tr><td colSpan="6" className="border border-slate-400 p-2 text-center italic opacity-50">Aucun frais encodé</td></tr>}
                             </tbody>
                         </table>
-                        {showSubtotals && Object.keys(dettesParPersonne).length > 0 && (
+                        {showSubtotals && Object.keys(reportData.frais.dettesParPersonne).length > 0 && (
                             <div className="mt-4 pt-3 border-t border-slate-300 text-slate-700 break-inside-avoid" style={{ fontSize: `${styles.frais.fontSize}px` }}>
                                 <p className="font-bold mb-2">Décompte par partie impliquée (HTVA) :</p>
                                 <ul className="list-none m-0 p-0 space-y-1">
-                                    {Object.entries(dettesParPersonne).map(([personne, data]) => (
+                                    {Object.entries(reportData.frais.dettesParPersonne).map(([personne, data]) => (
                                         <li key={personne} className="flex justify-between w-2/3">
-                                            <span>- {formatShortCompteDe(personne)}</span>
+                                            <span>- {data.compteDeFormatted}</span>
                                             <span className="font-bold">{data.HTVA.toFixed(2).replace('.', ',')} €</span>
                                         </li>
                                     ))}
@@ -246,20 +210,18 @@ const PrintPreview = () => {
                 </div>
             );
             if (key === 'frais_liste') {
-                if (showSubtotals && Object.keys(dettesParPersonne).length > 0) {
+                if (showSubtotals && reportData.frais_liste.dettesParPersonne.length > 0) {
                     return (
                         <div key="frais_liste" className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.frais_liste?.fontSize || 12}px`, color: styles.frais_liste?.color || '#000', fontFamily: styles.frais_liste?.fontFamily || 'Arial', textAlign: 'left' }}>
                             <div className={`${styles.frais_liste?.border ? 'border-2 border-current p-3 rounded' : ''} bg-white text-slate-700`}>
                                 <p className="font-bold mb-0">Détail des justificatifs par partie</p>
                                 <p className="text-[0.85em] text-slate-500 italic mb-2">Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.</p>
                                 <div className="space-y-4">
-                                    {Object.entries(dettesParPersonne).map(([personne, data]) => {
-                                        const matchOcc = occupants.find(o => fmtOccName(o) === personne);
-                                        const isExpertClient = matchOcc?.contreExpert;
+                                    {reportData.frais_liste.dettesParPersonne.map((data) => {
                                         return (
-                                            <div key={personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
+                                            <div key={data.personne} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
                                                 <div className="flex justify-between items-baseline mb-1">
-                                                    <h4 className="font-bold underline">{formatShortCompteDe(personne)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
+                                                    <h4 className="font-bold underline">{data.compteDeFormatted} {data.isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {data.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
                                                     <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
                                                         {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
                                                         {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
@@ -286,7 +248,7 @@ const PrintPreview = () => {
                 return null;
             }
             if (key === 'photos') {
-                const occupantsWithPhotos = occupants.filter(o => context.attachedPhotos && context.attachedPhotos[o.id] && context.attachedPhotos[o.id].length > 0);
+                const occupantsWithPhotos = reportData.photos.occupantsWithPhotos;
                 return (
                     <div key="photos" className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styles.photos?.fontSize || 12}px`, color: styles.photos?.color || '#0f172a', fontFamily: styles.photos?.fontFamily || 'Arial', textAlign: styles.photos?.textAlign || 'left' }}>
                         <div className={`${styles.photos?.border ? 'border-2 border-current p-3 rounded' : ''} bg-white`}>
@@ -294,10 +256,9 @@ const PrintPreview = () => {
                             {occupantsWithPhotos.length > 0 ? (
                                 <ul className="list-disc pl-5">
                                     {occupantsWithPhotos.map(occ => {
-                                        const pagInfo = getPaginationInfo('doc_photos_occ_' + occ.id);
                                         return (
                                             <li key={occ.id} className="mb-1" style={{fontSize: `${styles.photos?.fontSize || 12}px`}}>
-                                                Photos de {occ.nom} {pagInfo && <span className="text-[0.8em] text-slate-500 italic ml-1">{pagInfo.text}</span>}
+                                                Photos de {occ.nom} {occ.annexReference && <span className="text-[0.8em] text-slate-500 italic ml-1">{occ.annexReference}</span>}
                                             </li>
                                         );
                                     })}
