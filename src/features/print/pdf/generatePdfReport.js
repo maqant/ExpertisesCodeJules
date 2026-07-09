@@ -5,11 +5,11 @@ import { resolvePdfImageBlobUrls } from './resolvePdfImages';
 
 export function auditReportParity(reportData) {
   const issues = [];
-  const known = ['titre','coord','infos','cause','orga','frais','frais_liste','photos','divers'];
-  for (const key of reportData.meta.orderedBlocks || []) {
+  const known = ['titre','coord','infos','cause','orga','frais','frais_liste','photos','divers','annexes_libres'];
+  for (const key of reportData?.meta?.orderedBlocks || []) {
     if (!known.includes(key) && !key.startsWith('custom_')) issues.push(`Bloc inconnu: ${key}`);
-    if (key.startsWith('custom_') && !reportData.customBlocks?.find(b => b.id === key)) issues.push(`Custom block sans données: ${key}`);
-    if (!key.startsWith('custom_') && known.includes(key) && key !== 'frais_liste' && !reportData[key]) issues.push(`Données absentes pour bloc visible: ${key}`);
+    if (key.startsWith('custom_') && !reportData?.customBlocks?.find(b => b.id === key)) issues.push(`Custom block sans données: ${key}`);
+    if (!key.startsWith('custom_') && known.includes(key) && key !== 'frais_liste' && !reportData[key] && key !== 'annexes_libres') issues.push(`Données absentes pour bloc visible: ${key}`);
   }
   if (issues.length) console.error('[PDF PARITY AUDIT]', issues);
   return issues;
