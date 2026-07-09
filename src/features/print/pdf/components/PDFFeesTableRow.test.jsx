@@ -23,10 +23,12 @@ describe('PDFFeesTableRow', () => {
     const descCell = children[3];
     const descChildren = descCell.props.children;
     
-    // L'annexe référence se trouve au 2eme enfant de la description
-    const annexNode = descChildren[1];
+    // L'annexe référence se trouve au 2eme enfant de la description, encapsulé dans un <Link>
+    const linkNode = descChildren[1];
+    expect(linkNode).toBeTruthy();
+    expect(linkNode.props.src).toBe('https://expertises.local/annex/1');
     
-    expect(annexNode).toBeTruthy();
+    const annexNode = linkNode.props.children;
     expect(annexNode.props.children).toBe('Ref 123');
     // Le style doit correspondre exactement aux spécifications du design system
     expect(annexNode.props.style).toEqual({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from '@react-pdf/renderer';
+import { View, Text, Link } from '@react-pdf/renderer';
 import { pdfStyles as styles } from '../pdfStyles';
 import PDFSection from './PDFSection';
 
@@ -13,7 +13,9 @@ const PDFFeesTableRow = ({ exp, index }) => {
       <View style={[styles.tableCell, styles.descriptionCell]}>
         <Text>{exp.desc}</Text>
         {exp.annexReference && (
-          <Text style={styles.annexReference}>{exp.annexReference}</Text>
+          <Link src={`https://expertises.local/annex/${exp.id}`} style={{ textDecoration: 'none' }}>
+            <Text style={styles.annexReference}>{exp.annexReference}</Text>
+          </Link>
         )}
       </View>
       <Text style={[styles.tableCell, { flex: 1.5 }]}>{exp.compteDeFormatted}</Text>

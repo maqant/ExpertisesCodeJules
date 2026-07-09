@@ -1,7 +1,7 @@
 import { useFinanceStore, cleanAmount } from "../store/financeStore";
 import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, PDFName } from 'pdf-lib';
 import localforage from 'localforage';
 import { processIngestedFile } from '../services/utils/filePreprocessor.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
@@ -1062,9 +1062,10 @@ export const ExpertiseProvider = ({ children }) => {
       return masterIndex;
   }, [attachedFiles, attachedPhotos, attachedFreeAnnexes, occupants, expenses, printSelection, dynamicFreeAnnexes]);
 
-  const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined) => {
+  const getPaginationInfo = (docId, forcedLabel = '', selOverride = undefined, coverPageCountOverride = undefined) => {
       if (hideAnnexIndex) return null;
-      const indexList = generateMasterIndex(coverPageCount, selOverride);
+      const count = coverPageCountOverride !== undefined ? coverPageCountOverride : coverPageCount;
+      const indexList = generateMasterIndex(count, selOverride);
       const item = indexList.find(x => x.id === docId);
       if (!item) return null;
 
@@ -1268,20 +1269,46 @@ export const ExpertiseProvider = ({ children }) => {
 
           // 1. Construire reportData via l'adaptateur de données
           const responsablesIds = useFinanceStore.getState().metier?.responsablesIds || [];
-          const reportData = buildPrintReportData({
+          
+          // --- PASSE 1 : Rendu React-PDF pour mesurer les pages ---
+          let reportData = buildPrintReportData({
               formData, blockTitles, references, occupants, expenses,
               customBlocks, styles, showSubtotals, orgaAdvancedMode,
               getSortedBlocks, getPaginationInfo, causeTimeline,
               intervenantsList, attachedPhotos, responsablesIds
           });
 
-          // 2. Générer le Blob PDF via @react-pdf/renderer (pdf().toBlob())
-          const { blob: reactPdfBlob, resolvedReportData } = await generatePdfReportBlob({ reportData });
-          resolvedData = resolvedReportData;
+          let pass1 = await generatePdfReportBlob({ reportData });
+          resolvedData = pass1.resolvedReportData;
 
-          // 3. Charger le Blob React-PDF dans pdf-lib pour la fusion avec annexes
-          const reactPdfBytes = await reactPdfBlob.arrayBuffer();
-          const reactPdfDoc = await PDFDocument.load(reactPdfBytes);
+          let reactPdfBytes = await pass1.blob.arrayBuffer();
+          let reactPdfDoc = await PDFDocument.load(reactPdfBytes);
+
+          let actualCoverPages = reactPdfDoc.getPageCount();
+
+          // --- PASSE 2 : Recalcul avec les bons numéros de pages ---
+          if (actualCoverPages !== coverPageCount) {
+              setCoverPageCount(actualCoverPages);
+          }
+
+          // Nettoyage des blobs de la passe 1 avant la passe 2
+          if (resolvedData) revokePdfImageBlobUrls(resolvedData);
+
+          reportData = buildPrintReportData({
+              formData, blockTitles, references, occupants, expenses,
+              customBlocks, styles, showSubtotals, orgaAdvancedMode,
+              getSortedBlocks, 
+              getPaginationInfo: (docId, forcedLabel) => getPaginationInfo(docId, forcedLabel, selectedKeys, actualCoverPages), 
+              causeTimeline,
+              intervenantsList, attachedPhotos, responsablesIds
+          });
+
+          let pass2 = await generatePdfReportBlob({ reportData });
+          resolvedData = pass2.resolvedReportData;
+
+          reactPdfBytes = await pass2.blob.arrayBuffer();
+          reactPdfDoc = await PDFDocument.load(reactPdfBytes);
+          actualCoverPages = reactPdfDoc.getPageCount();
 
           const mergedPdf = await PDFDocument.create();
           const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
@@ -1289,12 +1316,6 @@ export const ExpertiseProvider = ({ children }) => {
           // 4. Copier toutes les pages du rapport React-PDF dans le document fusionné
           const reportPages = await mergedPdf.copyPages(reactPdfDoc, reactPdfDoc.getPageIndices());
           reportPages.forEach(page => mergedPdf.addPage(page));
-
-          // Mettre à jour coverPageCount avec le nombre réel de pages du rapport
-          const actualCoverPages = reportPages.length;
-          if (actualCoverPages !== coverPageCount) {
-              setCoverPageCount(actualCoverPages);
-          }
 
           // 3. Append annexes
           const appendDoc = async (file) => {
@@ -1387,6 +1408,41 @@ export const ExpertiseProvider = ({ children }) => {
               const { width, height } = page.getSize();
               page.drawText(`Page ${pageNum}`, { x: width - 60, y: 20, size: 10, color: rgb(0.3, 0.3, 0.3) });
               pageNum++;
+          }
+
+          // 5. Transformation des liens URL d'annexes en liens internes GoTo
+          const finalIndex = generateMasterIndex(actualCoverPages, selectedKeys);
+          for (let i = 0; i < actualCoverPages; i++) {
+              const page = mergedPdf.getPage(i);
+              const annots = page.node.Annots();
+              if (annots) {
+                  for (let a = 0; a < annots.size(); a++) {
+                      const annot = annots.lookup(a);
+                      if (annot && annot.lookup(PDFName.of('Subtype')) === PDFName.of('Link')) {
+                          const action = annot.lookup(PDFName.of('A'));
+                          if (action) {
+                              const uri = action.lookup(PDFName.of('URI'));
+                              if (uri) {
+                                  const uriStr = uri.decodeText ? uri.decodeText() : String(uri);
+                                  if (uriStr.includes('https://expertises.local/annex/')) {
+                                      const expId = uriStr.split('/annex/')[1].replace(')', '').replace('(', '');
+                                      const targetAnnex = finalIndex.find(x => x.id === expId);
+                                      if (targetAnnex) {
+                                          // 1-indexed to 0-indexed reference
+                                          const targetPageRef = mergedPdf.getPage(targetAnnex.startPage - 1).ref;
+                                          const newAction = mergedPdf.context.obj({
+                                              Type: 'Action',
+                                              S: 'GoTo',
+                                              D: [targetPageRef, 'XYZ', null, null, null]
+                                          });
+                                          annot.set(PDFName.of('A'), newAction);
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
           }
 
           const bytes = await mergedPdf.save();

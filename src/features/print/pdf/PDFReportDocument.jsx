@@ -33,9 +33,6 @@ export default function PDFReportDocument({ reportData }) {
   const { meta, titre, coord, infos, cause, orga, frais, photos, divers } = reportData;
   const blocks = meta?.orderedBlocks || [];
 
-  // Filtrer les blocs visibles pour le sommaire (exclure titre/coord qui sont l'en-tête)
-  const tocBlocks = blocks.filter(b => b !== 'titre' && b !== 'coord' && SECTION_LABELS[b]);
-
   return (
     <Document
       title="Rapport d'Expertise"
@@ -43,10 +40,9 @@ export default function PDFReportDocument({ reportData }) {
       subject="Expertise immobilière"
       creator="React-PDF Native Engine"
     >
-      {/* ====== PAGE 1 : Titre + Sommaire ====== */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={styles.page} wrap>
         {/* En-tête du rapport */}
-        <View style={styles.section}>
+        <View style={styles.section} wrap={false}>
           <Text style={styles.title}>Rapport d'Expertise</Text>
           <Text style={styles.subtitle}>
             {titre?.formData?.refPechard ? `Réf. ${titre.formData.refPechard}` : 'Document de synthèse'}
@@ -61,7 +57,7 @@ export default function PDFReportDocument({ reportData }) {
 
         {/* Coordonnées si présentes */}
         {coord && (
-          <View style={[styles.section, { marginTop: 10 }]}>
+          <View style={[styles.section, { marginTop: 10 }]} wrap={false}>
             {coord.formData?.adresse && (
               <Text style={styles.text}>📍 {coord.formData.adresse}</Text>
             )}
@@ -71,32 +67,7 @@ export default function PDFReportDocument({ reportData }) {
           </View>
         )}
 
-        {/* Sommaire Interactif */}
-        {tocBlocks.length > 1 && (
-          <View style={[styles.tocContainer, { marginTop: 20 }]} wrap={false}>
-            <Text id={PDF_SECTIONS.SUMMARY} style={styles.tocTitle}>Sommaire</Text>
-            <View style={styles.tocDivider} />
-            {tocBlocks.map((key, idx) => (
-              <View key={key} style={styles.tocItem}>
-                <Link src={`#${SECTION_IDS[key] || key}`} style={{ textDecoration: 'none' }}>
-                  <Text style={styles.tocLink}>
-                    {idx + 1}. {SECTION_LABELS[key]}
-                  </Text>
-                </Link>
-              </View>
-            ))}
-            <View style={styles.tocDivider} />
-          </View>
-        )}
-
-        {/* Marqueur de preuve du moteur React-PDF */}
-        <Text style={{ fontSize: 6, color: '#e2e8f0', marginTop: 'auto', textAlign: 'center' }}>
-          DEBUG PDF ENGINE: React-PDF native
-        </Text>
-      </Page>
-
-      {/* ====== PAGES SUIVANTES : Contenu dynamique ====== */}
-      <Page size="A4" style={styles.page} wrap>
+        {/* ====== Contenu dynamique ====== */}
         {blocks.map(key => {
           if (key === 'titre' || key === 'coord') return null;
           if (key === 'infos') return <PDFInfoBlock key={key} id={PDF_SECTIONS.GENERAL} title={infos?.title || 'Informations Générales'} data={infos} />;
