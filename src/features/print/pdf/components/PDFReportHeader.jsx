@@ -8,7 +8,7 @@ const PDFReportHeader = ({ data, styleBlock }) => {
     const adaptedStyle = adaptBlockStyle(styleBlock);
     
     const containerStyle = {
-        marginBottom: 15,
+        marginBottom: 10,
         fontSize: adaptedStyle.fontSize || 9,
         color: adaptedStyle.color || '#0f172a',
         textAlign: adaptedStyle.textAlign || 'left',
@@ -25,7 +25,7 @@ const PDFReportHeader = ({ data, styleBlock }) => {
     return (
         <View wrap={false} style={containerStyle}>
             <View style={innerStyle}>
-                <Text style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                <Text style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: 10 }}>
                     {dateFormatted}
                 </Text>
             </View>

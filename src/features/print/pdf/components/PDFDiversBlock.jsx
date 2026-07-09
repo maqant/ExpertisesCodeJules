@@ -1,34 +1,42 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
+import { DENSITY } from '../pdfStyles';
 
 const PDFDiversBlock = ({ data, styleBlock }) => {
     if (!data) return null;
 
     const adaptedStyle = adaptBlockStyle(styleBlock);
 
+    const texteContent = data.formDataDivers || data.texte;
+
+    // Bloc vide complet = juste une ligne
+    if (!data.title && !texteContent) {
+        return <View style={{ marginBottom: DENSITY.emptyBlockGap }} />;
+    }
+
     const containerStyle = {
-        marginBottom: 15,
+        marginBottom: DENSITY.blockGap,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || 9,
+        fontSize: adaptedStyle.fontSize || DENSITY.fontBase,
     };
 
     const titleStyle = {
         fontWeight: 'bold',
         textDecoration: 'underline',
-        marginBottom: 6,
-        fontSize: (adaptedStyle.fontSize || 9) + 1.5,
+        marginBottom: DENSITY.sectionTitleGap,
+        fontSize: adaptedStyle.fontSize ? adaptedStyle.fontSize + 2 : DENSITY.fontTitle,
     };
 
-    const texteContent = data.formDataDivers || data.texte;
-
     return (
-        <View style={containerStyle} wrap={false}>
-            {data.title && (
-                <Text style={titleStyle}>{data.title}</Text>
-            )}
-            {texteContent && (
-                <Text style={{ lineHeight: 1.4 }}>{texteContent}</Text>
+        <View style={containerStyle} wrap>
+            {data.title ? (
+                <Text style={titleStyle} minPresenceAhead={30}>{data.title}</Text>
+            ) : null}
+            {texteContent ? (
+                <Text style={{ lineHeight: DENSITY.lineHeight }}>{texteContent}</Text>
+            ) : (
+                <Text style={{ lineHeight: DENSITY.lineHeight, fontStyle: 'italic', color: '#94a3b8' }}>Néant</Text>
             )}
         </View>
     );

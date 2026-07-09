@@ -1,23 +1,65 @@
 import { StyleSheet } from '@react-pdf/renderer';
 
+export const DENSITY = {
+  // Page
+  pageMarginV: 28,          // pt (~1cm) — au lieu des marges par défaut
+  pageMarginH: 32,
+
+  // Typographie
+  fontBase: 8.5,            // pt — lisible en impression, dense
+  fontTitle: 10,            // titres de section
+  fontSmall: 7,             // mentions, pagination annexes
+  lineHeight: 1.18,         // seuil plancher de lisibilité. NE PAS descendre sous 1.15
+
+  // Espacement vertical
+  blockGap: 6,              // marginBottom entre blocs (au lieu de 20)
+  sectionTitleGap: 3,       // sous les titres (au lieu de 8)
+  lineGap: 1.5,             // entre Text intra-bloc (au lieu de 5)
+  subBlockIndent: 8,        // au lieu de 15 (contradictoire)
+
+  // Blocs bordés
+  borderedPadding: 4,       // au lieu de 7.5
+  borderRadius: 2,
+
+  // Tableaux
+  cellPaddingV: 2,
+  cellPaddingH: 4,
+  tableHeaderPaddingV: 3,
+
+  // Blocs vides
+  emptyBlockGap: 3,         // un bloc vide = 1 ligne + 3pt, rien d'autre
+
+  // Spacers
+  spacerCap: 12,            // plafond absolu en pt
+};
+
 export const pdfStyles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#ffffff',
-    padding: 30,
+    paddingVertical: DENSITY.pageMarginV,
+    paddingHorizontal: DENSITY.pageMarginH,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: DENSITY.blockGap,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: DENSITY.fontTitle,
     fontWeight: 'bold',
-    marginBottom: 10,
-    marginTop: 15,
+    marginBottom: DENSITY.sectionTitleGap,
+    marginTop: 8,
     color: '#0f172a',
     borderBottomWidth: 1,
     borderBottomColor: '#cbd5e1',
-    paddingBottom: 5,
+    paddingBottom: 2,
+  },
+  bodyText: {
+    fontSize: DENSITY.fontBase,
+    lineHeight: DENSITY.lineHeight,
+    marginBottom: DENSITY.lineGap,
+  },
+  block: {
+    marginBottom: DENSITY.blockGap,
   },
   title: {
     fontSize: 24,
@@ -33,13 +75,13 @@ export const pdfStyles = StyleSheet.create({
     textAlign: 'center',
   },
   text: {
-    fontSize: 10,
+    fontSize: DENSITY.fontBase,
     color: '#334155',
-    lineHeight: 1.5,
-    marginBottom: 5,
+    lineHeight: DENSITY.lineHeight,
+    marginBottom: DENSITY.lineGap,
   },
   mutedText: {
-    fontSize: 9,
+    fontSize: DENSITY.fontSmall,
     color: '#64748b',
   },
   table: {
@@ -60,8 +102,8 @@ export const pdfStyles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   tableHeaderCell: {
-    padding: 5,
-    fontSize: 10,
+    padding: DENSITY.tableHeaderPaddingV,
+    fontSize: DENSITY.fontBase,
     fontWeight: 'bold',
     color: '#1e293b',
     borderStyle: 'solid',
@@ -71,8 +113,9 @@ export const pdfStyles = StyleSheet.create({
     borderTopWidth: 0,
   },
   tableCell: {
-    padding: 5,
-    fontSize: 10,
+    paddingVertical: DENSITY.cellPaddingV,
+    paddingHorizontal: DENSITY.cellPaddingH,
+    fontSize: DENSITY.fontBase,
     color: '#334155',
     borderStyle: 'solid',
     borderWidth: 1,
@@ -88,7 +131,7 @@ export const pdfStyles = StyleSheet.create({
     textAlign: 'right',
   },
   annexReference: {
-    fontSize: 8,
+    fontSize: DENSITY.fontSmall,
     fontStyle: 'italic',
     color: '#64748b',
   },

@@ -2,7 +2,14 @@
  * Traduit un objet de style provenant de la Sidebar (orienté CSS Web, px)
  * en propriétés supportées par @react-pdf/renderer (orienté pt).
  */
+import { DENSITY } from './pdfStyles';
+
 const PX_TO_PT = 0.75;
+
+export function adaptSpacerHeight(px) {
+  if (!px || px <= 0) return 0;
+  return Math.min(px * PX_TO_PT, DENSITY.spacerCap);
+}
 
 export function adaptBlockStyle(styleBlock = {}) {
   const out = {};
@@ -32,11 +39,11 @@ export function adaptBlockStyle(styleBlock = {}) {
   }
   
   if (styleBlock.marginTop != null) {
-      out.marginTop = styleBlock.marginTop * PX_TO_PT;
+      out.marginTop = Math.min(styleBlock.marginTop * PX_TO_PT, DENSITY.spacerCap);
   }
   
   if (styleBlock.marginBottom != null) {
-      out.marginBottom = styleBlock.marginBottom * PX_TO_PT;
+      out.marginBottom = Math.min(styleBlock.marginBottom * PX_TO_PT, DENSITY.spacerCap);
   }
 
   // Handle borders specifically if specified. 
@@ -45,8 +52,8 @@ export function adaptBlockStyle(styleBlock = {}) {
       out.borderWidth = 1;
       out.borderStyle = 'solid';
       out.borderColor = styleBlock.color || '#000000';
-      out.padding = 10 * PX_TO_PT;
-      out.borderRadius = 3 * PX_TO_PT;
+      out.padding = DENSITY.borderedPadding;
+      out.borderRadius = DENSITY.borderRadius;
   }
   
   return out;

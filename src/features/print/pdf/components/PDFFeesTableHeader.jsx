@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
+import { DENSITY } from '../pdfStyles';
 
 const PDFFeesTableHeader = ({ fontSize }) => {
     const headerStyle = {
-        padding: 5,
+        paddingVertical: DENSITY.tableHeaderPaddingV,
+        paddingHorizontal: DENSITY.cellPaddingH,
         fontSize: fontSize,
         fontWeight: 'bold',
         color: '#1e293b',
@@ -15,7 +17,7 @@ const PDFFeesTableHeader = ({ fontSize }) => {
     };
 
     return (
-        <View style={{ flexDirection: 'row' }} wrap={false}>
+        <View style={{ flexDirection: 'row' }} wrap={false} minPresenceAhead={40}>
             <Text style={[headerStyle, { width: '5%', textAlign: 'center' }]}>#</Text>
             <Text style={[headerStyle, { width: '15%' }]}>Prestataire</Text>
             <Text style={[headerStyle, { width: '15%' }]}>Type</Text>

@@ -3,7 +3,7 @@ import { View, Text } from '@react-pdf/renderer';
 
 const PDFFeesTableFooter = ({ totalFraisFormate, fontSize }) => {
     const cellStyle = {
-        padding: 5,
+        padding: 6,
         fontSize: fontSize,
         fontWeight: 'bold',
         color: '#0f172a',
