@@ -6,6 +6,7 @@ import { useDocumentStore } from '../store/useDocumentStore';
 import { buildOccupantHierarchy } from '../domain/occupantsHierarchy';
 import AcknowledgmentModal from './Post/AcknowledgmentModal';
 import { Mail } from 'lucide-react';
+import { formatExpertiseTitle } from '../utils/titleFormatter';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -264,7 +265,7 @@ const Workspace = () => {
         return orderedKeys.map(key => {
             if (key === 'titre') return (
                 <BlockContainer key="titre" id="titre">
-                    <p className="font-bold uppercase break-words">Expertise du {formData.dateExp ? new Date(formData.dateExp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + (formData.heureExp ? ` à ${formData.heureExp.replace(':', 'h')}` : '') : '...'} {formData.refPechard ? `- ${formData.refPechard}` : ''} {formData.nomResidence ? `- ${formData.nomResidence}` : ''}</p>
+                    <p className="font-bold uppercase break-words">{formatExpertiseTitle(formData)}</p>
                 </BlockContainer>
             );
             if (key === 'coord') return (

@@ -12,7 +12,7 @@ const PrintReportHeader = ({ data, styleBlock }) => {
     return (
         <div className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${fontSize}px`, color, fontFamily, textAlign }}>
             <div className={`${styleBlock?.border ? 'border-2 border-current p-4 rounded' : ''} bg-white`}>
-                <p className="font-bold uppercase break-words">{data.dateFormatted}</p>
+                <p className="font-bold uppercase break-words">{data.formattedTitle || ''}</p>
             </div>
         </div>
     );

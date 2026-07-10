@@ -19,14 +19,13 @@ const PDFReportHeader = ({ data, styleBlock }) => {
         backgroundColor: '#ffffff'
     };
 
-    // Use formData.dateEmission or a fallback
-    const dateFormatted = data.formData.dateEmission || `Émis le ${new Date().toLocaleDateString('fr-FR')}`;
+    const titleText = data.formattedTitle || '';
 
     return (
         <View wrap={false} style={containerStyle}>
             <View style={innerStyle}>
                 <Text style={{ ...TYPO.bodyBold, textTransform: 'uppercase', fontSize: 10 }}>
-                    {dateFormatted}
+                    {titleText}
                 </Text>
             </View>
         </View>

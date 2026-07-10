@@ -1,5 +1,6 @@
 import { getCompteDeName, findOccByCompteDe, fmtOccName } from '../../utils/formatters';
 import { buildOccupantHierarchy } from '../../domain/occupantsHierarchy';
+import { formatExpertiseTitle } from '../../utils/titleFormatter';
 
 /**
  * Normalise un texte multiligne issu de données déstructurées.
@@ -93,7 +94,8 @@ export const buildPrintReportData = (input) => {
             orgaAdvancedMode
         },
         titre: {
-            formData: { ...formData }
+            formData: { ...formData },
+            formattedTitle: formatExpertiseTitle(formData)
         },
         coord: {
             title: blockTitles.coord,
