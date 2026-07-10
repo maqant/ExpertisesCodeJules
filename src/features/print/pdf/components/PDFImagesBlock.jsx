@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 
 const PDFImagesBlock = ({ data, styleBlock }) => {
     if (!data) return null;
@@ -31,19 +31,11 @@ const PDFImagesBlock = ({ data, styleBlock }) => {
     const containerStyle = {
         marginBottom: DENSITY.blockGap,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || DENSITY.fontBase,
-    };
-
-    const titleStyle = {
-        fontWeight: 'bold',
-        textDecoration: 'underline',
-        marginBottom: DENSITY.sectionTitleGap,
-        fontSize: adaptedStyle.fontSize ? adaptedStyle.fontSize + 2 : DENSITY.fontTitle,
     };
 
     return (
         <View style={containerStyle} wrap>
-            {data.title ? <Text style={titleStyle} minPresenceAhead={40}>{data.title}</Text> : null}
+            {data.title ? <Text style={pdfStyles.sectionTitle} minPresenceAhead={40}>{data.title}</Text> : null}
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 4 }}>
                 {imagesToRender.map((img, i) => (
@@ -67,7 +59,7 @@ const PDFImagesBlock = ({ data, styleBlock }) => {
                             ) : null}
                         </View>
                         {img.caption ? (
-                            <Text style={{ textAlign: 'center', fontStyle: 'italic', color: '#475569', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.9, lineHeight: 1.2 }}>
+                            <Text style={{ ...TYPO.smallMuted, textAlign: 'center', fontStyle: 'italic' }}>
                                 {img.caption}
                             </Text>
                         ) : null}

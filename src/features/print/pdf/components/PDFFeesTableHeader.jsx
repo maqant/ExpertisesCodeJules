@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, TYPO } from '../pdfStyles';
 
-const PDFFeesTableHeader = ({ fontSize }) => {
+const PDFFeesTableHeader = () => {
     const headerStyle = {
+        ...TYPO.tableCell,
         paddingVertical: DENSITY.tableHeaderPaddingV,
         paddingHorizontal: DENSITY.cellPaddingH,
-        fontSize: fontSize,
         fontWeight: 'bold',
         color: '#1e293b',
         backgroundColor: '#f1f5f9',

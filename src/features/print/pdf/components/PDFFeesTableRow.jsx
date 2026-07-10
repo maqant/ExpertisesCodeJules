@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, Link } from '@react-pdf/renderer';
 import { formatPDFAmount } from '../pdfFormatUtils';
-import { DENSITY, COLORS } from '../pdfStyles';
+import { DENSITY, COLORS, TYPO } from '../pdfStyles';
 
-const PDFFeesTableRow = ({ exp, index, fontSize }) => {
+const PDFFeesTableRow = ({ exp, index }) => {
     const cellStyle = {
+        ...TYPO.tableCell,
         paddingVertical: DENSITY.cellPaddingV,
         paddingHorizontal: DENSITY.cellPaddingH,
-        fontSize: fontSize,
         color: COLORS.text,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.tableBorder,
@@ -24,10 +24,10 @@ const PDFFeesTableRow = ({ exp, index, fontSize }) => {
             <Text style={[cellStyle, { width: '15%' }]}>{exp.type} {exp.ref ? `/ ${exp.ref}` : ''}</Text>
             
             <View style={[cellStyle, { width: '35%' }]}>
-                <Text style={{ lineHeight: DENSITY.lineHeightTight }}>{exp.desc}</Text>
+                <Text style={TYPO.tableCell}>{exp.desc}</Text>
                 {exp.annexReference ? (
                     <Link src={`https://expertises.local/annex/${exp.id}`} style={{ textDecoration: 'none' }}>
-                        <Text style={{ fontSize: fontSize * 0.85, fontStyle: 'italic', color: '#64748b', marginTop: 1 }}>
+                        <Text style={{ ...TYPO.smallMuted, fontStyle: 'italic', marginTop: 1 }}>
                             {exp.annexReference}
                         </Text>
                     </Link>
@@ -39,11 +39,17 @@ const PDFFeesTableRow = ({ exp, index, fontSize }) => {
             <View style={[cellStyle, { width: '15%', textAlign: 'right' }]}>
                 {exp.montant || exp.montant === 0 ? (
                     <View>
-                        <Text style={{ fontWeight: 'bold' }}>{exp.montantFormate || formatPDFAmount(exp.montant)} €</Text>
+                        <Text style={{ ...TYPO.tableCell, fontWeight: 'bold' }}>
+                            {exp.montantFormate || formatPDFAmount(exp.montant)} €
+                        </Text>
                         {exp.isFranchise ? (
-                            <Text style={{ fontSize: fontSize * 0.75, color: '#7e22ce', fontWeight: 'bold', marginTop: 1 }}>FRANCHISE</Text>
+                            <Text style={{ ...TYPO.small, color: '#7e22ce', fontWeight: 'bold', marginTop: 1 }}>
+                                FRANCHISE
+                            </Text>
                         ) : (
-                            <Text style={{ fontSize: fontSize * 0.75, color: '#64748b', marginTop: 1 }}>{exp.typeMontant}</Text>
+                            <Text style={{ ...TYPO.smallMuted, marginTop: 1 }}>
+                                {exp.typeMontant}
+                            </Text>
                         )}
                     </View>
                 ) : null}

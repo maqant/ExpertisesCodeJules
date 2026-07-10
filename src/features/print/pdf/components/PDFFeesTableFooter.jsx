@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
+import { TYPO } from '../pdfStyles';
 
-const PDFFeesTableFooter = ({ totalFraisFormate, fontSize }) => {
+const PDFFeesTableFooter = ({ totalFraisFormate }) => {
     const cellStyle = {
+        ...TYPO.tableCell,
         padding: 6,
-        fontSize: fontSize,
         fontWeight: 'bold',
         color: '#0f172a',
         backgroundColor: '#f8fafc',

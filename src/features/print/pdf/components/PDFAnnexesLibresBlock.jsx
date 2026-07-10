@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 
 const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
     // Si pas de données (fallback gracieux sans crash)
@@ -14,25 +14,19 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
     const containerStyle = {
         marginBottom: DENSITY.blockGap,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || 9,
-    };
-
-    const titleStyle = {
-        fontWeight: 'bold',
-        textDecoration: 'underline',
-        marginBottom: 6,
-        fontSize: (adaptedStyle.fontSize || 9) + 1.5,
     };
 
     return (
         <View style={containerStyle}>
             <View wrap={false}>
                 {data.title && (
-                    <Text style={titleStyle}>{data.title}</Text>
+                    <Text style={pdfStyles.sectionTitle}>{data.title}</Text>
                 )}
                 <View style={{ marginTop: 4, marginBottom: DENSITY.itemGap }}>
-                    <Text style={{ fontWeight: 'bold' }}>{data.annexes[0].nom || `Annexe 1`}</Text>
-                    {data.annexes[0].description && <Text style={{ color: '#475569', fontSize: (adaptedStyle.fontSize || 9) * 0.9 }}>{data.annexes[0].description}</Text>}
+                    <Text style={{ ...TYPO.bodyBold }}>{data.annexes[0].nom || `Annexe 1`}</Text>
+                    {data.annexes[0].description && (
+                        <Text style={{ ...TYPO.smallMuted }}>{data.annexes[0].description}</Text>
+                    )}
                 </View>
             </View>
 
@@ -40,8 +34,10 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
                 <View>
                     {data.annexes.slice(1).map((annexe, i) => (
                         <View key={i + 1} style={{ marginBottom: DENSITY.itemGap }}>
-                            <Text style={{ fontWeight: 'bold' }}>{annexe.nom || `Annexe ${i + 2}`}</Text>
-                            {annexe.description && <Text style={{ color: '#475569', fontSize: (adaptedStyle.fontSize || 9) * 0.9 }}>{annexe.description}</Text>}
+                            <Text style={{ ...TYPO.bodyBold }}>{annexe.nom || `Annexe ${i + 2}`}</Text>
+                            {annexe.description && (
+                                <Text style={{ ...TYPO.smallMuted }}>{annexe.description}</Text>
+                            )}
                         </View>
                     ))}
                 </View>

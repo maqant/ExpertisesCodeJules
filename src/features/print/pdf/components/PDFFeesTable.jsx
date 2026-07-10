@@ -5,7 +5,7 @@ import PDFFeesTableHeader from './PDFFeesTableHeader';
 import PDFFeesTableRow from './PDFFeesTableRow';
 import PDFFeesTableFooter from './PDFFeesTableFooter';
 import { formatPDFAmount } from '../pdfFormatUtils';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 
 const PDFFeesTable = ({ data, styleBlock, metadata }) => {
     const lignes = data?.expenses || data?.lignes;
@@ -17,14 +17,6 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
     const containerStyle = {
         marginBottom: DENSITY.blockGap,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || DENSITY.fontBase,
-    };
-
-    const titleStyle = {
-        fontWeight: 'bold',
-        textDecoration: 'underline',
-        marginBottom: DENSITY.sectionTitleGap,
-        fontSize: adaptedStyle.fontSize ? adaptedStyle.fontSize + 2 : DENSITY.fontTitle,
     };
 
     const totalFraisFormate = data.totalFraisFormate || formatPDFAmount(data.totalFrais);
@@ -41,7 +33,7 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
     return (
         <View style={containerStyle} wrap>
             {data.title ? (
-                <Text style={titleStyle} minPresenceAhead={30}>{data.title}</Text>
+                <Text style={pdfStyles.sectionTitle} minPresenceAhead={30}>{data.title}</Text>
             ) : null}
 
             <View style={{
@@ -52,30 +44,30 @@ const PDFFeesTable = ({ data, styleBlock, metadata }) => {
                 borderBottomWidth: 0,
                 marginTop: 2
             }}>
-                <PDFFeesTableHeader fontSize={adaptedStyle.fontSize || DENSITY.fontBase} />
+                <PDFFeesTableHeader />
                 {lignes.length > 0 ? (
                     lignes.map((exp, idx) => (
-                        <PDFFeesTableRow key={exp.id || idx} exp={exp} index={idx + 1} fontSize={adaptedStyle.fontSize || DENSITY.fontBase} />
+                        <PDFFeesTableRow key={exp.id || idx} exp={exp} index={idx + 1} />
                     ))
                 ) : (
                     <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#94a3b8', borderRightWidth: 1, borderRightColor: '#94a3b8' }} wrap={false}>
-                        <Text style={{ padding: 4, flex: 1, textAlign: 'center', fontStyle: 'italic', color: '#94a3b8', fontSize: adaptedStyle.fontSize || DENSITY.fontBase }}>
+                        <Text style={{ padding: 4, flex: 1, textAlign: 'center', fontStyle: 'italic', color: '#94a3b8', ...TYPO.tableCell }}>
                             Aucun frais encodé
                         </Text>
                     </View>
                 )}
                 {lignes.length > 0 ? (
-                    <PDFFeesTableFooter totalFraisFormate={totalFraisFormate} fontSize={adaptedStyle.fontSize || DENSITY.fontBase} />
+                    <PDFFeesTableFooter totalFraisFormate={totalFraisFormate} />
                 ) : null}
             </View>
 
             {(showSubtotals && decomptes.length > 0) ? (
                 <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#cbd5e1' }} wrap={false}>
-                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Décompte par partie impliquée (HTVA) :</Text>
+                    <Text style={{ ...TYPO.bodyBold, marginBottom: 4 }}>Décompte par partie impliquée (HTVA) :</Text>
                     {decomptes.map((dec) => (
                         <View key={dec.compteDeCourt} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%', marginBottom: 2 }}>
-                            <Text style={{ color: '#334155' }}>- {dec.compteDeCourt}</Text>
-                            <Text style={{ fontWeight: 'bold' }}>{dec.htvaFormate} €</Text>
+                            <Text style={{ ...TYPO.body, color: '#334155' }}>- {dec.compteDeCourt}</Text>
+                            <Text style={{ ...TYPO.bodyBold }}>{dec.htvaFormate} €</Text>
                         </View>
                     ))}
                 </View>

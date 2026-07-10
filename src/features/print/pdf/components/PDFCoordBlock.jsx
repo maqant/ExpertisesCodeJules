@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 
 const PDFCoordBlock = ({ data, styleBlock }) => {
     if (!data) return null;
@@ -12,43 +12,72 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
     const containerStyle = {
         marginBottom: DENSITY.blockGap,
         ...adaptedStyle,
-        fontSize: adaptedStyle.fontSize || DENSITY.fontBase,
-    };
-
-    const textStyle = {
-        marginBottom: DENSITY.lineGap,
-        lineHeight: DENSITY.lineHeight,
-    };
-
-    const titleStyle = {
-        fontWeight: 'bold',
-        textDecoration: 'underline',
-        marginBottom: DENSITY.sectionTitleGap,
-        fontSize: adaptedStyle.fontSize ? adaptedStyle.fontSize + 2 : DENSITY.fontTitle,
     };
 
     return (
         <View style={containerStyle} wrap>
-            {data.title ? <Text style={titleStyle} minPresenceAhead={30}>{data.title}</Text> : null}
+            {data.title ? (
+                <Text style={pdfStyles.sectionTitle} minPresenceAhead={30}>
+                    {data.title}
+                </Text>
+            ) : null}
             
-            {formData.adresse ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Adresse :</Text> {formData.adresse}</Text> : null}
-            {formData.franchise ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Franchise applicable :</Text> {formData.franchise}</Text> : null}
-            {formData.pertesIndirectes ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pertes indirectes :</Text> {formData.pertesIndirectes}</Text> : null}
-            {formData.expertInfos ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expertInfos}</Text> : null}
-            {(formData.expert && !formData.expertInfos) ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expert}</Text> : null}
+            {formData.adresse ? (
+                <Text style={pdfStyles.bodyText}>
+                    <Text style={pdfStyles.bodyLabel}>Adresse :</Text> {formData.adresse}
+                </Text>
+            ) : null}
+            
+            {formData.franchise ? (
+                <Text style={pdfStyles.bodyText}>
+                    <Text style={pdfStyles.bodyLabel}>Franchise applicable :</Text> {formData.franchise}
+                </Text>
+            ) : null}
+            
+            {formData.pertesIndirectes ? (
+                <Text style={pdfStyles.bodyText}>
+                    <Text style={pdfStyles.bodyLabel}>Pertes indirectes :</Text> {formData.pertesIndirectes}
+                </Text>
+            ) : null}
+            
+            {formData.expertInfos ? (
+                <Text style={pdfStyles.bodyText}>
+                    <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expertInfos}
+                </Text>
+            ) : null}
+            
+            {(formData.expert && !formData.expertInfos) ? (
+                <Text style={pdfStyles.bodyText}>
+                    <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expert}
+                </Text>
+            ) : null}
             
             {data.paginationDocMailExpertise ? (
-                <Text style={{ ...textStyle, fontSize: DENSITY.fontSmall, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
+                <Text style={{ ...pdfStyles.mutedText, marginTop: 2 }}>
                     {data.paginationDocMailExpertise}
                 </Text>
             ) : null}
 
             {formData.isContradictoire ? (
                 <View style={{ marginLeft: DENSITY.subBlockIndent, marginTop: 3, borderLeftWidth: 2, borderLeftColor: '#cbd5e1', paddingLeft: 6 }} wrap={false}>
-                    <Text style={{ fontStyle: 'italic', textDecoration: 'underline', marginBottom: 2 }}>Expertise contradictoire avec :</Text>
-                    {formData.cieContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Cie :</Text> {formData.cieContradictoire}</Text> : null}
-                    {formData.expertContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Expert :</Text> {formData.expertContradictoire}</Text> : null}
-                    {formData.compteDeContradictoire ? <Text style={textStyle}><Text style={{ fontWeight: 'bold' }}>Pour le compte de :</Text> {formData.compteDeContradictoire}</Text> : null}
+                    <Text style={{ ...TYPO.body, fontStyle: 'italic', textDecoration: 'underline', marginBottom: 2 }}>
+                        Expertise contradictoire avec :
+                    </Text>
+                    {formData.cieContradictoire ? (
+                        <Text style={pdfStyles.bodyText}>
+                            <Text style={pdfStyles.bodyLabel}>Cie :</Text> {formData.cieContradictoire}
+                        </Text>
+                    ) : null}
+                    {formData.expertContradictoire ? (
+                        <Text style={pdfStyles.bodyText}>
+                            <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expertContradictoire}
+                        </Text>
+                    ) : null}
+                    {formData.compteDeContradictoire ? (
+                        <Text style={pdfStyles.bodyText}>
+                            <Text style={pdfStyles.bodyLabel}>Pour le compte de :</Text> {formData.compteDeContradictoire}
+                        </Text>
+                    ) : null}
                 </View>
             ) : null}
         </View>

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
-import { DENSITY } from '../pdfStyles';
+import { DENSITY, TYPO } from '../pdfStyles';
 
 const PDFReportHeader = ({ data, styleBlock }) => {
     if (!data || !data.formData) return null;
@@ -10,7 +10,6 @@ const PDFReportHeader = ({ data, styleBlock }) => {
     
     const containerStyle = {
         marginBottom: DENSITY.headerGap,
-        fontSize: adaptedStyle.fontSize || 9,
         color: adaptedStyle.color || '#0f172a',
         textAlign: adaptedStyle.textAlign || 'left',
     };
@@ -26,7 +25,7 @@ const PDFReportHeader = ({ data, styleBlock }) => {
     return (
         <View wrap={false} style={containerStyle}>
             <View style={innerStyle}>
-                <Text style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: 10 }}>
+                <Text style={{ ...TYPO.bodyBold, textTransform: 'uppercase', fontSize: 10 }}>
                     {dateFormatted}
                 </Text>
             </View>
