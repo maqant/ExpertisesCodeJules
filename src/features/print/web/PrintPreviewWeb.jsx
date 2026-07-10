@@ -77,6 +77,17 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
             if (key === 'divers') {
                 return <PrintDiversBlock key="divers" data={reportData.divers} styleBlock={styles.divers} />;
             }
+            if (key.startsWith('spacer_')) {
+                const heightMm = styles[key]?.spacerHeight || 20;
+                const clampedHeight = Math.max(1, Math.min(heightMm, 100));
+                return (
+                    <div 
+                        key={key} 
+                        style={{ height: `${clampedHeight}mm` }} 
+                        className="print-spacer w-full border-t border-b border-dashed border-transparent print:border-none" 
+                    />
+                );
+            }
             if (key.startsWith('custom_')) {
                 const blockData = reportData.customBlocks.find(b => b.id === key);
                 return <PrintCustomBlock key={key} data={blockData} styleBlock={styles[key]} />;

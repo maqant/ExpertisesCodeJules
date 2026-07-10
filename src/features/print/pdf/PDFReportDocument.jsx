@@ -1,6 +1,7 @@
 import React from 'react';
-import { Document, Page } from '@react-pdf/renderer';
+import { Document, Page, View } from '@react-pdf/renderer';
 import { pdfStyles as styles } from './pdfStyles';
+import { mmToPt } from './pdfUnitUtils';
 
 import PDFReportHeader from './components/PDFReportHeader';
 import PDFCoordBlock from './components/PDFCoordBlock';
@@ -47,6 +48,10 @@ export default function PDFReportDocument({ reportData }) {
         return <PDFDiversBlock key={key} data={reportData?.divers} styleBlock={blockStyles.divers} />;
       case key === 'annexes_libres':
         return <PDFAnnexesLibresBlock key={key} data={reportData?.annexesLibres || reportData?.freeAnnexes || {}} styleBlock={blockStyles.annexes_libres} />;
+      case key.startsWith('spacer_'): {
+        const heightMm = blockStyles[key]?.spacerHeight || 20;
+        return <View key={key} style={{ height: mmToPt(heightMm) }} />;
+      }
       case key.startsWith('custom_'): {
         const blockData = reportData?.customBlocks?.find(b => b.id === key);
         if (!blockData) {
