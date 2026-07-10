@@ -51,7 +51,7 @@ export async function readIndex() {
     return Array.isArray(fromIDB) ? fromIDB : [];
   } catch (err) {
     console.error("[dossierStorage] readIndex timeout/error:", err);
-    return [];
+    throw err;
   }
 }
 
