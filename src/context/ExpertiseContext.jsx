@@ -9,6 +9,7 @@ import { extractValidAttachmentsFromMsg } from '../services/utils/msgUtils.js';
 import html2canvas from 'html2canvas';
 import { buildPrintReportData } from '../features/print/printDataAdapter';
 import { generatePdfReportBlob } from '../features/print/pdf/generatePdfReport';
+import { addPageNumbersWithHomeLink } from '../services/pdf/pagination';
 import { revokePdfImageBlobUrls } from '../features/print/pdf/resolvePdfImages';
 import { useTelemetry, exportTelemetryJson, clearTelemetryLogs } from "../hooks/useTelemetry";
 import { sanitizeAiConfig } from "../ai/ai.config.js";
@@ -1236,12 +1237,7 @@ export const ExpertiseProvider = ({ children }) => {
           const pages = mergedPdf.getPages();
           if (pages.length === 0) { setIsMerging(false); return alert('Aucune annexe sélectionnée.'); }
 
-          let pageNum = 2;
-          for (const page of pages) {
-              const { width, height } = page.getSize();
-              page.drawText(`Page ${pageNum}`, { x: width - 60, y: 20, size: 10, color: rgb(0.3, 0.3, 0.3) });
-              pageNum++;
-          }
+          addPageNumbersWithHomeLink(mergedPdf, 2);
 
           const mergedPdfBytes = await mergedPdf.save();
           const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
@@ -1402,13 +1398,7 @@ export const ExpertiseProvider = ({ children }) => {
           }
 
           // 4. Numérotation globale
-          const allPages = mergedPdf.getPages();
-          let pageNum = 1;
-          for (const page of allPages) {
-              const { width, height } = page.getSize();
-              page.drawText(`Page ${pageNum}`, { x: width - 60, y: 20, size: 10, color: rgb(0.3, 0.3, 0.3) });
-              pageNum++;
-          }
+          addPageNumbersWithHomeLink(mergedPdf, 1);
 
           // 5. Transformation des liens URL d'annexes en liens internes GoTo
           const finalIndex = generateMasterIndex(actualCoverPages, selectedKeys);
