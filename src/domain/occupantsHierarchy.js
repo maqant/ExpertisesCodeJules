@@ -35,11 +35,18 @@ const baseSort = (a, b) => {
 /**
  * Retourne une liste à plat triée, où chaque Locataire lié est inséré
  * immédiatement APRÈS son propriétaire, avec un flag de profondeur.
+ * Règle métier : TOUT Locataire (lié ou non) est indenté (_depth: 1)
+ * afin de le distinguer visuellement des Propriétaires.
+ * Garantie anti-perte : un Locataire dont le lien pointe vers un
+ * propriétaire absent de la liste (lien cassé) est réintégré en fin
+ * de liste — jamais omis du rapport.
  *
  * @returns {Array<{...occupant, _depth: 0|1}>}
  */
 export const buildOccupantHierarchy = (occupants = []) => {
   if (!Array.isArray(occupants) || occupants.length === 0) return [];
+
+  const isLocataire = (occ) => occ.statut === 'Locataire';
 
   // 1. Tri "métier" indépendant
   const sorted = [...occupants].sort(baseSort);
@@ -48,7 +55,7 @@ export const buildOccupantHierarchy = (occupants = []) => {
   const childrenByParent = new Map();
   const linkedChildIds = new Set();
   for (const occ of sorted) {
-    if (occ.statut === 'Locataire' && occ.linkedProprietaireId) {
+    if (isLocataire(occ) && occ.linkedProprietaireId) {
       if (!childrenByParent.has(occ.linkedProprietaireId)) {
         childrenByParent.set(occ.linkedProprietaireId, []);
       }
@@ -57,17 +64,28 @@ export const buildOccupantHierarchy = (occupants = []) => {
     }
   }
 
-  // 3. Reconstruction : parents (et indépendants) au niveau 0,
-  //    enfants liés nichés juste après leur parent au niveau 1.
+  // 3. Reconstruction : propriétaires/ACP au niveau 0,
+  //    TOUS les locataires au niveau 1 (liés : nichés sous leur parent).
   const result = [];
+  const emittedIds = new Set();
   for (const occ of sorted) {
     if (linkedChildIds.has(occ.id)) continue; // sera placé sous son parent
-    result.push({ ...occ, _depth: 0 });
+    result.push({ ...occ, _depth: isLocataire(occ) ? 1 : 0 });
+    emittedIds.add(occ.id);
     const children = childrenByParent.get(occ.id);
     if (children) {
       for (const child of children) {
         result.push({ ...child, _depth: 1 });
+        emittedIds.add(child.id);
       }
+    }
+  }
+
+  // 4. Filet de sécurité : réintègre les locataires au lien cassé
+  //    (parent introuvable). Zéro perte silencieuse.
+  for (const occ of sorted) {
+    if (!emittedIds.has(occ.id)) {
+      result.push({ ...occ, _depth: 1 });
     }
   }
 
