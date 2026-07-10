@@ -17,6 +17,13 @@ export class ConflictError extends Error {
   }
 }
 
+const withTimeout = (promise, ms, name) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`[Storage Timeout] ${name} a bloqué après ${ms}ms`)), ms))
+  ]);
+};
+
 const INDEX_KEY = 'dossiers_index_v2';
 const DATA_PREFIX = 'dossier_data_';
 
@@ -39,8 +46,13 @@ function readIndexFromLocalStorage() {
 export async function readIndex() {
   const fromLS = readIndexFromLocalStorage();
   if (fromLS) return fromLS;
-  const fromIDB = await dataStore.getItem(INDEX_KEY);
-  return Array.isArray(fromIDB) ? fromIDB : [];
+  try {
+    const fromIDB = await withTimeout(dataStore.getItem(INDEX_KEY), 5000, 'readIndex');
+    return Array.isArray(fromIDB) ? fromIDB : [];
+  } catch (err) {
+    console.error("[dossierStorage] readIndex timeout/error:", err);
+    return [];
+  }
 }
 
 export async function writeIndex(index) {
@@ -53,12 +65,17 @@ export async function writeIndex(index) {
     console.warn('[dossierStorage] Index localStorage saturé, fallback IndexedDB seul.');
     localStorage.removeItem(INDEX_KEY);
   }
-  await dataStore.setItem(INDEX_KEY, index);
+  try {
+    await withTimeout(dataStore.setItem(INDEX_KEY, index), 5000, 'writeIndex');
+  } catch (err) {
+    console.error("[dossierStorage] writeIndex timeout/error:", err);
+    throw err;
+  }
 }
 
 export async function readData(id) {
   try {
-    const data = await dataStore.getItem(DATA_PREFIX + id);
+    const data = await withTimeout(dataStore.getItem(DATA_PREFIX + id), 10000, 'readData');
     if (!data) throw new StorageError(StorageErrorCode.NOT_FOUND, `Dossier data not found: ${id}`);
     return data;
   } catch (err) {
@@ -69,7 +86,7 @@ export async function readData(id) {
 
 export async function writeData(id, data) {
   try {
-    await dataStore.setItem(DATA_PREFIX + id, data);
+    await withTimeout(dataStore.setItem(DATA_PREFIX + id, data), 15000, 'writeData');
   } catch (err) {
     if (isQuotaError(err)) {
       throw new StorageError(StorageErrorCode.QUOTA_EXCEEDED, 'Espace de stockage du navigateur saturé.', { cause: err, dossierId: id });
