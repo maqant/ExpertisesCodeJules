@@ -1,7 +1,15 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import PDFReportDocument from './PDFReportDocument';
-import { resolvePdfImageBlobUrls } from './resolvePdfImages';
+import { resolvePdfImageBlobUrls, revokePdfImageBlobUrls } from './resolvePdfImages';
+
+export class PdfImageResolutionError extends Error {
+  constructor(failures) {
+    super(`[PDF] Erreur Critique: ${failures.length} image(s) n'ont pas pu être résolue(s) en Blob URL. La génération du PDF est interrompue pour éviter un rendu incomplet.`);
+    this.name = 'PdfImageResolutionError';
+    this.failures = failures;
+  }
+}
 
 export function auditReportParity(reportData) {
   const issues = [];
@@ -21,30 +29,30 @@ export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => 
   }
 
   // 1. Résolution asynchrone des images pour éviter les problèmes de rendu
-  const resolvedReportData = await resolvePdfImageBlobUrls(reportData, fetchBlobByUuid);
+  const { resolvedData: resolvedReportData, createdBlobUrls, failures } = await resolvePdfImageBlobUrls(reportData, fetchBlobByUuid);
 
-  // Sécurité: Vérifier qu'aucun UUID brut ne passe au PDF
-  if (resolvedReportData.photos && resolvedReportData.photos.occupantsWithPhotos) {
-    resolvedReportData.photos.occupantsWithPhotos.forEach(occ => {
-      // Si on attendait des images via imageUuids, on doit s'assurer que resolvedImages contient autant d'URL résolues
-      if (occ.imageUuids && occ.imageUuids.length > 0) {
-        if (!occ.resolvedImages || occ.resolvedImages.length !== occ.imageUuids.length) {
-          throw new Error(`[PDF] Erreur Critique: L'image UUID n'a pas pu être résolue en Blob URL pour ${occ.nom}. La génération du PDF est interrompue pour éviter un rendu incomplet.`);
-        }
-      }
-    });
+  if (failures.length > 0) {
+    // Décision métier explicite : on BLOQUE et on informe l'expert.
+    // Un rapport avec photos manquantes n'est pas un rapport.
+    revokePdfImageBlobUrls(createdBlobUrls);
+    throw new PdfImageResolutionError(failures);
   }
 
-  // Audit de complétude avant rendu (Parité)
-  auditReportParity(resolvedReportData);
+  try {
+    // Audit de complétude avant rendu (Parité)
+    auditReportParity(resolvedReportData);
 
-  // 2. Instanciation du document PDF avec les données résolues (Blob URLs)
-  const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });
+    // 2. Instanciation du document PDF avec les données résolues (Blob URLs)
+    const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });
 
-  // 3. Génération du Blob via @react-pdf/renderer
-  const asPdf = pdf();
-  asPdf.updateContainer(doc);
-  const blob = await asPdf.toBlob();
+    // 3. Génération du Blob via @react-pdf/renderer
+    const asPdf = pdf();
+    asPdf.updateContainer(doc);
+    const blob = await asPdf.toBlob();
 
-  return { blob, resolvedReportData };
+    return { blob, resolvedReportData, createdBlobUrls };
+  } catch (error) {
+    revokePdfImageBlobUrls(createdBlobUrls); // nettoyage en cas d'erreur de React-PDF
+    throw error;
+  }
 };

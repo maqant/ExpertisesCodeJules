@@ -25,10 +25,10 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
     const handleExportPdf = async () => {
         setIsGeneratingPdf(true);
         setPdfError(null);
-        let generatedData = null;
+        let generatedUrls = null;
         try {
-            const { blob, resolvedReportData } = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
-            generatedData = resolvedReportData;
+            const { blob, createdBlobUrls } = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
+            generatedUrls = createdBlobUrls;
 
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -42,8 +42,8 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
             console.error("Erreur lors de la génération PDF:", error);
             setPdfError(error.message || "Une erreur est survenue lors de la génération du PDF.");
         } finally {
-            if (generatedData) {
-                revokePdfImageBlobUrls(generatedData);
+            if (generatedUrls) {
+                revokePdfImageBlobUrls(generatedUrls);
             }
             setIsGeneratingPdf(false);
         }

@@ -1257,6 +1257,7 @@ export const ExpertiseProvider = ({ children }) => {
   const downloadDossierPDF = async (selectedKeys) => {
       setIsMerging(true);
       let resolvedData = null;
+      let allCreatedBlobUrls = [];
       try {
           // ====================================================================
           // MOTEUR PDF NATIF React-PDF : Rapport principal vectoriel
@@ -1276,6 +1277,7 @@ export const ExpertiseProvider = ({ children }) => {
 
           let pass1 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
           resolvedData = pass1.resolvedReportData;
+          allCreatedBlobUrls.push(...(pass1.createdBlobUrls || []));
 
           let reactPdfBytes = await pass1.blob.arrayBuffer();
           let reactPdfDoc = await PDFDocument.load(reactPdfBytes);
@@ -1288,7 +1290,8 @@ export const ExpertiseProvider = ({ children }) => {
           }
 
           // Nettoyage des blobs de la passe 1 avant la passe 2
-          if (resolvedData) revokePdfImageBlobUrls(resolvedData);
+          revokePdfImageBlobUrls(allCreatedBlobUrls);
+          allCreatedBlobUrls = [];
 
           reportData = buildPrintReportData({
               formData, blockTitles, references, occupants, expenses,
@@ -1301,6 +1304,7 @@ export const ExpertiseProvider = ({ children }) => {
 
           let pass2 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
           resolvedData = pass2.resolvedReportData;
+          allCreatedBlobUrls.push(...(pass2.createdBlobUrls || []));
 
           reactPdfBytes = await pass2.blob.arrayBuffer();
           reactPdfDoc = await PDFDocument.load(reactPdfBytes);
@@ -1458,9 +1462,7 @@ export const ExpertiseProvider = ({ children }) => {
           alert('Erreur lors de la génération : ' + err.message);
       } finally {
           // Nettoyage des Blob URLs d'images résolues pour le PDF
-          if (resolvedData) {
-              revokePdfImageBlobUrls(resolvedData);
-          }
+          revokePdfImageBlobUrls(allCreatedBlobUrls);
           setIsMerging(false);
           setCoverPageCount(1); // Réinitialiser pour la vue normale
       }

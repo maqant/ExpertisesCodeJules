@@ -1,4 +1,5 @@
 import localforage from 'localforage';
+import { normalizeToBlob } from './media/blobNormalizer';
 
 /**
  * Unique point de contact avec IndexedDB pour les pièces jointes.
@@ -33,7 +34,8 @@ export async function removeBlob(dbKey) {
 export async function fetchBlob(dbKey) {
   if (!dbKey) return null;
   try {
-    return await localforage.getItem(dbKey);
+    const raw = await localforage.getItem(dbKey);
+    return normalizeToBlob(raw);
   } catch (error) {
     console.error(`[attachmentStorage] Échec récupération "${dbKey}"`, error);
     return null;
