@@ -14,9 +14,9 @@ export function adaptSpacerHeight(px) {
 export function adaptBlockStyle(styleBlock = {}) {
   const out = {};
   
-  if (styleBlock.fontSize != null) {
-      out.fontSize = styleBlock.fontSize * PX_TO_PT;
-  }
+  // ⚠️ fontSize, marginTop, marginBottom sont VOLONTAIREMENT EXCLUS.
+  // Le PDF a son propre design system (DENSITY) et ne doit JAMAIS hériter
+  // du sizing/spacing de la sidebar web. Seules les propriétés visuelles passent.
   
   if (styleBlock.color) {
       out.color = styleBlock.color;
@@ -36,14 +36,6 @@ export function adaptBlockStyle(styleBlock = {}) {
   
   if (styleBlock.fontStyle === 'italic') {
       out.fontStyle = 'italic';
-  }
-  
-  if (styleBlock.marginTop != null) {
-      out.marginTop = Math.min(styleBlock.marginTop * PX_TO_PT, DENSITY.spacerCap);
-  }
-  
-  if (styleBlock.marginBottom != null) {
-      out.marginBottom = Math.min(styleBlock.marginBottom * PX_TO_PT, DENSITY.spacerCap);
   }
 
   // Handle borders specifically if specified. 
