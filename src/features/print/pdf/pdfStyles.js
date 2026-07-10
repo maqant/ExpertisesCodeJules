@@ -28,12 +28,12 @@ export const DENSITY = {
   lineHeightTight: 1.0,     // tableaux uniquement
 
   // Espacement vertical global (Tokens centraux)
-  blockGap: 6,              // espace entre sections (réduit de 10)
-  headerGap: 6,             // sous le PDFReportHeader
-  sectionInnerGap: 3,       // espacements internes de section
+  blockGap: 8,              // espace entre sections — bien séparer les blocs
+  headerGap: 4,             // sous le PDFReportHeader
+  sectionInnerGap: 1,       // espacements internes de section — quasi nul
   itemGap: 3,               // entre items d'une liste (annexes, photos)
   keepWithNext: 24,         // minPresenceAhead minimal : titre + 1 ligne
-  sectionTitleGap: 3,       
+  sectionTitleGap: 1,       // contenu collé au titre
   lineGap: 0,               // intra-bloc : aucun espace additionnel
   subBlockIndent: 8,        
 
@@ -70,7 +70,6 @@ export const pdfStyles = StyleSheet.create({
     fontSize: DENSITY.fontTitle,
     fontWeight: 'bold',
     marginBottom: DENSITY.sectionTitleGap,
-    marginTop: 8,
     color: '#0f172a',
     borderBottomWidth: 1,
     borderBottomColor: '#cbd5e1',

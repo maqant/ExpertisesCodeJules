@@ -86,7 +86,7 @@ const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
 
             {data.intervenants && data.intervenants.length > 0 ? (
                 <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e2e8f0' }} wrap={false}>
-                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Autres intervenants :</Text>
+                    <Text style={{ fontWeight: 'bold', marginBottom: DENSITY.lineGap }}>Autres intervenants :</Text>
                     {data.intervenants.map(inter => (
                         <Text key={inter.id} style={{ marginLeft: 15, marginBottom: 2, lineHeight: DENSITY.lineHeight }}>
                             <Text style={{ fontWeight: 'bold' }}>{inter.nom || ''} {inter.prenom || ''}</Text>
