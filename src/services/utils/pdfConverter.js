@@ -96,7 +96,7 @@ export const convertTextToPdfBytes = async (file) => {
     }
 
     // Protection anti-binaire : s'il y a des octets nuls, ce n'est pas du texte
-    if (text.indexOf('\\0') !== -1) {
+    if (text.indexOf('\0') !== -1) {
         throw new Error("Le fichier semble être un fichier binaire non supporté.");
     }
 

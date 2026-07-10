@@ -79,12 +79,52 @@ export const processIngestedFile = async (file) => {
 
     // 5. Texte brut ou EDI (fallback text)
     if (nameLower.endsWith('.edi') || nameLower.endsWith('.txt')) {
-        console.log(`[filePreprocessor] Conversion de ${name} (Texte/EDI) en PDF...`);
+        console.log(`[filePreprocessor] Analyse de ${name} (Texte/EDI)...`);
         try {
-            const pdfBytes = await convertTextToPdfBytes(file);
-            return new File([pdfBytes], name.replace(/\.(edi|txt)$/i, '.pdf'), { type: 'application/pdf' });
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            
+            // 1. Recherche d'un PDF brut inclus ("%PDF-")
+            let pdfStartIndex = -1;
+            for (let i = 0; i < bytes.length - 4; i++) {
+                if (bytes[i] === 0x25 && bytes[i+1] === 0x50 && bytes[i+2] === 0x44 && bytes[i+3] === 0x46) {
+                    pdfStartIndex = i;
+                    break;
+                }
+            }
+            if (pdfStartIndex !== -1) {
+                console.log(`[filePreprocessor] PDF brut trouvé à l'offset ${pdfStartIndex} dans ${name}`);
+                const pdfBytes = bytes.slice(pdfStartIndex);
+                return new File([pdfBytes], name.replace(/\.(edi|txt)$/i, '.pdf'), { type: 'application/pdf' });
+            }
+
+            // 2. Recherche d'un PDF Base64 ("JVBERi0")
+            const decoder = new TextDecoder('windows-1252');
+            const textContent = decoder.decode(bytes);
+            
+            const b64Index = textContent.indexOf('JVBERi0');
+            if (b64Index !== -1) {
+                console.log(`[filePreprocessor] PDF Base64 trouvé dans ${name}`);
+                let endIdx = b64Index;
+                const validB64 = /^[A-Za-z0-9+/=]$/;
+                while (endIdx < textContent.length && (validB64.test(textContent[endIdx]) || textContent[endIdx] === '\r' || textContent[endIdx] === '\n' || textContent[endIdx] === ' ')) {
+                    endIdx++;
+                }
+                const b64String = textContent.slice(b64Index, endIdx).replace(/\s/g, '');
+                const binaryString = atob(b64String);
+                const pdfBytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    pdfBytes[i] = binaryString.charCodeAt(i);
+                }
+                return new File([pdfBytes], name.replace(/\.(edi|txt)$/i, '.pdf'), { type: 'application/pdf' });
+            }
+
+            // Sinon, conversion texte classique
+            console.log(`[filePreprocessor] Conversion texte classique de ${name} en PDF...`);
+            const pdfGeneratedBytes = await convertTextToPdfBytes(file);
+            return new File([pdfGeneratedBytes], name.replace(/\.(edi|txt)$/i, '.pdf'), { type: 'application/pdf' });
         } catch (e) {
-            console.error(`[filePreprocessor] Échec conversion texte: ${name}`, e);
+            console.error(`[filePreprocessor] Échec extraction/conversion texte: ${name}`, e);
             return file;
         }
     }
