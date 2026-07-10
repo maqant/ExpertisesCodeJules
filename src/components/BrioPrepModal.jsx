@@ -115,6 +115,21 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
         });
     };
 
+    const handleSafeClose = () => {
+        const hasWork = mailText.trim().length > 0 || results !== null;
+        if (hasWork) {
+            const confirmed = window.confirm(
+                "Fermer l'ingestion ? Le texte saisi et les résultats Brio seront perdus."
+            );
+            if (!confirmed) return;
+        }
+        onClose();
+    };
+
+    const handleSkip = () => {
+        onContinue(mailText, null, null);
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -124,6 +139,14 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         <span className="text-xl">🪄</span> Préparation Brio
                     </h2>
+                    <button
+                        onClick={handleSafeClose}
+                        className="text-slate-400 hover:text-white text-xl leading-none px-2 py-1 rounded hover:bg-slate-700 transition-colors"
+                        title="Fermer l'ingestion (le dossier reste créé)"
+                        aria-label="Fermer l'ingestion"
+                    >
+                        ✕
+                    </button>
                 </div>
 
                 {!results ? (
@@ -138,13 +161,23 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
                             className="flex-1 w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-white focus:border-indigo-500 outline-none resize-none mb-4 min-h-[300px]"
                         />
                         {error && <div className="text-red-400 text-xs mb-3 bg-red-900/20 p-2 rounded border border-red-500/30">{error}</div>}
-                        <button
-                            onClick={handleAnalyze}
-                            disabled={!mailText.trim() || isLoading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                            {isLoading ? '⏳ Analyse en cours...' : '🧠 Analyser pour Brio'}
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSkip}
+                                disabled={isLoading}
+                                className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 transition-colors disabled:opacity-50"
+                                title="Continuer l'ingestion sans préparation Brio"
+                            >
+                                ⏭️ Passer cette étape
+                            </button>
+                            <button
+                                onClick={handleAnalyze}
+                                disabled={!mailText.trim() || isLoading}
+                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isLoading ? '⏳ Analyse en cours...' : '🧠 Analyser pour Brio'}
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div className="flex flex-col flex-1 overflow-y-auto pr-2 space-y-4">
