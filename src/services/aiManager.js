@@ -687,7 +687,8 @@ export const processGlobalIngestion = async ({
         // On convertit les `files` en Array et on les pré-traite (convertit docx/edi en pdf)
         let rawFiles = [];
         for (const f of Array.from(files)) {
-            rawFiles.push(await processIngestedFile(f));
+            const processed = await processIngestedFile(f);
+            if (processed) rawFiles.push(processed);
         }
         
         let allExtractedFiles = [];

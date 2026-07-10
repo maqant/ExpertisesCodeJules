@@ -62,19 +62,22 @@ export const processIngestedFile = async (file) => {
 
     // 2. Ancien format OLE2 (.doc, .xls) : BLOQUER (sauf .msg)
     if (magic === 'D0 CF 11 E0' && !nameLower.endsWith('.msg')) {
-        throw new Error(`Les formats bureautiques (Word, Excel) ne sont pas pris en charge. Veuillez enregistrer le fichier en PDF depuis votre logiciel avant de l'importer.`);
+        console.warn(`[filePreprocessor] Le fichier ${name} (Word/Excel OLE2) a été ignoré car non supporté.`);
+        return null;
     }
 
     // 3. Nouveaux formats ZIP (.docx, .xlsx) : BLOQUER
     if (magic.startsWith('50 4B 03 04')) { // PK..
         if (nameLower.endsWith('.docx') || nameLower.endsWith('.xlsx')) {
-            throw new Error(`Les formats bureautiques (.docx, .xlsx) ne sont pas pris en charge. Veuillez enregistrer le fichier en PDF depuis votre logiciel avant de l'importer.`);
+            console.warn(`[filePreprocessor] Le fichier ${name} (.docx, .xlsx) a été ignoré car non supporté.`);
+            return null;
         }
     }
 
     // 4. Format RTF : BLOQUER
     if (magic === '7B 5C 72 74') { // {\rt
-        throw new Error(`Le format RTF n'est pas pris en charge. Ouvrez votre fichier dans Word et utilisez « Enregistrer sous → PDF », puis réimportez-le ici.`);
+        console.warn(`[filePreprocessor] Le fichier ${name} (.rtf) a été ignoré car non supporté.`);
+        return null;
     }
 
     // 5. Texte brut ou EDI (fallback text)

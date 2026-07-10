@@ -469,7 +469,8 @@ const SidebarLegacy = () => {
                         const { files: extracted } = await extractValidAttachmentsFromMsg(file);
                         pendingFiles.push(...extracted);
                     } else {
-                        pendingFiles.push(await processIngestedFile(file));
+                        const processed = await processIngestedFile(file);
+                        if (processed) pendingFiles.push(processed);
                     }
                 }
                 setPendingAiData({ formData: null, occupants: [], experts: [], intervenants: [], expenses: [], pendingFiles });

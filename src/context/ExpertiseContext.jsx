@@ -319,6 +319,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [ingestionModal, setIngestionModal] = useState({ isOpen: false, type: null, file: null, data: null, existingId: null });
   const openIngestion = async (file, type, initialData = null, existingId = null) => {
       const processedFile = await processIngestedFile(file);
+      if (!processedFile) return;
       setIngestionModal({ isOpen: true, type, file: processedFile, data: initialData, existingId });
   };
   const closeIngestion = () => {
@@ -764,6 +765,7 @@ export const ExpertiseProvider = ({ children }) => {
       if (alreadyExists) return;
 
       const file = await processIngestedFile(rawFile);
+      if (!file) return;
       const dbKey = `file_${crypto.randomUUID()}_${file.name}`;
       
       try {
@@ -876,6 +878,7 @@ export const ExpertiseProvider = ({ children }) => {
   const handleAttachPhoto = async (occupantId, rawFile) => {
       if (!rawFile) return;
       const file = await processIngestedFile(rawFile);
+      if (!file) return;
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
       if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');
@@ -909,6 +912,7 @@ export const ExpertiseProvider = ({ children }) => {
   const handleAttachFreeAnnex = async (rawFile, generatedTitle = null, desc = '') => {
       if (!rawFile) return;
       const file = await processIngestedFile(rawFile);
+      if (!file) return;
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
       if (!isPdf && !isImage) return alert('Seuls les images (JPG, PNG) et les PDF sont acceptés.');

@@ -208,7 +208,8 @@ export const extractValidAttachmentsFromMsg = async (msgFile, _depth = 0) => {
         // Post-traitement : convertir les docx/edi en PDF
         const finalFiles = [];
         for (const f of result.files) {
-            finalFiles.push(await processIngestedFile(f));
+            const processed = await processIngestedFile(f);
+            if (processed) finalFiles.push(processed);
         }
         
         return { files: finalFiles, nestedTexts: result.nestedTexts };
@@ -251,7 +252,8 @@ export const parseMsgFile = async (file) => {
     // Post-traitement : convertir les docx/edi en PDF
     const attachments = [];
     for (const f of rawAttachments) {
-        attachments.push(await processIngestedFile(f));
+        const processed = await processIngestedFile(f);
+        if (processed) attachments.push(processed);
     }
 
     // Fusionner le texte principal + texte des sous-mails
