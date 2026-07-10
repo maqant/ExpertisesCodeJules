@@ -13,6 +13,7 @@ import PrintCustomBlock from './PrintCustomBlock';
 
 import { generatePdfReportBlob } from '../pdf/generatePdfReport';
 import { revokePdfImageBlobUrls } from '../pdf/resolvePdfImages';
+import { fetchBlob } from '../../../services/attachmentStorage';
 
 const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -26,7 +27,7 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
         setPdfError(null);
         let generatedData = null;
         try {
-            const { blob, resolvedReportData } = await generatePdfReportBlob({ reportData });
+            const { blob, resolvedReportData } = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
             generatedData = resolvedReportData;
 
             const url = URL.createObjectURL(blob);

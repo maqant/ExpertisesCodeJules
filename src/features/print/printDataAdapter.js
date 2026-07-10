@@ -180,7 +180,7 @@ export const buildPrintReportData = (input) => {
                         id: occ.id,
                         nom: occ.nom,
                         annexReference: pagInfo ? pagInfo.text : null,
-                        imageUuids: attachedPhotos[occ.id] || []
+                        imageUuids: (attachedPhotos[occ.id] || []).map(p => p.dbKey).filter(Boolean)
                     };
                 })
         },

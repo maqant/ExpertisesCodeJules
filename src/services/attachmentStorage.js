@@ -26,6 +26,21 @@ export async function removeBlob(dbKey) {
 }
 
 /**
+ * Récupère un blob depuis IndexedDB.
+ * @param {string} dbKey
+ * @returns {Promise<Blob|null>}
+ */
+export async function fetchBlob(dbKey) {
+  if (!dbKey) return null;
+  try {
+    return await localforage.getItem(dbKey);
+  } catch (error) {
+    console.error(`[attachmentStorage] Échec récupération "${dbKey}"`, error);
+    return null;
+  }
+}
+
+/**
  * Supprime un lot de blobs. N'échoue pas en cascade :
  * tente toutes les suppressions et agrège les erreurs.
  * @param {Array<string|null|undefined>} dbKeys

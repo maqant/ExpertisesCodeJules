@@ -19,7 +19,7 @@ import ConflictModal from '../components/shared/ConflictModal';
 import { subscribeToDossierUpdates } from '../services/utils/tabSync';
 
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
-import { removeBlobs } from '../services/attachmentStorage';
+import { removeBlobs, fetchBlob } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
 import { safeRead, safeWrite, STORAGE_KEYS } from '../services/storage/referenceStorage';
 import { mergeExperts, mergeStringLists, buildExportPayload, parseImportPayload } from '../services/storage/referenceManager';
@@ -1274,7 +1274,7 @@ export const ExpertiseProvider = ({ children }) => {
               intervenantsList, attachedPhotos, responsablesIds
           });
 
-          let pass1 = await generatePdfReportBlob({ reportData });
+          let pass1 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
           resolvedData = pass1.resolvedReportData;
 
           let reactPdfBytes = await pass1.blob.arrayBuffer();
@@ -1299,7 +1299,7 @@ export const ExpertiseProvider = ({ children }) => {
               intervenantsList, attachedPhotos, responsablesIds
           });
 
-          let pass2 = await generatePdfReportBlob({ reportData });
+          let pass2 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
           resolvedData = pass2.resolvedReportData;
 
           reactPdfBytes = await pass2.blob.arrayBuffer();
