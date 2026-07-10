@@ -40,15 +40,9 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
                 </Text>
             ) : null}
             
-            {formData.expertInfos ? (
+            {data.expertDisplay ? (
                 <Text style={pdfStyles.bodyText}>
-                    <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expertInfos}
-                </Text>
-            ) : null}
-            
-            {(formData.expert && !formData.expertInfos) ? (
-                <Text style={pdfStyles.bodyText}>
-                    <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expert}
+                    <Text style={pdfStyles.bodyLabel}>Expert :</Text> {data.expertDisplay}
                 </Text>
             ) : null}
             
@@ -68,9 +62,9 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
                             <Text style={pdfStyles.bodyLabel}>Cie :</Text> {formData.cieContradictoire}
                         </Text>
                     ) : null}
-                    {formData.expertContradictoire ? (
+                    {data.expertContradictoireDisplay ? (
                         <Text style={pdfStyles.bodyText}>
-                            <Text style={pdfStyles.bodyLabel}>Expert :</Text> {formData.expertContradictoire}
+                            <Text style={pdfStyles.bodyLabel}>Expert :</Text> {data.expertContradictoireDisplay}
                         </Text>
                     ) : null}
                     {formData.compteDeContradictoire ? (

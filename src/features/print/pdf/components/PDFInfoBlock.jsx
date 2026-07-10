@@ -3,7 +3,7 @@ import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles } from '../pdfStyles';
 
-const PDFInfoBlock = ({ data, styleBlock, coordReferences }) => {
+const PDFInfoBlock = ({ data, styleBlock }) => {
     if (!data) return null;
 
     const formData = data.formData || {};
@@ -14,8 +14,7 @@ const PDFInfoBlock = ({ data, styleBlock, coordReferences }) => {
         ...adaptedStyle,
     };
 
-    // Note: references are in coord object, but sometimes passed as coordReferences if we can refactor PDFReportDocument. For now, we will check data.references as fallback.
-    const references = data.references || coordReferences || [];
+    const references = data.references || [];
 
     return (
         <View style={containerStyle} wrap>

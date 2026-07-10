@@ -1,4 +1,4 @@
-import { getCompteDeName, findOccByCompteDe, fmtOccName } from '../../utils/formatters';
+import { getCompteDeName, findOccByCompteDe, fmtOccName, formatExpertDisplay } from '../../utils/formatters';
 import { buildOccupantHierarchy } from '../../domain/occupantsHierarchy';
 import { formatExpertiseTitle } from '../../utils/titleFormatter';
 
@@ -100,12 +100,14 @@ export const buildPrintReportData = (input) => {
         coord: {
             title: blockTitles.coord,
             formData: { ...formData },
-            references: [ ...references ],
+            expertDisplay: formatExpertDisplay(formData.bureau, formData.expertInfos || formData.expert),
+            expertContradictoireDisplay: formatExpertDisplay(formData.bureauContradictoire, formData.expertContradictoire),
             paginationDocMailExpertise: getPaginationInfo('doc_mail_expertise')?.text
         },
         infos: {
             title: blockTitles.infos,
             formData: { ...formData },
+            references: [ ...references ],
             paginationDocMailDeclaration: getPaginationInfo('doc_mail_declaration')?.text,
             paginationDocCondPart: getPaginationInfo('doc_cond_part')?.text,
             paginationDocPvPolice: getPaginationInfo('doc_pv_police')?.text,

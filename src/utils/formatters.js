@@ -14,3 +14,17 @@ export const getCompteDeName = (compteDe, occupants) => {
     if (compteDe && compteDe.trim() !== '') return compteDe;
     return 'Non attribué';
 };
+
+/**
+ * Formate l'affichage d'un expert : "[Cabinet] - [Nom]".
+ * Source de vérité unique pour Workspace ET PDF (parité miroir).
+ * @param {string} bureau - Cabinet/bureau d'expertise
+ * @param {string} expertName - Nom de l'expert
+ * @returns {string} Libellé formaté, chaîne vide si aucune donnée
+ */
+export const formatExpertDisplay = (bureau, expertName) => {
+    const b = typeof bureau === 'string' ? bureau.trim() : '';
+    const e = typeof expertName === 'string' ? expertName.trim() : '';
+    if (b && e) return `${b} - ${e}`;
+    return e || b || '';
+};

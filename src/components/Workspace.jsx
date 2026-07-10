@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
-import { getCompteDeName, fmtOccName, findOccByCompteDe } from '../utils/formatters';
+import { getCompteDeName, fmtOccName, findOccByCompteDe, formatExpertDisplay } from '../utils/formatters';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { buildOccupantHierarchy } from '../domain/occupantsHierarchy';
 import AcknowledgmentModal from './Post/AcknowledgmentModal';
@@ -274,13 +274,13 @@ const Workspace = () => {
                     <p className="break-words"><strong>Adresse :</strong> {formData.adresse}</p>
                     <p className="break-words"><strong>Franchise applicable :</strong> {formData.franchise}</p>
                     <p className="break-words"><strong>Pertes indirectes :</strong> {formData.pertesIndirectes}</p>
-                    <p className="break-words"><strong>Expert :</strong> {formData.bureau ? formData.bureau + ' - ' : ''}{formData.expertInfos}</p>
+                    <p className="break-words"><strong>Expert :</strong> {formatExpertDisplay(formData.bureau, formData.expertInfos)}</p>
                     {getPaginationInfo('doc_mail_expertise') && <p className="break-words text-[0.85em] text-slate-500 italic mt-1">{getPaginationInfo('doc_mail_expertise').text}</p>}
                     {formData.isContradictoire && (
                         <div className="ml-4 mt-2 border-l-2 border-slate-800 pl-3">
                             <p className="italic underline mb-1 break-words">Expertise contradictoire avec :</p>
                             <p className="break-words"><strong>Cie :</strong> {formData.cieContradictoire}</p>
-                            <p className="break-words"><strong>Expert :</strong> {formData.bureauContradictoire ? formData.bureauContradictoire + ' - ' : ''}{formData.expertContradictoire}</p>
+                            <p className="break-words"><strong>Expert :</strong> {formatExpertDisplay(formData.bureauContradictoire, formData.expertContradictoire)}</p>
                             <p className="break-words"><strong>Pour le compte de :</strong> {getCompteDeName(formData.compteDeContradictoire, occupants)}</p>
                         </div>
                     )}
