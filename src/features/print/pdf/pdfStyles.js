@@ -18,12 +18,11 @@ export const solidBorder = (width = 1, color = COLORS.cardBorder) => ({
 // ============================================================
 // CONTRAT TYPOGRAPHIQUE — SOURCE DE VÉRITÉ UNIQUE
 // ------------------------------------------------------------
-// RÈGLE ABSOLUE : le lineHeight est TOUJOURS exprimé en points
-// absolus, pré-calculé ici. Aucune valeur relative (unitless)
-// ne doit jamais atteindre le moteur de @react-pdf/renderer.
-// Motif : la résolution relative dépend du fontSize présent au
-// même nœud lors du flattening ; en son absence, le moteur
-// multiplie contre 18pt (défaut) → espacements incohérents.
+// RÈGLE ABSOLUE : le lineHeight est TOUJOURS exprimé comme un
+// ratio unitaire (unitless) (ex: 1.22), et co-localisé avec le
+// fontSize pour que @react-pdf/renderer calcule correctement
+// l'espacement. Ne JAMAIS passer de valeur absolue en points (pt)
+// pour lineHeight, car le moteur la multipliera à nouveau par le fontSize.
 // ------------------------------------------------------------
 // Ratios calibrés métriques AFM Helvetica + français accentué :
 //   1.22 corps de texte (confort légal, compact)
@@ -39,16 +38,21 @@ const LH_RATIO = {
 
 /**
  * Factory typographique : produit une paire insécable
- * fontSize / lineHeight (en points absolus).
+ * fontSize / lineHeight (en ratio unitless).
  * @param {number} size  - corps en pt
  * @param {number} ratio - ratio de hauteur de ligne (défaut : corps)
  * @param {object} extra - propriétés additionnelles (color, fontWeight…)
  */
-export const typo = (size, ratio = LH_RATIO.body, extra = {}) => ({
-  fontSize: size,
-  lineHeight: Math.round(size * ratio * 10) / 10, // pt ABSOLUS
-  ...extra,
-});
+export const typo = (size, ratio = LH_RATIO.body, extra = {}) => {
+  if (ratio > 2) {
+    console.warn(`[pdfStyles] Warning: ratio (${ratio}) > 2 détecté. Le ratio doit être un multiplicateur unitless (ex: 1.22), pas une valeur absolue en points.`);
+  }
+  return {
+    fontSize: size,
+    lineHeight: ratio,
+    ...extra,
+  };
+};
 
 export const DENSITY = {
   // Page
