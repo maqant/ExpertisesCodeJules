@@ -66,7 +66,7 @@ export const DENSITY = {
 
   // Espacement vertical global (Tokens centraux)
   blockGap: 20,             // espace entre sections — rapport aéré (demande métier : "double-triple espace")
-  headerGap: 4,             // sous le PDFReportHeader
+  headerGap: 20,            // espace sous le titre encadré (PDFReportHeader)
   sectionInnerGap: 1,       // espacements internes de section — quasi nul
   itemGap: 3,               // entre items d'une liste (annexes, photos)
   keepWithNext: 24,         // minPresenceAhead minimal : titre + 1 ligne
