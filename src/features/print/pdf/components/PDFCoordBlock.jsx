@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
+import PDFAnnexRef from './PDFAnnexRef';
 
 const PDFCoordBlock = ({ data, styleBlock }) => {
     if (!data) return null;
@@ -47,9 +48,9 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
             ) : null}
             
             {data.paginationDocMailExpertise ? (
-                <Text style={{ ...pdfStyles.mutedText, marginTop: 2 }}>
-                    {data.paginationDocMailExpertise}
-                </Text>
+                <View style={{ marginTop: 2 }}>
+                    <PDFAnnexRef data={data.paginationDocMailExpertise} style={pdfStyles.mutedText} />
+                </View>
             ) : null}
 
             {formData.isContradictoire ? (

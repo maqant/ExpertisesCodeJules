@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles } from '../pdfStyles';
+import PDFAnnexRef from './PDFAnnexRef';
 
 const PDFInfoBlock = ({ data, styleBlock }) => {
     if (!data) return null;
@@ -26,11 +27,7 @@ const PDFInfoBlock = ({ data, styleBlock }) => {
 
             <Text style={{ ...pdfStyles.bodyText, fontWeight: 'bold' }}>
                 {formData.dateSinistre || ''}{formData.dateSinistre && (formData.declareLe || formData.dateDeclaration) ? ', ' : ''}{formData.declareLe || formData.dateDeclaration || ''} {formData.declarant || ''}{' '}
-                {data.paginationDocMailDeclaration ? (
-                    <Text style={pdfStyles.mutedText}>
-                        {data.paginationDocMailDeclaration}
-                    </Text>
-                ) : null}
+                <PDFAnnexRef data={data.paginationDocMailDeclaration} style={pdfStyles.mutedText} />
             </Text>
 
             {formData.nomCie ? (
@@ -42,11 +39,7 @@ const PDFInfoBlock = ({ data, styleBlock }) => {
             {formData.nomContrat ? (
                 <Text style={pdfStyles.bodyText}>
                     <Text style={pdfStyles.bodyLabel}>Contrat :</Text> {formData.nomContrat}{' '}
-                    {data.paginationDocCondPart ? (
-                        <Text style={pdfStyles.mutedText}>
-                            {data.paginationDocCondPart}
-                        </Text>
-                    ) : null}
+                    <PDFAnnexRef data={data.paginationDocCondPart} style={pdfStyles.mutedText} />
                 </Text>
             ) : null}
             
@@ -59,22 +52,14 @@ const PDFInfoBlock = ({ data, styleBlock }) => {
             {formData.numeroPVPolice ? (
                 <Text style={pdfStyles.bodyText}>
                     <Text style={pdfStyles.bodyLabel}>N° PV Police :</Text> {formData.numeroPVPolice}{' '}
-                    {data.paginationDocPvPolice ? (
-                        <Text style={pdfStyles.mutedText}>
-                            {data.paginationDocPvPolice}
-                        </Text>
-                    ) : null}
+                    <PDFAnnexRef data={data.paginationDocPvPolice} style={pdfStyles.mutedText} />
                 </Text>
             ) : null}
             
             {formData.numConditionsGenerales ? (
                 <Text style={pdfStyles.bodyText}>
                     <Text style={pdfStyles.bodyLabel}>N° Cond. Générales :</Text> {formData.numConditionsGenerales}{' '}
-                    {data.paginationDocCondGen ? (
-                        <Text style={pdfStyles.mutedText}>
-                            {data.paginationDocCondGen}
-                        </Text>
-                    ) : null}
+                    <PDFAnnexRef data={data.paginationDocCondGen} style={pdfStyles.mutedText} />
                 </Text>
             ) : null}
             

@@ -44,6 +44,12 @@ export const buildPrintReportData = (input) => {
         responsablesIds = []
     } = input;
 
+    // Helper pour générer l'objet { id, text } de référence d'annexe
+    const getAnnexRef = (docId) => {
+        const info = getPaginationInfo(docId);
+        return info ? { id: docId, text: info.text } : null;
+    };
+
     // Calculs de base
     const totalFrais = expenses.reduce((acc, curr) => {
         const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
@@ -102,22 +108,22 @@ export const buildPrintReportData = (input) => {
             formData: { ...formData },
             expertDisplay: formatExpertDisplay(formData.bureau, formData.expertInfos || formData.expert),
             expertContradictoireDisplay: formatExpertDisplay(formData.bureauContradictoire, formData.expertContradictoire),
-            paginationDocMailExpertise: getPaginationInfo('doc_mail_expertise')?.text
+            paginationDocMailExpertise: getAnnexRef('doc_mail_expertise')
         },
         infos: {
             title: blockTitles.infos,
             formData: { ...formData },
             references: [ ...references ],
-            paginationDocMailDeclaration: getPaginationInfo('doc_mail_declaration')?.text,
-            paginationDocCondPart: getPaginationInfo('doc_cond_part')?.text,
-            paginationDocPvPolice: getPaginationInfo('doc_pv_police')?.text,
-            paginationDocCondGen: getPaginationInfo('doc_cond_gen')?.text
+            paginationDocMailDeclaration: getAnnexRef('doc_mail_declaration'),
+            paginationDocCondPart: getAnnexRef('doc_cond_part'),
+            paginationDocPvPolice: getAnnexRef('doc_pv_police'),
+            paginationDocCondGen: getAnnexRef('doc_cond_gen')
         },
         cause: {
             title: blockTitles.cause,
             timeline: causeTimeline.map(item => ({ ...item, content: normalizeMultiline(item.content) })),
             formDataCause: normalizeMultiline(formData.cause),
-            paginationDocRapportCause: getPaginationInfo('doc_rapport_cause')?.text
+            paginationDocRapportCause: getAnnexRef('doc_rapport_cause')
         },
         orga: {
             title: blockTitles.orga,
@@ -175,11 +181,11 @@ export const buildPrintReportData = (input) => {
             occupantsWithPhotos: occupants
                 .filter(o => attachedPhotos && attachedPhotos[o.id] && attachedPhotos[o.id].length > 0)
                 .map(occ => {
-                    const pagInfo = getPaginationInfo('doc_photos_occ_' + occ.id);
+                    const annexeId = 'doc_photos_occ_' + occ.id;
                     return {
                         id: occ.id,
                         nom: occ.nom,
-                        annexReference: pagInfo ? pagInfo.text : null,
+                        annexReference: getAnnexRef(annexeId),
                         imageUuids: (attachedPhotos[occ.id] || []).map(p => p.dbKey).filter(Boolean)
                     };
                 })

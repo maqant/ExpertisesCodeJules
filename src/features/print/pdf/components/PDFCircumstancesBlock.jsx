@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
+import PDFAnnexRef from './PDFAnnexRef';
 
 const PDFCircumstancesBlock = ({ data, styleBlock }) => {
     if (!data) return null;
@@ -65,9 +66,9 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
                 <View wrap>
                     <Text style={pdfStyles.bodyText}>{data.formDataCause || data.texte || ''}</Text>
                     {data.paginationDocRapportCause ? (
-                        <Text style={{ ...pdfStyles.mutedText, marginTop: 2 }}>
-                            {data.paginationDocRapportCause}
-                        </Text>
+                        <View style={{ marginTop: 2 }}>
+                            <PDFAnnexRef data={data.paginationDocRapportCause} style={pdfStyles.mutedText} />
+                        </View>
                     ) : null}
                 </View>
             )}
