@@ -1459,7 +1459,7 @@ export const ExpertiseProvider = ({ children }) => {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `Dossier_${formData.nomResidence || formData.refPechard || 'Expertise'}.pdf`;
+          a.download = `Dossier_${[formData.nomResidence, formData.refPechard].filter(Boolean).join(' ') || 'Expertise'}.pdf`;
           a.click();
           URL.revokeObjectURL(url);
       } catch (err) {
