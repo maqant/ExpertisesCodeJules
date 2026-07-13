@@ -385,6 +385,8 @@ export const ExpertiseProvider = ({ children }) => {
       return () => { window.removeEventListener("mousemove", resize); window.removeEventListener("mouseup", stopResizing); };
   }, [resize, stopResizing]);
 
+  const isLoadedRef = useRef(false);
+
   useEffect(() => {
       const savedExperts = safeRead(STORAGE_KEYS.EXPERTS, []);
       const savedFranchises = safeRead(STORAGE_KEYS.FRANCHISES, []);
@@ -401,9 +403,13 @@ export const ExpertiseProvider = ({ children }) => {
 
       setExpertsList(Array.from(mergedExpertsMap.values()));
       setFranchises(Array.from(new Set([...savedFranchises, ...BUILTIN_FRANCHISES])));
+      
+      // Delay setting isLoadedRef to true until next tick to avoid racing with the second useEffect
+      setTimeout(() => { isLoadedRef.current = true; }, 0);
   }, []);
 
   useEffect(() => {
+      if (!isLoadedRef.current) return;
       safeWrite(STORAGE_KEYS.EXPERTS, expertsList);
       safeWrite(STORAGE_KEYS.FRANCHISES, franchises);
   }, [expertsList, franchises]);
@@ -571,7 +577,12 @@ export const ExpertiseProvider = ({ children }) => {
       setTelemetrySessionId(crypto.randomUUID());
       setCurrentVersion(dossier.version || 0);
       const d = dossier.data;
-      if(d.formData) setFormData(d.formData); 
+      if(d.formData) {
+          if (d.formData.expert && typeof d.formData.expertInfos === 'undefined') {
+              d.formData.expertInfos = d.formData.expert;
+          }
+          setFormData(d.formData); 
+      }
       if(d.blockTitles) {
           const titles = { ...d.blockTitles };
           if (!titles.annexes_libres) titles.annexes_libres = "Annexes Libres";
