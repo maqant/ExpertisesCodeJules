@@ -20,11 +20,15 @@ import PDFAnnexesLibresBlock from './components/PDFAnnexesLibresBlock';
 // Toute modification de l'un impose la modification de l'autre.
 export default function PDFReportDocument({ reportData }) {
   if (!reportData) return null;
-  const blockStyles = reportData?.meta?.styles || {};
-  const metadata = reportData?.metadata || {};
-  
-  // Correction défensive pour showSubtotals (peut venir de plusieurs endroits possibles selon la config)
-  const showSubtotals = metadata?.showSubtotals ?? reportData?.feesOptions?.showSubtotals ?? reportData?.options?.fees?.showSubtotals ?? false;
+
+  const meta = reportData.meta;
+  if (!meta) {
+    console.error('[PDF PARITY AUDIT] reportData.meta absent - adapter défaillant.');
+    return null;
+  }
+
+  const blockStyles = meta.styles || {};
+  const { orgaAdvancedMode = false, showSubtotals = false } = meta;
 
   const renderBlock = (key) => {
     switch (true) {
@@ -37,9 +41,9 @@ export default function PDFReportDocument({ reportData }) {
       case key === 'cause':
         return <PDFCircumstancesBlock key={key} data={reportData?.cause} styleBlock={blockStyles.cause} />;
       case key === 'orga':
-        return <PDFOrganisationBlock key={key} data={reportData?.orga} styleBlock={blockStyles.orga} metadata={metadata} />;
+        return <PDFOrganisationBlock key={key} data={reportData?.orga} styleBlock={blockStyles.orga} orgaAdvancedMode={orgaAdvancedMode} />;
       case key === 'frais':
-        return <PDFFeesTable key={key} data={reportData?.frais} styleBlock={blockStyles.frais} metadata={metadata} />;
+        return <PDFFeesTable key={key} data={reportData?.frais} styleBlock={blockStyles.frais} showSubtotals={showSubtotals} />;
       case key === 'frais_liste':
         return <PDFFeesDetailBlock key={key} data={reportData?.frais} styleBlock={blockStyles.frais_liste || blockStyles.frais} showSubtotals={showSubtotals} />;
       case key === 'photos':

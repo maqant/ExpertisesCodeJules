@@ -50,6 +50,10 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
     };
 
     const renderBlocksInOrder = () => {
+        if (!reportData || !reportData.meta || !reportData.meta.orderedBlocks) return null;
+        const styles = reportData?.meta?.styles || {};
+        const { orgaAdvancedMode = false, showSubtotals = false } = reportData.meta;
+
         return reportData.meta.orderedBlocks.map(key => {
             if (key === 'titre') {
                 return <PrintReportHeader key="titre" data={reportData.titre} styleBlock={styles.titre} />;
@@ -64,13 +68,13 @@ const PrintPreviewWeb = ({ reportData, onPrint, onBack }) => {
                 return <PrintCircumstancesBlock key="cause" data={reportData.cause} styleBlock={styles.cause} />;
             }
             if (key === 'orga') {
-                return <PrintOrganisationBlock key="orga" data={reportData.orga} styleBlock={styles.orga} metadata={reportData.metadata} />;
+                return <PrintOrganisationBlock key="orga" data={reportData.orga} styleBlock={styles.orga} orgaAdvancedMode={orgaAdvancedMode} />;
             }
             if (key === 'frais') {
-                return <PrintFeesTable key="frais" data={reportData.frais} styleBlock={styles.frais} metadata={reportData.metadata} />;
+                return <PrintFeesTable key="frais" data={reportData.frais} styleBlock={styles.frais} showSubtotals={showSubtotals} />;
             }
             if (key === 'frais_liste') {
-                return <PrintFeesDetailBlock key="frais_liste" data={reportData.frais} styleBlock={styles.frais_liste || styles.frais} showSubtotals={reportData.metadata.showSubtotals} />;
+                return <PrintFeesDetailBlock key="frais_liste" data={reportData.frais} styleBlock={styles.frais_liste || styles.frais} showSubtotals={showSubtotals} />;
             }
             if (key === 'photos') {
                 return <PrintImagesBlock key="photos" data={reportData.photos} styleBlock={styles.photos} />;

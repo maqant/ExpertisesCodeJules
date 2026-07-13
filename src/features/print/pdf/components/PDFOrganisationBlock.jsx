@@ -3,11 +3,10 @@ import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, COLORS, solidBorder, pdfStyles, TYPO } from '../pdfStyles';
 
-const PDFOrganisationBlock = ({ data, styleBlock, metadata }) => {
+const PDFOrganisationBlock = ({ data, styleBlock, orgaAdvancedMode }) => {
     if (!data) return null;
 
     const adaptedStyle = adaptBlockStyle(styleBlock);
-    const orgaAdvancedMode = metadata?.orgaAdvancedMode;
 
     const containerStyle = {
         marginBottom: DENSITY.blockGap,

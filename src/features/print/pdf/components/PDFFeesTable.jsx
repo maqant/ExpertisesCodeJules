@@ -7,12 +7,11 @@ import PDFFeesTableFooter from './PDFFeesTableFooter';
 import { formatPDFAmount } from '../pdfFormatUtils';
 import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 
-const PDFFeesTable = ({ data, styleBlock, metadata }) => {
+const PDFFeesTable = ({ data, styleBlock, showSubtotals }) => {
     const lignes = data?.expenses || data?.lignes;
     if (!data || !lignes) return null;
 
     const adaptedStyle = adaptBlockStyle(styleBlock);
-    const showSubtotals = metadata?.showSubtotals;
 
     const containerStyle = {
         marginBottom: DENSITY.blockGap,
