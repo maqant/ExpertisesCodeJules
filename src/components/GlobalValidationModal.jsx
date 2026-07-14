@@ -436,15 +436,15 @@ const GlobalValidationModal = () => {
             formFields: Array.from(selectedFormFields),
             experts: Array.from(selectedExperts),
             references: Array.from(selectedReferences),
-            occupants: Array.from(occActions.entries())
-                .filter(([, action]) => action !== 'ignore')
-                .map(([id, action]) => {
-                    const analysis = occupantAnalysis.find(o => o.id === id);
-                    return { id, action, existingId: analysis?.existingId };
-                }),
-            expenses: Array.from(expActions.entries())
-                .filter(([, action]) => action !== 'ignore')
-                .map(([id]) => id),
+            occupants: occupantAnalysis.map(o => ({
+                id: o.id,
+                action: occActions.get(o.id) || (o.isDuplicate ? 'update' : 'add'),
+                existingId: o.existingId
+            })).filter(o => o.action !== 'ignore'),
+            expenses: expenseAnalysis.map(e => ({
+                id: e.id,
+                action: expActions.get(e.id) || (e.isDuplicate ? 'update' : 'add')
+            })).filter(e => e.action !== 'ignore').map(e => e.id),
             // v5.6.0 - Intervenants sélectionnés (cochés manuellement)
             intervenants: Array.from(selectedIntervenants),
             responsablesIds: Array.from(localResponsablesIds),
@@ -769,6 +769,27 @@ const GlobalValidationModal = () => {
                                                                 </div>
                                                             )}
                                                         </>
+                                                    ) : key === 'expertinfos' ? (
+                                                        <ComboboxField
+                                                            value={displayVal}
+                                                            onChange={(v) => updateFormField(key, v)}
+                                                            onFocus={() => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logFocus(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                const meta = getFieldMeta(key);
+                                                                telemetry.logBlur(
+                                                                    buildTelemetryFieldId({ entityType: 'formData', fieldName: key }), displayVal, false,
+                                                                    { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
+                                                                );
+                                                            }}
+                                                            options={(expertsList || []).map((e, i) => ({ id: `exp_${i}`, label: e.nom }))}
+                                                            className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none"
+                                                        />
                                                     ) : key === 'franchise' ? (
                                                         <ComboboxField
                                                             value={displayVal}
@@ -974,7 +995,7 @@ const GlobalValidationModal = () => {
                                     </div>
                                 )}
                                 {hasOccupants && occupantAnalysis.map(occ => {
-                                    const action = occActions.get(occ.id) || 'add';
+                                    const action = occActions.get(occ.id) || (occ.isDuplicate ? 'update' : 'add');
                                     const isExpanded = expandedOcc.has(occ.id);
                                     const isIgnored = action === 'ignore';
                                     return (
@@ -1103,7 +1124,7 @@ const GlobalValidationModal = () => {
                             </div>
                             <div className="divide-y divide-slate-700/50">
                                 {expenseAnalysis.map(exp => {
-                                    const action = expActions.get(exp.id) || 'add';
+                                    const action = expActions.get(exp.id) || (exp.isDuplicate ? 'update' : 'add');
                                     const isExpanded = expandedExp.has(exp.id);
                                     const isIgnored = action === 'ignore';
                                     const matchedFile = pendingFiles.find(f => f.name === exp.sourceFileName);

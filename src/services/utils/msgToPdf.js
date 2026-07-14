@@ -8,9 +8,107 @@ const BODY_LEADING = 13;
 const BODY_FONT_SIZE = 10;
 const FOOTER_RESERVE = 40;
 
-// pdf-lib + Helvetica ne supporte que WinAnsi. On neutralise le reste.
-const sanitize = (s = '') =>
-  String(s).replace(/\r\n/g, '\n').replace(/[^\x09\x0A\x20-\xFF]/g, '·');
+// ---------------------------------------------------------------------------
+// COUCHE DE SANITIZATION WINANSI (pure, testable unitairement)
+// ---------------------------------------------------------------------------
+// Contexte : pdf-lib + polices standard (Helvetica) = encodage WinAnsi (CP1252).
+// Les .msg mal décodés exposent des points de code C1 (U+0080–U+009F) qui sont
+// en réalité des caractères CP1252 (ex: 0x96 = tiret demi-cadratin "–").
+// Stratégie : (1) NFC, (2) remap C1 -> Unicode CP1252 réel (encodable WinAnsi),
+// (3) whitelist stricte + fallback EXPLICITE (compté, jamais silencieux).
+
+/** Table de correspondance C1 (0x80–0x9F) -> caractère Unicode CP1252 réel. */
+const CP1252_C1_REMAP = {
+  0x80: '\u20AC', // €
+  0x82: '\u201A', 0x83: '\u0192', 0x84: '\u201E', 0x85: '\u2026',
+  0x86: '\u2020', 0x87: '\u2021', 0x88: '\u02C6', 0x89: '\u2030',
+  0x8A: '\u0160', 0x8B: '\u2039', 0x8C: '\u0152', 0x8E: '\u017D',
+  0x91: '\u2018', 0x92: '\u2019', 0x93: '\u201C', 0x94: '\u201D',
+  0x95: '\u2022',
+  0x96: '\u2013', // – (EN DASH — le coupable du bug)
+  0x97: '\u2014', // —
+  0x98: '\u02DC', 0x99: '\u2122', 0x9A: '\u0161', 0x9B: '\u203A',
+  0x9C: '\u0153', 0x9E: '\u017E', 0x9F: '\u0178',
+};
+
+/** Points de code Unicode > 0xFF encodables en WinAnsi (les valeurs du remap). */
+const WINANSI_EXTENDED = new Set(
+  Object.values(CP1252_C1_REMAP).map((c) => c.codePointAt(0))
+);
+
+/** Remplacements de confort pour caractères Unicode fréquents hors WinAnsi. */
+const UNICODE_FALLBACKS = {
+  '\u2010': '-', '\u2011': '-', '\u2012': '-', '\u2015': '-', // variantes de tirets
+  '\u2212': '-',                                              // signe moins
+  '\u00AD': '',                                               // soft hyphen
+  '\u200B': '', '\u200C': '', '\u200D': '', '\uFEFF': '',     // zero-width / BOM
+  '\u2028': '\n', '\u2029': '\n',                             // séparateurs de ligne
+  '\u202F': ' ', '\u2007': ' ', '\u2009': ' ',                // espaces fines
+};
+
+/** Un point de code est-il encodable en WinAnsi ? */
+const isWinAnsiEncodable = (cp) =>
+  (cp >= 0x20 && cp <= 0x7E) ||   // ASCII imprimable
+  (cp >= 0xA0 && cp <= 0xFF) ||   // Latin-1 haut
+  WINANSI_EXTENDED.has(cp);       // extensions CP1252 (–, —, €, …, etc.)
+
+/**
+ * Nettoie une chaîne pour l'encodage WinAnsi de pdf-lib.
+ * PURE et déterministe. Le '\n' est préservé (géré par wrapText).
+ * @param {string} input
+ * @returns {{ text: string, replacedCount: number, replacedChars: string[] }}
+ */
+export function sanitizeWinAnsi(input = '') {
+  const src = String(input).normalize('NFC').replace(/\r\n/g, '\n').replace(/\t/g, '    ');
+  let out = '';
+  let replacedCount = 0;
+  const replacedChars = [];
+
+  for (const ch of src) {
+    let c = ch;
+    const cp0 = c.codePointAt(0);
+
+    // Étape 1 : re-mapping C1 -> CP1252 réel (récupère le caractère voulu)
+    if (cp0 >= 0x80 && cp0 <= 0x9F) {
+      c = CP1252_C1_REMAP[cp0] ?? '';
+      if (c === '') { replacedCount++; replacedChars.push(`U+${cp0.toString(16).toUpperCase()}`); continue; }
+    }
+
+    // Étape 2 : fallbacks de confort pour Unicode hors WinAnsi
+    if (c in UNICODE_FALLBACKS) c = UNICODE_FALLBACKS[c];
+    if (c === '') continue;
+
+    // Étape 3 : whitelist finale
+    const cp = c.codePointAt(0);
+    if (c === '\n' || isWinAnsiEncodable(cp)) {
+      out += c;
+    } else if (cp < 0x20) {
+      // Autres caractères de contrôle : purge silencieuse acceptable (non imprimables)
+      continue;
+    } else {
+      out += '·';
+      replacedCount++;
+      replacedChars.push(`U+${cp.toString(16).toUpperCase()}`);
+    }
+  }
+
+  return { text: out, replacedCount, replacedChars };
+}
+
+/** Wrapper interne : sanitize + traçabilité (jamais de perte muette). */
+const sanitize = (s, context = '') => {
+  const { text, replacedCount, replacedChars } = sanitizeWinAnsi(s);
+  if (replacedCount > 0) {
+    console.warn(
+      `[msgToPdf] ${replacedCount} caractère(s) non encodable(s) WinAnsi remplacé(s)` +
+      (context ? ` (${context})` : '') +
+      ` : ${[...new Set(replacedChars)].join(', ')}`
+    );
+  }
+  return text;
+};
+
+// ---------------------------------------------------------------------------
 
 const stripHtml = (html = '') =>
   html.replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -71,7 +169,7 @@ export async function msgToSinglePagePdf(msgBuffer) {
 
   const drawLine = (label, text, useBold = false) => {
     if (!text) return;
-    const cleanText = sanitize(text);
+    const cleanText = sanitize(text, `en-tête "${label}"`);
     const labelWidth = fontBold.widthOfTextAtSize(label, 11);
     page.drawText(label, { x: MARGIN, y: currentY, size: 11, font: fontBold, color: rgb(0, 0, 0) });
     
@@ -115,7 +213,7 @@ export async function msgToSinglePagePdf(msgBuffer) {
 
   // 2. Corps
   const rawBody = fileData.body || stripHtml(fileData.bodyHTML) || "";
-  const cleanBody = sanitize(rawBody.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim());
+  const cleanBody = sanitize(rawBody.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(), 'corps');
   const bodyLines = wrapText(cleanBody, font, BODY_FONT_SIZE, maxWidth);
 
   const yEnd = MARGIN + FOOTER_RESERVE;
