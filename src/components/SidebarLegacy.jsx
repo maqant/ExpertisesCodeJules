@@ -31,6 +31,7 @@ import BulkProgressToast from './ui/BulkProgressToast.jsx';
 import { DeleteButton } from './ui/DeleteButton.jsx';
 import { ATTACHMENT_TYPES } from '../services/attachmentRegistry.js';
 import ReferenceManagerPanel from './settings/ReferenceManagerPanel.jsx';
+import RoleModelSelectors from './ai/RoleModelSelectors.jsx';
 
 const AttachmentUI = ({ docId, title = "Lier un fichier PDF", onDragFinish, onUpload = null }) => {
     const { attachedFiles, deleteAttachment, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -981,6 +982,13 @@ const SidebarLegacy = () => {
 
                                 <div className="border-t border-slate-700 pt-3 space-y-4">
                                     <h4 className="text-xs font-bold text-slate-300">Processus &amp; Modèles</h4>
+
+                                    <RoleModelSelectors
+                                        roles={aiConfig.roles}
+                                        processOverrides={aiConfig.processOverrides}
+                                        processes={PROCESS_CATALOG}
+                                        onRoleModelChange={(roleId, modelId) => updateAiConfig({ roles: { [roleId]: modelId } })}
+                                    />
                                     
                                     {Object.entries(getProcessesByGroup()).map(([group, processes]) => (
                                         <div key={group} className="space-y-2">
@@ -1035,7 +1043,7 @@ const SidebarLegacy = () => {
                                                                 >
                                                                     {Object.entries(MODEL_CATALOG).map(([id, meta]) => (
                                                                         <option key={id} value={id}>
-                                                                            {meta.label} {!isOverridden && id === resolution.modelId ? '(Modèle Global)' : ''}
+                                                                            {meta.label} {!isOverridden && id === resolution.modelId ? ` (Hérite du rôle : ${MODEL_CATALOG[aiConfig.roles[process.role]]?.label ?? '—'})` : ''}
                                                                         </option>
                                                                     ))}
                                                                 </select>
