@@ -2,6 +2,7 @@ import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import PDFReportDocument from './PDFReportDocument';
 import { resolvePdfImageBlobUrls, revokePdfImageBlobUrls } from './resolvePdfImages';
+import { registerPdfFonts } from './pdfFonts';
 
 export class PdfImageResolutionError extends Error {
   constructor(failures) {
@@ -41,6 +42,9 @@ export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => 
   try {
     // Audit de complétude avant rendu (Parité)
     auditReportParity(resolvedReportData);
+
+    // Enregistrement des polices avant l'instanciation
+    registerPdfFonts();
 
     // 2. Instanciation du document PDF avec les données résolues (Blob URLs)
     const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });

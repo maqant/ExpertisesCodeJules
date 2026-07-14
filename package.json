@@ -1,7 +1,7 @@
 {
   "name": "expertises-code-jules",
   "private": true,
-  "version": "9.4.13",
+  "version": "9.4.14",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/arimo": "^5.2.8",
     "@kenjiuno/msgreader": "^1.28.0",
     "@react-pdf/renderer": "^4.5.1",
     "html2canvas": "^1.4.1",

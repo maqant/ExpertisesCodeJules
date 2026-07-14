@@ -48,6 +48,7 @@ export const typo = (size, ratio = LH_RATIO.body, extra = {}) => {
     console.warn(`[pdfStyles] Warning: ratio (${ratio}) > 2 détecté. Le ratio doit être un multiplicateur unitless (ex: 1.22), pas une valeur absolue en points.`);
   }
   return {
+    fontFamily: 'Arimo',
     fontSize: size,
     lineHeight: ratio,
     ...extra,
