@@ -19,6 +19,7 @@ import { useDatasetStore } from '../store/datasetStore.js';
 import { useFinanceStore } from '../store/financeStore.js';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore.js';
 import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngestionDocumentSet.js';
+import { createIsolatedScope, createMergeScope, assertIsolation, SmartBridgeIsolationError, INGESTION_MODES } from '../services/ingestion/ingestionScope.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
@@ -448,18 +449,15 @@ const SidebarLegacy = () => {
     };
 
     // v7.0.0 - Smart Bridge : analyse TOUS les fichiers d'un coup
-    // Fix étanchéité : on lit la cause DEPUIS ZUSTAND directement (synchrone, pas de closure stale)
-    // Quand ignoreContext=true (nouveau dossier), on garantit un contexte vide.
-    const triggerSmartBridgeAnalysis = async (filesArray, ignoreContext = false, silent = false) => {
+    // Fix étanchéité : on utilise explicitement un Ingestion Scope pour garantir l'isolation
+    const triggerSmartBridgeAnalysis = async (filesArray, scope, { silent = false } = {}) => {
         const allFiles = Array.isArray(filesArray) ? filesArray : [filesArray];
         if (allFiles.length === 0) return;
         if (!silent) setIsAiDossierLoading(true);
         aiBackgroundRunningRef.current = true;
         if (typeof clearDebugLogs === 'function') clearDebugLogs();
 
-        // v7.0.1 - Lire la cause depuis la Ref MAINTENANT (synchrone), pas depuis la closure React
-        // Cela garantit qu'on lit TOUJOURS l'état actuel de la Ref, même après un reset immédiat
-        const currentCause = ignoreContext ? '' : causeRef.current;
+        const currentCause = scope.cause || '';
 
         try {
             if (!isAiModeActive) {
@@ -480,8 +478,16 @@ const SidebarLegacy = () => {
 
             const { files: ingestionFiles, provenance, missingContractualKeys } = await resolveIngestionDocumentSet({
                 droppedFiles: allFiles,
-                attachedFiles: attachedFiles,
+                attachedFiles: scope.attachedFiles || {},
                 contractualKeys: ['doc_cond_part', 'doc_cond_gen'],
+            });
+
+            assertIsolation(scope, provenance);
+            console.info('[SmartBridge][Ingestion]', {
+                mode: scope.mode,
+                droppedCount: filesArray.length,
+                contextAttachedKeys: scope.mode === INGESTION_MODES.MERGE ? Object.keys(scope.attachedFiles ?? {}) : [],
+                provenance
             });
 
             if (typeof addDebugLog === 'function') {
@@ -532,8 +538,13 @@ const SidebarLegacy = () => {
                 setPendingAiData(null);
             }
         } catch (error) {
-            console.error("Critical error in ingestion:", error);
-            alert("Erreur critique lors de l'ingestion.");
+            if (error instanceof SmartBridgeIsolationError) {
+                console.error("Blocage de sécurité SmartBridge :", error);
+                alert("Sécurité : l'analyse a été bloquée pour éviter une contamination entre dossiers. Réessayez le glisser-déposer.");
+            } else {
+                console.error("Critical error in ingestion:", error);
+                alert("Erreur critique lors de l'ingestion.");
+            }
             setPendingAiData(null);
         } finally {
             setIsAiDossierLoading(false);
@@ -2603,7 +2614,7 @@ Objectif :
                 }
                 setBrioOverrides({});
                 brioOverridesRef.current = {};
-                triggerSmartBridgeAnalysis(flowFiles);
+                triggerSmartBridgeAnalysis(flowFiles, createMergeScope({ cause: causeRef.current, attachedFiles }));
                 setIngestionStep(INGESTION_STEPS.GENERAL);
             }}
             onManualSelect={(dossier) => {
@@ -2612,7 +2623,7 @@ Objectif :
                 }
                 setBrioOverrides({});
                 brioOverridesRef.current = {};
-                triggerSmartBridgeAnalysis(flowFiles);
+                triggerSmartBridgeAnalysis(flowFiles, createMergeScope({ cause: causeRef.current, attachedFiles }));
                 setIngestionStep(INGESTION_STEPS.GENERAL);
             }}
             onCreateNew={() => {
@@ -2620,7 +2631,7 @@ Objectif :
                 if (!created) return;
                 setIngestionStep(INGESTION_STEPS.BRIO);
                 // Launch analysis silently in background while user fills Brio!
-                triggerSmartBridgeAnalysis(flowFiles, false, true);
+                triggerSmartBridgeAnalysis(flowFiles, createIsolatedScope(), { silent: true });
             }}
         />
 
