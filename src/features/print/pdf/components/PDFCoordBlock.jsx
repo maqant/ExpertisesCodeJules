@@ -68,9 +68,9 @@ const PDFCoordBlock = ({ data, styleBlock }) => {
                             <Text style={pdfStyles.bodyLabel}>Expert :</Text> {data.expertContradictoireDisplay}
                         </Text>
                     ) : null}
-                    {formData.compteDeContradictoire ? (
+                    {data.compteDeContradictoireDisplay ? (
                         <Text style={pdfStyles.bodyText}>
-                            <Text style={pdfStyles.bodyLabel}>Pour le compte de :</Text> {formData.compteDeContradictoire}
+                            <Text style={pdfStyles.bodyLabel}>Pour le compte de :</Text> {data.compteDeContradictoireDisplay}
                         </Text>
                     ) : null}
                 </View>

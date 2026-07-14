@@ -105,6 +105,7 @@ export const buildPrintReportData = (input) => {
             formData: { ...formData },
             expertDisplay: formatExpertDisplay(formData.bureau, formData.expertInfos ?? formData.expert),
             expertContradictoireDisplay: formatExpertDisplay(formData.bureauContradictoire, formData.expertContradictoire),
+            compteDeContradictoireDisplay: getCompteDeName(formData.compteDeContradictoire, occupants),
             paginationDocMailExpertise: getAnnexRef('doc_mail_expertise')
         },
         infos: {
