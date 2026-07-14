@@ -7,6 +7,7 @@ import { buildOccupantHierarchy } from '../domain/occupantsHierarchy';
 import AcknowledgmentModal from './Post/AcknowledgmentModal';
 import { Mail } from 'lucide-react';
 import { formatExpertiseTitle } from '../utils/titleFormatter';
+import { accumulateFrais, createTotauxAccumulator, parseMontant, normalizeTypeMontant } from '../domain/montantTypes';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -222,18 +223,16 @@ const Workspace = () => {
         const mainExp = expenses.filter(exp => !isExpenseExcludedFromMain(exp));
 
         const total = mainExp.reduce((acc, curr) => {
-            const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-            return acc + (isNaN(val) ? 0 : val);
+            return acc + parseMontant(curr.montant);
         }, 0);
 
         const dettes = expenses.reduce((acc, exp) => {
             const pKey = exp.compteDe || 'Non attribué';
-            if (!acc[pKey]) acc[pKey] = { HTVA: 0, TVAC: 0, Forfait: 0, lignes: [] };
-            acc[pKey].lignes.push(exp);
-            const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
-            if (!isNaN(val)) {
-                acc[pKey][exp.typeMontant || 'HTVA'] += val;
+            if (!acc[pKey]) {
+                acc[pKey] = { ...createTotauxAccumulator(), lignes: [] };
             }
+            acc[pKey].lignes.push(exp);
+            accumulateFrais(acc[pKey], exp.typeMontant, exp.montant, `workspace/${pKey}`);
             return acc;
         }, {});
 
@@ -379,7 +378,7 @@ const Workspace = () => {
                                             {exp.montant ? (
                                                 <>
                                                     <div className="whitespace-nowrap">{exp.montant} €</div>
-                                                    <div className="text-[0.75em] font-normal opacity-80 uppercase">{exp.typeMontant}</div>
+                                                    <div className="text-[0.75em] font-normal opacity-80 uppercase">{normalizeTypeMontant(exp.typeMontant, { silent: true })}</div>
                                                 </>
                                             ) : ''}
                                         </td>
@@ -408,9 +407,14 @@ const Workspace = () => {
                                                 <div className="flex justify-between items-baseline mb-1">
                                                     <h4 className="font-bold underline">{formatShortCompteDe(personneKey)} {isExpertClient ? <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {matchOcc.nomContreExpert || 'Non précisé'})</span> : ''}</h4>
                                                     <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
-                                                        {data.HTVA > 0 && <span>HTVA : {data.HTVA.toFixed(2).replace('.', ',')} €</span>}
-                                                        {data.TVAC > 0 && <span>TVAC : {data.TVAC.toFixed(2).replace('.', ',')} €</span>}
-                                                        {data.Forfait > 0 && <span>Forfait : {data.Forfait.toFixed(2).replace('.', ',')} €</span>}
+                                                        <span className="text-slate-800">Total : {data.totalGlobal.toFixed(2).replace('.', ',')} €</span>
+                                                        <span className="text-xs font-normal ml-3 opacity-70">
+                                                            (dont
+                                                            {data.HTVA > 0 ? ` HTVA: ${data.HTVA.toFixed(2).replace('.', ',')} € ` : ''}
+                                                            {data.TVAC > 0 ? ` TVAC: ${data.TVAC.toFixed(2).replace('.', ',')} € ` : ''}
+                                                            {data.Forfait > 0 ? ` Forfait: ${data.Forfait.toFixed(2).replace('.', ',')} € ` : ''}
+                                                            )
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
@@ -421,7 +425,7 @@ const Workspace = () => {
                                                         const lineIsExpertClient = occForLine?.contreExpert;
                                                         return (
                                                             <li key={i}>
-                                                                {l.prestataire} - {l.desc} ({l.montant || '0'} € {l.typeMontant})
+                                                                {l.prestataire} - {l.desc} ({l.montant || '0'} € {normalizeTypeMontant(l.typeMontant, { silent: true })})
                                                                 {isExcluded && pagInfo && <span className="text-[0.8em] text-slate-500 ml-1 italic">{pagInfo.text}</span>}
                                                                 {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture{l.noteCouverture ? ` : ${l.noteCouverture}` : ''}]</span>}
                                                                 {l.avisCouverture === 'Autre' && l.noteCouverture && <span className="ml-1 italic text-orange-600 text-[0.85em]">Observation : {l.noteCouverture}</span>}

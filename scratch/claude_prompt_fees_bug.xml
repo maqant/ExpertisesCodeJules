@@ -1,0 +1,44 @@
+<project_context>
+Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
+</project_context>
+<initial_user_request>ça ne marche pas. fait un scan total pour voir où est le porblème (le screenshot montre le bloc "Détail des justificatifs par partie" où les totaux sont absents pour certains et affichent toujours HTVA pour d'autres, et certains frais ont le label "TVA" à côté de l'euro)</initial_user_request>
+<business_intent>Corriger l'affichage des totaux par personne dans le bloc "Détail des justificatifs par partie". Assurer que TOUS les frais (même ceux avec un typeMontant non standard comme "TVA" renvoyé par l'IA) sont bien comptabilisés et affichés de façon cohérente, sans produire d'erreurs (NaN).</business_intent>
+<technical_discovery>
+1. Dans `printDataAdapter.js`, `typeMontant` n'est accumulé que s'il vaut 'HTVA', 'TVAC' ou 'Forfait'. Si l'IA renvoie 'TVA', le montant est ignoré, donc Total = 0.
+2. Dans `Workspace.jsx`, `acc[pKey][exp.typeMontant || 'HTVA'] += val;` provoque un `NaN` si `typeMontant` n'est pas initialisé dans `acc[pKey]`.
+3. `PrintFeesDetailBlock.jsx` et `PDFFeesDetailBlock.jsx` n'ont pas été mis à jour pour afficher le Total global par personne, ils affichent toujours les ventilations isolées (HTVA, TVAC, etc).
+</technical_discovery>
+<current_architecture_and_code>
+<file path="src/features/print/printDataAdapter.js"><role>Formatage données pour le rapport</role><relevance>Accumulation des dettes</relevance><full_source_code>
+</full_source_code></file>
+<file path="src/components/Workspace.jsx"><role>Tableau de bord Workspace</role><relevance>Calculs internes, bug NaN</relevance><full_source_code>
+</full_source_code></file>
+<file path="src/features/print/web/PrintFeesDetailBlock.jsx"><role>Vue détails frais Web</role><relevance>N'affiche pas le Total</relevance><full_source_code>
+</full_source_code></file>
+</current_architecture_and_code>
+<code_collection_issue>
+<file path="src/features/print/printDataAdapter.js"><reason>Trop long, inspection locale faite.</reason><known_partial_information>Accumulation conditionnée stricte.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+<file path="src/components/Workspace.jsx"><reason>Trop long.</reason><known_partial_information>`acc[pKey][exp.typeMontant || 'HTVA'] += val` donne NaN.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+<file path="src/features/print/web/PrintFeesDetailBlock.jsx"><reason>Limitation d'inclusion complète.</reason><known_partial_information>Gère `htvaNum`, `tvacNum` séparément, ne montre pas de Total en haut.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+</code_collection_issue>
+<related_files_not_fully_included>src/features/print/pdf/components/PDFFeesDetailBlock.jsx: Doit rester en parité avec PrintFeesDetailBlock.</related_files_not_fully_included>
+<current_problem_analysis>
+1. Normalisation manquante : L'IA peut générer 'TVA' ou d'autres variantes pour `typeMontant`.
+2. Conséquence 1 : NaN dans `Workspace.jsx` et rupture silencieuse.
+3. Conséquence 2 : Total = 0 dans `printDataAdapter.js` et disparition des frais dans le rapport pour cette personne.
+4. Affichage : Les blocs "Detail" (Web et PDF) ne montrent toujours pas le "Total" contrairement aux blocs "Table" mis à jour précédemment.
+</current_problem_analysis>
+<proposed_technical_paths>
+Option A: Normaliser au plus tôt (dans `aiManager.js` ou store) pour forcer 'HTVA', 'TVAC', 'Forfait'.
+Option B: Normaliser défensivement à la lecture (dans `printDataAdapter.js` et `Workspace.jsx`) en associant tout inconnu à 'HTVA'.
+Option C: Implémenter B (patch rapide et résilient) ET A (correction à la source). Mettre à jour les blocs "Detail" pour afficher le Total.
+</proposed_technical_paths>
+<architect_questions_for_claude>
+1 Quelle est la meilleure option pour la normalisation de `typeMontant` face aux hallucinations de l'IA ?
+2 Comment restructurer l'entête des personnes dans `PrintFeesDetailBlock` / `PDFFeesDetailBlock` pour montrer le Total, comme on l'a fait pour les Table ?
+3 Le fix doit-il toucher le store existant pour réparer les données rétroactivement ?
+</architect_questions_for_claude>
+<directive>
+Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.
+1 Challenge: vrai logiciel modulaire ou rustine? 2 Audit: typage, erreurs, couplage, état, appels IA, config, sécurité, maintenabilité, lisibilité, testabilité, UX, métier, rétrocompatibilité, risques fichiers incomplets. 3 Décide clairement; impose mieux si besoin; ne donne pas de patch final pour fichier déclaré incomplet. 4 Fournis IMPLEMENTATION_INSTRUCTIONS_FOR_GEMINI avec ordre exact, fichiers à créer/modifier/ne pas modifier sans inspection complète, fonctions, imports, état React, UI, validations, erreurs, migrations localStorage, comportements à préserver, pièges, non-régression. 5 Code final uniquement pour fichiers complets; sinon composant isolé/structure cible/patch conceptuel. 6 Checklist: tests manuels/techniques, cas limites, UX, métier, non-régression, vérification fichiers incomplets. Critère: fiabilité rapport améliorée, couplage réduit, impacts visibles, erreurs silencieuses évitées, extension future préparée.
+</directive>

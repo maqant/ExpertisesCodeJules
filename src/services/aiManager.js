@@ -22,6 +22,7 @@
 export { fileToBase64, pdfToBase64Images, pdfExtractHybrid } from './utils/pdfUtils.js';
 export { extractValidAttachmentsFromMsg, parseMsgFile } from './utils/msgUtils.js';
 export { normalizeDate, processInParallelBatches, buildContentArrayParallel, resolveFranchiseLegale, withRetry } from './utils/aiHelpers.js';
+import { normalizeTypeMontant } from '../domain/montantTypes';
 
 // Agents spécialisés
 export { routeDocuments } from './agents/router.js';
@@ -386,7 +387,8 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
                     parsedData.expenses = parsedData.expenses.map(exp => ({
                         ...exp,
                         id: crypto.randomUUID(),
-                        compteDe: exp.compteDe || "unassigned" // Sécurité
+                        compteDe: exp.compteDe || "unassigned", // Sécurité
+                        typeMontant: normalizeTypeMontant(exp.typeMontant, { context: 'ingestion-ia' })
                     }));
                 }
 

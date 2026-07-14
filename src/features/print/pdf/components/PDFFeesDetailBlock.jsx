@@ -11,6 +11,7 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
     if (decomptes.length === 0 && data.dettesParPersonne) {
         decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
             compteDeCourt: d.compteDeFormatted || personne,
+            totalFormate: formatPDFAmount(d.Total || d.totalGlobal || 0),
             htvaFormate: formatPDFAmount(d.HTVA),
             tvacFormate: formatPDFAmount(d.TVAC),
             forfaitFormate: formatPDFAmount(d.Forfait),
@@ -66,12 +67,19 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                                     ) : null}
                                 </View>
                                 
-                                <View style={{ flexDirection: 'row', fontWeight: 'bold', color: '#475569', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.9 }}>
-                                    {dec.htvaNum > 0 ? <Text style={{ marginLeft: 6 }}>HTVA : {dec.htvaFormate} €</Text> : null}
-                                    {dec.tvacNum > 0 ? <Text style={{ marginLeft: 6 }}>TVAC : {dec.tvacFormate} €</Text> : null}
-                                    {dec.forfaitNum > 0 ? <Text style={{ marginLeft: 6 }}>Forfaits : {dec.forfaitFormate} €</Text> : null}
+                                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                                    <Text style={{ fontWeight: 'bold', color: '#1e293b', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.9 }}>
+                                        Total : {dec.totalFormate} €
+                                    </Text>
+                                    <Text style={{ color: '#475569', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.75, marginLeft: 6 }}>
+                                        (dont
+                                        {dec.htvaNum > 0 ? ` HTVA : ${dec.htvaFormate} € ` : ''}
+                                        {dec.tvacNum > 0 ? ` TVAC : ${dec.tvacFormate} € ` : ''}
+                                        {dec.forfaitNum > 0 ? ` Forfait : ${dec.forfaitFormate} € ` : ''}
+                                        )
+                                    </Text>
                                     {dec.franchiseNum !== 0 ? (
-                                        <Text style={{ color: '#6b21a8', marginLeft: 6 }}>Franchise : {dec.franchiseFormate} €</Text>
+                                        <Text style={{ color: '#6b21a8', fontWeight: 'bold', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.9, marginLeft: 6 }}>Franchise : {dec.franchiseFormate} €</Text>
                                     ) : null}
                                 </View>
                             </View>
@@ -81,7 +89,7 @@ const PDFFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                                     <View key={j} style={{ flexDirection: 'row', marginBottom: 2 }} wrap={false}>
                                         <Text style={{ marginRight: 4 }}>•</Text>
                                         <Text style={{ flex: 1, lineHeight: DENSITY.lineHeight }}>
-                                            {l.prestataire} - {l.desc} ({l.montantFormate || formatPDFAmount(l.montant) || '0'} € {l.typeMontantBrut || l.typeMontant})
+                                            {l.prestataire} - {l.desc} ({l.montantFormate || formatPDFAmount(l.montant) || '0'} € {l.typeMontantNormalise || l.typeMontant})
                                             {l.avisCouverture === 'Non' ? (
                                                 <Text style={{ color: '#dc2626', fontWeight: 'bold', fontSize: (adaptedStyle.fontSize || DENSITY.fontBase) * 0.85, marginLeft: 3 }}>
                                                     {' '}[Pas de couverture]

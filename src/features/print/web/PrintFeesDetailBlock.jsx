@@ -8,6 +8,7 @@ const PrintFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
     if (decomptes.length === 0 && data.dettesParPersonne) {
         decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
             compteDeCourt: d.compteDeFormatted || personne,
+            totalFormate: formatPDFAmount(d.Total || d.totalGlobal || 0),
             htvaFormate: formatPDFAmount(d.HTVA),
             tvacFormate: formatPDFAmount(d.TVAC),
             forfaitFormate: formatPDFAmount(d.Forfait),
@@ -36,16 +37,21 @@ const PrintFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                                     {dec.isExpertClient && <span className="text-green-700 text-[0.8em] font-normal no-underline ml-1">(Expert client : {dec.nomContreExpert || 'Non précisé'})</span>}
                                 </h4>
                                 <div className="text-[0.9em] font-bold text-slate-600 space-x-3">
-                                    {dec.htvaNum > 0 && <span>HTVA : {dec.htvaFormate} €</span>}
-                                    {dec.tvacNum > 0 && <span>TVAC : {dec.tvacFormate} €</span>}
-                                    {dec.forfaitNum > 0 && <span>Forfaits accordés : {dec.forfaitFormate} €</span>}
-                                    {dec.franchiseNum !== 0 && <span className="text-purple-800 font-black">Franchise contractuelle : {dec.franchiseFormate} €</span>}
+                                    <span className="text-slate-800">Total : {dec.totalFormate} €</span>
+                                    <span className="text-xs font-normal ml-3 opacity-70">
+                                        (dont
+                                        {dec.htvaNum > 0 ? ` HTVA : ${dec.htvaFormate} € ` : ''}
+                                        {dec.tvacNum > 0 ? ` TVAC : ${dec.tvacFormate} € ` : ''}
+                                        {dec.forfaitNum > 0 ? ` Forfait : ${dec.forfaitFormate} € ` : ''}
+                                        )
+                                    </span>
+                                    {dec.franchiseNum !== 0 && <span className="text-purple-800 font-black ml-3">Franchise contractuelle : {dec.franchiseFormate} €</span>}
                                 </div>
                             </div>
                             <ul className="list-disc pl-5 text-[0.9em] space-y-1 mt-1">
                                 {dec.lignes.map((l, i) => (
                                     <li key={i}>
-                                        {l.prestataire} - {l.desc} ({l.montantFormate || '0'} € {l.typeMontantBrut || l.typeMontant})
+                                        {l.prestataire} - {l.desc} ({l.montantFormate || l.montant || '0'} € {l.typeMontantNormalise || l.typeMontant})
                                         {l.avisCouverture === 'Non' && <span className="ml-1 not-italic font-bold text-red-600 text-[0.85em]">[Pas de couverture]</span>}
                                     </li>
                                 ))}

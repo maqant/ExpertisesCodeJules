@@ -1,6 +1,7 @@
 import { getCompteDeName, findOccByCompteDe, fmtOccName, formatExpertDisplay } from '../../utils/formatters';
 import { buildOccupantHierarchy } from '../../domain/occupantsHierarchy';
 import { formatExpertiseTitle } from '../../utils/titleFormatter';
+import { accumulateFrais, createTotauxAccumulator, normalizeTypeMontant, parseMontant } from '../../domain/montantTypes';
 
 /**
  * Normalise un texte multiligne issu de données déstructurées.
@@ -52,24 +53,19 @@ export const buildPrintReportData = (input) => {
 
     // Calculs de base
     const totalFrais = expenses.reduce((acc, curr) => {
-        const val = parseFloat((curr.montant || '0').toString().replace(',', '.'));
-        return acc + (isNaN(val) ? 0 : val);
+        return acc + parseMontant(curr.montant);
     }, 0);
 
     const dettesParPersonne = expenses.reduce((acc, exp) => {
         const p = getCompteDeName(exp.compteDe, occupants);
-        if (!acc[p]) acc[p] = { HTVA: 0, TVAC: 0, Forfait: 0, Franchise: 0, lignes: [] };
-        const val = parseFloat((exp.montant || '0').toString().replace(',', '.'));
-        const safeVal = isNaN(val) ? 0 : val;
+        if (!acc[p]) {
+            acc[p] = { ...createTotauxAccumulator(), Franchise: 0, lignes: [] };
+        }
         
         if (exp.isFranchise) {
-            acc[p].Franchise += safeVal;
-        } else if (exp.typeMontant === 'HTVA') {
-            acc[p].HTVA += safeVal;
-        } else if (exp.typeMontant === 'TVAC') {
-            acc[p].TVAC += safeVal;
-        } else if (exp.typeMontant === 'Forfait') {
-            acc[p].Forfait += safeVal;
+            acc[p].Franchise += parseMontant(exp.montant);
+        } else {
+            accumulateFrais(acc[p], exp.typeMontant, exp.montant, `adapter/${p}`);
         }
         
         acc[p].lignes.push(exp);
@@ -150,8 +146,7 @@ export const buildPrintReportData = (input) => {
                 const htva = data.HTVA || 0;
                 const tvac = data.TVAC || 0;
                 const forfait = data.Forfait || 0;
-                // La franchise n'est pas incluse dans le total des frais à payer
-                const total = htva + tvac + forfait;
+                const total = data.totalGlobal || 0;
                 const aVentilation = [htva, tvac, forfait].filter(n => n !== 0).length >= 2;
 
                 acc[personne] = {
@@ -175,11 +170,13 @@ export const buildPrintReportData = (input) => {
                     TVAC: data.TVAC,
                     Forfait: data.Forfait,
                     Franchise: data.Franchise,
+                    Total: data.totalGlobal || 0,
                     lignes: data.lignes.map(l => ({
                         prestataire: l.prestataire,
                         desc: normalizeMultiline(l.desc),
                         montant: l.montant,
                         typeMontant: l.typeMontant,
+                        typeMontantNormalise: normalizeTypeMontant(l.typeMontant, { silent: true }),
                         avisCouverture: l.avisCouverture
                     }))
                 };
