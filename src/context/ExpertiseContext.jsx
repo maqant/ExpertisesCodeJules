@@ -1287,7 +1287,7 @@ export const ExpertiseProvider = ({ children }) => {
               formData, blockTitles, references, occupants, expenses,
               customBlocks, styles, showSubtotals, orgaAdvancedMode,
               getSortedBlocks, getPaginationInfo, causeTimeline,
-              intervenantsList, attachedPhotos, responsablesIds
+              intervenantsList, attachedPhotos, responsablesIds, dynamicFreeAnnexes
           });
 
           let pass1 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });
@@ -1314,7 +1314,7 @@ export const ExpertiseProvider = ({ children }) => {
               getSortedBlocks, 
               getPaginationInfo: (docId, forcedLabel) => getPaginationInfo(docId, forcedLabel, selectedKeys, actualCoverPages), 
               causeTimeline,
-              intervenantsList, attachedPhotos, responsablesIds
+              intervenantsList, attachedPhotos, responsablesIds, dynamicFreeAnnexes
           });
 
           let pass2 = await generatePdfReportBlob({ reportData, fetchBlobByUuid: fetchBlob });

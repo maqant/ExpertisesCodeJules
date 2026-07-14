@@ -42,7 +42,8 @@ export const buildPrintReportData = (input) => {
         causeTimeline = [],
         intervenantsList = [],
         attachedPhotos = {},
-        responsablesIds = []
+        responsablesIds = [],
+        dynamicFreeAnnexes = []
     } = input;
 
     // Helper pour générer l'objet { id, text } de référence d'annexe
@@ -199,6 +200,18 @@ export const buildPrintReportData = (input) => {
         divers: {
             title: blockTitles.divers,
             formDataDivers: normalizeMultiline(formData.divers)
+        },
+        annexesLibres: {
+            title: blockTitles.annexes_libres || "Annexes supplémentaires",
+            annexes: dynamicFreeAnnexes.map(file => {
+                const docName = file.customName || file.name;
+                const pagInfo = getPaginationInfo(file.id, docName);
+                return {
+                    id: file.id,
+                    nom: docName,
+                    description: pagInfo ? `Voir annexe n°${pagInfo.num} (Page ${pagInfo.startPage})` : ''
+                };
+            })
         },
         customBlocks: customBlocks.map(b => ({ ...b }))
     };

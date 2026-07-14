@@ -12,7 +12,7 @@ const PrintPreview = () => {
         setIsPreviewMode, formData, blockTitles, references, occupants, expenses,
         customBlocks, styles, showSubtotals, orgaAdvancedMode,
         getSortedBlocks, getPaginationInfo, causeTimeline,
-        intervenantsList, telemetry, attachedPhotos
+        intervenantsList, telemetry, attachedPhotos, dynamicFreeAnnexes
     } = context;
 
     const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
@@ -21,7 +21,7 @@ const PrintPreview = () => {
         formData, blockTitles, references, occupants, expenses,
         customBlocks, styles, showSubtotals, orgaAdvancedMode,
         getSortedBlocks, getPaginationInfo, causeTimeline,
-        intervenantsList, attachedPhotos, responsablesIds
+        intervenantsList, attachedPhotos, responsablesIds, dynamicFreeAnnexes
     });
 
     const handleBack = () => {
