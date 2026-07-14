@@ -25,6 +25,9 @@ const PDFFeesTable = ({ data, styleBlock, showSubtotals }) => {
         decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
             compteDeCourt: d.compteDeFormatted || personne,
             htvaFormate: formatPDFAmount(d.HTVA),
+            totalFormate: formatPDFAmount(d.Total),
+            tvacFormate: formatPDFAmount(d.TVAC),
+            forfaitFormate: formatPDFAmount(d.Forfait),
             ...d
         }));
     }
@@ -62,11 +65,22 @@ const PDFFeesTable = ({ data, styleBlock, showSubtotals }) => {
 
             {(showSubtotals && decomptes.length > 0) ? (
                 <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#cbd5e1' }} wrap={false}>
-                    <Text style={{ ...TYPO.bodyBold, marginBottom: 4 }}>Décompte par partie impliquée (HTVA) :</Text>
+                    <Text style={{ ...TYPO.bodyBold, marginBottom: 4 }}>Décompte par partie impliquée (total) :</Text>
                     {decomptes.map((dec) => (
-                        <View key={dec.compteDeCourt} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%', marginBottom: 2 }}>
-                            <Text style={{ ...TYPO.body, color: '#334155' }}>- {dec.compteDeCourt}</Text>
-                            <Text style={{ ...TYPO.bodyBold }}>{dec.htvaFormate} €</Text>
+                        <View key={dec.compteDeCourt} style={{ flexDirection: 'column', width: '100%', marginBottom: 4 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '70%' }}>
+                                <Text style={{ ...TYPO.body, color: '#334155' }}>- {dec.compteDeCourt}</Text>
+                                <Text style={{ ...TYPO.bodyBold }}>{dec.totalFormate} €</Text>
+                            </View>
+                            {dec.aVentilation && (
+                                <Text style={{ ...TYPO.caption, color: '#64748b', marginLeft: 10, marginTop: 1 }}>
+                                    dont {[
+                                        dec.HTVA ? `${dec.htvaFormate} € HTVA` : null,
+                                        dec.TVAC ? `${dec.tvacFormate} € TVAC` : null,
+                                        dec.Forfait ? `${dec.forfaitFormate} € forfait` : null
+                                    ].filter(Boolean).join(' · ')}
+                                </Text>
+                            )}
                         </View>
                     ))}
                 </View>

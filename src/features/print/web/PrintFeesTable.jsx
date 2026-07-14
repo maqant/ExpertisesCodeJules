@@ -3,9 +3,22 @@ import PrintReportSection from './PrintReportSection';
 import PrintFeesTableHeader from './PrintFeesTableHeader';
 import PrintFeesTableRow from './PrintFeesTableRow';
 import PrintFeesTableFooter from './PrintFeesTableFooter';
+import { formatPDFAmount } from '../pdf/pdfFormatUtils';
 
 const PrintFeesTable = ({ data, styleBlock, showSubtotals }) => {
     if (!data) return null;
+
+    let decomptes = data.decomptes || [];
+    if (decomptes.length === 0 && data.dettesParPersonne) {
+        decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
+            compteDeCourt: d.compteDeFormatted || personne,
+            htvaFormate: formatPDFAmount(d.HTVA),
+            totalFormate: formatPDFAmount(d.Total),
+            tvacFormate: formatPDFAmount(d.TVAC),
+            forfaitFormate: formatPDFAmount(d.Forfait),
+            ...d
+        }));
+    }
 
     return (
         <PrintReportSection styleBlock={styleBlock} className="relative z-10">
@@ -27,14 +40,25 @@ const PrintFeesTable = ({ data, styleBlock, showSubtotals }) => {
                 </tbody>
             </table>
             
-            {showSubtotals && data.decomptes && data.decomptes.length > 0 && (
+            {showSubtotals && decomptes.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-slate-300 text-slate-700 break-inside-avoid" style={{ fontSize: `${styleBlock?.fontSize || 12}px` }}>
-                    <p className="font-bold mb-2">Décompte par partie impliquée (HTVA) :</p>
+                    <p className="font-bold mb-2">Décompte par partie impliquée (total) :</p>
                     <ul className="list-none m-0 p-0 space-y-1">
-                        {data.decomptes.map((dec) => (
-                            <li key={dec.compteDeCourt} className="flex justify-between w-2/3">
-                                <span>- {dec.compteDeCourt}</span>
-                                <span className="font-bold">{dec.htvaFormate} €</span>
+                        {decomptes.map((dec) => (
+                            <li key={dec.compteDeCourt} className="flex flex-col w-full mb-1">
+                                <div className="flex justify-between w-2/3">
+                                    <span>- {dec.compteDeCourt}</span>
+                                    <span className="font-bold">{dec.totalFormate || dec.htvaFormate} €</span>
+                                </div>
+                                {dec.aVentilation && (
+                                    <div className="text-[10px] text-slate-500 ml-4 mt-0.5">
+                                        dont {[
+                                            dec.HTVA ? `${dec.htvaFormate} € HTVA` : null,
+                                            dec.TVAC ? `${dec.tvacFormate} € TVAC` : null,
+                                            dec.Forfait ? `${dec.forfaitFormate} € forfait` : null
+                                        ].filter(Boolean).join(' · ')}
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>

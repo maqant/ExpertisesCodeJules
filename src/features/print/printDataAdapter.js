@@ -147,8 +147,17 @@ export const buildPrintReportData = (input) => {
                 };
             }),
             dettesParPersonne: Object.entries(dettesParPersonne).reduce((acc, [personne, data]) => {
+                const htva = data.HTVA || 0;
+                const tvac = data.TVAC || 0;
+                const forfait = data.Forfait || 0;
+                // La franchise n'est pas incluse dans le total des frais à payer
+                const total = htva + tvac + forfait;
+                const aVentilation = [htva, tvac, forfait].filter(n => n !== 0).length >= 2;
+
                 acc[personne] = {
                     ...data,
+                    Total: total,
+                    aVentilation,
                     compteDeFormatted: formatShortCompteDe(personne)
                 };
                 return acc;

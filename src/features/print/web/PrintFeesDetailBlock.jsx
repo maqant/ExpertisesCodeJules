@@ -1,8 +1,26 @@
 import React from 'react';
+import { formatPDFAmount } from '../pdf/pdfFormatUtils';
 
 const PrintFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
     if (!data) return null;
-    if (!showSubtotals || data.decomptes.length === 0) return null;
+
+    let decomptes = data.decomptes || [];
+    if (decomptes.length === 0 && data.dettesParPersonne) {
+        decomptes = Object.entries(data.dettesParPersonne).map(([personne, d]) => ({
+            compteDeCourt: d.compteDeFormatted || personne,
+            htvaFormate: formatPDFAmount(d.HTVA),
+            tvacFormate: formatPDFAmount(d.TVAC),
+            forfaitFormate: formatPDFAmount(d.Forfait),
+            franchiseFormate: formatPDFAmount(d.Franchise),
+            htvaNum: d.HTVA || 0,
+            tvacNum: d.TVAC || 0,
+            forfaitNum: d.Forfait || 0,
+            franchiseNum: d.Franchise || 0,
+            ...d
+        }));
+    }
+
+    if (!showSubtotals || decomptes.length === 0) return null;
 
     return (
         <div className="mb-6 break-inside-avoid relative z-10" style={{ fontSize: `${styleBlock?.fontSize || 12}px`, color: styleBlock?.color || '#000', fontFamily: styleBlock?.fontFamily || 'Arial', textAlign: 'left' }}>
@@ -10,7 +28,7 @@ const PrintFeesDetailBlock = ({ data, styleBlock, showSubtotals }) => {
                 <p className="font-bold mb-0">Détail des justificatifs par partie</p>
                 <p className="text-[0.85em] text-slate-500 italic mb-2">Inclut l'intégralité des pièces reçues, y compris les éléments non retenus ou hors garanties.</p>
                 <div className="space-y-4">
-                    {data.decomptes.map((dec) => (
+                    {decomptes.map((dec) => (
                         <div key={dec.compteDeCourt} className="bg-slate-50 p-2 rounded border border-slate-200 break-inside-avoid">
                             <div className="flex justify-between items-baseline mb-1">
                                 <h4 className="font-bold underline">
