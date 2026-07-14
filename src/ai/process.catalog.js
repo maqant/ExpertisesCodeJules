@@ -29,7 +29,7 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'brio_summary',    label: 'Résumé Brio',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_brio_prep', hint: 'Préparation du résumé Brio.' },
     { id: 'final_document',  label: 'Document final',      group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Assemblage du rapport d\'expertise final.' },
     { id: 'ar_modal',        label: 'Accusé de Réception',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_generator', hint: 'Génération de la modale AR.' },
-    { id: 'ar_nano',         label: 'Nano Cause AR',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.4-nano',        promptKey: 'prompt_ar_nano',      hint: 'Micro-analyse IA de la cause pour l\'AR (une phrase ciblée).' },
+    { id: 'ar_nano',         label: 'Nano Cause AR',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.6-luna',        promptKey: 'prompt_ar_nano',      hint: 'Micro-analyse IA de la cause pour l\'AR (une phrase ciblée).' },
     { id: 'ar_finisher',     label: 'IA Balais AR',           group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_finisher',  hint: 'Naturalisation du mail AR généré pour un rendu humain.' },
 
     // --- Affinage / Reformulation ---
@@ -37,7 +37,7 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'modify_email',    label: 'Retouche e-mail libre',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_email_modifiers', hint: 'Retouche itérative d\'un e-mail.' },
 
     // --- Affinage / Reformulation ---
-    { id: 'agent_router',    label: 'Agent Routeur',       group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.4-nano', promptKey: 'ROUTER', hint: 'Triage initial rapide des données.' },
+    { id: 'agent_router',    label: 'Agent Routeur',       group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna', promptKey: 'ROUTER', hint: 'Triage initial rapide des données.' },
     { id: 'agent_merger',    label: 'Agent Merger',        group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'MERGER', hint: 'Déduplication finale.' },
     { id: 'agent_fallback',  label: 'Agent Balai',         group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FALLBACK', hint: 'Récupération des trous vitaux.' },
     { id: 'manual_refine',   label: 'Reformulation manuelle', group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'REFINE_REWRITE', hint: 'Reformulation à la demande de l\'utilisateur.' },

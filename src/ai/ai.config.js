@@ -1,11 +1,10 @@
 // src/ai/ai.config.js
-import { AI_ROLES, AI_ROLE_META, isValidModelId, AI_PROVIDERS, BASE_DEFAULT_MODEL } from './ai.catalog.js';
+import { AI_ROLES, AI_ROLE_META, isValidModelId, AI_PROVIDERS, BASE_DEFAULT_MODEL, DEFAULT_ROLE_MODELS } from './ai.catalog.js';
 
 export const TEMPERATURE_BOUNDS = Object.freeze({ min: 0, max: 1, step: 0.05 });
 
-// Version de migration. Tout cache antérieur déclenche la re-validation
-// des modèles : tout ID absent du catalogue courant retombe sur BASE_DEFAULT_MODEL.
-export const AI_CONFIG_VERSION = 3;
+// v4 : introduction GPT-5.6 (Terra/Luna/Sol) + purge validée des processOverrides.
+export const AI_CONFIG_VERSION = 4;
 
 export const buildDefaultAiConfig = () => ({
     __configVersion: AI_CONFIG_VERSION,
@@ -13,9 +12,9 @@ export const buildDefaultAiConfig = () => ({
     provider: AI_PROVIDERS.OPENAI,
     parameters: { temperature: 0.1 },
     roles: {
-        [AI_ROLES.EXTRACTION]: BASE_DEFAULT_MODEL,
-        [AI_ROLES.SYNTHESIS]: BASE_DEFAULT_MODEL,
-        [AI_ROLES.REFINEMENT]: BASE_DEFAULT_MODEL,
+        [AI_ROLES.EXTRACTION]: DEFAULT_ROLE_MODELS[AI_ROLES.EXTRACTION],
+        [AI_ROLES.SYNTHESIS]: DEFAULT_ROLE_MODELS[AI_ROLES.SYNTHESIS],
+        [AI_ROLES.REFINEMENT]: DEFAULT_ROLE_MODELS[AI_ROLES.REFINEMENT],
     },
 });
 
@@ -45,14 +44,23 @@ export const sanitizeAiConfig = (raw) => {
         }
     }
 
+    let sanitizedOverrides = {};
+    if (raw.processOverrides && typeof raw.processOverrides === 'object') {
+        for (const [procId, modelId] of Object.entries(raw.processOverrides)) {
+            if (isValidModelId(modelId)) {
+                sanitizedOverrides[procId] = modelId;
+            } else {
+                console.warn(`[ai.config] Purge de l'override obsolète pour ${procId}: modèle "${modelId}" inconnu.`);
+            }
+        }
+    }
+
     return {
         __configVersion: AI_CONFIG_VERSION,
         apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : def.apiKey,
         provider: typeof raw.provider === 'string' ? raw.provider : def.provider,
         parameters: { temperature: validTemp },
         roles,
-        processOverrides: raw.processOverrides && typeof raw.processOverrides === 'object'
-            ? raw.processOverrides
-            : {}
+        processOverrides: sanitizedOverrides
     };
 };

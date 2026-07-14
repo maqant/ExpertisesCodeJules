@@ -5,8 +5,34 @@ export const AI_PROVIDERS = Object.freeze({
 });
 
 export const MODEL_CATALOG = Object.freeze({
+    // --- GPT-5.6 (génération courante) ---
+    'gpt-5.6-terra': {
+        id: 'gpt-5.6-terra',
+        apiModel: 'gpt-5.6-terra',
+        label: 'GPT-5.6 Terra (Extraction avancée)',
+        provider: AI_PROVIDERS.OPENAI,
+        group: 'GPT-5.6',
+        capabilities: { supportsTemperature: false, supportsJsonSchema: true, defaultMaxTokens: 16384, usesMaxCompletionTokens: true },
+    },
+    'gpt-5.6-luna': {
+        id: 'gpt-5.6-luna',
+        apiModel: 'gpt-5.6-luna',
+        label: 'GPT-5.6 Luna (Ultra Rapide)',
+        provider: AI_PROVIDERS.OPENAI,
+        group: 'GPT-5.6',
+        capabilities: { supportsTemperature: false, supportsJsonSchema: true, defaultMaxTokens: 4096, usesMaxCompletionTokens: true },
+    },
+    'gpt-5.6-sol': {
+        id: 'gpt-5.6-sol',
+        apiModel: 'gpt-5.6-sol',
+        label: 'GPT-5.6 Sol (Raisonnement profond)',
+        provider: AI_PROVIDERS.OPENAI,
+        group: 'GPT-5.6',
+        capabilities: { supportsTemperature: false, supportsJsonSchema: true, defaultMaxTokens: 32768, usesMaxCompletionTokens: true },
+    },
+
+    // --- GPT-5 (conservés : rétrocompatibilité des configs stockées) ---
     'gpt-5.5': {
-        id: 'gpt-5.5',
         apiModel: 'gpt-5.5-2026-04-23',
         label: 'GPT-5.5 (Deep Thinking)',
         provider: AI_PROVIDERS.OPENAI,
@@ -39,7 +65,16 @@ export const AI_ROLES = Object.freeze({
     REFINEMENT: 'refinement',
 });
 
-export const BASE_DEFAULT_MODEL = 'gpt-5.4';
+// Sentinelle générique : sert AUSSI de pivot dans resolveModelForProcess (étape 2).
+// Ne jamais mettre ce modèle en dur ailleurs.
+export const BASE_DEFAULT_MODEL = 'gpt-5.6-terra';
+
+// Défauts par rôle pour les NOUVELLES configs (les configs stockées valides sont conservées).
+export const DEFAULT_ROLE_MODELS = Object.freeze({
+    [AI_ROLES.EXTRACTION]: 'gpt-5.6-terra',
+    [AI_ROLES.SYNTHESIS]: 'gpt-5.6-sol',
+    [AI_ROLES.REFINEMENT]: 'gpt-5.6-terra',
+});
 
 export const AI_ROLE_META = Object.freeze({
     [AI_ROLES.EXTRACTION]: { 
