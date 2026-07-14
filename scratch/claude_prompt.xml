@@ -1,0 +1,21 @@
+<project_context>
+Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
+</project_context>
+<initial_user_request>regatrde /architecteatomique  j'ai mis dion, et je SAIS qu'il y a DION Laurent. dans la liste d'expertt, et ca s'affiche pas la liste</initial_user_request>
+<business_intent>Corriger le champ expertInfos dans le modal GlobalValidationModal pour afficher la liste déroulante des experts (ComboboxField) au lieu d un simple champ texte.</business_intent>
+<technical_discovery>Le champ `expertInfos` (avec un I majuscule) est défini dans `aiDataSchema.js`. Cependant, dans `GlobalValidationModal.jsx` (ligne 781), la condition pour utiliser le `ComboboxField` est écrite `key === 'expertinfos'` (tout en minuscules). Cette discordance de casse fait que le composant de repli (un simple `<input type="text">`) est rendu au lieu du `ComboboxField`, empêchant l autocomplétion.</technical_discovery>
+<current_architecture_and_code>
+<file path="src/components/GlobalValidationModal.jsx"><role>Modal de validation globale des données IA.</role><relevance>Contient la condition d affichage du champ expertInfos.</relevance><full_source_code>
+</full_source_code></file>
+</current_architecture_and_code>
+<code_collection_issue>
+<file path="src/components/GlobalValidationModal.jsx"><reason>Fichier trop volumineux pour être inclus en entier dans le prompt.</reason><known_partial_information>Ligne 781: `) : key === 'expertinfos' ? (`</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+</code_collection_issue>
+<related_files_not_fully_included>src/domain/aiDataSchema.js: Définit le schéma avec expertInfos. src/components/ui/ComboboxField.jsx: Composant cible.</related_files_not_fully_included>
+<current_problem_analysis>Erreur de typographie (casse) dans la comparaison `key === 'expertinfos'` qui devrait être `key === 'expertInfos'`.</current_problem_analysis>
+<proposed_technical_paths>Option 1: Corriger la casse dans GlobalValidationModal.jsx à `key === 'expertInfos'` ou utiliser `.toLowerCase()`. Option 2: Changer le nom de la clé dans aiDataSchema.js (impact potentiel sur toute l application).</proposed_technical_paths>
+<architect_questions_for_claude>1 Doit-on juste corriger la casse dans la condition ou normaliser toutes les clés en minuscules ?</architect_questions_for_claude>
+<directive>
+Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.
+1 Challenge: vrai logiciel modulaire ou rustine? 2 Audit: typage, erreurs, couplage, état, appels IA, config, sécurité, maintenabilité, lisibilité, testabilité, UX, métier, rétrocompatibilité, risques fichiers incomplets. 3 Décide clairement; impose mieux si besoin; ne donne pas de patch final pour fichier déclaré incomplet. 4 Fournis IMPLEMENTATION_INSTRUCTIONS_FOR_GEMINI avec ordre exact, fichiers à créer/modifier/ne pas modifier sans inspection complète, fonctions, imports, état React, UI, validations, erreurs, migrations localStorage, comportements à préserver, pièges, non-régression. 5 Code final uniquement pour fichiers complets; sinon composant isolé/structure cible/patch conceptuel. 6 Checklist: tests manuels/techniques, cas limites, UX, métier, non-régression, vérification fichiers incomplets. Critère: fiabilité rapport améliorée, couplage réduit, impacts visibles, erreurs silencieuses évitées, extension future préparée.
+</directive>

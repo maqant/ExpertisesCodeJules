@@ -21,6 +21,8 @@ export default function ComboboxField({
   value = '',
   onChange,
   onCommit,
+  onFocus,
+  onBlur,
   options = [],
   openOnEmpty = true,
   className = '',
@@ -89,7 +91,8 @@ export default function ComboboxField({
         value={value}
         placeholder={placeholder}
         onChange={handleChange}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => { setOpen(true); onFocus?.(e); }}
+        onBlur={(e) => { onBlur?.(e); }}
         onKeyDown={handleKeyDown}
         className={className}
       />

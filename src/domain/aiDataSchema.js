@@ -5,6 +5,10 @@
 
 import { linkTenantsToOwners } from './occupantLinking';
 
+export const FIELD_KEYS = Object.freeze({
+    EXPERT_INFOS: 'expertInfos',
+});
+
 const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();

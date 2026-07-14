@@ -14,7 +14,7 @@ import {
     buildSalutation,
     formatOccupantLabel 
 } from '../services/utils/contactUtils.js';
-import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
+import { normalizeAiData, referenceKey, FIELD_KEYS } from '../domain/aiDataSchema';
 import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
 import FieldDiffIndicator from './validation/FieldDiffIndicator.jsx';
 import ComboboxField from './ui/ComboboxField.jsx';
@@ -778,7 +778,7 @@ const GlobalValidationModal = () => {
                                                                 </div>
                                                             )}
                                                         </>
-                                                    ) : key === 'expertinfos' ? (
+                                                    ) : key === FIELD_KEYS.EXPERT_INFOS ? (
                                                         <ComboboxField
                                                             value={displayVal}
                                                             onChange={(v) => updateFormField(key, v)}
