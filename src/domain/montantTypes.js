@@ -32,6 +32,14 @@ const ALIASES = Object.freeze({
   'FORFAITAIRE': TYPE_MONTANT.FORFAIT,
 });
 
+/** Dédoublonnage : chaque anomalie distincte est loguée une seule fois par session. */
+const _warnedMessages = new Set();
+function warnOnce(message) {
+  if (_warnedMessages.has(message)) return;
+  _warnedMessages.add(message);
+  console.warn(message);
+}
+
 /**
  * Normalise un typeMontant quelconque (IA, historique, saisie)
  * vers une valeur canonique. Fallback conservateur : HTVA.
@@ -42,7 +50,7 @@ const ALIASES = Object.freeze({
 export function normalizeTypeMontant(raw, opts = {}) {
   if (raw == null || raw === '') {
     if (!opts.silent) {
-      console.warn(
+      warnOnce(
         `[montantTypes] typeMontant absent${opts.context ? ` (${opts.context})` : ''} → fallback HTVA`
       );
     }
@@ -52,14 +60,14 @@ export function normalizeTypeMontant(raw, opts = {}) {
   const canonical = ALIASES[key];
   if (canonical) {
     if (canonical !== raw && !opts.silent) {
-      console.warn(
+      warnOnce(
         `[montantTypes] typeMontant "${raw}" normalisé en "${canonical}"${opts.context ? ` (${opts.context})` : ''}`
       );
     }
     return canonical;
   }
   if (!opts.silent) {
-    console.warn(
+    warnOnce(
       `[montantTypes] typeMontant inconnu "${raw}"${opts.context ? ` (${opts.context})` : ''} → fallback HTVA`
     );
   }
@@ -93,9 +101,15 @@ export function createTotauxAccumulator() {
 /**
  * Accumule un frais dans un accumulateur créé par createTotauxAccumulator.
  * Mutation contrôlée, jamais de NaN.
+ * @param {ReturnType<typeof createTotauxAccumulator>} acc
+ * @param {unknown} rawTypeMontant
+ * @param {unknown} rawMontant
+ * @param {{ context?: string, silent?: boolean } | string} [opts]
+ *        Objet d'options. Rétrocompatibilité : une string est interprétée comme context.
  */
-export function accumulateFrais(acc, rawTypeMontant, rawMontant, context) {
-  const type = normalizeTypeMontant(rawTypeMontant, { context });
+export function accumulateFrais(acc, rawTypeMontant, rawMontant, opts = {}) {
+  const options = typeof opts === 'string' ? { context: opts } : opts;
+  const type = normalizeTypeMontant(rawTypeMontant, options);
   const val = parseMontant(rawMontant);
   acc[type] += val;
   acc.totalGlobal += val;

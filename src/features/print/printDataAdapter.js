@@ -66,7 +66,7 @@ export const buildPrintReportData = (input) => {
         if (exp.isFranchise) {
             acc[p].Franchise += parseMontant(exp.montant);
         } else {
-            accumulateFrais(acc[p], exp.typeMontant, exp.montant, `adapter/${p}`);
+            accumulateFrais(acc[p], exp.typeMontant, exp.montant, { context: `adapter/${p}`, silent: true });
         }
         
         acc[p].lignes.push(exp);
@@ -150,7 +150,7 @@ export const buildPrintReportData = (input) => {
                 const matchOcc = occupants.find(o => fmtOccName(o) === personne);
                 return {
                     personne,
-                    compteDeFormatted: formatShortCompteDe(personne),
+                    compteDeFormatted: getCompteDeShortName(personne, occupants),
                     isExpertClient: matchOcc?.contreExpert,
                     nomContreExpert: matchOcc?.nomContreExpert || '',
                     HTVA: data.HTVA,
