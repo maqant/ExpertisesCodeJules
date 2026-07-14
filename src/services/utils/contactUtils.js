@@ -134,21 +134,26 @@ export const buildSalutation = (contacts = []) => {
   if (list.length === 0) return 'Bonjour,';
 
   const parts = list.map((c) => {
-    const rawLastName = c.nom || c.displayName;
-    const lastName = rawLastName.includes(' ') ? parseFullName(rawLastName).lastName : rawLastName;
-    
-    if (c.civility) {
+    const rawLastName = c?.nom || c?.displayName || '';
+    const lastName = typeof rawLastName === 'string' && rawLastName.includes(' ')
+      ? (parseFullName(rawLastName)?.lastName || rawLastName)
+      : rawLastName;
+
+    if (c?.civility && lastName) {
       return `${c.civility} ${lastName}`.trim();
     }
-    
-    if (lastName && lastName !== c.email) {
-      return c.displayName.trim();
+
+    if (lastName && lastName !== c?.email) {
+      return (c?.displayName || c?.nom || '').trim();
     }
-    
-    return c.displayName; // fallback neutre extrême
+
+    return (c?.displayName || c?.nom || '').trim();
   });
 
-  return `Bonjour ${parts.join(', ')},`;
+  const validParts = parts.filter(Boolean);
+  if (validParts.length === 0) return 'Bonjour,';
+
+  return `Bonjour ${validParts.join(', ')},`;
 };
 
 /** Validation stricte — bloquante avant tout décaissement. */
