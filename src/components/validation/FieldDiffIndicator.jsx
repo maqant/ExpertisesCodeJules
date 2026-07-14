@@ -32,6 +32,19 @@ export default function FieldDiffIndicator({ diff, onAccept, formatValue, mode =
     );
   }
 
+  if (diff.status === FieldStatus.ACCUMULATED && mode === 'inline') {
+    return (
+      <span
+        role="status"
+        aria-label="L'IA a fusionné le nouveau document avec la cause existante. Décochez pour conserver l'ancienne version."
+        title="L'IA a fusionné le nouveau document avec la cause existante. Décochez pour conserver l'ancienne version."
+        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5 ml-2 uppercase tracking-wider"
+      >
+        ✦ Enrichi (cumul narratif)
+      </span>
+    );
+  }
+
   if (diff.status === FieldStatus.CONFLICT && mode === 'block') {
     return (
       <div className="mt-2 mb-2 bg-amber-500/10 border border-amber-500/30 rounded-md p-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">

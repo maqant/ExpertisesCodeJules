@@ -276,7 +276,7 @@ const GlobalValidationModal = () => {
             diffs.forEach(diff => {
                 // Seuls les NOUVEAUX champs (IA a trouvé qqch, humain n'avait rien mis) sont cochés par défaut.
                 // Les CONFLITS (humain avait déjà une valeur) sont sanctuarisés et décochés par défaut.
-                if (diff.status === FieldStatus.NEW) {
+                if (diff.status === FieldStatus.NEW || diff.status === FieldStatus.ACCUMULATED) {
                     newFormFields.add(diff.key);
                 }
             });
@@ -719,7 +719,8 @@ const GlobalValidationModal = () => {
                                     const isAccepted = selectedFormFields.has(key);
                                     
                                     // Affichage : la valeur éditée par l'IA (si acceptée/nouveau) ou la valeur actuelle
-                                    const displayVal = (isConflict && !isAccepted) ? currentVal : aiVal;
+                                    const revertsWhenUnaccepted = isConflict || diff?.status === FieldStatus.ACCUMULATED;
+                                    const displayVal = (revertsWhenUnaccepted && !isAccepted) ? currentVal : aiVal;
 
                                     // v5.6.1 - Détecter les champs narratifs pour le Refining
                                     const isNarrativeField = ['cause', 'divers'].includes(key);

@@ -1,45 +1,55 @@
 import { FieldStatus } from './mergeStrategies.js';
+import {
+  isAccumulativeField,
+  ACCUMULATION_MIN_LENGTH_RATIO,
+} from './fieldPolicies.js';
 
-/**
- * Normalise une valeur scalaire pour comparaison métier.
- * Centralise la règle "vide" : null, undefined, "" et "   " sont vides.
- */
 export const isEmptyValue = (value) =>
   value === null ||
   value === undefined ||
   (typeof value === 'string' && value.trim() === '');
 
-/**
- * Normalise pour comparaison stricte (trim sur string, identité sinon).
- */
 const normalizeForCompare = (value) =>
   typeof value === 'string' ? value.trim() : value;
 
-/**
- * Compare deux valeurs scalaires. Renvoie true si métier-équivalentes.
- */
 const areEquivalent = (a, b) =>
   normalizeForCompare(a) === normalizeForCompare(b);
 
 /**
- * Classifie le statut d'UN champ scalaire.
- * @returns {FieldStatus}
+ * Garde-fou anti-écrasement : une accumulation légitime ne réduit pas
+ * significativement le contenu existant. Si c'est le cas, on refuse le
+ * statut ACCUMULATED et on retombe sur CONFLICT (décision humaine forcée).
  */
-export const classifyField = (currentValue, aiValue) => {
-  if (isEmptyValue(aiValue)) return FieldStatus.EMPTY_AI;
-  if (isEmptyValue(currentValue)) return FieldStatus.NEW;
-  if (areEquivalent(currentValue, aiValue)) return FieldStatus.IDENTICAL;
-  return FieldStatus.CONFLICT;
+const isSuspiciousAccumulation = (currentValue, aiValue) => {
+  if (typeof currentValue !== 'string' || typeof aiValue !== 'string') {
+    return true; // types inattendus sur un champ narratif → prudence maximale
+  }
+  return (
+    aiValue.trim().length <
+    currentValue.trim().length * ACCUMULATION_MIN_LENGTH_RATIO
+  );
 };
 
 /**
- * Produit un DIFF traçable et plat (clé -> détail) pour une couche d'objets.
- * Ne gère QUE des champs scalaires : c'est la granularité de validation métier.
- *
- * @param {Record<string, unknown>} current  - données humaines actuelles
- * @param {Record<string, unknown>} ai        - données proposées par l'IA
- * @returns {Array<{ key: string, status: string, currentValue: unknown, aiValue: unknown }>}
+ * @param {*} currentValue - valeur actuelle (potentiellement humaine)
+ * @param {*} aiValue - valeur proposée par l'IA
+ * @param {{ accumulative?: boolean }} [options] - politique du champ
  */
+export const classifyField = (currentValue, aiValue, options = {}) => {
+  if (isEmptyValue(aiValue)) return FieldStatus.EMPTY_AI;
+  if (isEmptyValue(currentValue)) return FieldStatus.NEW;
+  if (areEquivalent(currentValue, aiValue)) return FieldStatus.IDENTICAL;
+
+  if (options.accumulative === true) {
+    if (isSuspiciousAccumulation(currentValue, aiValue)) {
+      return FieldStatus.CONFLICT;
+    }
+    return FieldStatus.ACCUMULATED;
+  }
+
+  return FieldStatus.CONFLICT;
+};
+
 export const buildFieldDiff = (current = {}, ai = {}) => {
   if (current === null || typeof current !== 'object') {
     throw new TypeError('[buildFieldDiff] "current" doit être un objet.');
@@ -54,29 +64,21 @@ export const buildFieldDiff = (current = {}, ai = {}) => {
       const currentValue = current[key];
       return {
         key,
-        status: classifyField(currentValue, aiValue),
+        status: classifyField(currentValue, aiValue, {
+          accumulative: isAccumulativeField(key),
+        }),
         currentValue,
         aiValue,
       };
     })
-    // On ne présente jamais ce que l'IA n'a pas rempli, ni les identiques.
     .filter(
       (entry) =>
         entry.status === FieldStatus.NEW ||
-        entry.status === FieldStatus.CONFLICT
+        entry.status === FieldStatus.CONFLICT ||
+        entry.status === FieldStatus.ACCUMULATED
     );
 };
 
-/**
- * Applique un diff validé. PURE : ne mute jamais l'entrée.
- * Seules les clés explicitement sélectionnées sont appliquées.
- *
- * @param {Record<string, unknown>} current
- * @param {Record<string, unknown>} ai
- * @param {Set<string>|string[]} selectedKeys - clés que l'utilisateur a validées
- * @param {Record<string, unknown>} [valueSource] - source optionnelle (ex: editableData.formData)
- * @returns {{ next: Record<string, unknown>, applied: string[], ignored: Array<{key:string, reason:string}> }}
- */
 export const applyValidatedMerge = (current, ai, selectedKeys, valueSource) => {
   const selection =
     selectedKeys instanceof Set ? selectedKeys : new Set(selectedKeys);
@@ -100,7 +102,7 @@ export const applyValidatedMerge = (current, ai, selectedKeys, valueSource) => {
 
     if (isEmptyValue(value)) {
       ignored.push({ key, reason: 'EMPTY_VALUE' });
-      continue; // jamais écraser avec du vide
+      continue;
     }
 
     next[key] = value;

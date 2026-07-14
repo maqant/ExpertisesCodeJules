@@ -11,6 +11,7 @@ export const MergeStrategy = Object.freeze({
 export const FieldStatus = Object.freeze({
   NEW: 'NEW',           // champ humain vide, IA propose une valeur
   CONFLICT: 'CONFLICT', // humain ET IA ont une valeur différente
+  ACCUMULATED: 'ACCUMULATED', // IA a enrichi/cumulé le texte existant sans conflit direct
   IDENTICAL: 'IDENTICAL', // valeurs identiques → rien à faire
   EMPTY_AI: 'EMPTY_AI',   // l'IA ne propose rien
 });
