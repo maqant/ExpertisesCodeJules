@@ -33,12 +33,31 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile })
         files.forEach(f => handleAttachFile(docId, f));
     };
 
+    const handlePreviewPending = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!pendingFile) return;
+        const url = URL.createObjectURL(pendingFile);
+        const win = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!win) {
+            console.error('[MiniAttachmentUI] Prévisualisation bloquée par le navigateur pour :', pendingFile.name);
+            alert("La prévisualisation a été bloquée par le navigateur. Autorisez les popups pour ce site.");
+        }
+        // Revoke différé : le viewer a déjà chargé le blob, on libère la mémoire.
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 shrink-0 pointer-events-auto mt-1" onClick={(e) => e.stopPropagation()}>
             {pendingFile && (
-                <span className="text-[10px] bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/30 font-medium" title={pendingFile.name}>
-                    ✨ Détecté: {pendingFile.name}
-                </span>
+                <button
+                    type="button"
+                    onClick={handlePreviewPending}
+                    className="text-[10px] bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/30 font-medium cursor-pointer hover:bg-green-800/60 hover:border-green-400/50 transition-colors"
+                    title={`Cliquer pour prévisualiser : ${pendingFile.name}`}
+                >
+                    ✨ Détecté: {pendingFile.name} 👁️
+                </button>
             )}
             {files.length > 0 && files.map(file => {
                 if (!file.name) return null;

@@ -142,7 +142,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [uiZoom, setUiZoom] = useState(1);
   const [fitBlocks, setFitBlocks] = useState({});
   const [pastedJson, setPastedJson] = useState("");
-  const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(false);
+  const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(true);
 
   // Pending AI data — "sas" de validation avant import
   const [pendingAiData, setPendingAiData] = useState(null);
@@ -152,7 +152,7 @@ export const ExpertiseProvider = ({ children }) => {
   const [globalAssistantFiles, setGlobalAssistantFiles] = useState([]);
 
   // Paramètres additionnels
-  const [showSubtotals, setShowSubtotals] = useState(false);
+  const [showSubtotals, setShowSubtotals] = useState(true);
   const [causeTimeline, setCauseTimeline] = useState([]);
 
   // v6.2.0 - Debug Logs System
@@ -440,7 +440,7 @@ export const ExpertiseProvider = ({ children }) => {
       setTelemetrySessionId(crypto.randomUUID());
       financeStore.replaceFormData(initialFormData); setBlockTitles(initialTitles); setReferences([]); setOccupants([]); setExpenses([]); 
       setBlocksVisible(initialVisibility); setCustomBlocks([]); setBlockOrder(initialBlockOrder); setBlockWidths(initialBlockWidths); 
-      setStyles(initialStyles); setShowSubtotals(false); setFitBlocks({}); setPastedJson('');
+      setStyles(initialStyles); setShowSubtotals(true); setOrgaAdvancedMode(true); setFitBlocks({}); setPastedJson('');
       setAttachedFiles({}); setAttachedPhotos({}); setAttachedFreeAnnexes([]); setCurrentDossierId(null);
       setCauseTimeline([]);
       setIntervenantsList([]);
