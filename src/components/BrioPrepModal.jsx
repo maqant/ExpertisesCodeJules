@@ -164,8 +164,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
                         <div className="flex gap-3">
                             <button
                                 onClick={handleSkip}
-                                disabled={isLoading}
-                                className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 transition-colors disabled:opacity-50"
+                                className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 transition-colors"
                                 title="Continuer l'ingestion sans préparation Brio"
                             >
                                 ⏭️ Passer cette étape
