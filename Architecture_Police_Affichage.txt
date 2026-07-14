@@ -1,0 +1,198 @@
+================================================================================
+ARCHITECTURE ET GESTION DES POLICES D'AFFICHAGE ET D'IMPRESSION (EXPERTISES CODE JULES)
+================================================================================
+
+Ce document recense exhaustivement le code et la logique métier de l'application concernant l'affichage typographique, avec un focus particulier sur la gestion robuste du rendu PDF (qui nécessite d'embarquer physiquement les polices pour éviter les bugs de netteté ou de substitution aléatoire selon la machine).
+
+--------------------------------------------------------------------------------
+1. LE NOYAU D'ENREGISTREMENT DES POLICES PDF
+Fichier : src/features/print/pdf/pdfFonts.js
+--------------------------------------------------------------------------------
+Rôle : 
+Ce fichier gère l'importation physique des fichiers .ttf (TrueType Font) de la police "Arimo" (une alternative open-source 100% compatible métriquement avec Arial). La librairie de rendu PDF (@react-pdf/renderer) n'a pas accès aux polices systèmes du navigateur ou de l'ordinateur de manière fiable. Il faut donc charger le fichier binaire de la police en mémoire et l'enregistrer dans son registre interne. Le flag `fontsRegistered` assure que cette opération n'est effectuée qu'une seule fois.
+
+[CODE BRUT]
+import { Font } from '@react-pdf/renderer';
+
+import regularFont from './fonts/Arimo/Arimo-Regular.ttf';
+import boldFont from './fonts/Arimo/Arimo-Bold.ttf';
+import italicFont from './fonts/Arimo/Arimo-Italic.ttf';
+import boldItalicFont from './fonts/Arimo/Arimo-BoldItalic.ttf';
+
+let fontsRegistered = false;
+
+export const registerPdfFonts = () => {
+  if (fontsRegistered) return;
+
+  try {
+    Font.register({
+      family: 'Arimo',
+      fonts: [
+        { src: regularFont },
+        { src: boldFont, fontWeight: 'bold' },
+        { src: italicFont, fontStyle: 'italic' },
+        { src: boldItalicFont, fontWeight: 'bold', fontStyle: 'italic' },
+      ],
+    });
+    fontsRegistered = true;
+    console.log('[PDF] Arimo fonts registered successfully.');
+  } catch (err) {
+    console.error('[PDF] Erreur lors de l\'enregistrement des polices:', err);
+    throw new Error('Impossible d\'enregistrer les polices PDF requises.');
+  }
+};
+
+
+--------------------------------------------------------------------------------
+2. LA SOURCE DE VÉRITÉ TYPOGRAPHIQUE (TOKENS PDF)
+Fichier : src/features/print/pdf/pdfStyles.js (Extraits concernant la police)
+--------------------------------------------------------------------------------
+Rôle :
+C'est le contrat typographique central de l'export PDF. Au lieu que chaque composant PDF décide de sa police ou de sa taille de manière chaotique, TOUT le texte passe par une "Factory Typographique" (la fonction `typo`). Cette fonction injecte de force la propriété `fontFamily: 'Arimo'` dans chaque style de texte du document.
+Un autre point crucial est la gestion du `lineHeight` (hauteur de ligne) : il DOIT être un ratio (ex: 1.22) et non une valeur absolue en "pt", car la librairie de rendu PDF calcule l'espacement en multipliant ce ratio par le corps de police.
+
+[CODE BRUT]
+// ============================================================
+// CONTRAT TYPOGRAPHIQUE — SOURCE DE VÉRITÉ UNIQUE
+// ------------------------------------------------------------
+// RÈGLE ABSOLUE : le lineHeight est TOUJOURS exprimé comme un
+// ratio unitaire (unitless) (ex: 1.22), et co-localisé avec le
+// fontSize pour que @react-pdf/renderer calcule correctement
+// l'espacement. Ne JAMAIS passer de valeur absolue en points (pt)
+// pour lineHeight, car le moteur la multipliera à nouveau par le fontSize.
+// ------------------------------------------------------------
+// Ratios calibrés métriques AFM Helvetica + français accentué :
+//   1.22 corps de texte (confort légal, compact)
+//   1.12 tableaux (PLANCHER PHYSIQUE — capitales accentuées É/À)
+//   1.15 titres
+// ============================================================
+
+const LH_RATIO = {
+  body: 1.22,
+  tight: 1.12,   // plancher absolu — ne JAMAIS descendre en dessous
+  heading: 1.15,
+};
+
+/**
+ * Factory typographique : produit une paire insécable
+ * fontSize / lineHeight (en ratio unitless).
+ * @param {number} size  - corps en pt
+ * @param {number} ratio - ratio de hauteur de ligne (défaut : corps)
+ * @param {object} extra - propriétés additionnelles (color, fontWeight…)
+ */
+export const typo = (size, ratio = LH_RATIO.body, extra = {}) => {
+  if (ratio > 2) {
+    console.warn(`[pdfStyles] Warning: ratio (${ratio}) > 2 détecté. Le ratio doit être un multiplicateur unitless (ex: 1.22), pas une valeur absolue en points.`);
+  }
+  return {
+    fontFamily: 'Arimo', // <-- Injection de la police globale ici
+    fontSize: size,
+    lineHeight: ratio,
+    ...extra,
+  };
+};
+
+export const DENSITY = {
+  // Typographie (les lineHeights vivent dans TYPO)
+  fontBase: 8.5,            // pt
+  fontTitle: 10,            // titres de section
+  fontSmall: 7,             // mentions, pagination annexes
+  // ... autres espacements ...
+};
+
+// Tokens typographiques nommés — SEUL point d'entrée autorisé
+// pour tout <Text> du module print.
+export const TYPO = {
+  body:       typo(DENSITY.fontBase),                                        // 8.5 / 10.4pt
+  bodyBold:   typo(DENSITY.fontBase, LH_RATIO.body, { fontWeight: 'bold' }),
+  small:      typo(DENSITY.fontSmall),                                       // 7 / 8.5pt
+  smallMuted: typo(DENSITY.fontSmall, LH_RATIO.body, { color: '#64748b' }),
+  tableCell:  typo(DENSITY.fontBase, LH_RATIO.tight),                        // 8.5 / 9.5pt
+  heading:    typo(DENSITY.fontTitle, LH_RATIO.heading, { fontWeight: 'bold' }),
+};
+
+
+--------------------------------------------------------------------------------
+3. LE DÉCLENCHEUR / POINT D'ENTRÉE
+Fichier : src/features/print/pdf/generatePdfReport.js (Extraits)
+--------------------------------------------------------------------------------
+Rôle :
+Avant même de donner l'instruction à React de construire la structure du PDF (`React.createElement(PDFReportDocument)`), il est vital d'appeler `registerPdfFonts()`. Si l'instanciation de React commençait avant cet appel, le moteur @react-pdf/renderer ne reconnaîtrait pas `fontFamily: 'Arimo'` provenant des styles, et ferait un repli (fallback) d'urgence vers la police standard "Helvetica" interne, ce qui crée des bugs de netteté ou d'encodage de caractères.
+
+[CODE BRUT]
+import React from 'react';
+import { pdf } from '@react-pdf/renderer';
+import PDFReportDocument from './PDFReportDocument';
+import { registerPdfFonts } from './pdfFonts'; // <-- L'import de notre registre
+
+// ...
+
+export const generatePdfReportBlob = async ({ reportData, fetchBlobByUuid }) => {
+  if (!reportData) {
+    throw new Error("Les données du rapport (reportData) sont requises pour générer le PDF.");
+  }
+
+  // ... (résolution des images)
+
+  try {
+    // ...
+
+    // Enregistrement des polices avant l'instanciation (CRITIQUE)
+    registerPdfFonts();
+
+    // 2. Instanciation du document PDF avec les données résolues
+    const doc = React.createElement(PDFReportDocument, { reportData: resolvedReportData });
+
+    // 3. Génération du Blob via @react-pdf/renderer
+    const asPdf = pdf();
+    asPdf.updateContainer(doc);
+    const blob = await asPdf.toBlob();
+
+    return { blob, resolvedReportData, createdBlobUrls };
+  } catch (error) {
+    // ...
+  }
+};
+
+
+--------------------------------------------------------------------------------
+4. LA SÉPARATION WEB / PDF (Affichage Navigateur)
+Fichier : src/index.css (Extraits)
+--------------------------------------------------------------------------------
+Rôle :
+Alors que le PDF tourne dans une "sandbox" qui exige le fichier de police physique Arimo, l'application web tourne dans le navigateur de l'utilisateur. 
+Le corps général de l'application (l'interface UI) utilise les polices sans-serif par défaut via Tailwind (`font-sans`).
+Cependant, pour l'aperçu avant impression (le mode page A4 simulée dans l'éditeur de l'interface), le code utilise nativement la police système Windows "Arial", pour donner le rendu visuel le plus fidèle possible à ce que le PDF sortira physiquement avec "Arimo".
+
+[CODE BRUT]
+@layer base {
+  body {
+    /* Interface web générale : police native du système web */
+    @apply bg-slate-100 overflow-hidden font-sans;
+  }
+}
+
+.a4-page { 
+    width: 210mm; 
+    min-height: 297mm; 
+    height: auto; 
+    background: white; 
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+    position: relative; 
+    overflow: visible; 
+    padding-bottom: 20mm; 
+    flex-shrink: 0; 
+    /* Force l'aperçu web à utiliser Arial pour matcher le rendu PDF (Arimo) */
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+================================================================================
+RÉSUMÉ DU FLUX DE LA DONNÉE TYPOGRAPHIQUE :
+================================================================================
+1. Le navigateur télécharge le bundle contenant l'App, ainsi que les 4 fichiers binaires `.ttf` de la police Arimo.
+2. L'utilisateur clique sur "Générer PDF".
+3. `generatePdfReportBlob` est appelé.
+4. Immédiatement, `registerPdfFonts()` transmet les 4 binaires TTF à la librairie PDF et les associe au nom "Arimo".
+5. L'arbre React est instancié. Tous les blocs de texte utilisent la fonction `typo()` de `pdfStyles.js` qui ajoute `fontFamily: 'Arimo'` dans leurs propriétés de style.
+6. Le moteur de rendu croise le texte, voit la propriété Arimo, va chercher le binaire pré-chargé en mémoire, et trace les lettres vectorielles exactes dans le fichier PDF final.
+================================================================================
