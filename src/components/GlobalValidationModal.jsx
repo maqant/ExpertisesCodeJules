@@ -6,6 +6,14 @@ import { useFinanceStore } from '../store/financeStore';
 import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
 import { FieldStatus } from '../domain/merge/mergeStrategies.js';
+import { 
+    normalizeEmail, 
+    parseFullName, 
+    buildRecipientCandidates, 
+    extractEmailsForOutlook, 
+    buildSalutation,
+    formatOccupantLabel 
+} from '../services/utils/contactUtils.js';
 import { normalizeAiData, referenceKey } from '../domain/aiDataSchema';
 import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
 import FieldDiffIndicator from './validation/FieldDiffIndicator.jsx';
@@ -1186,13 +1194,13 @@ const GlobalValidationModal = () => {
                                                             <option value="unassigned">-- Non assigné --</option>
                                                             <optgroup label="Nouveaux (IA & Créés)">
                                                                 {editableData.occupants.filter(o => occActions.get(o.id) !== 'ignore' && !occupants.some(ex => ex.id === o.id)).map(o => (
-                                                                    <option key={o.id} value={o.id}>{o.nom || 'Sans nom'}</option>
+                                                                    <option key={o.id} value={o.id}>{formatOccupantLabel(o)}</option>
                                                                 ))}
                                                             </optgroup>
                                                             {occupants.length > 0 && (
                                                                 <optgroup label="Existants dans le dossier">
                                                                     {occupants.map(o => (
-                                                                        <option key={o.id} value={o.id}>{o.nom || 'Sans nom'}</option>
+                                                                        <option key={o.id} value={o.id}>{formatOccupantLabel(o)}</option>
                                                                     ))}
                                                                 </optgroup>
                                                             )}

@@ -3,6 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { isEmptyValue } from '../domain/merge/conservativeMerge.js';
 import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
+import { formatOccupantLabel } from '../services/utils/contactUtils.js';
 import ComboboxField from './ui/ComboboxField.jsx';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -382,9 +383,7 @@ const UniversalIngestionModal = () => {
                                     >
                                         <option value="">Choisissez...</option>
                                         {occupants.filter(o => o.nom).map(o => {
-                                            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-                                            const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
-                                            return <option key={o.id} value={o.id}>{displayName}</option>;
+                                            return <option key={o.id} value={o.id}>{formatOccupantLabel(o)}</option>;
                                         })}
                                         <option disabled>──────────</option>
                                         <option value="CREATE_NEW">[ + Créer une nouvelle partie ]</option>

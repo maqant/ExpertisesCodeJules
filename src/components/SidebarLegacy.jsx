@@ -25,6 +25,7 @@ import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsa
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import { useSortedOccupants } from '../hooks/useSortedOccupants.js';
 import { getEligibleParents } from '../domain/occupantsHierarchy.js';
+import { formatOccupantLabel } from '../services/utils/contactUtils.js';
 import DropZone from './DropZone.jsx';
 import { processBulkMsg } from '../services/annex/bulkMsgQueue.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
@@ -1854,9 +1855,7 @@ Objectif :
                                                     }} className="input-field mb-0 border-indigo-500">
                                                         <option value="">Choisissez...</option>
                                                         {occupants.filter(o => o.nom).map(o => {
-                                                            const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim();
-                                                            const displayName = o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fullName}` : fullName;
-                                                            return <option key={o.id} value={o.id}>{displayName}</option>;
+                                                            return <option key={o.id} value={o.id}>{formatOccupantLabel(o)}</option>;
                                                         })}
                                                         <option disabled>──────────</option>
                                                         <option value="CREATE_NEW">[ + Créer une nouvelle partie ]</option>

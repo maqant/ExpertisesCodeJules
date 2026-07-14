@@ -210,3 +210,22 @@ export function resolveRecipientSnapshot(ref, allCandidates) {
         resolvedAt: new Date().toISOString(),
     };
 }
+
+/**
+ * Formate un occupant pour l'affichage dans les listes déroulantes,
+ * en incluant l'étage et le statut si disponibles.
+ * @param {object} o L'objet occupant
+ * @returns {string} Le label formaté (ex: "7e - Jean Dupont (Locataire)")
+ */
+export const formatOccupantLabel = (o) => {
+    if (!o) return 'Sans nom';
+    const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim() || 'Sans nom';
+    let label = fullName;
+    if (o.statut && o.statut.trim() !== '') {
+        label = `${label} (${o.statut.trim()})`;
+    }
+    if (o.etage && o.etage.trim() !== '') {
+        label = `${o.etage.trim()} - ${label}`;
+    }
+    return label;
+};
