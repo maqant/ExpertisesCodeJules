@@ -26,6 +26,7 @@ import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import { useSortedOccupants } from '../hooks/useSortedOccupants.js';
 import { getEligibleParents } from '../domain/occupantsHierarchy.js';
 import { formatOccupantLabel } from '../services/utils/contactUtils.js';
+import { getCompteDeName } from '../utils/formatters.js';
 import DropZone from './DropZone.jsx';
 import { processBulkMsg } from '../services/annex/bulkMsgQueue.js';
 import { msgToSinglePagePdf } from '../services/utils/msgToPdf.js';
@@ -1817,7 +1818,7 @@ Objectif :
                                         {!isExp ? (
                                             <div className="text-xs text-slate-300 pr-6 flex items-center gap-2" onClick={() => setExpandedExpId(exp.id)}>
                                                 <span className="text-slate-500 cursor-grab">⠿</span>
-                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${(()=>{ const o = occupants.find(occ=>occ.id===exp.compteDe); if(o) { const fn = `${o.nom||''} ${o.prenom||''}`.trim(); return o.etage && o.etage.trim() !== '' ? `${o.etage} - ${fn}` : fn; } return exp.compteDe; })()})` : ''}</span>
+                                                <span className="flex-1 truncate"><span className="font-bold text-white">{exp.montant ? `${exp.montant} €` : '0,00 €'}</span> - {exp.prestataire || 'Nouveau frais'} {exp.compteDe ? `(${getCompteDeName(exp.compteDe, occupants)})` : ''}</span>
                                                 {(attachedFiles[exp.id] || []).length > 0 && (
                                                     <div className="flex items-center">
                                                         <span className="bg-indigo-600/30 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded ml-1">📎 {(attachedFiles[exp.id] || []).reduce((acc, f) => acc + (f.pages || 0), 0)}p</span>

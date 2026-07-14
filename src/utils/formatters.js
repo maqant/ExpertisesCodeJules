@@ -8,11 +8,62 @@ export const findOccByCompteDe = (compteDe, occupants) => {
     return occupants.find(o => o.id === compteDe || fmtOccName(o) === compteDe);
 };
 
+/**
+ * Détecte si une valeur ressemble à un identifiant technique (UUID v4 ou similaire).
+ * Barrière anti-fuite : un ID ne doit JAMAIS apparaître dans l'UI ou le PDF.
+ */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const looksLikeTechnicalId = (value) =>
+    typeof value === 'string' && UUID_PATTERN.test(value.trim());
+
+const COMPTE_DE_FALLBACK = 'Non attribué';
+const COMPTE_DE_ORPHAN = 'Occupant introuvable';
+
+/**
+ * Moteur interne unique de résolution de "compteDe".
+ * @returns {{ occ: object|null, rawLabel: string|null }}
+ *   occ: occupant matché, rawLabel: nom libre légitime ou null.
+ */
+const resolveCompteDe = (compteDe, occupants) => {
+    const occ = findOccByCompteDe(compteDe, occupants);
+    if (occ) return { occ, rawLabel: null };
+    if (compteDe && typeof compteDe === 'string' && compteDe.trim() !== '') {
+        if (looksLikeTechnicalId(compteDe)) {
+            // Zéro erreur silencieuse : on signale la fuite évitée.
+            console.error(
+                `[formatters] UUID orphelin détecté pour "compteDe" (${compteDe}). ` +
+                `L'occupant référencé n'existe plus dans la liste fournie. ` +
+                `Affichage remplacé par "${COMPTE_DE_ORPHAN}".`
+            );
+            return { occ: null, rawLabel: COMPTE_DE_ORPHAN };
+        }
+        return { occ: null, rawLabel: compteDe.trim() }; // nom libre légitime (non matché)
+    }
+    return { occ: null, rawLabel: null };
+};
+
+/**
+ * Format LONG : "Etage - Nom". Usage : détails, formulaires, Workspace.
+ * Source de vérité unique — parité miroir Workspace/PDF.
+ */
 export const getCompteDeName = (compteDe, occupants) => {
-    const matchedOcc = findOccByCompteDe(compteDe, occupants);
-    if (matchedOcc) return fmtOccName(matchedOcc);
-    if (compteDe && compteDe.trim() !== '') return compteDe;
-    return 'Non attribué';
+    const { occ, rawLabel } = resolveCompteDe(compteDe, occupants);
+    if (occ) return fmtOccName(occ);
+    return rawLabel || COMPTE_DE_FALLBACK;
+};
+
+/**
+ * Format COURT : "Nom (Etage)". Usage : colonnes de tableaux, PDF compact.
+ * Remplace formatShortCompteDe (anciennement local à printDataAdapter.js).
+ */
+export const getCompteDeShortName = (compteDe, occupants) => {
+    const { occ, rawLabel } = resolveCompteDe(compteDe, occupants);
+    if (occ) {
+        const nom = (occ.nom || '').split(' ')[0] || occ.nom || '';
+        const etage = occ.etage && occ.etage.trim() !== '' ? ` (${occ.etage})` : '';
+        return `${nom}${etage}`;
+    }
+    return rawLabel || COMPTE_DE_FALLBACK;
 };
 
 /**

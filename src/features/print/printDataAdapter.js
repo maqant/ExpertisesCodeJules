@@ -1,4 +1,4 @@
-import { getCompteDeName, findOccByCompteDe, fmtOccName, formatExpertDisplay } from '../../utils/formatters';
+import { getCompteDeName, getCompteDeShortName, findOccByCompteDe, fmtOccName, formatExpertDisplay } from '../../utils/formatters';
 import { buildOccupantHierarchy } from '../../domain/occupantsHierarchy';
 import { formatExpertiseTitle } from '../../utils/titleFormatter';
 import { accumulateFrais, createTotauxAccumulator, normalizeTypeMontant, parseMontant } from '../../domain/montantTypes';
@@ -73,21 +73,6 @@ export const buildPrintReportData = (input) => {
         return acc;
     }, {});
 
-    // Helper formatter sans React
-    const formatShortCompteDe = (compteDeStr) => {
-        if (!compteDeStr || typeof compteDeStr !== 'string') return '';
-        const occupant = findOccByCompteDe(compteDeStr, occupants);
-        if (occupant) {
-            const nomAffiche = occupant.nom || '';
-            if (occupant.etage && occupant.etage.trim() !== '') {
-                return `${nomAffiche} (${occupant.etage.trim()})`;
-            }
-            return nomAffiche;
-        }
-        const namePart = compteDeStr.includes(' - ') ? compteDeStr.split(' - ').slice(1).join(' - ').trim() : compteDeStr.trim();
-        return namePart.split(' ')[0];
-    };
-
     // Assemblage final de reportData
     return {
         meta: {
@@ -140,7 +125,7 @@ export const buildPrintReportData = (input) => {
                 const pagInfo = getPaginationInfo(exp.id);
                 return {
                     ...exp,
-                    compteDeFormatted: formatShortCompteDe(exp.compteDe),
+                    compteDeFormatted: getCompteDeShortName(exp.compteDe, occupants),
                     annexReference: pagInfo ? pagInfo.text : null
                 };
             }),
@@ -155,7 +140,7 @@ export const buildPrintReportData = (input) => {
                     ...data,
                     Total: total,
                     aVentilation,
-                    compteDeFormatted: formatShortCompteDe(personne)
+                    compteDeFormatted: getCompteDeShortName(personne, occupants)
                 };
                 return acc;
             }, {})
