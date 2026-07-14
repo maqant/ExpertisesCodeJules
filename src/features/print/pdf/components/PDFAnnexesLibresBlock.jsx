@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from '@react-pdf/renderer';
 import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
+import PDFAnnexRef from './PDFAnnexRef';
 
 const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
     // Si pas de données (fallback gracieux sans crash)
@@ -24,8 +25,12 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
                 )}
                 <View style={{ marginTop: 4, marginBottom: DENSITY.itemGap }}>
                     <Text style={{ ...TYPO.bodyBold }}>{data.annexes[0].nom || `Annexe 1`}</Text>
-                    {data.annexes[0].description && (
-                        <Text style={{ ...TYPO.smallMuted }}>{data.annexes[0].description}</Text>
+                    {data.annexes[0].annexReference ? (
+                        <PDFAnnexRef data={data.annexes[0].annexReference} style={{ ...TYPO.smallMuted }} />
+                    ) : (
+                        data.annexes[0].description && (
+                            <Text style={{ ...TYPO.smallMuted }}>{data.annexes[0].description}</Text>
+                        )
                     )}
                 </View>
             </View>
@@ -35,8 +40,12 @@ const PDFAnnexesLibresBlock = ({ data, styleBlock }) => {
                     {data.annexes.slice(1).map((annexe, i) => (
                         <View key={i + 1} style={{ marginBottom: DENSITY.itemGap }}>
                             <Text style={{ ...TYPO.bodyBold }}>{annexe.nom || `Annexe ${i + 2}`}</Text>
-                            {annexe.description && (
-                                <Text style={{ ...TYPO.smallMuted }}>{annexe.description}</Text>
+                            {annexe.annexReference ? (
+                                <PDFAnnexRef data={annexe.annexReference} style={{ ...TYPO.smallMuted }} />
+                            ) : (
+                                annexe.description && (
+                                    <Text style={{ ...TYPO.smallMuted }}>{annexe.description}</Text>
+                                )
                             )}
                         </View>
                     ))}

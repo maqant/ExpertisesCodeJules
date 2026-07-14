@@ -73,7 +73,7 @@ const PDFFeesTable = ({ data, styleBlock, showSubtotals }) => {
                                 <Text style={{ ...TYPO.bodyBold }}>{dec.totalFormate} €</Text>
                             </View>
                             {dec.aVentilation && (
-                                <Text style={{ ...TYPO.caption, color: '#64748b', marginLeft: 10, marginTop: 1 }}>
+                                <Text style={{ ...TYPO.smallMuted, color: '#64748b', marginLeft: 10, marginTop: 1 }}>
                                     dont {[
                                         dec.HTVA ? `${dec.htvaFormate} € HTVA` : null,
                                         dec.TVAC ? `${dec.tvacFormate} € TVAC` : null,

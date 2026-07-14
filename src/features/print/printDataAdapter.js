@@ -209,7 +209,8 @@ export const buildPrintReportData = (input) => {
                 return {
                     id: file.id,
                     nom: docName,
-                    description: pagInfo ? `Voir annexe n°${pagInfo.num} (Page ${pagInfo.startPage})` : ''
+                    description: pagInfo ? `Voir annexe n°${pagInfo.num} (Page ${pagInfo.startPage})` : '',
+                    annexReference: getAnnexRef(file.id)
                 };
             })
         },
