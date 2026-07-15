@@ -23,6 +23,7 @@ import { removeBlobs, fetchBlob } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
 import { safeRead, safeWrite, STORAGE_KEYS } from '../services/storage/referenceStorage';
 import { mergeExperts, mergeStringLists, buildExportPayload, parseImportPayload } from '../services/storage/referenceManager';
+import { FREE_ANNEX_TARGET } from '../domain/attachmentTargets';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
 // Tries multiple strategies: exact → case-insensitive → without extension → includes
@@ -1786,6 +1787,16 @@ export const ExpertiseProvider = ({ children }) => {
               if (targetZone === 'unassigned') continue;
               const matchedFile = findMatchingFile(pendingFiles, fName);
               if (matchedFile) {
+                  if (targetZone === FREE_ANNEX_TARGET) {
+                      try {
+                          await handleAttachFreeAnnex(matchedFile, matchedFile.name, '');
+                          console.log(`[Magic Drop] ✅ Annexe libre assignée manuellement : "${matchedFile.name}"`);
+                      } catch (err) {
+                          console.warn(`[Magic Drop] ❌ Échec assignation annexe libre pour "${matchedFile.name}":`, err);
+                      }
+                      continue;
+                  }
+                  
                   try {
                       await handleAttachFile(targetZone, matchedFile);
                       console.log(`[Magic Drop] ✅ Pièce jointe assignée manuellement : "${matchedFile.name}" → ${targetZone}`);

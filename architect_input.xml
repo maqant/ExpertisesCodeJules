@@ -1,73 +1,32 @@
-<PHASE_1_METIER>
-L'utilisateur signale un crash (écran blanc) lorsqu'il effectue un "Ctrl-V" dans l'outil de gestion financière (probablement DecompteSplitterModal/SplitterRecipientBlock).
-Le message d'erreur est : `TypeError: Cannot read properties of undefined (reading 'trim')` dans la fonction `buildSalutation` de `contactUtils.js`.
-</PHASE_1_METIER>
-
-<PHASE_2_EXPLORATION>
-Fichier analysé : `src/services/utils/contactUtils.js`
-
-Le crash a lieu dans `buildSalutation` :
-```javascript
-export const buildSalutation = (contacts = []) => {
-  const list = Array.isArray(contacts) ? contacts : [];
-  if (list.length === 0) return 'Bonjour,';
-
-  const parts = list.map((c) => {
-    const rawLastName = c.nom || c.displayName || ''; // Note: actullement c.nom || c.displayName sans fallback => crash potentiel sur rawLastName.includes
-    const lastName = rawLastName.includes(' ') ? parseFullName(rawLastName).lastName : rawLastName;
-    
-    if (c.civility) {
-      return `${c.civility} ${lastName}`.trim();
-    }
-    
-    if (lastName && lastName !== c.email) {
-      return c.displayName.trim(); // <--- CRASH ICI si c.displayName est undefined
-    }
-    
-    return c.displayName; 
-  });
-
-  return `Bonjour ${parts.join(', ')},`;
-};
-```
-La faille est évidente : si un contact possède un `nom` mais pas de `displayName` (par exemple un contact injecté manuellement via un "Ctrl-V" imparfait), `rawLastName` est valide, on entre dans le if, et on appelle `c.displayName.trim()`, ce qui crash car `displayName` est undefined.
-</PHASE_2_EXPLORATION>
-
-<PHASE_3_PROBLEMATIQUES>
-1. La fonction `buildSalutation` est trop fragile face à des objets contacts incomplets (ex: issus d'un copier-coller dans l'UI ou d'un draft partiel).
-2. De plus, `const rawLastName = c.nom || c.displayName;` plantera sur `rawLastName.includes` si l'objet n'a ni `nom` ni `displayName`.
-</PHASE_3_PROBLEMATIQUES>
-
-<PHASE_4_PROPOSITIONS>
-Sécuriser `buildSalutation` avec des fallbacks robustes sur la lecture des propriétés string :
-
-```javascript
-export const buildSalutation = (contacts = []) => {
-  const list = Array.isArray(contacts) ? contacts : [];
-  if (list.length === 0) return 'Bonjour,';
-
-  const parts = list.map((c) => {
-    const rawLastName = c?.nom || c?.displayName || '';
-    const lastName = typeof rawLastName === 'string' && rawLastName.includes(' ') 
-        ? parseFullName(rawLastName).lastName 
-        : rawLastName;
-    
-    if (c?.civility) {
-      return `${c.civility} ${lastName}`.trim();
-    }
-    
-    if (lastName && lastName !== c?.email) {
-      return (c?.displayName || c?.nom || '').trim();
-    }
-    
-    return (c?.displayName || c?.nom || '').trim(); // fallback neutre extrême
-  });
-
-  // Filtrer les parties vides pour éviter "Bonjour ,"
-  const validParts = parts.filter(Boolean);
-  if (validParts.length === 0) return 'Bonjour,';
-
-  return `Bonjour ${validParts.join(', ')},`;
-};
-```
-</PHASE_4_PROPOSITIONS>
+<project_context>
+Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
+</project_context>
+<initial_user_request>dans les documents non assignés, je devrais pouvoir les mettre dans les annexes libres /architecteatomique</initial_user_request>
+<business_intent>Permettre à l'utilisateur d'assigner un document "non assigné" détecté par l'IA directement en tant qu'"Annexe libre" depuis le sas de validation IA (GlobalValidationModal), sans devoir le télécharger puis le re-téléverser ailleurs.</business_intent>
+<technical_discovery>
+- `GlobalValidationModal.jsx` gère l'UI (select avec options "Lier à :") et stocke l'état dans `fileAssignments`.
+- `ExpertiseContext.jsx` définit `commitPendingAiData` qui itère sur `selections.fileAssignments` et appelle `handleAttachFile` pour chaque doc.
+- `ExpertiseContext.jsx` définit aussi `handleAttachFreeAnnex` (ligne 923) pour ajouter spécifiquement aux annexes libres.
+</technical_discovery>
+<current_architecture_and_code>
+</current_architecture_and_code>
+<code_collection_issue>
+<file path="src/components/GlobalValidationModal.jsx"><reason>Fichier trop volumineux (1389 lignes).</reason><known_partial_information>On doit ajouter l'option `<option value="annexes_libres">Annexes libres</option>` dans le `<select>` au niveau de la ligne ~1321.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+<file path="src/context/ExpertiseContext.jsx"><reason>Fichier trop volumineux (2040 lignes).</reason><known_partial_information>Dans `commitPendingAiData`, section `6.5 File assignments from Modal`, on boucle sur `selections.fileAssignments`. Actuellement, ça fait `await handleAttachFile(targetZone, matchedFile);`. On doit ajouter une condition si `targetZone === 'annexes_libres'` pour appeler `handleAttachFreeAnnex(matchedFile, matchedFile.name, '')`.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+</code_collection_issue>
+<related_files_not_fully_included></related_files_not_fully_included>
+<current_problem_analysis>
+L'option "Annexes libres" n'existe pas dans le menu déroulant "Lier à", et la logique backend `commitPendingAiData` ne redirige pas les affectations vers la méthode d'insertion spécifique aux annexes libres (`handleAttachFreeAnnex`).
+</current_problem_analysis>
+<proposed_technical_paths>
+A: Ajouter l'option dans `GlobalValidationModal` et intercepter `annexes_libres` dans `commitPendingAiData` pour appeler `handleAttachFreeAnnex`.
+B: Gérer `annexes_libres` directement via `handleAttachFile` en modifiant ses if/else internes.
+</proposed_technical_paths>
+<architect_questions_for_claude>
+1. Valider l'option A comme étant la plus saine (séparation des responsabilités en exploitant `handleAttachFreeAnnex` existant).
+2. Fournir les directives exactes pour l'intégration de Gemini (où et comment insérer sans briser le reste).
+</architect_questions_for_claude>
+<directive>
+Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.
+1 Challenge: vrai logiciel modulaire ou rustine? 2 Audit: typage, erreurs, couplage, état, appels IA, config, sécurité, maintenabilité, lisibilité, testabilité, UX, métier, rétrocompatibilité, risques fichiers incomplets. 3 Décide clairement; impose mieux si besoin; ne donne pas de patch final pour fichier déclaré incomplet. 4 Fournis IMPLEMENTATION_INSTRUCTIONS_FOR_GEMINI avec ordre exact, fichiers à créer/modifier/ne pas modifier sans inspection complète, fonctions, imports, état React, UI, validations, erreurs, migrations localStorage, comportements à préserver, pièges, non-régression. 5 Code final uniquement pour fichiers complets; sinon composant isolé/structure cible/patch conceptuel. 6 Checklist: tests manuels/techniques, cas limites, UX, métier, non-régression, vérification fichiers incomplets. Critère: fiabilité rapport améliorée, couplage réduit, impacts visibles, erreurs silencieuses évitées, extension future préparée.
+</directive>

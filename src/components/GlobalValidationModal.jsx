@@ -23,6 +23,7 @@ import { useTelemetry } from '../hooks/useTelemetry';
 import { buildGoldenDiff } from '../services/telemetry/goldenDiff';
 import { buildTelemetryFieldId } from '../services/telemetry/telemetryUtils';
 import { getFieldMeta } from '../services/telemetry/fieldRegistry';
+import { FREE_ANNEX_TARGET } from '../domain/attachmentTargets';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -1319,11 +1320,16 @@ const GlobalValidationModal = () => {
                                                     className="bg-slate-900 border border-slate-600 text-xs text-white rounded px-2 py-1 focus:border-indigo-500 outline-none w-[200px]"
                                                 >
                                                     <option value="unassigned">-- Ne pas lier --</option>
-                                                    <option value="doc_cond_part">N° Police (Conditions Particulières)</option>
-                                                    <option value="doc_cond_gen">Conditions Générales</option>
-                                                    <option value="doc_mail_expertise">Mail Expertise</option>
-                                                    <option value="doc_mail_declaration">Mail Déclaration</option>
-                                                    <option value="doc_rapport_cause">Cause (Rapport technique)</option>
+                                                    <optgroup label="Zones structurées">
+                                                        <option value="doc_cond_part">N° Police (Conditions Particulières)</option>
+                                                        <option value="doc_cond_gen">Conditions Générales</option>
+                                                        <option value="doc_mail_expertise">Mail Expertise</option>
+                                                        <option value="doc_mail_declaration">Mail Déclaration</option>
+                                                        <option value="doc_rapport_cause">Cause (Rapport technique)</option>
+                                                    </optgroup>
+                                                    <optgroup label="Autres">
+                                                        <option value={FREE_ANNEX_TARGET}>Annexes libres</option>
+                                                    </optgroup>
                                                 </select>
                                             </div>
                                         </div>
