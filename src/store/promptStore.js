@@ -145,7 +145,8 @@ RÈGLES ABSOLUES :
    d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
 6. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources techniques. Renvoie la liste EXACTE de leurs noms dans "technicalFilesToAttach". Si aucun, renvoie [].
 7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates.
-8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.`,
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
+9. FORMAT DE SORTIE STRICT : le champ "cause" doit être UNE CHAÎNE DE CARACTÈRES UNIQUE (string), jamais un objet ni un tableau. Rédige les 4 points (origine, localisation, conséquences, réparations) sous forme de paragraphes dans cette chaîne unique, séparés par des sauts de ligne (\n). Ne crée AUCUNE sous-structure JSON à l'intérieur de "cause".`,
 
     NARRATIVE_ACCUMULATION: `RÈGLES D'ACCUMULATION :
 1. Si les nouveaux documents ne contiennent AUCUNE information technique pertinente, renvoie la cause actuelle À L'IDENTIQUE dans le champ "cause".
@@ -435,13 +436,35 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 7, // Incrémenté pour forcer la mise à jour des prompts (v8.1.0)
+            version: 8, // Incrémenté pour forcer la mise à jour des prompts (v9.6.2)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 8) {
+                    if (persistedState && persistedState.customPrompts) {
+                        if (persistedState.customPrompts['NARRATIVE_BASE'] === `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
+Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
+
+RÈGLES ABSOLUES :
+1. RÈGLE D'EXHAUSTIVITÉ : Si aucune information pertinente n'est trouvée pour la cause, renvoie null. Si aucun document technique n'est à attacher, renvoie un tableau vide [].
+2. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
+3. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
+4. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant.
+5. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
+   a) Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
+   b) Où est-elle localisée avec précision ?
+   c) Quelles sont les conséquences matérielles directes constatées ?
+   d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
+6. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources techniques. Renvoie la liste EXACTE de leurs noms dans "technicalFilesToAttach". Si aucun, renvoie [].
+7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.`) {
+                            delete persistedState.customPrompts['NARRATIVE_BASE'];
+                        }
                     }
                 }
                 if (version < 7) {

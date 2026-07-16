@@ -1,0 +1,201 @@
+<project_context>
+Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
+</project_context>
+
+<initial_user_request>
+/architecteatomique + console " [tabSync] init — tabId courant: ... [Smart Bridge] ❌ Aucun match trouvé pour ... Error: Minified React error #31; visit https://reactjs.org/docs/error-decoder.html?invariant=31&args[]=object%20with%20keys%20%7Borigine%2C%20localisation%2C%20consequences%2C%20reparations%7D ... C'estg appru après la modèle d'un nouveau dossier
+</initial_user_request>
+
+<business_intent>
+Objectif : Fixer un crash React critique (Minified React error #31) survenant lors du traitement du dossier.
+Utilisateur impacté : L'utilisateur qui ingère de nouveaux documents (via Magic Drop ou Smart Bridge).
+Risque : L'application plante (écran blanc ou erreur fatale) et empêche le traitement du dossier (écran de validation globale inaccessible).
+Problème métier : Le pipeline narratif (Agent Récits) génère un objet complexe `{origine, localisation, consequences, reparations}` au lieu d'une simple chaîne de caractères pour le champ `cause`. La vue React tente de rendre cet objet dans un `<textarea>`, ce qui déclenche l'erreur #31.
+</business_intent>
+
+<technical_discovery>
+- Le bug survient dans `GlobalValidationModal.jsx` lors du rendu de `<textarea value={displayVal} ... />` pour le champ `cause` (l. 785).
+- L'origine est dans `src/services/agents/narrative.js` (l. 88-92) qui utilise `parseAiJson` et injecte `parsedData.cause` tel quel dans `currentCause`.
+- La requête IA est basée sur le prompt `NARRATIVE_BASE` défini dans `promptStore.js` (l. 133-148), qui demande de répondre "UNIQUEMENT à ces 4 questions (a, b, c, d)". Sans précision sur la structure JSON de sortie pour "cause", l'IA (gpt-4o/gpt-5) l'implémente sous forme d'un objet.
+- `aiManager.js` transmet ensuite cette donnée brute à l'UI sans vérification stricte du type String pour `cause`.
+</technical_discovery>
+
+<current_architecture_and_code>
+<file path="src/services/agents/narrative.js">
+<role>Extrait et synthétise les données textuelles (cause) par lots.</role>
+<relevance>Pertinence directe : c'est ici qu'on parse le retour IA et qu'on assigne `currentCause = parsedData.cause` sans valider/aplatir l'objet.</relevance>
+<full_source_code>
+// v6.1.0 - Pipeline Hardening
+/**
+ * narrative.js — Agent Récits
+ * Étape 4 du pipeline : extraction et synthèse du récit (cause, localisation, réparations).
+ * Ne reçoit que les documents taggués "RECITS".
+ * Traitement SÉQUENTIEL par lots avec accumulation incrémentale de la cause.
+ * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
+ */
+
+import { processInParallelBatches, buildContentArrayParallel } from '../utils/aiHelpers.js';
+import { usePromptStore } from '../../store/promptStore.js';
+import { buildAiPayload } from '../../ai/ai.resolver.js';
+import { sanitizeAiConfig } from '../../ai/ai.config.js';
+import { AI_ROLES } from '../../ai/ai.catalog.js';
+import { executeAiCall } from '../../ai/apiClient.js';
+import { parseAiJson } from '../utils/aiJsonParser.js';
+
+// v5.5.3
+/**
+ * Étape 4 : L'Agent Récits (Texte libre)
+ * Extrait et synthétise les données textuelles (cause, compte rendu, divers) 
+ * à partir des fichiers taggués "RECITS".
+ */
+export const extractNarrativeData = async (files, providedApiKey = null, onStatusChange = null, existingCause = '') => {
+    const fileArray = Array.isArray(files) ? files : [files];
+    const configStr = localStorage.getItem('expertise_aiConfig_v3');
+    const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
+    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const mode = apiKey ? 'live' : 'mock';
+
+    if (mode === 'mock') {
+        if (onStatusChange) onStatusChange('extracting');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return {
+            success: true,
+            data: {
+                cause: "Fuite d'eau suite à la rupture d'une canalisation encastrée dans le mur de la salle de bain."
+            }
+        };
+    }
+
+    try {
+        if (onStatusChange) onStatusChange('extracting');
+
+        // v5.5.5 - Batching & Scalabilité : traitement SÉQUENTIEL par lots de 8
+        // Chaque lot reçoit la cause du lot précédent comme contexte (prompt incrémental)
+        let currentCause = existingCause;
+        let allTechnicalFiles = [];
+
+        for (let i = 0; i < fileArray.length; i += 8) {
+            const batchFiles = fileArray.slice(i, i + 8);
+            console.log(`[narrative] 📝 Agent Récits: lot ${Math.floor(i/8) + 1}/${Math.ceil(fileArray.length/8)} (${batchFiles.length} fichiers)`);
+            
+            const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents (récits, rapports, chronologies) à synthétiser.");
+
+            // Prompt incrémental : au lot 2+, on passe la cause précédente
+            const basePrompt = usePromptStore.getState().getPrompt('NARRATIVE_BASE');
+            const accumulationRules = usePromptStore.getState().getPrompt('NARRATIVE_ACCUMULATION');
+            const existingCauseBlock = existingCause && currentCause !== ''
+                ? `\n\nCONTEXTE EXISTANT :\nVoici la cause actuelle rédigée jusqu'ici :\n"""\n${currentCause.trim()}\n"""\n\n${accumulationRules}`
+                : '';
+                
+            const systemPrompt = `${basePrompt}${existingCauseBlock}
+
+Voici le format EXACT attendu :
+{
+  "_raisonnement": "Analyse étape par étape des documents pour identifier l'origine, la localisation, les conséquences et les réparations.",
+  "cause": null,
+  "technicalFilesToAttach": []
+}`;
+
+            const payload = buildAiPayload(
+                config,
+                'agent_narrative',
+                [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contentArray }
+                ],
+                { forceJsonResponse: true }
+            );
+
+            const data = await executeAiCall({
+                apiKey,
+                payload,
+                componentId: 'agent_narrative'
+            });
+
+            const parsedData = parseAiJson(data.choices[0].message.content, { componentId: 'agent_narrative' });
+            
+            // Accumuler : la cause de ce lot devient le contexte du lot suivant
+            if (parsedData.cause) {
+                currentCause = parsedData.cause;
+            }
+            if (parsedData.technicalFilesToAttach && Array.isArray(parsedData.technicalFilesToAttach)) {
+                allTechnicalFiles = allTechnicalFiles.concat(parsedData.technicalFilesToAttach);
+            }
+        }
+
+        return { success: true, data: { cause: currentCause, technicalFilesToAttach: allTechnicalFiles } };
+
+    } catch (error) {
+        console.error("[narrative] extractNarrativeData error :", error);
+        return { success: false, error: error.message || "Erreur lors de l'extraction narrative." };
+    }
+};
+</full_source_code>
+</file>
+</current_architecture_and_code>
+
+<code_collection_issue>
+<file path="src/store/promptStore.js">
+<reason>Trop long, on limite l'extrait au NARRATIVE_BASE car le reste n'est pas lié au bug de format.</reason>
+<known_partial_information>
+    NARRATIVE_BASE: `Tu es un Agent Rédacteur spécialisé dans les expertises sinistres.
+Ton rôle est d'analyser des documents narratifs (rapports de recherche de fuite, constats pompiers, emails circonstanciés, chronologies) et de rédiger une analyse structurée.
+
+RÈGLES ABSOLUES :
+1. RÈGLE D'EXHAUSTIVITÉ : Si aucune information pertinente n'est trouvée pour la cause, renvoie null. Si aucun document technique n'est à attacher, renvoie un tableau vide [].
+2. Rédige une analyse concise et professionnelle. Ne fais pas d'introduction.
+3. Si UN SEUL rapport est fourni, rédige un texte unique répondant aux 4 points ci-dessous.
+4. Si PLUSIEURS rapports/avis sont fournis, sépare OBLIGATOIREMENT ton analyse avec des sauts de ligne et le nom de l'intervenant.
+5. Tu dois extraire et répondre UNIQUEMENT à ces 4 questions :
+   a) Quelle est l'origine exacte et technique du sinistre (la cause matérielle) ?
+   b) Où est-elle localisée avec précision ?
+   c) Quelles sont les conséquences matérielles directes constatées ?
+   d) Quelles sont les réparations conservatoires ou définitives préconisées par le technicien ?
+6. IMPORTANT (MAGIC DROP) : Détecte les fichiers sources techniques. Renvoie la liste EXACTE de leurs noms dans "technicalFilesToAttach". Si aucun, renvoie [].
+7. ANTI-HALLUCINATION : NE JAMAIS inventer de dates.
+8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.`,
+</known_partial_information>
+<audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d'intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence>
+</file>
+</code_collection_issue>
+
+<related_files_not_fully_included>
+- src/components/GlobalValidationModal.jsx : L'UI qui crash. Inutile de la modifier car c'est la donnée reçue (objet au lieu de string) qui est fautive.
+- src/services/aiManager.js : Inutile à modifier, la donnée vient de `narrative.js`.
+</related_files_not_fully_included>
+
+<current_problem_analysis>
+L'erreur "Minified React error #31" indique que React essaie d'afficher un objet au lieu d'une valeur primitive dans `<textarea>`. L'objet incriminé possède les clés "origine", "localisation", "consequences", "reparations".
+Ceci s'explique parce que le prompt NARRATIVE_BASE demande de répondre à 4 questions. L'IA (comme gpt-4o), qui cherche à structurer au mieux le JSON en l'absence de type string strict, insère ces 4 questions comme des sous-clés dans "cause".
+Lors du parsing dans `narrative.js`, on fait `currentCause = parsedData.cause;`. Si l'IA renvoie un objet, on propage cet objet jusqu'à la vue, d'où le crash.
+C'est un manque de défensivité dans le pipeline de données (confiance aveugle envers le format de sortie de l'IA).
+</current_problem_analysis>
+
+<proposed_technical_paths>
+Option A : Défensivité au niveau du parseur IA (dans narrative.js)
+Dans `narrative.js`, si `typeof parsedData.cause === 'object'`, on convertit cet objet en chaîne de caractères formatée (ex: on joint les clés/valeurs) avant de l'assigner à `currentCause`.
+Avantages : Stoppe le crash immédiatement, tolérant si l'IA s'égare.
+Limites : On traite les symptômes, pas la cause racine.
+
+Option B : Correction à la source (dans le prompt NARRATIVE_BASE)
+Modifier le `NARRATIVE_BASE` pour expliciter que le champ `cause` doit être UNE CHAÎNE DE CARACTÈRES UNIQUE contenant les paragraphes (ou le texte unique).
+Avantages : Plus performant pour l'IA, format attendu clair.
+Limites : L'IA peut parfois quand même s'égarer, donc pas assez robuste seul.
+
+Option C : L'approche hybride et stricte (recommandée)
+1. Modifier le prompt `NARRATIVE_BASE` pour préciser que "cause" doit être une chaîne de caractères (string) consolidée.
+2. Sécuriser `narrative.js` pour aplatir `parsedData.cause` en texte si l'IA persiste à renvoyer un objet.
+Avantages : Zéro erreur silencieuse, extrêmement robuste.
+Limites : Légère complexité de conversion d'objet en texte.
+</proposed_technical_paths>
+
+<architect_questions_for_claude>
+1 Quelle est la méthode la plus fiable et élégante pour rattraper l'objet retourné par l'IA et le transformer en texte humain propre dans `narrative.js` ?
+2 Faut-il également modifier le prompt `NARRATIVE_BASE` pour prévenir cette hallucination de structure de l'IA ?
+3 Est-ce qu'on incrémente le versionnement du store Zustand (promptStore) si on modifie `NARRATIVE_BASE` ?
+</architect_questions_for_claude>
+
+<directive>
+Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.
+1 Challenge: vrai logiciel modulaire ou rustine? 2 Audit: typage, erreurs, couplage, état, appels IA, config, sécurité, maintenabilité, lisibilité, testabilité, UX, métier, rétrocompatibilité, risques fichiers incomplets. 3 Décide clairement; impose mieux si besoin; ne donne pas de patch final pour fichier déclaré incomplet. 4 Fournis IMPLEMENTATION_INSTRUCTIONS_FOR_GEMINI avec ordre exact, fichiers à créer/modifier/ne pas modifier sans inspection complète, fonctions, imports, état React, UI, validations, erreurs, migrations localStorage, comportements à préserver, pièges, non-régression. 5 Code final uniquement pour fichiers complets; sinon composant isolé/structure cible/patch conceptuel. 6 Checklist: tests manuels/techniques, cas limites, UX, métier, non-régression, vérification fichiers incomplets. Critère: fiabilité rapport améliorée, couplage réduit, impacts visibles, erreurs silencieuses évitées, extension future préparée.
+</directive>

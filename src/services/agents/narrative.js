@@ -1,4 +1,4 @@
-// v6.1.0 - Pipeline Hardening
+// v6.1.1 - Fix React #31 : normalisation stricte du champ "cause" (string garanti)
 /**
  * narrative.js — Agent Récits
  * Étape 4 du pipeline : extraction et synthèse du récit (cause, localisation, réparations).
@@ -14,6 +14,7 @@ import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 import { executeAiCall } from '../../ai/apiClient.js';
 import { parseAiJson } from '../utils/aiJsonParser.js';
+import { normalizeAiTextField } from '../utils/aiFieldNormalizers.js';
 
 // v5.5.3
 /**
@@ -65,7 +66,7 @@ export const extractNarrativeData = async (files, providedApiKey = null, onStatu
 Voici le format EXACT attendu :
 {
   "_raisonnement": "Analyse étape par étape des documents pour identifier l'origine, la localisation, les conséquences et les réparations.",
-  "cause": null,
+  "cause": "OBLIGATOIREMENT une chaîne de caractères unique (string) contenant l'analyse rédigée en paragraphes séparés par \\n — JAMAIS un objet ni un tableau — ou null si aucune information.",
   "technicalFilesToAttach": []
 }`;
 
@@ -88,8 +89,12 @@ Voici le format EXACT attendu :
             const parsedData = parseAiJson(data.choices[0].message.content, { componentId: 'agent_narrative' });
             
             // Accumuler : la cause de ce lot devient le contexte du lot suivant
-            if (parsedData.cause) {
-                currentCause = parsedData.cause;
+            const normalizedCause = normalizeAiTextField(parsedData.cause, {
+                componentId: 'agent_narrative',
+                fieldName: 'cause',
+            });
+            if (normalizedCause !== '') {
+                currentCause = normalizedCause;
             }
             if (parsedData.technicalFilesToAttach && Array.isArray(parsedData.technicalFilesToAttach)) {
                 allTechnicalFiles = allTechnicalFiles.concat(parsedData.technicalFilesToAttach);
