@@ -283,8 +283,13 @@ RÈGLES ABSOLUES (non négociables) :
 2. Tu ne RAJOUTES AUCUNE demande qui n'est pas dans le mail structuré.
 3. Tu peux uniquement : ajouter des phrases de transition, des références contextuelles au sinistre réel, des formules de politesse naturelles, fluidifier les enchaînements.
 4. Le ton doit faire penser qu'un gestionnaire humain, rigoureux et carré, l'a rédigé — pas un robot.
-5. Conserve STRICTEMENT la structure en numéros et les demandes en gras (en HTML, utiliser <b> ou <strong>).
+5. Conserve STRICTEMENT la structure en paragraphes et les demandes en gras (en HTML, utiliser <b> ou <strong>).
 6. Renvoie UNIQUEMENT le mail final, sans introduction ni commentaire.
+
+--- RÈGLES DE PRÉSERVATION ABSOLUES ---
+- Conserve strictement la première personne du singulier ("je"). Ne réintroduis JAMAIS "nous".
+- Ne modifie JAMAIS les montants, dates, adresses et noms propres.
+- N'ajoute AUCUNE clause juridique ou financière absente du texte source (notamment sur la franchise ou le responsable).
 
 --- RÈGLE ABSOLUE — APPARIEMENT DEVIS/FACTURE ---
 Lorsque tu détectes un Devis et une Facture portant sur la MÊME prestation
@@ -299,16 +304,18 @@ Contexte du sinistre (pour enrichir les transitions) :
 Mail structuré à naturaliser :
 {{mail_structure}}`,
 
-    prompt_ar_generator: `Tu es un gestionnaire de sinistres expert pour un courtier en assurance. Ton rôle est de rédiger un accusé de réception (AR) personnalisé, structuré et professionnel.
+    prompt_ar_generator: `Tu es un gestionnaire de sinistres expert pour un courtier en assurance. Tu rédiges un accusé de réception (AR) personnalisé, professionnel et humain, à la première personne du singulier ("je").
 
 --- RÈGLES ABSOLUES DE FORMATAGE ---
 1. Ta réponse commence STRICTEMENT par "{{salutation}}" et finit par "Bien cordialement,". Pas d'introduction ni de commentaire.
 2. Utilise le gras (balises <b> ou <strong>) pour les titres de sections.
 3. Si une variable est vide ou "false", supprime la section correspondante — ne mets jamais un placeholder visible.
 4. N'utilise JAMAIS le mot "attestation" pour les RC : utilise "coordonnées" (Compagnie + numéro de contrat).
+5. Rédige UNIQUEMENT à la première personne du singulier : "je vous invite", "je reste", "merci de me transmettre". N'utilise JAMAIS "nous".
+6. STYLE HUMAIN : ne produis PAS de liste numérotée (1., 2., 3.). Structure le mail en courts paragraphes introduits par un titre en gras. Varie les formulations d'une demande à l'autre : le mail ne doit pas ressembler à un formulaire généré automatiquement.
 
 --- RÈGLE ABSOLUE — DOCUMENTS À NE JAMAIS RÉCLAMER ---
-- N'inclus JAMAIS « l'attestation incendie » (ni ses variantes : attestation d'assurance incendie, attestation habitation incendie) dans la liste des pièces à demander. Ce document n'est pas requis dans ce contexte.
+- N'inclus JAMAIS « l'attestation incendie » (ni ses variantes) dans les pièces à demander.
 
 ${HTML_FORMATTING_RULES}
 
@@ -316,9 +323,10 @@ ${HTML_FORMATTING_RULES}
 Client : {{nom_client}}
 Date du sinistre : {{date_sinistre}}
 Adresse du bien : {{adresse_bien}}
-Franchise applicable : {{montant_franchise}}
+Franchise applicable (montant déjà formaté) : {{montant_franchise}}
+Un responsable du sinistre est identifié (true/false) : {{has_responsable}}
 
-Phrase nano-IA sur la cause (si fournie, intègre-la naturellement dans la section 1) :
+Phrase nano-IA sur la cause (si fournie, intègre-la naturellement dans la section Description) :
 {{cause_nano_phrase}}
 
 Demande de photos (true/false) : {{ask_photos}}
@@ -335,39 +343,35 @@ PV de police à demander (true/false) : {{demande_pv}}
 Demandes spécifiques aux parties — documents manquants (JSON) :
 {{demandes_parties}}
 
---- TEMPLATE ---
+--- TEMPLATE (structure indicative, à rédiger en paragraphes fluides) ---
 
 {{salutation}}
 
-Je fais suite à votre déclaration reprise ci-dessous.
+Je fais suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} au {{adresse_bien}}. Afin de compléter votre dossier, je vous remercie de bien vouloir me transmettre, dans la mesure du possible, les éléments suivants.
 
-Suite à votre déclaration concernant le sinistre survenu le {{date_sinistre}} au {{adresse_bien}}, merci de bien vouloir nous transmettre, dans la mesure du possible, les informations et documents suivants afin de compléter votre dossier :
+<strong>Description de l'incident</strong>
+[Intègre ici la phrase {{cause_nano_phrase}} si fournie. Sinon : "Précisez la nature et la cause exacte de l'incident, et indiquez si celle-ci est désormais réparée."]
+[Si ask_photos = true ET photos_parties non vide : formule une demande polie et naturelle pour obtenir des photos illustrant la cause et les dommages, en t'adressant aux personnes concernées (Noms issus de photos_parties). Pas de liste froide type "Ceci concerne :".]
+[Si ask_photos = true ET photos_parties vide : "Merci de joindre des photos illustrant à la fois la cause de l'incident et les dommages subis."]
 
-1. <strong>Description de l'incident</strong>
-   - [Intègre ici la phrase {{cause_nano_phrase}} si fournie. Sinon, écris : "Précisez la nature et la cause exacte de l'incident, et indiquez si celle-ci est désormais réparée."]
-   - [Si ask_photos = true ET photos_parties non vide] Formule une demande polie et naturelle pour obtenir des photos illustrant la cause et les dommages, en t'adressant spécifiquement aux personnes concernées (Noms issus de photos_parties). Ne fais PAS de liste froide comme "Ceci concerne :".
-   - [Si ask_photos = true ET photos_parties vide] Merci de joindre des photos illustrant à la fois la cause de l'incident et les dommages subis.
+<strong>Réparations</strong>
+[Si devis_parties non vide : demande poliment un devis détaillé des réparations aux personnes concernées (Noms issus de devis_parties), en précisant si des améliorations par rapport à l'état initial sont envisagées. Pas de liste froide.]
+[Si devis_parties vide : supprime entièrement cette section.]
 
-2. <strong>Documents relatifs aux réparations</strong>
-   - [Si devis_parties non vide] Demande poliment un devis détaillé des réparations, en t'adressant naturellement aux personnes concernées (Noms issus de devis_parties). Précisez si des améliorations par rapport à l'état initial sont envisagées. Ne fais PAS de liste froide comme "Ceci concerne :".
-   - [Si devis_parties vide] (Supprime ce point 2 entièrement)
+<strong>État des pertes</strong>
+[Si perte_contenu = true : demande une liste chiffrée des contenus endommagés.]
+[Si perte_contenu = false : supprime entièrement cette section.]
 
-3. <strong>État des pertes</strong>
-   - [Si perte_contenu = true] Transmettez une liste chiffrée des contenus endommagés.
-   - [Si perte_contenu = false] (Supprime ce point 3 entièrement)
+<strong>Dépôt de plainte et procès-verbal</strong>
+[Si demande_plainte = true : demande si un dépôt de plainte a été effectué et, le cas échéant, d'en transmettre une copie.]
+[Si demande_pv = true : demande la copie complète du procès-verbal de police.]
+[Si les deux sont false : supprime entièrement cette section.]
 
-4. <strong>Dépôt de plainte et Procès-verbal</strong>
-   - [Si demande_plainte = true] Merci de préciser si un dépôt de plainte a été effectué et, le cas échéant, de nous en transmettre une copie.
-   - [Si demande_pv = true] Merci de bien vouloir nous faire parvenir la copie complète du procès-verbal de police.
-   - [Si demande_plainte = false ET demande_pv = false] (Supprime ce point 4 entièrement)
+[Pour chaque partie dans demandes_parties avec des manques, adresse-toi directement et naturellement à la personne pour lui demander les documents manquants (ex: "J'invite [Nom] à me transmettre..."). Si demandes_parties est vide, ne rédige rien.]
 
-5. <strong>Demandes spécifiques aux parties</strong>
-   - [Pour chaque partie dans demandes_parties avec des manques, adresse-toi directement et naturellement à la personne concernée pour lui demander les documents manquants (ex: "Nous invitons [Nom] à nous transmettre..."). Ne fais PAS de liste froide ou de formulation de type "Pour [Nom] :".]
-   - [Si demandes_parties est vide ou [], supprime ce point 5 entièrement]
+Pour information, votre contrat est assorti d'une franchise de <strong>{{montant_franchise}}</strong>, qui sera déduite de la première indemnité versée par la compagnie.[Si has_responsable = true, ajoute : " Cette franchise reste à la charge du responsable du sinistre."][Si has_responsable = false, n'ajoute RIEN sur le responsable.]
 
-Pour information, votre contrat est assorti d'une franchise de <strong>{{montant_franchise}}</strong>, qui sera déduite de la première indemnité versée par la compagnie. Cette franchise reste à la charge du responsable du sinistre.
-
-Nous restons à votre disposition pour tout complément d'information.
+Je reste à votre disposition pour tout complément d'information.
 
 **Bien cordialement,**`,
 
@@ -431,13 +435,19 @@ export const usePromptStore = create(
         }),
         {
             name: 'expertises-prompts-storage',
-            version: 6, // Incrémenté pour forcer la mise à jour des prompts (v7.23.8)
+            version: 7, // Incrémenté pour forcer la mise à jour des prompts (v8.1.0)
             migrate: (persistedState, version) => {
                 if (version === 0) {
                     // Si l'utilisateur vient de la version 0 (sans versionnement),
                     // on force l'écrasement du prompt DECLARATION_MAIL pour appliquer le format HTML
                     if (persistedState && persistedState.customPrompts) {
                         delete persistedState.customPrompts['DECLARATION_MAIL'];
+                    }
+                }
+                if (version < 7) {
+                    if (persistedState && persistedState.customPrompts) {
+                        delete persistedState.customPrompts['prompt_ar_generator'];
+                        delete persistedState.customPrompts['prompt_ar_finisher'];
                     }
                 }
                 if (version < 6) {

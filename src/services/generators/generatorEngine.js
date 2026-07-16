@@ -7,6 +7,23 @@ import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { executeAiCall } from '../../ai/apiClient.js';
 
 /**
+ * Extrait et formate le montant d'une saisie franchise libre.
+ * Ex: "Juillet 2026 - 337.03" → "337,03 €"
+ * Fallback: retourne la valeur brute trimmée si aucun montant détecté (jamais de chaîne vide silencieuse).
+ */
+export function formatFranchiseAmount(rawInput) {
+  if (!rawInput || typeof rawInput !== 'string') return '';
+  const match = rawInput.match(/(\d[\d\s]*(?:[.,]\d{1,2})?)\s*€?\s*$/) 
+             || rawInput.match(/(\d[\d\s]*(?:[.,]\d{1,2})?)/);
+  if (!match) {
+    console.warn('[generatorEngine] formatFranchiseAmount: aucun montant détecté dans:', rawInput);
+    return rawInput.trim();
+  }
+  const normalized = match[1].replace(/\s/g, '').replace('.', ',');
+  return `${normalized} €`;
+}
+
+/**
  * Registre des templates disponibles.
  */
 const TEMPLATES = {
@@ -148,7 +165,8 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
 
     const dateSinistre = dossierData.formData?.dateSinistre || '[Date inconnue]';
     const adresseBien = dossierData.formData?.adresse || '[Adresse inconnue]';
-    const montantFranchise = formSelections.franchiseInput || '0€';
+    const montantFranchise = formatFranchiseAmount(formSelections.franchiseInput || '0€');
+    const hasResponsable = formSelections.hasResponsable === true ? 'true' : 'false';
 
     // Nouvelles variables v2
     const causeNanoPhrase = formSelections.causeNanoPhrase || '';
@@ -182,6 +200,7 @@ export const generateAcknowledgmentEmail = async (dossierData, formSelections, a
         .replace(/{{date_sinistre}}/g, dateSinistre)
         .replace(/{{adresse_bien}}/g, adresseBien)
         .replace(/{{montant_franchise}}/g, montantFranchise)
+        .replace(/{{has_responsable}}/g, hasResponsable)
         .replace(/{{cause_nano_phrase}}/g, causeNanoPhrase)
         .replace(/{{ask_photos}}/g, askPhotos)
         .replace(/{{photos_parties}}/g, photosPartiesStr)

@@ -1,6 +1,7 @@
 // AcknowledgmentModal.jsx — AR v2
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
+import useFinanceStore from '../../store/financeStore';
 import { generateAcknowledgmentEmail, analyzeNarrativeCause, runArFinisher, draftMagicEmail, modifyDraftEmail } from '../../services/generators/generatorEngine';
 import { evaluateClaims } from '../../domain/claims/claimEngine';
 import { useRecipientSelection } from '../../hooks/useRecipientSelection';
@@ -167,6 +168,8 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
 
         try {
             const dossierData = { formData, occupants, expenses };
+            const responsablesIds = useFinanceStore.getState().metier?.responsablesIds;
+            const hasResponsable = Array.isArray(responsablesIds) && responsablesIds.length > 0;
 
             // Parties sélectionnées pour les photos
             const photosPartiesList = Object.entries(selectedPhotosParties)
@@ -207,6 +210,7 @@ const AcknowledgmentModal = ({ isOpen, onClose }) => {
                 askPvPolice: dossierClaimsState['PV_POLICE'] || false,
                 partiesGaps,
                 salutation: recipientState.salutation,
+                hasResponsable
             };
 
             // Génération mail structuré
