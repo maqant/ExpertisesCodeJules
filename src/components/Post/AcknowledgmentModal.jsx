@@ -1,7 +1,7 @@
 // AcknowledgmentModal.jsx — AR v2
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
-import useFinanceStore from '../../store/financeStore';
+import { useFinanceStore } from '../../store/financeStore';
 import { generateAcknowledgmentEmail, analyzeNarrativeCause, runArFinisher, draftMagicEmail, modifyDraftEmail } from '../../services/generators/generatorEngine';
 import { evaluateClaims } from '../../domain/claims/claimEngine';
 import { useRecipientSelection } from '../../hooks/useRecipientSelection';
