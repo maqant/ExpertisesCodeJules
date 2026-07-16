@@ -1,30 +1,57 @@
 <project_context>
 Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
 </project_context>
-<initial_user_request>dans les documents non assignés, je devrais pouvoir les mettre dans les annexes libres /architecteatomique</initial_user_request>
-<business_intent>Permettre à l'utilisateur d'assigner un document "non assigné" détecté par l'IA directement en tant qu'"Annexe libre" depuis le sas de validation IA (GlobalValidationModal), sans devoir le télécharger puis le re-téléverser ailleurs.</business_intent>
+<initial_user_request>quand j'appuie sur l'oeil d'ouvrir les conditions particulieres dans la modale /architecteatomique</initial_user_request>
+<business_intent>L'utilisateur clique sur le bouton de prévisualisation (l'œil) d'un document détecté par l'IA (Conditions particulières, etc.). Le navigateur bloque le popup, l'utilisateur l'autorise via la barre d'adresse, ce qui ouvre un nouvel onglet, mais cet onglet affiche une erreur "Impossible d'accéder à votre fichier" (ERR_FILE_NOT_FOUND).</business_intent>
 <technical_discovery>
-- `GlobalValidationModal.jsx` gère l'UI (select avec options "Lier à :") et stocke l'état dans `fileAssignments`.
-- `ExpertiseContext.jsx` définit `commitPendingAiData` qui itère sur `selections.fileAssignments` et appelle `handleAttachFile` pour chaque doc.
-- `ExpertiseContext.jsx` définit aussi `handleAttachFreeAnnex` (ligne 923) pour ajouter spécifiquement aux annexes libres.
+- Le composant `MiniAttachmentUI` dans `GlobalValidationModal.jsx` contient la fonction `handlePreviewPending`.
+- Cette fonction fait un `URL.createObjectURL(pendingFile)`.
+- Elle ouvre un popup via `window.open`.
+- Si c'est bloqué, un `alert` est affiché.
+- Ensuite, il y a un `setTimeout(() => URL.revokeObjectURL(url), 30000);`.
+- Ce timeout ou le comportement de blocage/déblocage du navigateur provoque l'accès à un blob URL déjà révoqué.
 </technical_discovery>
 <current_architecture_and_code>
+<file path="src/components/GlobalValidationModal.jsx">
+<role>Modal de validation IA</role>
+<relevance>Contient le code buggé (MiniAttachmentUI)</relevance>
+<full_source_code>
+// Extrait pertinent :
+const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
+    // ...
+    const handlePreviewPending = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!pendingFile) return;
+        const url = URL.createObjectURL(pendingFile);
+        const win = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!win) {
+            console.error('[MiniAttachmentUI] Prévisualisation bloquée par le navigateur pour :', pendingFile.name);
+            alert("La prévisualisation a été bloquée par le navigateur. Autorisez les popups pour ce site.");
+        }
+        // Revoke différé : le viewer a déjà chargé le blob, on libère la mémoire.
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+    // ...
+}
+</full_source_code>
+</file>
 </current_architecture_and_code>
 <code_collection_issue>
-<file path="src/components/GlobalValidationModal.jsx"><reason>Fichier trop volumineux (1389 lignes).</reason><known_partial_information>On doit ajouter l'option `<option value="annexes_libres">Annexes libres</option>` dans le `<select>` au niveau de la ligne ~1321.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
-<file path="src/context/ExpertiseContext.jsx"><reason>Fichier trop volumineux (2040 lignes).</reason><known_partial_information>Dans `commitPendingAiData`, section `6.5 File assignments from Modal`, on boucle sur `selections.fileAssignments`. Actuellement, ça fait `await handleAttachFile(targetZone, matchedFile);`. On doit ajouter une condition si `targetZone === 'annexes_libres'` pour appeler `handleAttachFreeAnnex(matchedFile, matchedFile.name, '')`.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+<file path="src/components/GlobalValidationModal.jsx"><reason>Fichier trop volumineux (1395 lignes).</reason><known_partial_information>Le code de `handlePreviewPending` est isolé dans le sous-composant `MiniAttachmentUI` en haut du fichier.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
 </code_collection_issue>
 <related_files_not_fully_included></related_files_not_fully_included>
 <current_problem_analysis>
-L'option "Annexes libres" n'existe pas dans le menu déroulant "Lier à", et la logique backend `commitPendingAiData` ne redirige pas les affectations vers la méthode d'insertion spécifique aux annexes libres (`handleAttachFreeAnnex`).
+La gestion de la mémoire via `setTimeout(..., 30000)` est incompatible avec le flow de déblocage de popup par l'utilisateur. Si le popup est bloqué, la fonction se termine, le timeout commence. L'utilisateur lit l'alert, clique sur OK, va dans la barre d'adresse de Chrome, et clique sur le lien pour forcer l'ouverture. À ce moment-là, ou peu après, le `30000` expire et révoque le blob, ou Chrome tente de recharger le blob dans le nouvel onglet qui est déjà perdu. Pire, à chaque clic sur l'oeil, un NOUVEAU blob est créé et l'ancien fuit si on ne le nettoie pas correctement sur le cycle de vie du composant.
 </current_problem_analysis>
 <proposed_technical_paths>
-A: Ajouter l'option dans `GlobalValidationModal` et intercepter `annexes_libres` dans `commitPendingAiData` pour appeler `handleAttachFreeAnnex`.
-B: Gérer `annexes_libres` directement via `handleAttachFile` en modifiant ses if/else internes.
+A: Lier le cycle de vie du `Blob URL` au cycle de vie du composant `MiniAttachmentUI` via un `useEffect`. Créer le blob URL une seule fois au montage (si `pendingFile` existe) ou via un `useMemo` mais nettoyer au `unmount`.
+B: Retirer complètement le `URL.revokeObjectURL` et accepter une petite fuite de mémoire (le modal est temporaire de toute façon). (Mauvaise pratique).
+C: Stocker le Blob URL généré dans un ref, et au `onClick`, générer/retourner ce même blob. Le nettoyage se fait dans le `useEffect` return function.
 </proposed_technical_paths>
 <architect_questions_for_claude>
-1. Valider l'option A comme étant la plus saine (séparation des responsabilités en exploitant `handleAttachFreeAnnex` existant).
-2. Fournir les directives exactes pour l'intégration de Gemini (où et comment insérer sans briser le reste).
+1. Valider l'option A ou C comme étant la plus propre pour gérer la mémoire des blobs.
+2. Fournir l'implémentation de `MiniAttachmentUI` corrigée.
 </architect_questions_for_claude>
 <directive>
 Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.

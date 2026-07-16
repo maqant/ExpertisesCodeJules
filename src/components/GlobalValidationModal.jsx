@@ -24,6 +24,7 @@ import { buildGoldenDiff } from '../services/telemetry/goldenDiff';
 import { buildTelemetryFieldId } from '../services/telemetry/telemetryUtils';
 import { getFieldMeta } from '../services/telemetry/fieldRegistry';
 import { FREE_ANNEX_TARGET } from '../domain/attachmentTargets';
+import { useObjectUrl, openObjectUrlInNewTab } from '../hooks/useObjectUrl';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -34,31 +35,40 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile })
         files.forEach(f => handleAttachFile(docId, f));
     };
 
+    const previewUrl = useObjectUrl(pendingFile);
+    const [previewError, setPreviewError] = useState(null);
+
     const handlePreviewPending = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!pendingFile) return;
-        const url = URL.createObjectURL(pendingFile);
-        const win = window.open(url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-            console.error('[MiniAttachmentUI] Prévisualisation bloquée par le navigateur pour :', pendingFile.name);
-            alert("La prévisualisation a été bloquée par le navigateur. Autorisez les popups pour ce site.");
+        if (!previewUrl) {
+            setPreviewError("Aperçu indisponible : le fichier n'est plus accessible.");
+            console.error('[MiniAttachmentUI] Blob URL absent pour :', pendingFile?.name);
+            return;
         }
-        // Revoke différé : le viewer a déjà chargé le blob, on libère la mémoire.
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        try {
+            setPreviewError(null);
+            openObjectUrlInNewTab(previewUrl);
+        } catch (err) {
+            console.error('[MiniAttachmentUI] Échec ouverture aperçu :', pendingFile?.name, err);
+            setPreviewError("L'aperçu n'a pas pu s'ouvrir. Réessayez ou vérifiez le fichier.");
+        }
     };
 
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 shrink-0 pointer-events-auto mt-1" onClick={(e) => e.stopPropagation()}>
             {pendingFile && (
-                <button
-                    type="button"
-                    onClick={handlePreviewPending}
-                    className="text-[10px] bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/30 font-medium cursor-pointer hover:bg-green-800/60 hover:border-green-400/50 transition-colors"
-                    title={`Cliquer pour prévisualiser : ${pendingFile.name}`}
-                >
-                    ✨ Détecté: {pendingFile.name} 👁️
-                </button>
+                <div className="flex flex-col items-start gap-1">
+                    <button
+                        type="button"
+                        onClick={handlePreviewPending}
+                        className="text-[10px] bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/30 font-medium cursor-pointer hover:bg-green-800/60 hover:border-green-400/50 transition-colors"
+                        title={`Cliquer pour prévisualiser : ${pendingFile.name}`}
+                    >
+                        ✨ Détecté: {pendingFile.name} 👁️
+                    </button>
+                    {previewError && <span className="text-[9px] text-red-400 font-medium">{previewError}</span>}
+                </div>
             )}
             {files.length > 0 && files.map(file => {
                 if (!file.name) return null;
