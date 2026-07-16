@@ -92,7 +92,7 @@ const FORM_FIELD_LABELS = {
     numConditionsGenerales: 'N° Cond. Gen.', franchise: 'Franchise',
 };
 
-const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Propriétaire (occupation inconnue)', 'ACP'];
+const STATUT_OPTIONS = ['Locataire', 'Propriétaire occupant', 'Propriétaire non occupant', 'Propriétaire (occupation inconnue)', 'ACP', 'Tiers'];
 
 // v7.0.0 - Fix critique : la clé utilisait exp.montant (champ disparu depuis v5.x)
 // Désormais on utilise montantReclame || montant pour compatibilité

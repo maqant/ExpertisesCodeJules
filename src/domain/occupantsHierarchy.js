@@ -8,6 +8,7 @@ const STATUS_ORDER = {
   'Propriétaire (occupation inconnue)': 3,
   'ACP': 4,
   'Locataire': 5,
+  'Tiers': 6,
 };
 
 const floorRank = (etage) => {
