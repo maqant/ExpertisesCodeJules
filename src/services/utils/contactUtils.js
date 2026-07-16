@@ -1,5 +1,6 @@
 // src/services/utils/contactUtils.js
 import { genId } from '../../domain/decompteSplitter/allocationModel.js';
+import { formatPersonName } from './formatUtils.js';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -139,15 +140,19 @@ export const buildSalutation = (contacts = []) => {
       ? (parseFullName(rawLastName)?.lastName || rawLastName)
       : rawLastName;
 
+    // Cas 1 : civilité connue → "Monsieur Mosca"
     if (c?.civility && lastName) {
-      return `${c.civility} ${lastName}`.trim();
+      return `${c.civility} ${formatPersonName(lastName)}`.trim();
     }
 
-    if (lastName && lastName !== c?.email) {
-      return (c?.displayName || c?.nom || '').trim();
+    // Cas 2 : pas de civilité → nom complet formaté "Iman Abd el Alim…"
+    const fullName = (c?.displayName || c?.nom || '').trim();
+    if (fullName && fullName !== c?.email) {
+      return formatPersonName(fullName);
     }
 
-    return (c?.displayName || c?.nom || '').trim();
+    // Cas 3 : rien d'exploitable (ou nom == email) → vide, filtré ensuite
+    return '';
   });
 
   const validParts = parts.filter(Boolean);

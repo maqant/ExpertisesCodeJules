@@ -1,57 +1,70 @@
 <project_context>
 Application: ExpertisesCodeJules. Stack: React/Vite. Domaine: courtage assurance, Bureau Péchard, sinistres, rapports d’expertise et annexes. Finalité: ingérer données déstructurées pour générer/vérifier/imprimer/exploiter un rapport fiable, maintenable, évolutif. Contraintes: fiabilité totale, zéro erreur silencieuse, évolutivité avant/pendant/post sinistre, séparation IA/config/état/métier/UI/rapport/export/stockage, UX claire.
 </project_context>
-<initial_user_request>quand j'appuie sur l'oeil d'ouvrir les conditions particulieres dans la modale /architecteatomique</initial_user_request>
-<business_intent>L'utilisateur clique sur le bouton de prévisualisation (l'œil) d'un document détecté par l'IA (Conditions particulières, etc.). Le navigateur bloque le popup, l'utilisateur l'autorise via la barre d'adresse, ce qui ouvre un nouvel onglet, mais cet onglet affiche une erreur "Impossible d'accéder à votre fichier" (ERR_FILE_NOT_FOUND).</business_intent>
+<initial_user_request>C'est pas terrible. Ca devrait être
+"Bonjour Mnsieur x, 
+Bonjour Monsieur x,. Ecrit avec juste la première lettre du nom de famille en majuscule, pas tout en majuscule</initial_user_request>
+<business_intent>Améliorer la formule d'appel des e-mails (générée par `buildSalutation`) pour que les noms de famille ne soient plus en ALL CAPS (ex: "MOSCA"), mais en Title Case (ex: "Mosca"). L'utilisateur prend en exemple "Bonjour Monsieur x", ce qui implique aussi que si la civilité est là, elle doit être utilisée avec le nom de famille en Title Case, ou si elle est absente, afficher le prénom + nom en Title Case correctement plutôt qu'un bloc tout en majuscule.</business_intent>
 <technical_discovery>
-- Le composant `MiniAttachmentUI` dans `GlobalValidationModal.jsx` contient la fonction `handlePreviewPending`.
-- Cette fonction fait un `URL.createObjectURL(pendingFile)`.
-- Elle ouvre un popup via `window.open`.
-- Si c'est bloqué, un `alert` est affiché.
-- Ensuite, il y a un `setTimeout(() => URL.revokeObjectURL(url), 30000);`.
-- Ce timeout ou le comportement de blocage/déblocage du navigateur provoque l'accès à un blob URL déjà révoqué.
+- `buildSalutation` est dans `src/services/utils/contactUtils.js`.
+- Elle itère sur les `contacts` et construit une string.
+- Actuellement, elle utilise `c.civility` + `lastName` (si civility existe), sinon elle fallback sur `c.displayName` ou `c.nom`.
+- Les noms (`lastName` ou `displayName`) proviennent directement de l'extraction, souvent en majuscules (ex: "ABD EL ALIM ABD EL KADER").
+- Il n'y a pas de fonction pour convertir un nom "ALL CAPS" en "Title Case" dans `contactUtils.js` actuellement pour `buildSalutation`.
 </technical_discovery>
 <current_architecture_and_code>
-<file path="src/components/GlobalValidationModal.jsx">
-<role>Modal de validation IA</role>
-<relevance>Contient le code buggé (MiniAttachmentUI)</relevance>
+<file path="src/services/utils/contactUtils.js">
+<role>Utilitaires de gestion des contacts</role>
+<relevance>Contient `buildSalutation` et `parseFullName`.</relevance>
 <full_source_code>
-// Extrait pertinent :
-const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
-    // ...
-    const handlePreviewPending = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!pendingFile) return;
-        const url = URL.createObjectURL(pendingFile);
-        const win = window.open(url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-            console.error('[MiniAttachmentUI] Prévisualisation bloquée par le navigateur pour :', pendingFile.name);
-            alert("La prévisualisation a été bloquée par le navigateur. Autorisez les popups pour ce site.");
-        }
-        // Revoke différé : le viewer a déjà chargé le blob, on libère la mémoire.
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-    };
-    // ...
-}
+// Code de buildSalutation:
+export const buildSalutation = (contacts = []) => {
+  const list = Array.isArray(contacts) ? contacts : [];
+  if (list.length === 0) return 'Bonjour,';
+
+  const parts = list.map((c) => {
+    const rawLastName = c?.nom || c?.displayName || '';
+    const lastName = typeof rawLastName === 'string' && rawLastName.includes(' ')
+      ? (parseFullName(rawLastName)?.lastName || rawLastName)
+      : rawLastName;
+
+    if (c?.civility && lastName) {
+      return `${c.civility} ${lastName}`.trim();
+    }
+
+    if (lastName && lastName !== c?.email) {
+      return (c?.displayName || c?.nom || '').trim();
+    }
+
+    return (c?.displayName || c?.nom || '').trim();
+  });
+
+  const validParts = parts.filter(Boolean);
+  if (validParts.length === 0) return 'Bonjour,';
+
+  return `Bonjour ${validParts.join(', ')},`;
+};
 </full_source_code>
 </file>
 </current_architecture_and_code>
 <code_collection_issue>
-<file path="src/components/GlobalValidationModal.jsx"><reason>Fichier trop volumineux (1395 lignes).</reason><known_partial_information>Le code de `handlePreviewPending` est isolé dans le sous-composant `MiniAttachmentUI` en haut du fichier.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
+<file path="src/services/utils/contactUtils.js"><reason>Fichier partiellement inclus (seulement `buildSalutation`).</reason><known_partial_information>On doit modifier `buildSalutation` et possiblement introduire une fonction `toTitleCase(str)`.</known_partial_information><audit_consequence>ÉLEVÉE: Claude ne dispose pas du fichier complet. Il ne doit pas fournir de patch final directement applicable à ce fichier. Il peut fournir décision architecturale, structure cible, composant isolé si pertinent et instructions d’intégration prudentes. Gemini devra intégrer localement après inspection complète.</audit_consequence></file>
 </code_collection_issue>
 <related_files_not_fully_included></related_files_not_fully_included>
 <current_problem_analysis>
-La gestion de la mémoire via `setTimeout(..., 30000)` est incompatible avec le flow de déblocage de popup par l'utilisateur. Si le popup est bloqué, la fonction se termine, le timeout commence. L'utilisateur lit l'alert, clique sur OK, va dans la barre d'adresse de Chrome, et clique sur le lien pour forcer l'ouverture. À ce moment-là, ou peu après, le `30000` expire et révoque le blob, ou Chrome tente de recharger le blob dans le nouvel onglet qui est déjà perdu. Pire, à chaque clic sur l'oeil, un NOUVEAU blob est créé et l'ancien fuit si on ne le nettoie pas correctement sur le cycle de vie du composant.
+L'affichage brutal du `displayName` ou du `lastName` en majuscule produit une salutation agressive et inélégante ("Bonjour Iman ABD EL ALIM ABD EL KADER, Therry MOSCA,"). L'absence de civilité (souvent non détectée si juste "Propriétaire") force le fallback sur le nom complet. 
+La solution doit:
+1. Implémenter un formatage `toTitleCase` robuste (gérant les traits d'union, espaces, particules "de", "d'").
+2. L'appliquer systématiquement aux noms dans `buildSalutation`.
 </current_problem_analysis>
 <proposed_technical_paths>
-A: Lier le cycle de vie du `Blob URL` au cycle de vie du composant `MiniAttachmentUI` via un `useEffect`. Créer le blob URL une seule fois au montage (si `pendingFile` existe) ou via un `useMemo` mais nettoyer au `unmount`.
-B: Retirer complètement le `URL.revokeObjectURL` et accepter une petite fuite de mémoire (le modal est temporaire de toute façon). (Mauvaise pratique).
-C: Stocker le Blob URL généré dans un ref, et au `onClick`, générer/retourner ce même blob. Le nettoyage se fait dans le `useEffect` return function.
+A: Créer une fonction utilitaire `toTitleCase` dans `contactUtils.js` et modifier `buildSalutation` pour l'utiliser sur `lastName` et `displayName`. Si `c.civility` est vide, renvoyer au moins `Prénom Nom` (en Title Case) au lieu du nom brut.
+B: Modifier la normalisation en amont (`toContact`) pour que `nom` et `prenom` soient toujours en Title Case dans tout le système (risque d'impact sur les autres formulaires).
 </proposed_technical_paths>
 <architect_questions_for_claude>
-1. Valider l'option A ou C comme étant la plus propre pour gérer la mémoire des blobs.
-2. Fournir l'implémentation de `MiniAttachmentUI` corrigée.
+1. Préfères-tu l'option A (formatage local à l'affichage) ou B (normalisation globale) ?
+2. Comment gérer au mieux la fonction `toTitleCase` pour ne pas casser les noms complexes (ex: "d'Oultremont", "De La Tour") ?
+3. Peux-tu fournir le patch conceptuel pour `buildSalutation` ?
 </architect_questions_for_claude>
 <directive>
 Tu es Claude Fable, Architecte Principal. Lis contexte, code, limites de collecte, demande métier.
