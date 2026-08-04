@@ -3,7 +3,7 @@ import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
 import { getBlockTotalEuro, resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
-import RecipientSelector from './RecipientSelector.jsx';
+import RecipientSelector from './SingleRecipientSelector.jsx';
 import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy } from 'lucide-react';
 import { resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
 
