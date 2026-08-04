@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
-import { cleanAmount } from '../../../store/financeStore.js';
+import { cleanAmount, useFinanceStore } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent } from 'lucide-react';
+import { computeDossierSuggestions } from '../../../domain/decompteSplitter/dossierExpenseMatcher.js';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent, Sparkles, X, Link2 } from 'lucide-react';
 import { computeProrataWeights } from '../../../domain/decompteSplitter/prorataDistribution.js';
 import ProrataBasePopover from './ProrataBasePopover.jsx';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
-    const { allocations } = state;
+    const { allocations, dismissedSuggestionIds } = state;
     const [activePopoverExpId, setActivePopoverExpId] = useState(null);
+
+    // Frais officiels du dossier d'expertise (source des vrais noms)
+    const dossierExpenses = useFinanceStore(s => s.metier?.expenses || []);
+
+    // Scan & Suggest : dérivation PURE sans mutation d'office
+    const suggestions = useMemo(() => {
+        return computeDossierSuggestions(expenses, dossierExpenses, { dismissedIds: dismissedSuggestionIds });
+    }, [expenses, dossierExpenses, dismissedSuggestionIds]);
 
     return (
         <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200">
@@ -60,6 +69,7 @@ const SplitterGlobalBasket = ({ expenses }) => {
                         const cible = cleanAmount(exp.montantValide || exp.montantReclame);
                         const reste = getResteAVentiler(exp, allocations);
                         const isSuspended = allocations.some(a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED);
+                        const suggestion = suggestions[exp.id];
                         
                         let statusConfig = { bg: 'bg-white', border: 'border-slate-200', icon: null, text: '' };
                         
@@ -96,15 +106,51 @@ const SplitterGlobalBasket = ({ expenses }) => {
                                         </>
                                     ) : (
                                         <>
-                                            <span className="text-sm font-medium text-slate-700 truncate pr-2" title={exp.desc || exp.type}>
-                                                {exp.desc || exp.type || 'Poste inconnu'}
-                                            </span>
+                                            <div className="flex flex-col truncate pr-2">
+                                                <span className="text-sm font-medium text-slate-700 truncate" title={exp.desc || exp.type}>
+                                                    {exp.desc || exp.type || 'Poste inconnu'}
+                                                </span>
+                                                {exp.linkedDossierExpenseId && (
+                                                    <div className="flex items-center gap-1 text-[10px] text-indigo-600 mt-0.5">
+                                                        <Link2 className="w-3 h-3 text-indigo-500" />
+                                                        <span className="truncate" title={`Brut décompte: ${exp.descOriginale || ''}`}>Nom issu du dossier</span>
+                                                        <button
+                                                            onClick={() => dispatch({ type: 'REVERT_MATCH_SUGGESTION', payload: { expenseId: exp.id } })}
+                                                            className="text-slate-400 hover:text-slate-700 underline ml-1"
+                                                            title="Rétablir le libellé brut du décompte"
+                                                        >
+                                                            Rétablir
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
                                                 {cible.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                             </span>
                                         </>
                                     )}
                                 </div>
+
+                                {/* SUGGESTION DE RÉCONCILIATION DISCRÈTE (Scan & Suggest) */}
+                                {suggestion && !exp.linkedDossierExpenseId && (
+                                    <div className="mt-2 bg-indigo-50/90 border border-indigo-200 rounded p-1.5 flex items-center justify-between gap-2">
+                                        <button
+                                            onClick={() => dispatch({ type: 'APPLY_MATCH_SUGGESTION', payload: { expenseId: exp.id, suggestion } })}
+                                            className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-700 hover:text-indigo-900 truncate text-left"
+                                            title={`Correspondance : ${suggestion.reason}. Cliquer pour renommer.`}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                            <span className="truncate">Suggérer : <strong>{suggestion.suggestedLabel}</strong></span>
+                                        </button>
+                                        <button
+                                            onClick={() => dispatch({ type: 'DISMISS_MATCH_SUGGESTION', payload: { expenseId: exp.id } })}
+                                            className="text-slate-400 hover:text-slate-600 p-0.5 rounded hover:bg-indigo-100 transition-colors"
+                                            title="Ignorer cette suggestion"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                                 
                                 <div className="flex justify-between items-center mt-2">
                                     <div className="flex items-center gap-1.5">

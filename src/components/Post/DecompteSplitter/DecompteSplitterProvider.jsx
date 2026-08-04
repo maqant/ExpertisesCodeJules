@@ -205,6 +205,48 @@ function splitterReducer(state, action) {
             };
         }
 
+        case 'APPLY_MATCH_SUGGESTION': {
+            const { expenseId, suggestion } = action.payload;
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => {
+                    if (e.id !== expenseId) return e;
+                    return {
+                        ...e,
+                        descOriginale: e.descOriginale || e.desc || e.type,
+                        desc: suggestion.suggestedLabel,
+                        linkedDossierExpenseId: suggestion.dossierExpenseId,
+                        matchConfidence: suggestion.score
+                    };
+                })
+            };
+        }
+
+        case 'REVERT_MATCH_SUGGESTION': {
+            const { expenseId } = action.payload;
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => {
+                    if (e.id !== expenseId) return e;
+                    return {
+                        ...e,
+                        desc: e.descOriginale || e.desc,
+                        descOriginale: undefined,
+                        linkedDossierExpenseId: undefined,
+                        matchConfidence: undefined
+                    };
+                })
+            };
+        }
+
+        case 'DISMISS_MATCH_SUGGESTION': {
+            const { expenseId } = action.payload;
+            return {
+                ...state,
+                dismissedSuggestionIds: [...(state.dismissedSuggestionIds || []), expenseId]
+            };
+        }
+
         case 'ADD_LOCAL_CONTACT': {
             const { contact, blockId } = action.payload;
             const blocks = blockId
