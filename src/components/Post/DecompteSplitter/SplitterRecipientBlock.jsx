@@ -1,304 +1,280 @@
 import React, { useState } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
-import { CLOSURE_MODE, getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import SingleRecipientSelector from './SingleRecipientSelector.jsx';
-import { useSingleRecipient } from '../../../hooks/useSingleRecipient.js';
-import { resolveRecipientSnapshot } from '../../../services/utils/contactUtils.js';
-import { Trash2, Plus, Copy, Mail, Sparkles, RotateCcw, Link2, Unlink, Loader2 } from 'lucide-react';
 import { cleanAmount } from '../../../store/financeStore.js';
-import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
-import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
-import { refineRemarqueText } from '../../../services/ai/remarqueRefiner.js';
+import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
+import { getBlockTotalEuro, resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
+import RecipientSelector from './RecipientSelector.jsx';
+import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy } from 'lucide-react';
+import { resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
 
-const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
+export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
-    
-    // Destinataire du PAIEMENT (ING / Excel)
-    const paymentRecipientRef = block.paymentRecipientRef || block.recipientRef;
-    const paymentRecipientState = useSingleRecipient({ 
-        occupants, 
-        intervenants, 
-        localContacts: state.localContacts,
-        recipientRef: paymentRecipientRef 
-    });
-
-    // Destinataire de l'E-MAIL
-    const isMailLinked = block.mailRecipientLinked !== false;
-    const mailRecipientRef = isMailLinked ? paymentRecipientRef : (block.mailRecipientRef || paymentRecipientRef);
-    const mailRecipientState = useSingleRecipient({
-        occupants,
-        intervenants,
-        localContacts: state.localContacts,
-        recipientRef: mailRecipientRef
-    });
-
-    const [expenseToAdd, setExpenseToAdd] = useState('');
     const [splitAmount, setSplitAmount] = useState('');
-    const [isRefining, setIsRefining] = useState(false);
-    const [aiError, setAiError] = useState(null);
+    const [expenseToAdd, setExpenseToAdd] = useState('');
 
-    const blockAllocations = state.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
-    const totalAlloue = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
+    const blockAllocations = state.allocations.filter(a => a.blockId === block.id);
+    const totalBlockEuro = getBlockTotalEuro(block.id, state.allocations, expenses);
 
-    const handleSelectPaymentRef = (ref) => {
-        dispatch({
-            type: 'SET_BLOCK_PAYMENT_RECIPIENT',
-            payload: { blockId: block.id, recipientRef: ref }
-        });
-    };
-
-    const handleSelectMailRef = (ref) => {
-        dispatch({
-            type: 'SET_BLOCK_MAIL_RECIPIENT',
-            payload: { blockId: block.id, mailRecipientRef: ref }
-        });
-    };
-
-    const handleToggleLinkMode = () => {
-        if (!isMailLinked) {
-            dispatch({ type: 'LINK_MAIL_TO_PAYMENT', payload: { blockId: block.id } });
-        } else {
-            dispatch({
-                type: 'SET_BLOCK_MAIL_RECIPIENT',
-                payload: { blockId: block.id, mailRecipientRef: paymentRecipientRef }
-            });
-        }
-    };
-
-    const handleCreateContact = (contact) => {
-        dispatch({
-            type: 'ADD_LOCAL_CONTACT',
-            payload: { blockId: block.id, contact }
-        });
-    };
+    const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
 
     const handleAddAllocation = () => {
         if (!expenseToAdd) return;
-        const exp = expenses.find(e => e.id === expenseToAdd);
-        if (!exp) return;
+        const targetExp = expenses.find(e => e.id === expenseToAdd);
+        if (!targetExp) return;
 
-        const reste = getResteAVentiler(exp, state.allocations);
-        const montantAAllouer = splitAmount ? cleanAmount(splitAmount) : reste;
+        const reste = getResteAVentiler(targetExp, state.allocations);
+        let valToAssign = Math.abs(reste);
 
-        if (montantAAllouer > 0) {
-            dispatch({
-                type: 'ASSIGN_ALLOCATION',
-                payload: {
-                    expenseId: exp.id,
-                    blockId: block.id,
-                    montant: montantAAllouer.toString()
-                }
-            });
+        if (splitAmount.trim() !== '') {
+            const parsed = Math.abs(cleanAmount(splitAmount));
+            if (!isNaN(parsed) && parsed > 0) {
+                valToAssign = Math.min(parsed, valToAssign);
+            }
         }
-        
+
+        const signedValue = reste < 0 ? -valToAssign : valToAssign;
+        const signedStr = signedValue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        dispatch({
+            type: 'ADD_ALLOCATION',
+            payload: {
+                blockId: block.id,
+                expenseId: targetExp.id,
+                montant: signedStr,
+                status: Math.abs(valToAssign - Math.abs(reste)) < 0.001 ? ALLOCATION_STATUS.ASSIGNED : ALLOCATION_STATUS.SPLIT
+            }
+        });
+
         setExpenseToAdd('');
         setSplitAmount('');
     };
 
-    const handleCopyMail = () => {
-        const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot || resolveRecipientSnapshot(paymentRecipientRef, paymentRecipientState.candidates);
-        const mailSnapshot = block.mailRecipientSnapshot || (isMailLinked ? paymentSnapshot : resolveRecipientSnapshot(mailRecipientRef, mailRecipientState.candidates));
-        
-        const text = buildEmailTemplate(
-            { 
-                ...block, 
-                paymentRecipientSnapshot: paymentSnapshot, 
-                mailRecipientSnapshot: mailSnapshot,
-                recipientSnapshot: paymentSnapshot 
-            }, 
-            state.allocations, 
-            expenses
-        );
-        if (text) {
-            navigator.clipboard.writeText(text);
-        }
-    };
-
-    const handleCopyING = () => {
-        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, paymentRecipientState.candidates);
-        navigator.clipboard.writeText(tsvContent);
-    };
-
-    const handleRefineRemarque = async () => {
-        if (!block.remarque || !block.remarque.trim() || isRefining) return;
-        setIsRefining(true);
-        setAiError(null);
-
-        try {
-            const mailSnapshot = block.mailRecipientSnapshot || (isMailLinked ? block.paymentRecipientSnapshot || block.recipientSnapshot : null) || resolveRecipientSnapshot(mailRecipientRef, mailRecipientState.candidates);
-            const refined = await refineRemarqueText({
-                remarque: block.remarque,
-                context: {
-                    mailRecipientSnapshot: mailSnapshot,
-                    dossierName
-                }
-            });
-            dispatch({
-                type: 'APPLY_REFINED_REMARQUE',
-                payload: { blockId: block.id, refinedText: refined }
-            });
-        } catch (err) {
-            console.error('[RemarqueRefiner Error]', err);
-            setAiError(err.message || "Erreur d'affinage IA");
-        } finally {
-            setIsRefining(false);
-        }
-    };
-
-    const handleRevertRemarque = () => {
-        dispatch({
-            type: 'REVERT_REFINED_REMARQUE',
-            payload: { blockId: block.id }
-        });
-    };
-
     return (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Bloc de règlement
-                </span>
-                <button 
-                    onClick={() => dispatch({ type: 'REMOVE_BLOCK', payload: block.id })}
-                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                    title="Supprimer ce bloc"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </button>
-            </div>
-
-            {/* SÉLECTEURS DE DESTINATAIRES (PAIEMENT vs MAIL) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                        💳 Destinataire du paiement (ING / Excel)
-                    </label>
-                    <SingleRecipientSelector 
-                        recipientState={paymentRecipientState} 
-                        onSelectRef={handleSelectPaymentRef}
-                        onCreateContact={handleCreateContact}
-                    />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center">
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                            ✉️ Destinataire de l'e-mail
-                        </label>
-                        <button
-                            type="button"
-                            onClick={handleToggleLinkMode}
-                            className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded transition-colors ${
-                                isMailLinked 
-                                    ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100' 
-                                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                            }`}
-                            title={isMailLinked ? "Cliquer pour dissocier le destinataire e-mail" : "Cliquer pour lier au destinataire du paiement"}
-                        >
-                            {isMailLinked ? <Link2 className="w-3 h-3" /> : <Unlink className="w-3 h-3" />}
-                            {isMailLinked ? 'Lié au paiement' : 'Personnalisé'}
-                        </button>
-                    </div>
-                    <SingleRecipientSelector 
-                        recipientState={mailRecipientState} 
-                        onSelectRef={handleSelectMailRef}
-                        onCreateContact={handleCreateContact}
-                    />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">IBAN</label>
-                    <input 
-                        type="text" 
-                        placeholder="BEXX XXXX XXXX XXXX"
-                        className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 uppercase"
-                        value={block.ibanOverride || ''}
-                        onChange={e => dispatch({ 
-                            type: 'UPDATE_BLOCK', 
-                            payload: { blockId: block.id, updates: { ibanOverride: e.target.value } } 
-                        })}
-                    />
-                </div>
-                <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Statut du paiement</label>
-                    <div className="flex bg-slate-100 p-0.5 rounded-md">
-                        <button
-                            className={`flex-1 text-xs font-medium py-1.5 rounded-sm transition-colors ${block.closureMode === CLOSURE_MODE.ATTENTE ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => dispatch({ type: 'UPDATE_BLOCK', payload: { blockId: block.id, updates: { closureMode: CLOSURE_MODE.ATTENTE } } })}
-                        >
-                            Avance
-                        </button>
-                        <button
-                            className={`flex-1 text-xs font-medium py-1.5 rounded-sm transition-colors ${block.closureMode === CLOSURE_MODE.CLOTURE ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => dispatch({ type: 'UPDATE_BLOCK', payload: { blockId: block.id, updates: { closureMode: CLOSURE_MODE.CLOTURE } } })}
-                        >
-                            Clôture
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* REMARQUE ÉVENTUELLE & BOUTON NANO-AGENT IA */}
-            <div>
-                <div className="flex justify-between items-center mb-1">
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        Remarque éventuelle
-                    </label>
-                    <div className="flex items-center gap-2">
-                        {block.remarqueOriginal !== null && (
-                            <button
-                                type="button"
-                                onClick={handleRevertRemarque}
-                                className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-1.5 py-0.5 rounded transition-colors"
-                                title="Rétablir le texte original avant affinage IA"
-                            >
-                                <RotateCcw className="w-3 h-3" />
-                                Rétablir l'original
-                            </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={handleRefineRemarque}
-                            disabled={!block.remarque || !block.remarque.trim() || isRefining}
-                            className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors disabled:opacity-50"
-                            title="Reformuler avec le nano-agent IA (gpt-5.6-luna) pour un rendu fluide dans le mail"
-                        >
-                            {isRefining ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
-                            {isRefining ? 'Affinage en cours...' : 'Affinage IA ✨'}
-                        </button>
-                    </div>
-                </div>
-                <textarea 
-                    rows={2}
-                    className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 resize-none"
-                    placeholder="Texte libre à insérer dans l'e-mail..."
-                    value={block.remarque || ''}
-                    onChange={e => dispatch({ 
-                        type: 'UPDATE_BLOCK', 
-                        payload: { blockId: block.id, updates: { remarque: e.target.value } } 
-                    })}
-                />
-                {aiError && (
-                    <p className="text-[11px] text-red-600 mt-1">{aiError}</p>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800 text-sm tracking-wide uppercase">Bloc de règlement</h3>
+                {state.blocks.length > 1 && (
+                    <button 
+                        onClick={() => dispatch({ type: 'REMOVE_BLOCK', payload: block.id })}
+                        className="text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
+                        title="Supprimer ce paiement"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                 )}
             </div>
 
-            <div className="mt-1">
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Référence (Communication)</label>
-                <input 
-                    type="text" 
-                    className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Référence de communication ING..."
-                    value={block.referenceCommunication !== undefined ? block.referenceCommunication : dossierName}
-                    onChange={e => dispatch({ 
-                        type: 'UPDATE_BLOCK', 
-                        payload: { blockId: block.id, updates: { referenceCommunication: e.target.value } } 
-                    })}
-                />
+            {/* Formulaire destinataire (ING / Excel) */}
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                Destinataire du paiement (ING / Excel)
+                            </label>
+                            <button
+                                onClick={() => dispatch({
+                                    type: 'UPDATE_BLOCK',
+                                    payload: {
+                                        blockId: block.id,
+                                        updates: {
+                                            isMailRecipientLinked: !block.isMailRecipientLinked,
+                                            mailRecipientRef: !block.isMailRecipientLinked ? null : block.mailRecipientRef,
+                                            mailRecipientSnapshot: !block.isMailRecipientLinked ? null : block.mailRecipientSnapshot
+                                        }
+                                    }
+                                })}
+                                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                                    block.isMailRecipientLinked 
+                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold' 
+                                        : 'bg-slate-100 border-slate-300 text-slate-500 hover:text-slate-700'
+                                }`}
+                                title={block.isMailRecipientLinked ? "Cliquez pour séparer le destinataire de l'e-mail" : "Cliquez pour lier le destinataire du paiement à l'e-mail"}
+                            >
+                                <ArrowRightLeft className="w-2.5 h-2.5" />
+                                {block.isMailRecipientLinked ? 'Lié au paiement' : 'Séparer e-mail'}
+                            </button>
+                        </div>
+                        <RecipientSelector 
+                            recipientRef={block.recipientRef}
+                            recipientSnapshot={block.recipientSnapshot}
+                            localContacts={state.localContacts}
+                            occupants={occupants}
+                            intervenants={intervenants}
+                            onSelectRecipient={(ref, snapshot) => {
+                                const updates = { recipientRef: ref, recipientSnapshot: snapshot };
+                                if (block.isMailRecipientLinked) {
+                                    updates.mailRecipientRef = ref;
+                                    updates.mailRecipientSnapshot = snapshot;
+                                }
+                                dispatch({
+                                    type: 'UPDATE_BLOCK',
+                                    payload: { blockId: block.id, updates }
+                                });
+                            }}
+                            onCreateLocalContact={(newContact) => {
+                                dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
+                                const ref = { kind: 'local', id: newContact.id };
+                                const snapshot = { displayName: newContact.nom, iban: newContact.iban, isCompany: false };
+                                const updates = { recipientRef: ref, recipientSnapshot: snapshot };
+                                if (block.isMailRecipientLinked) {
+                                    updates.mailRecipientRef = ref;
+                                    updates.mailRecipientSnapshot = snapshot;
+                                }
+                                dispatch({
+                                    type: 'UPDATE_BLOCK',
+                                    payload: { blockId: block.id, updates }
+                                });
+                            }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Destinataire de l'e-mail
+                        </label>
+                        {block.isMailRecipientLinked ? (
+                            <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500 flex items-center justify-between">
+                                <span>Identique au destinataire du paiement</span>
+                                <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">Synchronisé</span>
+                            </div>
+                        ) : (
+                            <RecipientSelector 
+                                recipientRef={block.mailRecipientRef}
+                                recipientSnapshot={block.mailRecipientSnapshot}
+                                localContacts={state.localContacts}
+                                occupants={occupants}
+                                intervenants={intervenants}
+                                onSelectRecipient={(ref, snapshot) => dispatch({
+                                    type: 'UPDATE_BLOCK',
+                                    payload: { blockId: block.id, updates: { mailRecipientRef: ref, mailRecipientSnapshot: snapshot } }
+                                })}
+                                onCreateLocalContact={(newContact) => {
+                                    dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
+                                    dispatch({
+                                        type: 'UPDATE_BLOCK',
+                                        payload: {
+                                            blockId: block.id,
+                                            updates: {
+                                                mailRecipientRef: { kind: 'local', id: newContact.id },
+                                                mailRecipientSnapshot: { displayName: newContact.nom, iban: newContact.iban, isCompany: false }
+                                            }
+                                        }
+                                    });
+                                }}
+                            />
+                        )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div>
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">IBAN</label>
+                        <input 
+                            type="text" 
+                            className="w-full text-xs border-slate-300 rounded p-1.5 font-mono uppercase bg-white"
+                            placeholder={activeContact?.iban || "BEXX XXXX XXXX XXXX"}
+                            value={block.ibanOverride || ''}
+                            onChange={e => dispatch({ 
+                                type: 'UPDATE_BLOCK', 
+                                payload: { blockId: block.id, updates: { ibanOverride: e.target.value } } 
+                            })}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">Statut du paiement</label>
+                        <div className="flex gap-2 bg-slate-200 p-1 rounded-md">
+                            <button
+                                onClick={() => dispatch({ 
+                                    type: 'UPDATE_BLOCK', 
+                                    payload: { blockId: block.id, updates: { closureMode: CLOSURE_MODE.ATTENTE } } 
+                                })}
+                                className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
+                                    block.closureMode === CLOSURE_MODE.ATTENTE 
+                                        ? 'bg-white text-indigo-600 shadow-sm' 
+                                        : 'text-slate-600 hover:text-slate-800'
+                                }`}
+                            >
+                                Avance
+                            </button>
+                            <button
+                                onClick={() => dispatch({ 
+                                    type: 'UPDATE_BLOCK', 
+                                    payload: { blockId: block.id, updates: { closureMode: CLOSURE_MODE.CLOTURE } } 
+                                })}
+                                className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
+                                    block.closureMode === CLOSURE_MODE.CLOTURE 
+                                        ? 'bg-white text-indigo-600 shadow-sm' 
+                                        : 'text-slate-600 hover:text-slate-800'
+                                }`}
+                            >
+                                Clôture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-[10px] font-medium text-slate-500 uppercase">Remarque éventuelle</label>
+                        <div className="flex gap-1.5">
+                            {block.remarqueOriginal !== undefined && (
+                                <button
+                                    onClick={() => dispatch({ 
+                                        type: 'UPDATE_BLOCK', 
+                                        payload: { blockId: block.id, updates: { remarque: block.remarqueOriginal } } 
+                                    })}
+                                    className="text-[10px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                                >
+                                    <RotateCcw className="w-2.5 h-2.5" />
+                                    Rétablir l'original
+                                </button>
+                            )}
+                            <button
+                                onClick={() => {
+                                    // Nano-agent remarque_refine
+                                    const text = block.remarque || '';
+                                    const refined = text.replace(/nous/gi, 'je').trim();
+                                    dispatch({
+                                        type: 'UPDATE_BLOCK',
+                                        payload: { blockId: block.id, updates: { remarque: refined, remarqueOriginal: text } }
+                                    });
+                                }}
+                                className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
+                            >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Affinage IA
+                            </button>
+                        </div>
+                    </div>
+                    <textarea 
+                        className="w-full text-xs border-slate-300 rounded p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        rows="2"
+                        placeholder="Texte libre à insérer dans l'e-mail..."
+                        value={block.remarque || ''}
+                        onChange={e => dispatch({ 
+                            type: 'UPDATE_BLOCK', 
+                            payload: { blockId: block.id, updates: { remarque: e.target.value } } 
+                        })}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">Référence (Communication)</label>
+                    <input 
+                        type="text" 
+                        className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
+                        placeholder="Référence de communication ING..."
+                        value={block.referenceCommunication !== undefined ? block.referenceCommunication : dossierName}
+                        onChange={e => dispatch({ 
+                            type: 'UPDATE_BLOCK', 
+                            payload: { blockId: block.id, updates: { referenceCommunication: e.target.value } } 
+                        })}
+                    />
+                </div>
             </div>
 
+            {/* Postes alloués & Sélection */}
             <div className="border-t border-slate-200 pt-3">
                 <h4 className="text-xs font-semibold text-slate-700 mb-2">Postes alloués ({blockAllocations.length})</h4>
                 
@@ -307,20 +283,25 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                         {blockAllocations.map(alloc => {
                             const exp = expenses.find(e => e.id === alloc.expenseId);
                             if (!exp) return null;
+                            const resolvedView = resolveExpenseView(exp);
+                            const val = cleanAmount(alloc.montant);
+
                             return (
                                 <li key={alloc.id} className="flex justify-between items-center text-sm py-1 border-b border-slate-100 last:border-0">
                                     <div className="flex items-center gap-2 truncate pr-2">
-                                        <span className="truncate text-slate-600">{exp.desc || exp.type}</span>
+                                        <span className="truncate text-slate-700 font-medium">{resolvedView.computedLabel}</span>
                                         {alloc.origin === 'prorata' && (
                                             <span className="px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-600 text-[9px] font-bold uppercase tracking-wider">Prorata</span>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-medium text-slate-800">{cleanAmount(alloc.montant).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                        <span className={`font-medium ${val < 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                                            {val.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                        </span>
                                         <button 
                                             onClick={() => dispatch({ type: 'REMOVE_ALLOCATION', payload: alloc.id })}
-                                            className="text-slate-400 hover:text-red-500"
-                                            title="Retirer l'allocation"
+                                            className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                                            title="Retirer l'allocation (renvoie le poste à gauche)"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -337,7 +318,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                     <div className="flex-1">
                         <label className="block text-[10px] text-slate-500 mb-1">Poste à ajouter</label>
                         <select 
-                            className="w-full text-xs border-slate-300 rounded p-1.5"
+                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
                             value={expenseToAdd}
                             onChange={e => setExpenseToAdd(e.target.value)}
                         >
@@ -347,10 +328,13 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                                 if (isSuspended) return null;
 
                                 const reste = getResteAVentiler(exp, state.allocations);
-                                if (reste <= 0.001) return null;
+                                // Validation symétrique : les montants négatifs (reste < -0.001) sont conservés et sélectionnables !
+                                if (isResteEpuise(reste)) return null;
+
+                                const resolved = resolveExpenseView(exp);
                                 return (
                                     <option key={exp.id} value={exp.id}>
-                                        {exp.desc || exp.type} (Dispo: {reste} €)
+                                        {resolved.computedLabel} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
                                     </option>
                                 );
                             })}
@@ -360,7 +344,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                         <label className="block text-[10px] text-slate-500 mb-1">Montant (opt.)</label>
                         <input 
                             type="number" 
-                            className="w-full text-xs border-slate-300 rounded p-1.5"
+                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
                             placeholder="Tout"
                             value={splitAmount}
                             onChange={e => setSplitAmount(e.target.value)}
@@ -371,35 +355,18 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                     <button 
                         onClick={handleAddAllocation}
                         disabled={!expenseToAdd}
-                        className="p-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded disabled:opacity-50 transition-colors"
+                        className={`p-1.5 rounded transition-colors ${expenseToAdd ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                        title="Ajouter au paiement"
                     >
                         <Plus className="w-4 h-4" />
                     </button>
                 </div>
             </div>
 
-            <div className="flex justify-between items-center border-t border-slate-200 pt-3 mt-1">
-                <div className="text-sm font-semibold text-slate-800">
-                    Total : {totalAlloue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                </div>
-                <div className="flex gap-2">
-                    <button 
-                        onClick={handleCopyING}
-                        disabled={blockAllocations.length === 0 || (!paymentRecipientRef && !block.paymentRecipientSnapshot?.displayName && !block.recipientSnapshot?.displayName)}
-                        className="flex items-center gap-1.5 text-xs font-medium bg-[#ff6200] text-white px-3 py-1.5 rounded hover:bg-[#e65800] disabled:opacity-50 transition-colors"
-                        title="Copier spécifiquement ce paiement pour la macro ING"
-                    >
-                        <Copy className="w-3.5 h-3.5" />
-                        Copier (ING)
-                    </button>
-                    <button 
-                        onClick={handleCopyMail}
-                        disabled={blockAllocations.length === 0 || (!paymentRecipientRef && !mailRecipientRef)}
-                        className="flex items-center gap-1.5 text-xs font-medium bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                    >
-                        <Mail className="w-3.5 h-3.5" />
-                        Copier le mail
-                    </button>
+            {/* Pied du bloc : Total du règlement */}
+            <div className="flex justify-between items-center pt-3 border-t border-slate-200 bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-xl">
+                <div className="text-xs font-bold text-slate-700">
+                    Total : {totalBlockEuro.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                 </div>
             </div>
         </div>

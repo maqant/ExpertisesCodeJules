@@ -199,33 +199,33 @@ const SplitterGlobalBasket = ({ expenses, onAddDocument }) => {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1.5 group">
+                                                    <div className="flex items-center gap-1.5">
                                                         <span 
                                                             className="text-sm font-medium text-slate-700 truncate cursor-pointer hover:text-indigo-600 transition-colors" 
                                                             title={exp.desc || exp.type}
-                                                            onDoubleClick={() => handleStartEditing(exp)}
+                                                            onClick={() => handleStartEditing(exp)}
                                                         >
                                                             {exp.desc || exp.type || 'Poste inconnu'}
                                                         </span>
                                                         <button
                                                             onClick={() => handleStartEditing(exp)}
-                                                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-indigo-600 transition-opacity"
+                                                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
                                                             title="Renommer ce poste manuellement"
                                                         >
-                                                            <Edit2 className="w-3 h-3" />
+                                                            <Edit2 className="w-3.5 h-3.5" />
                                                         </button>
                                                         <div className="relative">
                                                             <button
                                                                 ref={el => linkAnchorRefs.current[exp.id] = el}
                                                                 onClick={() => setLinkPopoverExpId(linkPopoverExpId === exp.id ? null : exp.id)}
-                                                                className={`p-0.5 rounded transition-colors ${
+                                                                className={`p-1 rounded transition-colors ${
                                                                     exp.linkedDossierExpenseId 
                                                                         ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' 
-                                                                        : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600'
+                                                                        : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
                                                                 }`}
                                                                 title={exp.linkedDossierExpenseId ? "Changer la liaison au dossier" : "Lier manuellement à un frais du dossier"}
                                                             >
-                                                                <Link2 className="w-3 h-3" />
+                                                                <Link2 className="w-3.5 h-3.5" />
                                                             </button>
 
                                                             {/* Popover de liaison manuelle */}

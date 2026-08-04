@@ -3,6 +3,9 @@ import { cleanAmount } from '../../store/financeStore.js';
 export const ALLOCATION_STATUS = { ASSIGNED: 'assigned', SPLIT: 'split', SUSPENDED: 'suspended' };
 export const CLOSURE_MODE = { CLOTURE: 'cloture', ATTENTE: 'attente' };
 
+export const EPSILON = 0.001;
+export const isResteEpuise = (reste) => Math.abs(reste) <= EPSILON;
+
 export const genId = () => crypto.randomUUID();
 
 /**
@@ -38,7 +41,7 @@ export const validateDraft = (expenses, draft) => {
             a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED
         );
         
-        if (Math.abs(reste) > 0.001 && !isSuspended) {
+        if (!isResteEpuise(reste) && !isSuspended) {
             errors.push({ 
                 type: 'UNBALANCED_EXPENSE', 
                 expenseId: exp.id, 
