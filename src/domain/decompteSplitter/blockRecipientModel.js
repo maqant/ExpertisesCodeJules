@@ -70,3 +70,26 @@ export function getEffectiveRefs(block) {
     const mailRef = linked ? paymentRef : (block.mailRecipientRef ?? null);
     return { paymentRef, mailRef, linked };
 }
+
+/**
+ * Résolution du contact actif pour un bloc (nom + IBAN).
+ */
+export function resolveBlockRecipientContact(block, localContacts = [], { occupants = [], intervenants = [] } = {}) {
+    if (!block) return null;
+    const ref = block.paymentRecipientRef || block.recipientRef;
+    if (!ref) return block.recipientSnapshot || null;
+
+    if (ref.kind === 'local') {
+        const found = localContacts.find(c => c.id === ref.id);
+        if (found) return { nom: found.nom, iban: found.iban };
+    }
+    if (ref.kind === 'occupant') {
+        const found = occupants.find(o => o.id === ref.id);
+        if (found) return { nom: found.nom || found.name, iban: found.iban };
+    }
+    if (ref.kind === 'intervenant') {
+        const found = intervenants.find(i => i.id === ref.id);
+        if (found) return { nom: found.nom || found.name, iban: found.iban };
+    }
+    return block.recipientSnapshot || null;
+}

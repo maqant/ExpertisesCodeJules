@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
-import { getBlockTotalEuro, resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
+import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 import RecipientSelector from './SingleRecipientSelector.jsx';
 import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy } from 'lucide-react';
 import { resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
@@ -13,7 +13,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
     const [expenseToAdd, setExpenseToAdd] = useState('');
 
     const blockAllocations = state.allocations.filter(a => a.blockId === block.id);
-    const totalBlockEuro = getBlockTotalEuro(block.id, state.allocations, expenses);
+    const totalBlockEuro = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
 
     const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
 
