@@ -1,6 +1,46 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
-import { buildSalutation } from './../utils/contactUtils.js';
+import { buildSalutation, buildAllCandidates } from '../utils/contactUtils.js';
+
+/**
+ * Résolution ÉTANCHE du destinataire e-mail effectif.
+ * Règle absolue : si le canal mail est DISSOCIÉ (mailRecipientLinked === false),
+ * on n'utilise JAMAIS les données du destinataire de paiement pour la salutation.
+ */
+export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
+    const isLinked = block.mailRecipientLinked !== false;
+    const paymentRef = block.paymentRecipientRef || block.recipientRef || null;
+    const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot || null;
+
+    const ref = isLinked ? paymentRef : (block.mailRecipientRef || null);
+
+    // 1. Contact vivant (source de vérité prioritaire — reflète les éditions récentes)
+    const liveContact = ref
+        ? allCandidates.find(c => c.kind === ref.kind && c.id === ref.id) || null
+        : null;
+
+    if (liveContact) {
+        return {
+            displayName: liveContact.displayName,
+            email: liveContact.email || null,
+            isCompany: !!liveContact.isCompany,
+            resolved: true,
+        };
+    }
+
+    // 2. Snapshot figé du canal correspondant — SANS contamination croisée
+    const snapshot = isLinked ? paymentSnapshot : (block.mailRecipientSnapshot || null);
+    if (snapshot) {
+        return {
+            displayName: snapshot.displayName,
+            email: snapshot.email || null,
+            isCompany: !!snapshot.isCompany,
+            resolved: true,
+        };
+    }
+
+    return null;
+};
 
 /**
  * Génère le corps du mail pour un destinataire spécifique.
@@ -8,21 +48,24 @@ import { buildSalutation } from './../utils/contactUtils.js';
  * @param {object} block - Le bloc destinataire
  * @param {Array} allocations - Les allocations du brouillon
  * @param {Array} expenses - Les postes financiers (source de vérité)
+ * @param {object} [piiData] - Données PII (occupants, intervenants, localContacts)
  * @returns {string} Le texte du mail prêt à être copié
  */
-export const buildEmailTemplate = (block, allocations, expenses) => {
+export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) => {
     if (!block) return '';
 
-    // Séparation sémantique des destinataires :
-    // - mailSnapshot -> salutation de l'e-mail
-    // - paymentSnapshot / ibanOverride -> coordonnées bancaires du virement
-    const mailSnapshot = block.mailRecipientSnapshot || block.paymentRecipientSnapshot || block.recipientSnapshot;
+    const allCandidates = buildAllCandidates({
+        occupants: piiData.occupants || [],
+        intervenants: piiData.prestataires || [],
+        localContacts: piiData.localContacts || []
+    });
+
+    const mailRecipient = resolveEffectiveMailRecipient(block, allCandidates);
     const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
 
-    const recipientName = mailSnapshot?.displayName || 'Monsieur, Madame';
-    const salutation = mailSnapshot
-        ? buildSalutation([{ displayName: recipientName, civility: mailSnapshot.civility, nom: recipientName, email: mailSnapshot.email }])
-        : `Bonjour ${recipientName},`;
+    const salutation = mailRecipient
+        ? buildSalutation([mailRecipient])
+        : `Bonjour Madame, Monsieur,`;
 
     let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';

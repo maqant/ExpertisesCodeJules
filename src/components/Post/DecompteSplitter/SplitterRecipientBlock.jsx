@@ -3,9 +3,12 @@ import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
 import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
-import RecipientSelector from './SingleRecipientSelector.jsx';
-import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy } from 'lucide-react';
+import SingleRecipientSelector from './SingleRecipientSelector.jsx';
+import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail } from 'lucide-react';
 import { resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
+import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
+import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
+import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
 
 export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
@@ -49,6 +52,33 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         setSplitAmount('');
     };
 
+    const handleCopyMail = () => {
+        const text = buildEmailTemplate(block, state.allocations, expenses, {
+            occupants,
+            prestataires: intervenants,
+            localContacts: state.localContacts
+        });
+        if (!text) {
+            alert("Aucun poste alloué à ce bloc.");
+            return;
+        }
+        navigator.clipboard.writeText(text);
+        alert("E-mail copié dans le presse-papier !");
+    };
+
+    const handleCopyINGBlock = () => {
+        const allCandidates = buildAllCandidates({
+            occupants: occupants || [],
+            intervenants: intervenants || [],
+            localContacts: state.localContacts || []
+        });
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, allCandidates);
+        navigator.clipboard.writeText(tsvContent);
+        alert("Paiement copié pour macro ING !");
+    };
+
+    const isMailRecipientLinked = block.mailRecipientLinked !== false;
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
@@ -64,9 +94,10 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                 )}
             </div>
 
-            {/* Formulaire destinataire (ING / Excel) */}
+            {/* Formulaire destinataires (Double Destinataire Paiement VS Mail) */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Destinataire du PAIEMENT (ING / Excel) */}
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -78,32 +109,32 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                     payload: {
                                         blockId: block.id,
                                         updates: {
-                                            isMailRecipientLinked: !block.isMailRecipientLinked,
-                                            mailRecipientRef: !block.isMailRecipientLinked ? null : block.mailRecipientRef,
-                                            mailRecipientSnapshot: !block.isMailRecipientLinked ? null : block.mailRecipientSnapshot
+                                            mailRecipientLinked: !isMailRecipientLinked,
+                                            mailRecipientRef: !isMailRecipientLinked ? null : block.mailRecipientRef,
+                                            mailRecipientSnapshot: !isMailRecipientLinked ? null : block.mailRecipientSnapshot
                                         }
                                     }
                                 })}
                                 className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                                    block.isMailRecipientLinked 
+                                    isMailRecipientLinked 
                                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold' 
                                         : 'bg-slate-100 border-slate-300 text-slate-500 hover:text-slate-700'
                                 }`}
-                                title={block.isMailRecipientLinked ? "Cliquez pour séparer le destinataire de l'e-mail" : "Cliquez pour lier le destinataire du paiement à l'e-mail"}
+                                title={isMailRecipientLinked ? "Cliquez pour séparer le destinataire de l'e-mail" : "Cliquez pour lier le destinataire du paiement à l'e-mail"}
                             >
                                 <ArrowRightLeft className="w-2.5 h-2.5" />
-                                {block.isMailRecipientLinked ? 'Lié au paiement' : 'Séparer e-mail'}
+                                {isMailRecipientLinked ? 'Lié au paiement' : 'Séparer e-mail'}
                             </button>
                         </div>
-                        <RecipientSelector 
-                            recipientRef={block.recipientRef}
-                            recipientSnapshot={block.recipientSnapshot}
+                        <SingleRecipientSelector 
+                            recipientRef={block.paymentRecipientRef || block.recipientRef}
+                            recipientSnapshot={block.paymentRecipientSnapshot || block.recipientSnapshot}
                             localContacts={state.localContacts}
                             occupants={occupants}
                             intervenants={intervenants}
-                            onSelectRecipient={(ref, snapshot) => {
-                                const updates = { recipientRef: ref, recipientSnapshot: snapshot };
-                                if (block.isMailRecipientLinked) {
+                            onSelect={(ref, snapshot) => {
+                                const updates = { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot };
+                                if (isMailRecipientLinked) {
                                     updates.mailRecipientRef = ref;
                                     updates.mailRecipientSnapshot = snapshot;
                                 }
@@ -112,12 +143,12 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                     payload: { blockId: block.id, updates }
                                 });
                             }}
-                            onCreateLocalContact={(newContact) => {
+                            onCreateContact={(newContact) => {
                                 dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
                                 const ref = { kind: 'local', id: newContact.id };
-                                const snapshot = { displayName: newContact.nom, iban: newContact.iban, isCompany: false };
-                                const updates = { recipientRef: ref, recipientSnapshot: snapshot };
-                                if (block.isMailRecipientLinked) {
+                                const snapshot = { displayName: newContact.displayName || newContact.nom, email: newContact.email || null, iban: newContact.iban || null, isCompany: false };
+                                const updates = { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot };
+                                if (isMailRecipientLinked) {
                                     updates.mailRecipientRef = ref;
                                     updates.mailRecipientSnapshot = snapshot;
                                 }
@@ -129,27 +160,28 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         />
                     </div>
 
+                    {/* Destinataire de L'E-MAIL (Outlook) */}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                             Destinataire de l'e-mail
                         </label>
-                        {block.isMailRecipientLinked ? (
+                        {isMailRecipientLinked ? (
                             <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500 flex items-center justify-between">
                                 <span>Identique au destinataire du paiement</span>
                                 <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">Synchronisé</span>
                             </div>
                         ) : (
-                            <RecipientSelector 
+                            <SingleRecipientSelector 
                                 recipientRef={block.mailRecipientRef}
                                 recipientSnapshot={block.mailRecipientSnapshot}
                                 localContacts={state.localContacts}
                                 occupants={occupants}
                                 intervenants={intervenants}
-                                onSelectRecipient={(ref, snapshot) => dispatch({
+                                onSelect={(ref, snapshot) => dispatch({
                                     type: 'UPDATE_BLOCK',
                                     payload: { blockId: block.id, updates: { mailRecipientRef: ref, mailRecipientSnapshot: snapshot } }
                                 })}
-                                onCreateLocalContact={(newContact) => {
+                                onCreateContact={(newContact) => {
                                     dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
                                     dispatch({
                                         type: 'UPDATE_BLOCK',
@@ -157,7 +189,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                             blockId: block.id,
                                             updates: {
                                                 mailRecipientRef: { kind: 'local', id: newContact.id },
-                                                mailRecipientSnapshot: { displayName: newContact.nom, iban: newContact.iban, isCompany: false }
+                                                mailRecipientSnapshot: { displayName: newContact.displayName || newContact.nom, email: newContact.email || null, iban: newContact.iban || null, isCompany: false }
                                             }
                                         }
                                     });
@@ -232,7 +264,6 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             )}
                             <button
                                 onClick={() => {
-                                    // Nano-agent remarque_refine
                                     const text = block.remarque || '';
                                     const refined = text.replace(/nous/gi, 'je').trim();
                                     dispatch({
@@ -328,7 +359,6 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                 if (isSuspended) return null;
 
                                 const reste = getResteAVentiler(exp, state.allocations);
-                                // Validation symétrique : les montants négatifs (reste < -0.001) sont conservés et sélectionnables !
                                 if (isResteEpuise(reste)) return null;
 
                                 const resolved = resolveExpenseView(exp);
@@ -363,10 +393,28 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                 </div>
             </div>
 
-            {/* Pied du bloc : Total du règlement */}
+            {/* Pied du bloc : Total & Exportation de ce règlement */}
             <div className="flex justify-between items-center pt-3 border-t border-slate-200 bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-xl">
                 <div className="text-xs font-bold text-slate-700">
                     Total : {totalBlockEuro.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                </div>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleCopyINGBlock}
+                        className="flex items-center gap-1 text-[11px] font-semibold bg-[#ff6200] hover:bg-[#e65800] text-white px-2.5 py-1.5 rounded shadow-sm transition-colors"
+                        title="Copier le format ING pour ce paiement"
+                    >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copier (ING)
+                    </button>
+                    <button 
+                        onClick={handleCopyMail}
+                        className="flex items-center gap-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1.5 rounded shadow-sm transition-colors"
+                        title="Copier l'e-mail personnalisé avec la salutation exacte pour ce destinataire"
+                    >
+                        <Mail className="w-3.5 h-3.5" />
+                        Copier le mail
+                    </button>
                 </div>
             </div>
         </div>
