@@ -220,6 +220,8 @@ const SplitterInner = ({ onClose, dossierName }) => {
         }
 
         // Mode Décompte (ventilation active avec possibilité d'ajouter un 2e document)
+        const integrity = state.detectedMeta?.integrity;
+
         return (
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Overlay de chargement léger lors de l'ajout d'un 2e document */}
@@ -232,6 +234,18 @@ const SplitterInner = ({ onClose, dossierName }) => {
                                 <p className="text-xs text-slate-500 mt-0.5">Ajout des postes et règlements au panier global.</p>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Bandeau d'intégrité financière (Auto-correction ou Avertissement) */}
+                {integrity && integrity.warnings && integrity.warnings.length > 0 && (
+                    <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-40 max-w-2xl text-xs px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border ${
+                        integrity.status === 'AUTO_CORRECTED'
+                            ? 'bg-indigo-900 text-white border-indigo-500'
+                            : 'bg-amber-900 text-amber-100 border-amber-500'
+                    }`}>
+                        <Sparkles className="w-4 h-4 text-indigo-300 shrink-0" />
+                        <span className="flex-1">{integrity.warnings.join(' ')}</span>
                     </div>
                 )}
 

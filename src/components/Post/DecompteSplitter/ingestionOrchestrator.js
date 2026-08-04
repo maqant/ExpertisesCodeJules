@@ -3,7 +3,7 @@ import { normalizeFinancialDocument, DocumentValidationError } from '../../../se
 
 /**
  * Orchestre l'ingestion d'un document (initial ou additionnel en mode append) :
- * appel IA, validation, normalisation, génération des IDs, dispatch.
+ * appel IA, validation, normalisation, vérification d'intégrité financière, dispatch.
  *
  * @param {File} file
  * @param {Function} dispatch - dispatch du SplitterContext
@@ -16,19 +16,26 @@ export async function ingestDocument(file, dispatch, options = {}) {
     dispatch({ type: 'INGESTION_START', payload: { requestId, isAppend } });
 
     try {
-        const rawResult = await extractFinancialData(file);
+        const result = await extractFinancialData(file);
 
         // Validation Zod & Normalisation (Frontière Anti-Corruption)
-        const { postes, meta } = normalizeFinancialDocument(rawResult);
+        const { meta } = normalizeFinancialDocument(result);
 
-        const expenses = postes.map(p => ({
-            id: crypto.randomUUID(),
+        // Les postes sont issus directement de result.postes (déjà réconciliés et vérifiés par financialIntegrityChecker)
+        const expenses = (result.postes || []).map(p => ({
+            id: p.id || crypto.randomUUID(),
             desc: p.libelle,
             montantReclame: p.montantStr,
             montantValide: p.montantStr,
             typeMontant: 'HTVA',
             origine: 'ia_extraction',
+            wasAutoCorrected: !!p.wasAutoCorrected
         }));
+
+        const enrichedMeta = {
+            ...meta,
+            integrity: result.integrity || null
+        };
 
         // Construction déterministe du bloc bénéficiaire (si trouvé)
         const autoBlock = (meta.beneficiaire && meta.beneficiaire.nom)
@@ -37,7 +44,7 @@ export async function ingestDocument(file, dispatch, options = {}) {
 
         dispatch({
             type: isAppend ? 'INGESTION_APPEND_SUCCESS' : 'INGESTION_SUCCESS',
-            payload: { requestId, expenses, meta, autoBlock },
+            payload: { requestId, expenses, meta: enrichedMeta, autoBlock },
         });
     } catch (err) {
         dispatch({

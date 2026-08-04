@@ -1,36 +1,16 @@
 import { z } from 'zod';
+import { toCents, formatCents } from './financialIntegrityChecker.js';
 
 const ibanSchema = z.string()
     .transform(s => s.replace(/\s/g, '').toUpperCase())
-    .nullable(); // On ne fait pas de validation complexe modulo 97 pour ne pas bloquer l'ingestion si l'IA hallucine un bout
+    .nullable();
 
 const posteSchema = z.object({
     libelle: z.string().min(1, "Libellé manquant"),
     montant: z.union([z.number(), z.string()]).transform(val => {
-        // Retourne le format string francisé attendu par l'application (ex: "1.234,56")
-        // L'app utilise ce format partout
-        if (typeof val === 'number') {
-            return val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-        if (typeof val === 'string') {
-            // Nettoyage de base : enlever les espaces, l'euro
-            let cleaned = val.replace(/\s|\u00A0|€/g, '');
-            // Si c'est au format anglais "1,234.56" -> on supprime les virgules
-            if (cleaned.includes('.') && cleaned.includes(',')) {
-                if (cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')) {
-                    cleaned = cleaned.replace(/,/g, '');
-                } else {
-                    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-                }
-            } else if (cleaned.includes(',')) {
-                cleaned = cleaned.replace(',', '.');
-            }
-            
-            const num = Number(cleaned);
-            if (!isNaN(num)) {
-                return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            return val; // fallback, l'app gérera
+        const cents = toCents(val);
+        if (cents !== null) {
+            return formatCents(cents);
         }
         return "0,00";
     }),
@@ -44,6 +24,7 @@ export const aiFinancialResponseSchema = z.object({
         nom: z.string().nullable().default(null),
         iban: ibanSchema.optional().default(null),
     }).nullable().default(null),
+    totalDocument: z.number().nullable().optional().default(null),
     reference: z.string().nullable().default(null),
     date: z.string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format ISO YYYY-MM-DD')
@@ -52,30 +33,23 @@ export const aiFinancialResponseSchema = z.object({
 
 /**
  * Normalise la réponse IA validée en DTO domaine.
- * @returns {{ postes: Array<{libelle:string, montantCents:number, categorie:string|null}>,
- *             meta: {beneficiaire:{nom:string|null,iban:string|null}|null, reference:string|null, dateISO:string|null} }}
+ * @returns {{ postes: Array<{libelle:string, montantStr:string, categorie:string|null}>,
+ *             meta: {beneficiaire:{nom:string|null,iban:string|null}|null, totalDocument:number|null, reference:string|null, dateISO:string|null} }}
  */
 export function normalizeFinancialDocument(rawAiResponse) {
     const parsed = aiFinancialResponseSchema.safeParse(rawAiResponse);
     if (!parsed.success) {
         throw new DocumentValidationError(parsed.error);
     }
-    const { postes, beneficiaire, reference, date } = parsed.data;
+    const { postes, beneficiaire, totalDocument, reference, date } = parsed.data;
+    
     return {
-        postes: postes.map(p => {
-            let montantStr = p.montant;
-            if (p.libelle && p.libelle.toLowerCase().includes('franchise')) {
-                if (!montantStr.startsWith('-') && montantStr !== '0,00') {
-                    montantStr = '-' + montantStr;
-                }
-            }
-            return {
-                libelle: p.libelle.trim(),
-                montantStr: montantStr,
-                categorie: p.categorie,
-            };
-        }),
-        meta: { beneficiaire, reference, dateISO: date },
+        postes: postes.map(p => ({
+            libelle: p.libelle.trim(),
+            montantStr: p.montant,
+            categorie: p.categorie,
+        })),
+        meta: { beneficiaire, totalDocument, reference, dateISO: date },
     };
 }
 
