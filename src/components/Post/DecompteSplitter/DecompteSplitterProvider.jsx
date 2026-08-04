@@ -23,7 +23,8 @@ const initialState = {
 const INGESTION_TRANSITIONS = {
     idle: ['parsing', 'ready'],
     parsing: ['ready', 'error', 'idle'],
-    ready: ['parsing', 'idle'],
+    parsing_append: ['ready', 'error'],
+    ready: ['parsing', 'parsing_append', 'idle'],
     error: ['parsing', 'idle'],
 };
 
@@ -37,8 +38,9 @@ function splitterReducer(state, action) {
             return action.payload ? migrateDraftRecipients(action.payload) : initialState;
 
         case 'INGESTION_START': {
-            if (!canTransition(state.ingestionStatus, 'parsing')) return state;
-            return { ...state, ingestionStatus: 'parsing', ingestionError: null, ingestionRequestId: action.payload.requestId };
+            const targetStatus = action.payload?.isAppend ? 'parsing_append' : 'parsing';
+            if (!canTransition(state.ingestionStatus, targetStatus)) return state;
+            return { ...state, ingestionStatus: targetStatus, ingestionError: null, appendError: null, ingestionRequestId: action.payload.requestId };
         }
             
         case 'INGESTION_SUCCESS': {
@@ -53,6 +55,24 @@ function splitterReducer(state, action) {
                 extractedExpenses: expenses,
                 detectedMeta: meta || null,
                 ingestionError: null,
+                appendError: null,
+                localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
+                blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
+                allocations: autoBlock && autoBlock.allocations ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
+            };
+        }
+
+        case 'INGESTION_APPEND_SUCCESS': {
+            if (state.ingestionRequestId !== action.payload.requestId) return state;
+            const { expenses, meta, autoBlock } = action.payload;
+            return {
+                ...state,
+                ingestionStatus: 'ready',
+                ingestionRequestId: null,
+                extractedExpenses: [...state.extractedExpenses, ...expenses],
+                detectedMeta: meta || state.detectedMeta,
+                ingestionError: null,
+                appendError: null,
                 localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
                 blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
                 allocations: autoBlock && autoBlock.allocations ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
@@ -62,6 +82,11 @@ function splitterReducer(state, action) {
         case 'INGESTION_ERROR': {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
             return { ...state, ingestionStatus: 'error', ingestionError: action.payload.message, ingestionRequestId: null };
+        }
+
+        case 'INGESTION_APPEND_ERROR': {
+            if (state.ingestionRequestId !== action.payload.requestId) return state;
+            return { ...state, ingestionStatus: 'ready', appendError: action.payload.message, ingestionRequestId: null };
         }
             
         case 'MANUAL_ENTRY': {

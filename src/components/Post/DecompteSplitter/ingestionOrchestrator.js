@@ -2,16 +2,18 @@ import { extractFinancialData } from '../../../services/decompteExtractionServic
 import { normalizeFinancialDocument, DocumentValidationError } from '../../../services/decompteExtractionSchema.js';
 
 /**
- * Orchestre l'ingestion d'un document : appel IA, validation, normalisation,
- * génération des IDs, dispatch. C'est ICI que vit l'impureté (async, UUID),
- * pas dans le reducer.
+ * Orchestre l'ingestion d'un document (initial ou additionnel en mode append) :
+ * appel IA, validation, normalisation, génération des IDs, dispatch.
  *
  * @param {File} file
  * @param {Function} dispatch - dispatch du SplitterContext
+ * @param {Object} [options]
+ * @param {boolean} [options.isAppend=false] - Si true, ajoute aux postes existants sans réinitialiser la session.
  */
-export async function ingestDocument(file, dispatch) {
+export async function ingestDocument(file, dispatch, options = {}) {
+    const { isAppend = false } = options;
     const requestId = crypto.randomUUID();
-    dispatch({ type: 'INGESTION_START', payload: { requestId } });
+    dispatch({ type: 'INGESTION_START', payload: { requestId, isAppend } });
 
     try {
         const rawResult = await extractFinancialData(file);
@@ -34,12 +36,12 @@ export async function ingestDocument(file, dispatch) {
             : null;
 
         dispatch({
-            type: 'INGESTION_SUCCESS',
+            type: isAppend ? 'INGESTION_APPEND_SUCCESS' : 'INGESTION_SUCCESS',
             payload: { requestId, expenses, meta, autoBlock },
         });
     } catch (err) {
         dispatch({
-            type: 'INGESTION_ERROR',
+            type: isAppend ? 'INGESTION_APPEND_ERROR' : 'INGESTION_ERROR',
             payload: {
                 requestId,
                 code: err instanceof DocumentValidationError ? err.code : 'INGESTION_FAILED',

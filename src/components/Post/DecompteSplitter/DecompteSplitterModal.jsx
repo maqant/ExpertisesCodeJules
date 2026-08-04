@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { DecompteSplitterProvider, useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import SplitterGlobalBasket from './SplitterGlobalBasket.jsx';
@@ -6,7 +6,7 @@ import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
-import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste, Save } from 'lucide-react';
+import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste, Save, FilePlus } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
 import { ingestDocument } from './ingestionOrchestrator.js';
 import { integrateToDossier } from '../../../services/decompteIntegrationService.js';
@@ -18,11 +18,13 @@ const SplitterInner = ({ onClose, dossierName }) => {
     const expenses = state.extractedExpenses || [];
     const validation = validateDraft(expenses, state);
 
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const dragCounter = useRef(0);
+
     const handleCopyTSV = () => {
         const currentDate = new Date().toLocaleDateString('fr-FR');
         const tsvContent = buildTsvExport(state, expenses, currentDate);
         navigator.clipboard.writeText(tsvContent);
-        // Toast possible ici
     };
 
     const handleCopyING = () => {
@@ -37,12 +39,11 @@ const SplitterInner = ({ onClose, dossierName }) => {
 
     const [isSaved, setIsSaved] = useState(false);
 
-    const handleDrop = async (files) => {
+    const handleDrop = async (files, opts = {}) => {
         if (!files || files.length === 0) return;
         const file = files[0];
-        
-        // Délègue la complexité métier et l'appel IA à l'orchestrateur asynchrone pur
-        await ingestDocument(file, dispatch);
+        const isAppend = opts.isAppend ?? (state.ingestionStatus === 'ready');
+        await ingestDocument(file, dispatch, { isAppend });
     };
 
     const handleSendToDossier = () => {
@@ -52,15 +53,47 @@ const SplitterInner = ({ onClose, dossierName }) => {
             const result = integrateToDossier(state);
             alert(`Succès ! \n${result.addedExpensesCount} frais créés.\n${result.paymentAdded ? `Paiement global de ${result.totalEuroStr} € enregistré.` : ''}`);
             setIsSaved(true);
-            setTimeout(() => onClose(), 2000); // Ferme automatiquement après 2s
+            setTimeout(() => onClose(), 2000);
         } catch (err) {
             alert(`Erreur lors de l'intégration: ${err.message}`);
         }
     };
 
-    useEffect(() => {
-        if (state.ingestionStatus !== 'idle') return;
+    // Drag and drop sur toute la modale (accumule les documents)
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current += 1;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            setIsDraggingOver(true);
+        }
+    };
 
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current -= 1;
+        if (dragCounter.current === 0) {
+            setIsDraggingOver(false);
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleModalDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+        dragCounter.current = 0;
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleDrop(e.dataTransfer.files, { isAppend: state.ingestionStatus === 'ready' });
+        }
+    };
+
+    useEffect(() => {
         const handleGlobalPaste = (e) => {
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -69,7 +102,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                     const blob = items[i].getAsFile();
                     if (blob) {
                         e.preventDefault();
-                        handleDrop([blob]);
+                        handleDrop([blob], { isAppend: state.ingestionStatus === 'ready' });
                         break;
                     }
                 }
@@ -88,7 +121,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 if (imageTypes.length > 0) {
                     const blob = await item.getType(imageTypes[0]);
                     const file = new File([blob], 'screenshot.png', { type: imageTypes[0] });
-                    handleDrop([file]);
+                    handleDrop([file], { isAppend: state.ingestionStatus === 'ready' });
                     return;
                 }
             }
@@ -112,7 +145,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                         
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <DropZone 
-                                onFiles={handleDrop} 
+                                onFiles={(files) => handleDrop(files, { isAppend: false })} 
                                 accept=".pdf,image/*" 
                                 label="Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler." 
                             />
@@ -173,6 +206,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                 </div>
             );
         }
+
         if (isSaved) {
             return (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 bg-emerald-50">
@@ -185,15 +219,40 @@ const SplitterInner = ({ onClose, dossierName }) => {
             );
         }
 
-        // Mode Décompte (ventilation classique)
+        // Mode Décompte (ventilation active avec possibilité d'ajouter un 2e document)
         return (
-            <div className="flex flex-1 overflow-hidden">
-                {/* Colonne de gauche (1/3) */}
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Overlay de chargement léger lors de l'ajout d'un 2e document */}
+                {state.ingestionStatus === 'parsing_append' && (
+                    <div className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
+                        <div className="bg-white p-6 rounded-2xl shadow-2xl flex items-center gap-4 border border-indigo-100 animate-bounce">
+                            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-sm">Analyse du 2e document par l'IA...</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">Ajout des postes et règlements au panier global.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Toast d'erreur lors de l'ajout d'un 2e document */}
+                {state.appendError && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-red-600 text-white text-xs px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>{state.appendError}</span>
+                        <button onClick={() => dispatch({ type: 'CLEAR_APPEND_ERROR' })} className="ml-2 font-bold hover:text-red-200">✕</button>
+                    </div>
+                )}
+
+                {/* Colonne de gauche (1/3) : Panier Global */}
                 <div className="w-1/3 min-w-[320px] max-w-sm border-r border-slate-200 bg-slate-50 flex flex-col">
-                    <SplitterGlobalBasket expenses={expenses} />
+                    <SplitterGlobalBasket 
+                        expenses={expenses} 
+                        onAddDocument={(file) => handleDrop([file], { isAppend: true })}
+                    />
                 </div>
 
-                {/* Colonne de droite (2/3) */}
+                {/* Colonne de droite (2/3) : Destinataires & Paiements */}
                 <div className="flex-1 flex flex-col bg-slate-100 overflow-hidden">
                     <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
                         <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Destinataires & Paiements</h2>
@@ -242,7 +301,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                                 disabled={!validation.isValid}
                                 className={`flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded shadow-sm transition-colors ${
                                     validation.isValid 
-                                        ? 'bg-[#ff6200] hover:bg-[#e65800] text-white' // Couleur orange ING
+                                        ? 'bg-[#ff6200] hover:bg-[#e65800] text-white'
                                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                 }`}
                                 title={!validation.isValid ? "Corrigez les erreurs pour exporter" : "Format exact pour coller dans la macro SEPA d'ING"}
@@ -274,7 +333,7 @@ const SplitterInner = ({ onClose, dossierName }) => {
                                     block={block} 
                                     expenses={expenses}
                                     occupants={pii.occupants}
-                                    intervenants={pii.prestataires} // En supposant que intervenants = prestataires/experts selon la structure existante
+                                    intervenants={pii.prestataires}
                                     dossierName={dossierName}
                                 />
                             ))
@@ -286,8 +345,14 @@ const SplitterInner = ({ onClose, dossierName }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center p-4 md:p-8">
-            <div className="bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        <div 
+            className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center p-4 md:p-8"
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleModalDrop}
+        >
+            <div className="bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative">
                 
                 {/* Header */}
                 <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-800 text-white">
@@ -310,6 +375,17 @@ const SplitterInner = ({ onClose, dossierName }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* Overlay visuel lors du glisser-déposer d'un 2e document */}
+                {isDraggingOver && state.ingestionStatus === 'ready' && (
+                    <div className="absolute inset-0 z-50 bg-indigo-900/85 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-white border-4 border-dashed border-indigo-400 m-2 rounded-xl pointer-events-none animate-pulse">
+                        <UploadCloud className="w-16 h-16 mb-4 text-indigo-200" />
+                        <h3 className="text-2xl font-bold">Déposer un 2e document (décompte / paiement)</h3>
+                        <p className="text-sm text-indigo-200 mt-2 text-center max-w-md">
+                            L'IA extraira les nouveaux postes et créera le versement correspondant sans supprimer vos ventilations actuelles.
+                        </p>
+                    </div>
+                )}
 
                 {/* Body dynamique (DropZone ou Splitter) */}
                 {renderBody()}

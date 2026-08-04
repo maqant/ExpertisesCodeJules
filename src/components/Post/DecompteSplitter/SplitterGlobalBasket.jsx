@@ -4,20 +4,21 @@ import { cleanAmount, useFinanceStore } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
 import { computeDossierSuggestions, buildSuggestedLabel } from '../../../domain/decompteSplitter/dossierExpenseMatcher.js';
 import DossierLinkPopover from './DossierLinkPopover.jsx';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent, Sparkles, X, Link2, Edit2, Check } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent, Sparkles, X, Link2, Edit2, Check, UploadCloud } from 'lucide-react';
 import { computeProrataWeights } from '../../../domain/decompteSplitter/prorataDistribution.js';
 import ProrataBasePopover from './ProrataBasePopover.jsx';
 
-const SplitterGlobalBasket = ({ expenses }) => {
+const SplitterGlobalBasket = ({ expenses, onAddDocument }) => {
     const { state, dispatch } = useDecompteSplitter();
     const { allocations, dismissedSuggestionIds } = state;
 
     const [activePopoverExpId, setActivePopoverExpId] = useState(null);
     const [editingExpId, setEditingExpId] = useState(null);
     const [editingValue, setEditingValue] = useState('');
-    
+    const fileInputRef = useRef(null);
+
     // Popover de liaison manuelle au dossier
-    const [linkPopoverExpId, setLinkPopoverExpId] = useState(null);
+    const linkPopoverExpId = useState(null)[0];
     const linkAnchorRefs = useRef({});
 
     // Frais officiels du dossier d'expertise
@@ -69,7 +70,26 @@ const SplitterGlobalBasket = ({ expenses }) => {
                     <h2 className="text-lg font-semibold text-slate-800">Panier Global</h2>
                     <p className="text-xs text-slate-500 mt-1">Postes extraits du décompte</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 items-center">
+                    <input 
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                                onAddDocument?.(e.target.files[0]);
+                                e.target.value = '';
+                            }
+                        }}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors"
+                        title="Ajouter un 2e document (décompte/paiement)"
+                    >
+                        <UploadCloud className="w-4 h-4" />
+                    </button>
                     <button 
                         onClick={() => {
                             const newExp = {
