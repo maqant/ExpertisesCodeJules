@@ -1,24 +1,66 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount, useFinanceStore } from '../../../store/financeStore.js';
 import { getResteAVentiler, ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
-import { computeDossierSuggestions } from '../../../domain/decompteSplitter/dossierExpenseMatcher.js';
-import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent, Sparkles, X, Link2 } from 'lucide-react';
+import { computeDossierSuggestions, buildSuggestedLabel } from '../../../domain/decompteSplitter/dossierExpenseMatcher.js';
+import DossierLinkPopover from './DossierLinkPopover.jsx';
+import { CheckCircle2, AlertCircle, Ban, ArrowRightCircle, RotateCcw, Plus, Percent, Sparkles, X, Link2, Edit2, Check } from 'lucide-react';
 import { computeProrataWeights } from '../../../domain/decompteSplitter/prorataDistribution.js';
 import ProrataBasePopover from './ProrataBasePopover.jsx';
 
 const SplitterGlobalBasket = ({ expenses }) => {
     const { state, dispatch } = useDecompteSplitter();
     const { allocations, dismissedSuggestionIds } = state;
-    const [activePopoverExpId, setActivePopoverExpId] = useState(null);
 
-    // Frais officiels du dossier d'expertise (source des vrais noms)
+    const [activePopoverExpId, setActivePopoverExpId] = useState(null);
+    const [editingExpId, setEditingExpId] = useState(null);
+    const [editingValue, setEditingValue] = useState('');
+    
+    // Popover de liaison manuelle au dossier
+    const [linkPopoverExpId, setLinkPopoverExpId] = useState(null);
+    const linkAnchorRefs = useRef({});
+
+    // Frais officiels du dossier d'expertise
     const dossierExpenses = useFinanceStore(s => s.metier?.expenses || []);
 
     // Scan & Suggest : dérivation PURE sans mutation d'office
     const suggestions = useMemo(() => {
-        return computeDossierSuggestions(expenses, dossierExpenses, { dismissedIds: dismissedSuggestionIds });
+        return computeDossierSuggestions(expenses, dossierExpenses, { 
+            dismissedIds: dismissedSuggestionIds,
+            linkedDossierIds: expenses.map(e => e.linkedDossierExpenseId).filter(Boolean)
+        });
     }, [expenses, dossierExpenses, dismissedSuggestionIds]);
+
+    const handleStartEditing = (exp) => {
+        setEditingExpId(exp.id);
+        setEditingValue(exp.desc || exp.type || '');
+    };
+
+    const handleSaveEditing = (expId) => {
+        const val = editingValue.trim();
+        if (val) {
+            dispatch({
+                type: 'RENAME_EXPENSE',
+                payload: { expenseId: expId, newDesc: val }
+            });
+        }
+        setEditingExpId(null);
+    };
+
+    const handleLinkDossierExpense = (expenseId, dossierExp) => {
+        const suggestedLabel = buildSuggestedLabel(dossierExp);
+        dispatch({
+            type: 'LINK_DOSSIER_EXPENSE',
+            payload: { expenseId, dossierExpense: dossierExp, suggestedLabel }
+        });
+    };
+
+    const handleUnlinkDossierExpense = (expenseId) => {
+        dispatch({
+            type: 'UNLINK_DOSSIER_EXPENSE',
+            payload: { expenseId }
+        });
+    };
 
     return (
         <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200">
@@ -70,6 +112,7 @@ const SplitterGlobalBasket = ({ expenses }) => {
                         const reste = getResteAVentiler(exp, allocations);
                         const isSuspended = allocations.some(a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED);
                         const suggestion = suggestions[exp.id];
+                        const isEditing = editingExpId === exp.id;
                         
                         let statusConfig = { bg: 'bg-white', border: 'border-slate-200', icon: null, text: '' };
                         
@@ -106,18 +149,90 @@ const SplitterGlobalBasket = ({ expenses }) => {
                                         </>
                                     ) : (
                                         <>
-                                            <div className="flex flex-col truncate pr-2">
-                                                <span className="text-sm font-medium text-slate-700 truncate" title={exp.desc || exp.type}>
-                                                    {exp.desc || exp.type || 'Poste inconnu'}
-                                                </span>
-                                                {exp.linkedDossierExpenseId && (
-                                                    <div className="flex items-center gap-1 text-[10px] text-indigo-600 mt-0.5">
-                                                        <Link2 className="w-3 h-3 text-indigo-500" />
-                                                        <span className="truncate" title={`Brut décompte: ${exp.descOriginale || ''}`}>Nom issu du dossier</span>
+                                            <div className="flex-1 flex flex-col truncate pr-1">
+                                                {isEditing ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="text"
+                                                            autoFocus
+                                                            className="text-xs font-medium text-slate-800 bg-white border border-indigo-500 rounded px-1.5 py-0.5 w-full outline-none"
+                                                            value={editingValue}
+                                                            onChange={e => setEditingValue(e.target.value)}
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') handleSaveEditing(exp.id);
+                                                                if (e.key === 'Escape') setEditingExpId(null);
+                                                            }}
+                                                        />
+                                                        <button 
+                                                            onClick={() => handleSaveEditing(exp.id)}
+                                                            className="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                                                            title="Enregistrer"
+                                                        >
+                                                            <Check className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setEditingExpId(null)}
+                                                            className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+                                                            title="Annuler"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 group">
+                                                        <span 
+                                                            className="text-sm font-medium text-slate-700 truncate cursor-pointer hover:text-indigo-600 transition-colors" 
+                                                            title={exp.desc || exp.type}
+                                                            onDoubleClick={() => handleStartEditing(exp)}
+                                                        >
+                                                            {exp.desc || exp.type || 'Poste inconnu'}
+                                                        </span>
                                                         <button
-                                                            onClick={() => dispatch({ type: 'REVERT_MATCH_SUGGESTION', payload: { expenseId: exp.id } })}
+                                                            onClick={() => handleStartEditing(exp)}
+                                                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-indigo-600 transition-opacity"
+                                                            title="Renommer ce poste manuellement"
+                                                        >
+                                                            <Edit2 className="w-3 h-3" />
+                                                        </button>
+                                                        <div className="relative">
+                                                            <button
+                                                                ref={el => linkAnchorRefs.current[exp.id] = el}
+                                                                onClick={() => setLinkPopoverExpId(linkPopoverExpId === exp.id ? null : exp.id)}
+                                                                className={`p-0.5 rounded transition-colors ${
+                                                                    exp.linkedDossierExpenseId 
+                                                                        ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' 
+                                                                        : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600'
+                                                                }`}
+                                                                title={exp.linkedDossierExpenseId ? "Changer la liaison au dossier" : "Lier manuellement à un frais du dossier"}
+                                                            >
+                                                                <Link2 className="w-3 h-3" />
+                                                            </button>
+
+                                                            {/* Popover de liaison manuelle */}
+                                                            <DossierLinkPopover
+                                                                open={linkPopoverExpId === exp.id}
+                                                                anchorRef={{ current: linkAnchorRefs.current[exp.id] }}
+                                                                expense={exp}
+                                                                dossierFrais={dossierExpenses}
+                                                                linkedFraisId={exp.linkedDossierExpenseId}
+                                                                onSelect={(frais) => handleLinkDossierExpense(exp.id, frais)}
+                                                                onUnlink={() => handleUnlinkDossierExpense(exp.id)}
+                                                                onClose={() => setLinkPopoverExpId(null)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* BADGE DE RENOMMAGE / LIAISON & DÉLIAISON */}
+                                                {(exp.linkedDossierExpenseId || exp.descOriginale) && (
+                                                    <div className="flex items-center gap-1.5 text-[10px] text-indigo-600 mt-0.5">
+                                                        <span className="truncate" title={`Nom brut d'origine : ${exp.descOriginale || ''}`}>
+                                                            {exp.linkedDossierExpenseId ? '🔗 Lié au dossier' : '✏️ Renommé'}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => dispatch({ type: 'RESTORE_ORIGINAL', payload: { expenseId: exp.id } })}
                                                             className="text-slate-400 hover:text-slate-700 underline ml-1"
-                                                            title="Rétablir le libellé brut du décompte"
+                                                            title={`Rétablir le nom brut d'origine du décompte (${exp.descOriginale || ''})`}
                                                         >
                                                             Rétablir
                                                         </button>

@@ -222,7 +222,58 @@ function splitterReducer(state, action) {
             };
         }
 
+        case 'LINK_DOSSIER_EXPENSE': {
+            const { expenseId, dossierExpense, suggestedLabel } = action.payload;
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => {
+                    if (e.id !== expenseId) return e;
+                    return {
+                        ...e,
+                        descOriginale: e.descOriginale || e.desc || e.type,
+                        desc: suggestedLabel,
+                        linkedDossierExpenseId: dossierExpense.id,
+                        matchConfidence: 1.0
+                    };
+                }),
+                dismissedSuggestionIds: [...(state.dismissedSuggestionIds || []), expenseId]
+            };
+        }
+
+        case 'UNLINK_DOSSIER_EXPENSE':
         case 'REVERT_MATCH_SUGGESTION': {
+            const { expenseId } = action.payload;
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => {
+                    if (e.id !== expenseId) return e;
+                    return {
+                        ...e,
+                        desc: e.descOriginale || e.desc,
+                        descOriginale: undefined,
+                        linkedDossierExpenseId: undefined,
+                        matchConfidence: undefined
+                    };
+                })
+            };
+        }
+
+        case 'RENAME_EXPENSE': {
+            const { expenseId, newDesc } = action.payload;
+            return {
+                ...state,
+                extractedExpenses: state.extractedExpenses.map(e => {
+                    if (e.id !== expenseId) return e;
+                    return {
+                        ...e,
+                        descOriginale: e.descOriginale || e.desc || e.type,
+                        desc: newDesc
+                    };
+                })
+            };
+        }
+
+        case 'RESTORE_ORIGINAL': {
             const { expenseId } = action.payload;
             return {
                 ...state,

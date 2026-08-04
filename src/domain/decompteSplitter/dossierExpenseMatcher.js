@@ -62,8 +62,19 @@ const relDiff = (a, b) => {
     return max === 0 ? 0 : Math.abs(a - b) / max;
 };
 
+/**
+ * Format Canonique : "Prestataire — Référence — Montant"
+ */
 export const buildSuggestedLabel = (dossierExp) => {
-    const parts = [dossierExp.prestataire, dossierExp.desc || dossierExp.type].filter(Boolean);
+    if (!dossierExp) return 'Frais du dossier';
+    const prestataire = (dossierExp.prestataire || '').trim();
+    const refOrDesc = (dossierExp.ref || dossierExp.desc || dossierExp.type || '').trim();
+    const montantVal = getAmount(dossierExp);
+    const montantStr = montantVal > 0 
+        ? `${montantVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` 
+        : '';
+
+    const parts = [prestataire, refOrDesc, montantStr].filter(Boolean);
     return parts.join(' — ') || 'Frais du dossier';
 };
 
@@ -119,16 +130,22 @@ export const computeDossierSuggestions = (
 ) => {
     const dismissed = new Set(opts.dismissedIds || []);
 
+    const consumedDossierIds = new Set(
+        (opts.linkedDossierIds || [])
+            .concat(extractedExpenses.map(e => e.linkedDossierExpenseId).filter(Boolean))
+    );
+
     const candidatesE = extractedExpenses.filter(e =>
         !e.linkedDossierExpenseId &&
         !dismissed.has(e.id) &&
         e.origine !== 'manuel'
     );
-    if (!candidatesE.length || !dossierExpenses.length) return {};
+    const candidatesD = dossierExpenses.filter(d => !consumedDossierIds.has(d.id));
+    if (!candidatesE.length || !candidatesD.length) return {};
 
     const pairs = [];
     for (const ext of candidatesE) {
-        for (const dos of dossierExpenses) {
+        for (const dos of candidatesD) {
             const match = scorePair(ext, dos);
             if (match) pairs.push({ ext, dos, ...match });
         }
