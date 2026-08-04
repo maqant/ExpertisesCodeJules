@@ -48,7 +48,7 @@ export const SCENARIO_REGISTRY = Object.freeze([
         label: 'Reformulation Manuelle',
         source: 'Bouton Magique (Texte)',
         description: 'Reformulation d’un segment de texte à la demande de l’utilisateur.',
-        processIds: ['manual_refine']
+        processIds: ['manual_refine', 'remarque_refine']
     },
     {
         id: 'dropzone_direct',

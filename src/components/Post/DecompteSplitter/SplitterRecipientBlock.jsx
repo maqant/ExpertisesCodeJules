@@ -4,34 +4,65 @@ import { CLOSURE_MODE, getResteAVentiler, ALLOCATION_STATUS } from '../../../dom
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
 import { useSingleRecipient } from '../../../hooks/useSingleRecipient.js';
 import { resolveRecipientSnapshot } from '../../../services/utils/contactUtils.js';
-import { Trash2, Plus, Copy, Mail } from 'lucide-react';
+import { Trash2, Plus, Copy, Mail, Sparkles, RotateCcw, Link2, Unlink, Loader2 } from 'lucide-react';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
-
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
+import { refineRemarqueText } from '../../../services/ai/remarqueRefiner.js';
 
 const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
     
-    // Hook local pour la sélection du destinataire
-    const recipientState = useSingleRecipient({ 
+    // Destinataire du PAIEMENT (ING / Excel)
+    const paymentRecipientRef = block.paymentRecipientRef || block.recipientRef;
+    const paymentRecipientState = useSingleRecipient({ 
         occupants, 
         intervenants, 
         localContacts: state.localContacts,
-        recipientRef: block.recipientRef 
+        recipientRef: paymentRecipientRef 
+    });
+
+    // Destinataire de l'E-MAIL
+    const isMailLinked = block.mailRecipientLinked !== false;
+    const mailRecipientRef = isMailLinked ? paymentRecipientRef : (block.mailRecipientRef || paymentRecipientRef);
+    const mailRecipientState = useSingleRecipient({
+        occupants,
+        intervenants,
+        localContacts: state.localContacts,
+        recipientRef: mailRecipientRef
     });
 
     const [expenseToAdd, setExpenseToAdd] = useState('');
     const [splitAmount, setSplitAmount] = useState('');
+    const [isRefining, setIsRefining] = useState(false);
+    const [aiError, setAiError] = useState(null);
 
     const blockAllocations = state.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');
     const totalAlloue = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
 
-    const handleSelectRef = (ref) => {
+    const handleSelectPaymentRef = (ref) => {
         dispatch({
-            type: 'SET_BLOCK_RECIPIENT',
+            type: 'SET_BLOCK_PAYMENT_RECIPIENT',
             payload: { blockId: block.id, recipientRef: ref }
         });
+    };
+
+    const handleSelectMailRef = (ref) => {
+        dispatch({
+            type: 'SET_BLOCK_MAIL_RECIPIENT',
+            payload: { blockId: block.id, mailRecipientRef: ref }
+        });
+    };
+
+    const handleToggleLinkMode = () => {
+        if (!isMailLinked) {
+            dispatch({ type: 'LINK_MAIL_TO_PAYMENT', payload: { blockId: block.id } });
+        } else {
+            dispatch({
+                type: 'SET_BLOCK_MAIL_RECIPIENT',
+                payload: { blockId: block.id, mailRecipientRef: paymentRecipientRef }
+            });
+        }
     };
 
     const handleCreateContact = (contact) => {
@@ -65,29 +96,68 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
     };
 
     const handleCopyMail = () => {
-        const snapshot = block.recipientSnapshot || resolveRecipientSnapshot(block.recipientRef, recipientState.candidates);
-        const text = buildEmailTemplate({ ...block, recipientSnapshot: snapshot }, state.allocations, expenses);
+        const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot || resolveRecipientSnapshot(paymentRecipientRef, paymentRecipientState.candidates);
+        const mailSnapshot = block.mailRecipientSnapshot || (isMailLinked ? paymentSnapshot : resolveRecipientSnapshot(mailRecipientRef, mailRecipientState.candidates));
+        
+        const text = buildEmailTemplate(
+            { 
+                ...block, 
+                paymentRecipientSnapshot: paymentSnapshot, 
+                mailRecipientSnapshot: mailSnapshot,
+                recipientSnapshot: paymentSnapshot 
+            }, 
+            state.allocations, 
+            expenses
+        );
         if (text) {
             navigator.clipboard.writeText(text);
-            // On pourrait ajouter un toast de succès ici
         }
     };
 
     const handleCopyING = () => {
-        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, recipientState.candidates);
+        const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, paymentRecipientState.candidates);
         navigator.clipboard.writeText(tsvContent);
+    };
+
+    const handleRefineRemarque = async () => {
+        if (!block.remarque || !block.remarque.trim() || isRefining) return;
+        setIsRefining(true);
+        setAiError(null);
+
+        try {
+            const mailSnapshot = block.mailRecipientSnapshot || (isMailLinked ? block.paymentRecipientSnapshot || block.recipientSnapshot : null) || resolveRecipientSnapshot(mailRecipientRef, mailRecipientState.candidates);
+            const refined = await refineRemarqueText({
+                remarque: block.remarque,
+                context: {
+                    mailRecipientSnapshot: mailSnapshot,
+                    dossierName
+                }
+            });
+            dispatch({
+                type: 'APPLY_REFINED_REMARQUE',
+                payload: { blockId: block.id, refinedText: refined }
+            });
+        } catch (err) {
+            console.error('[RemarqueRefiner Error]', err);
+            setAiError(err.message || "Erreur d'affinage IA");
+        } finally {
+            setIsRefining(false);
+        }
+    };
+
+    const handleRevertRemarque = () => {
+        dispatch({
+            type: 'REVERT_REFINED_REMARQUE',
+            payload: { blockId: block.id }
+        });
     };
 
     return (
         <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 flex flex-col gap-4">
-            <div className="flex justify-between items-start">
-                <div className="flex-1 max-w-sm">
-                    <SingleRecipientSelector 
-                        recipientState={recipientState} 
-                        onSelectRef={handleSelectRef}
-                        onCreateContact={handleCreateContact}
-                    />
-                </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Bloc de règlement
+                </span>
                 <button 
                     onClick={() => dispatch({ type: 'REMOVE_BLOCK', payload: block.id })}
                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
@@ -97,6 +167,46 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                 </button>
             </div>
 
+            {/* SÉLECTEURS DE DESTINATAIRES (PAIEMENT vs MAIL) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                        💳 Destinataire du paiement (ING / Excel)
+                    </label>
+                    <SingleRecipientSelector 
+                        recipientState={paymentRecipientState} 
+                        onSelectRef={handleSelectPaymentRef}
+                        onCreateContact={handleCreateContact}
+                    />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                            ✉️ Destinataire de l'e-mail
+                        </label>
+                        <button
+                            type="button"
+                            onClick={handleToggleLinkMode}
+                            className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded transition-colors ${
+                                isMailLinked 
+                                    ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100' 
+                                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                            }`}
+                            title={isMailLinked ? "Cliquer pour dissocier le destinataire e-mail" : "Cliquer pour lier au destinataire du paiement"}
+                        >
+                            {isMailLinked ? <Link2 className="w-3 h-3" /> : <Unlink className="w-3 h-3" />}
+                            {isMailLinked ? 'Lié au paiement' : 'Personnalisé'}
+                        </button>
+                    </div>
+                    <SingleRecipientSelector 
+                        recipientState={mailRecipientState} 
+                        onSelectRef={handleSelectMailRef}
+                        onCreateContact={handleCreateContact}
+                    />
+                </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">IBAN</label>
@@ -104,7 +214,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                         type="text" 
                         placeholder="BEXX XXXX XXXX XXXX"
                         className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 uppercase"
-                        value={block.ibanOverride}
+                        value={block.ibanOverride || ''}
                         onChange={e => dispatch({ 
                             type: 'UPDATE_BLOCK', 
                             payload: { blockId: block.id, updates: { ibanOverride: e.target.value } } 
@@ -130,21 +240,52 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                 </div>
             </div>
 
+            {/* REMARQUE ÉVENTUELLE & BOUTON NANO-AGENT IA */}
             <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Remarque éventuelle</label>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Remarque éventuelle
+                    </label>
+                    <div className="flex items-center gap-2">
+                        {block.remarqueOriginal !== null && (
+                            <button
+                                type="button"
+                                onClick={handleRevertRemarque}
+                                className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-1.5 py-0.5 rounded transition-colors"
+                                title="Rétablir le texte original avant affinage IA"
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                                Rétablir l'original
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleRefineRemarque}
+                            disabled={!block.remarque || !block.remarque.trim() || isRefining}
+                            className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors disabled:opacity-50"
+                            title="Reformuler avec le nano-agent IA (gpt-5.6-luna) pour un rendu fluide dans le mail"
+                        >
+                            {isRefining ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+                            {isRefining ? 'Affinage en cours...' : 'Affinage IA ✨'}
+                        </button>
+                    </div>
+                </div>
                 <textarea 
                     rows={2}
                     className="w-full text-sm border-slate-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 resize-none"
                     placeholder="Texte libre à insérer dans l'e-mail..."
-                    value={block.remarque}
+                    value={block.remarque || ''}
                     onChange={e => dispatch({ 
                         type: 'UPDATE_BLOCK', 
                         payload: { blockId: block.id, updates: { remarque: e.target.value } } 
                     })}
                 />
+                {aiError && (
+                    <p className="text-[11px] text-red-600 mt-1">{aiError}</p>
+                )}
             </div>
 
-            <div className="mt-2">
+            <div className="mt-1">
                 <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Référence (Communication)</label>
                 <input 
                     type="text" 
@@ -244,7 +385,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                 <div className="flex gap-2">
                     <button 
                         onClick={handleCopyING}
-                        disabled={blockAllocations.length === 0 || (!block.recipientRef && !block.recipientSnapshot?.displayName)}
+                        disabled={blockAllocations.length === 0 || (!paymentRecipientRef && !block.paymentRecipientSnapshot?.displayName && !block.recipientSnapshot?.displayName)}
                         className="flex items-center gap-1.5 text-xs font-medium bg-[#ff6200] text-white px-3 py-1.5 rounded hover:bg-[#e65800] disabled:opacity-50 transition-colors"
                         title="Copier spécifiquement ce paiement pour la macro ING"
                     >
@@ -253,7 +394,7 @@ const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, doss
                     </button>
                     <button 
                         onClick={handleCopyMail}
-                        disabled={blockAllocations.length === 0 || !block.recipientRef}
+                        disabled={blockAllocations.length === 0 || (!paymentRecipientRef && !mailRecipientRef)}
                         className="flex items-center gap-1.5 text-xs font-medium bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors"
                     >
                         <Mail className="w-3.5 h-3.5" />

@@ -41,6 +41,7 @@ export const PROCESS_CATALOG = Object.freeze([
     { id: 'agent_merger',    label: 'Agent Merger',        group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'MERGER', hint: 'Déduplication finale.' },
     { id: 'agent_fallback',  label: 'Agent Balai',         group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FALLBACK', hint: 'Récupération des trous vitaux.' },
     { id: 'manual_refine',   label: 'Reformulation manuelle', group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'REFINE_REWRITE', hint: 'Reformulation à la demande de l\'utilisateur.' },
+    { id: 'remarque_refine', label: 'Affinage Remarque',      group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna',        promptKey: 'REFINE_REWRITE', hint: 'Affinage contextuel de la remarque du décompte pour l\'e-mail.' },
 ]);
 
 /**

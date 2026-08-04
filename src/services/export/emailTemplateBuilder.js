@@ -13,11 +13,18 @@ import { buildSalutation } from './../utils/contactUtils.js';
 export const buildEmailTemplate = (block, allocations, expenses) => {
     if (!block) return '';
 
-    // Nom du bénéficiaire
-    const recipientName = block.recipientSnapshot?.displayName || 'Monsieur, Madame';
-    const salutation = block.recipientSnapshot ? buildSalutation([{ displayName: recipientName, civility: block.recipientSnapshot.civility, nom: recipientName, email: block.recipientSnapshot.email }]) : `Bonjour ${recipientName},`;
+    // Séparation sémantique des destinataires :
+    // - mailSnapshot -> salutation de l'e-mail
+    // - paymentSnapshot / ibanOverride -> coordonnées bancaires du virement
+    const mailSnapshot = block.mailRecipientSnapshot || block.paymentRecipientSnapshot || block.recipientSnapshot;
+    const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
 
-    let rawIban = block.ibanOverride || block.recipientSnapshot?.iban;
+    const recipientName = mailSnapshot?.displayName || 'Monsieur, Madame';
+    const salutation = mailSnapshot
+        ? buildSalutation([{ displayName: recipientName, civility: mailSnapshot.civility, nom: recipientName, email: mailSnapshot.email }])
+        : `Bonjour ${recipientName},`;
+
+    let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';
     if (rawIban) {
         const cleanIban = rawIban.replace(/\s+/g, '');

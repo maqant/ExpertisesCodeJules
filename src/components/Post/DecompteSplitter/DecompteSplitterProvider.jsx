@@ -2,11 +2,12 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { ALLOCATION_STATUS, CLOSURE_MODE, genId } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildProrataAllocations } from '../../../domain/decompteSplitter/prorataDistribution.js';
+import { createBlockRecipientState, migrateDraftRecipients } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 
 const SplitterContext = createContext(null);
 
 const initialState = {
-    version: 1,
+    version: 2,
     sourceExpenseIds: [],
     allocations: [],
     blocks: [],
@@ -16,11 +17,11 @@ const initialState = {
     ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
     ingestionError: null,
     ingestionRequestId: null,
-    detectedMeta: null // { beneficiaire: {nom, iban}, reference, dateISO }
+    detectedMeta: null
 };
 
 const INGESTION_TRANSITIONS = {
-    idle: ['parsing', 'ready'], // Allow direct jump to ready for manual entry
+    idle: ['parsing', 'ready'],
     parsing: ['ready', 'error', 'idle'],
     ready: ['parsing', 'idle'],
     error: ['parsing', 'idle'],
@@ -33,7 +34,7 @@ function canTransition(from, to) {
 function splitterReducer(state, action) {
     switch (action.type) {
         case 'INIT_DRAFT':
-            return action.payload || initialState;
+            return action.payload ? migrateDraftRecipients(action.payload) : initialState;
 
         case 'INGESTION_START': {
             if (!canTransition(state.ingestionStatus, 'parsing')) return state;
@@ -41,7 +42,7 @@ function splitterReducer(state, action) {
         }
             
         case 'INGESTION_SUCCESS': {
-            if (state.ingestionRequestId !== action.payload.requestId) return state; // Ignore outdated responses
+            if (state.ingestionRequestId !== action.payload.requestId) return state;
             if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
             const { expenses, meta, autoBlock } = action.payload;
@@ -99,8 +100,6 @@ function splitterReducer(state, action) {
                     allocations: [...state.allocations, ...newAllocations]
                 };
             } catch (err) {
-                // On délègue l'affichage de l'erreur au composant qui dispatche (ou on pourrait avoir un state.uiError)
-                // Pour rester simple et dans la ligne de ce qui existe, on throw pour que le composant l'attrape
                 throw err;
             }
         }
@@ -111,17 +110,16 @@ function splitterReducer(state, action) {
         case 'ADD_BLOCK': {
             const newBlock = {
                 id: genId(),
-                recipientRef: null,
-                recipientSnapshot: null,
+                ...createBlockRecipientState(),
                 ibanOverride: '',
                 closureMode: CLOSURE_MODE.ATTENTE,
-                remarque: ''
+                remarque: '',
+                remarqueOriginal: null
             };
             return { ...state, blocks: [...state.blocks, newBlock] };
         }
 
         case 'REMOVE_BLOCK': {
-            // Supprimer le bloc ET réaffecter ses allocations (les supprimer revient à les remettre "à ventiler")
             const newBlocks = state.blocks.filter(b => b.id !== action.payload);
             const newAllocations = state.allocations.filter(a => a.blockId !== action.payload);
             return { ...state, blocks: newBlocks, allocations: newAllocations };
@@ -134,12 +132,75 @@ function splitterReducer(state, action) {
             return { ...state, blocks: newBlocks };
         }
 
-        case 'SET_BLOCK_RECIPIENT': {
+        case 'SET_BLOCK_RECIPIENT':
+        case 'SET_BLOCK_PAYMENT_RECIPIENT': {
             const { blockId, recipientRef } = action.payload;
             return {
                 ...state,
+                blocks: state.blocks.map(b => {
+                    if (b.id !== blockId) return b;
+                    const linked = b.mailRecipientLinked !== false;
+                    return {
+                        ...b,
+                        paymentRecipientRef: recipientRef,
+                        paymentRecipientSnapshot: null,
+                        ...(linked ? { mailRecipientRef: recipientRef, mailRecipientSnapshot: null } : {}),
+                        recipientRef,
+                        recipientSnapshot: null
+                    };
+                })
+            };
+        }
+
+        case 'SET_BLOCK_MAIL_RECIPIENT': {
+            const { blockId, mailRecipientRef } = action.payload;
+            return {
+                ...state,
                 blocks: state.blocks.map(b =>
-                    b.id === blockId ? { ...b, recipientRef, recipientSnapshot: null } : b
+                    b.id === blockId
+                        ? { ...b, mailRecipientRef, mailRecipientSnapshot: null, mailRecipientLinked: false }
+                        : b
+                )
+            };
+        }
+
+        case 'LINK_MAIL_TO_PAYMENT': {
+            const { blockId } = action.payload;
+            return {
+                ...state,
+                blocks: state.blocks.map(b => {
+                    if (b.id !== blockId) return b;
+                    const payRef = b.paymentRecipientRef || b.recipientRef;
+                    return {
+                        ...b,
+                        mailRecipientLinked: true,
+                        mailRecipientRef: payRef,
+                        mailRecipientSnapshot: b.paymentRecipientSnapshot || b.recipientSnapshot || null
+                    };
+                })
+            };
+        }
+
+        case 'APPLY_REFINED_REMARQUE': {
+            const { blockId, refinedText } = action.payload;
+            return {
+                ...state,
+                blocks: state.blocks.map(b =>
+                    b.id === blockId
+                        ? { ...b, remarqueOriginal: b.remarque, remarque: refinedText }
+                        : b
+                )
+            };
+        }
+
+        case 'REVERT_REFINED_REMARQUE': {
+            const { blockId } = action.payload;
+            return {
+                ...state,
+                blocks: state.blocks.map(b =>
+                    b.id === blockId && b.remarqueOriginal !== null
+                        ? { ...b, remarque: b.remarqueOriginal, remarqueOriginal: null }
+                        : b
                 )
             };
         }
@@ -147,11 +208,19 @@ function splitterReducer(state, action) {
         case 'ADD_LOCAL_CONTACT': {
             const { contact, blockId } = action.payload;
             const blocks = blockId
-                ? state.blocks.map(b =>
-                    b.id === blockId
-                        ? { ...b, recipientRef: { kind: 'local', id: contact.id }, recipientSnapshot: null }
-                        : b
-                )
+                ? state.blocks.map(b => {
+                    if (b.id !== blockId) return b;
+                    const newRef = { kind: 'local', id: contact.id };
+                    const linked = b.mailRecipientLinked !== false;
+                    return {
+                        ...b,
+                        paymentRecipientRef: newRef,
+                        paymentRecipientSnapshot: null,
+                        ...(linked ? { mailRecipientRef: newRef, mailRecipientSnapshot: null } : {}),
+                        recipientRef: newRef,
+                        recipientSnapshot: null
+                    };
+                })
                 : state.blocks;
             return {
                 ...state,
@@ -161,7 +230,6 @@ function splitterReducer(state, action) {
         }
 
         case 'ASSIGN_ALLOCATION': {
-            // Assigner un montant d'un expenseId vers un blockId
             const newAlloc = {
                 id: genId(),
                 expenseId: action.payload.expenseId,

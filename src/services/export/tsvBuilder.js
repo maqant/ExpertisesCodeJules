@@ -91,9 +91,11 @@ export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlock
 
     draft.blocks.forEach(block => {
         if (targetBlockId && block.id !== targetBlockId) return;
-        if (!block.recipientRef && !block.recipientSnapshot?.displayName) return;
+        const paymentRef = block.paymentRecipientRef || block.recipientRef;
+        const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
+        if (!paymentRef && !paymentSnapshot?.displayName) return;
 
-        const snapshot = block.recipientSnapshot || resolveRecipientSnapshot(block.recipientRef, allCandidates) || {};
+        const snapshot = paymentSnapshot || resolveRecipientSnapshot(paymentRef, allCandidates) || {};
         const beneficiaire = sanitizeTsvCell(snapshot.displayName || 'Inconnu');
         const iban = sanitizeTsvCell(block.ibanOverride || snapshot.iban || '');
 
