@@ -1842,15 +1842,8 @@ const SidebarLegacy = () => {
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             
+
             <div className="p-4 pb-6 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
-                <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-800 p-2 rounded border border-slate-700">
-                    <span>Nb pages rapport principal :</span>
-                    <input type="number" min="1" value={coverPageCount} onChange={(e) => setCoverPageCount(parseInt(e.target.value) || 1)} className="w-12 bg-slate-900 border border-slate-600 rounded px-1 text-center text-white font-bold" />
-                </div>
-                <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
-                    <input type="checkbox" checked={!hideAnnexIndex} onChange={e => setHideAnnexIndex(!e.target.checked)} className="w-3 h-3 rounded bg-slate-700 accent-indigo-600" />
-                    <span>👁️ Index visible</span>
-                </label>
                 <div className="relative">
                     <button
                         onClick={() => {
@@ -1864,20 +1857,10 @@ const SidebarLegacy = () => {
                     </button>
                     <button
                         onClick={handleCopyResume}
-                        className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
+                        className="w-full mt-2 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600 py-1.5 rounded text-slate-400 hover:text-slate-200 transition-colors text-[10px] font-medium flex items-center justify-center gap-1.5"
                     >
-                        📋 Copier le résumé brut
+                        📋 Copier résumé brut pour description étendue dans Brio
                     </button>
-                    <div className="flex justify-between items-center mt-2 px-1 border-t border-slate-700/50 pt-2">
-                        <a 
-                            href="mailto:maquetantoine@gmail.com?subject=%5BExpertise%20App%5D%20Signalement%20de%20bug%20%2F%20Suggestion" 
-                            className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
-                        >
-                            🪲 Bug / Suggestion
-                        </a>
-
-                        <span className="text-[10px] text-slate-600 font-mono font-bold select-none cursor-default" title="Version actuelle">v{packageInfo.version}</span>
-                    </div>
                     {showPrintMenu && !isMerging && (
                         <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 overflow-hidden">
                             <button onClick={() => { if(telemetry) telemetry.logEvent('CLICK', 'btn_print_page_garde'); setShowPrintMenu(false); generatePDF(); }} className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2">
