@@ -2,7 +2,6 @@ import React, { useState, useContext } from 'react';
 import { useSidebarUI } from '../../context/SidebarUIContext';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { useDatasetStore } from '../../store/datasetStore.js';
-import { formatExpertDisplay } from '../../utils/formatters';
 import packageInfo from '../../../package.json';
 
 const SettingsModal = () => {
@@ -22,23 +21,34 @@ const SettingsModal = () => {
         telemetry: contextTelemetry, exportTelemetryJson
     } = context;
 
-    const sortedExperts = [...expertsList].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+    const safeExperts = Array.isArray(expertsList) ? expertsList : [];
+    const safeFranchises = Array.isArray(franchises) ? franchises : [];
+
+    const sortedExperts = [...safeExperts].sort((a, b) => (a.nom || a.name || '').localeCompare(b.nom || b.name || ''));
 
     const handleAddExpert = () => {
         if (!addExpertForm.nom.trim()) return;
         if (editingExpert) {
-            setExpertsList(expertsList.map(e => (e.nom === editingExpert.oldNom && e.tel === editingExpert.oldTel) ? { nom: addExpertForm.nom, tel: addExpertForm.tel } : e));
+            setExpertsList(safeExperts.map(e => (e.nom === editingExpert.oldNom && e.tel === editingExpert.oldTel) ? { nom: addExpertForm.nom, tel: addExpertForm.tel } : e));
             setEditingExpert(null);
         } else {
-            setExpertsList([...expertsList, { nom: addExpertForm.nom, tel: addExpertForm.tel }]);
+            setExpertsList([...safeExperts, { nom: addExpertForm.nom, tel: addExpertForm.tel }]);
         }
         setAddExpertForm({ nom: '', tel: '' });
     };
 
     const handleAddFranchise = () => {
         if (!addFranchiseForm.moisAnnee.trim() || !addFranchiseForm.montant.trim()) return;
-        setFranchises([...franchises, { moisAnnee: addFranchiseForm.moisAnnee, montant: addFranchiseForm.montant }]);
+        const entry = `${addFranchiseForm.moisAnnee.trim()} - ${addFranchiseForm.montant.trim()}`;
+        setFranchises([...safeFranchises, entry]);
         setAddFranchiseForm({ moisAnnee: '', montant: '' });
+    };
+
+    const formatFranchiseDisplay = (f) => {
+        if (!f) return '';
+        if (typeof f === 'string') return f;
+        if (typeof f === 'object') return `${f.moisAnnee || ''}${f.montant ? ` - ${f.montant}` : ''}`.trim();
+        return String(f);
     };
 
     return (
@@ -102,10 +112,12 @@ const SettingsModal = () => {
                                 <ul className="space-y-1 text-xs">
                                     {sortedExperts.map((exp, idx) => (
                                         <li key={idx} className="flex justify-between items-center bg-slate-900/90 px-2.5 py-1.5 rounded border border-slate-700">
-                                            <span>{formatExpertDisplay(exp)}</span>
+                                            <span className="text-slate-100 font-medium">
+                                                {exp.nom || exp.name || 'Expert'}{exp.tel ? ` (${exp.tel})` : ''}
+                                            </span>
                                             <div className="flex gap-2">
-                                                <button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button>
-                                                <button onClick={()=>window.confirm('Supprimer cet expert ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button>
+                                                <button onClick={()=>{setAddExpertForm({nom:exp.nom || '',tel:exp.tel || ''});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button>
+                                                <button onClick={()=>window.confirm('Supprimer cet expert ?')&&setExpertsList(safeExperts.filter(e=>e!==exp))} className="text-red-400">🗑️</button>
                                             </div>
                                         </li>
                                     ))}
@@ -128,13 +140,13 @@ const SettingsModal = () => {
                             </div>
                         </div>
                         <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 rounded text-xs transition-colors">Ajouter une franchise</button>
-                        {franchises.length > 0 && (
+                        {safeFranchises.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-slate-700/60 max-h-32 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs text-slate-300">
-                                    {franchises.map((f, idx) => (
+                                <ul className="space-y-1 text-xs">
+                                    {safeFranchises.map((f, idx) => (
                                         <li key={idx} className="flex justify-between items-center bg-slate-900/90 px-2.5 py-1.5 rounded border border-slate-700">
-                                            <span>{f.moisAnnee} : {f.montant}</span>
-                                            <button onClick={()=>setFranchises(franchises.filter((_, i)=>i!==idx))} className="text-red-400">🗑️</button>
+                                            <span className="text-slate-100 font-medium">{formatFranchiseDisplay(f)}</span>
+                                            <button onClick={()=>setFranchises(safeFranchises.filter((_, i)=>i!==idx))} className="text-red-400">🗑️</button>
                                         </li>
                                     ))}
                                 </ul>
