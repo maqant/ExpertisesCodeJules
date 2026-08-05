@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const TRANSITION_MS = 400; // Synchronisé avec la transition CSS max-height
+const TRANSITION_MS = 400;
+const CLICK_DEBOUNCE_MS = 350; // anti double-déclenchement focusin -> click
 
 const SidebarFocusMode = ({ children }) => {
     const [isIsolated, setIsIsolated] = useState(false);
@@ -8,8 +9,9 @@ const SidebarFocusMode = ({ children }) => {
     const scrollRef = useRef(null);
     const lastActiveRef = useRef(null);
     const settleTimerRef = useRef(null);
+    const lastActivationTsRef = useRef(0);
 
-    // --- Scroll : cale le haut de la section active en haut du conteneur (juste sous l'Assistant) ---
+    // --- Scroll : cale le haut de la section active en haut du conteneur (juste sous la flèche/Assistant) ---
     const scrollActiveToTop = useCallback(() => {
         const scroller = scrollRef.current;
         if (!scroller) return;
@@ -20,16 +22,30 @@ const SidebarFocusMode = ({ children }) => {
             const targetTop = active.getBoundingClientRect().top
                 - scroller.getBoundingClientRect().top
                 + scroller.scrollTop
-                - 8; // respiration visuelle de 8px sous la zone Assistant
+                - 4;
             scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
         };
 
-        // Passe 1 : scroll immédiat (l'œil suit le mouvement)
         requestAnimationFrame(computeAndScroll);
-
-        // Passe 2 : recalage pixel-perfect après la fin des animations de collapse
         clearTimeout(settleTimerRef.current);
         settleTimerRef.current = setTimeout(computeAndScroll, TRANSITION_MS + 80);
+    }, []);
+
+    // --- Sortie du focus : retour Vue Globale (toutes les barres fermées) ---
+    const handleExitFocus = useCallback(() => {
+        const wrapper = wrapperRef.current;
+        if (wrapper) {
+            wrapper.querySelectorAll('details').forEach(el => {
+                el.classList.remove('active-focus');
+                el.open = false; // Règle métier : toutes les barres fermées en vue globale
+            });
+        }
+        setIsIsolated(false);
+
+        clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = setTimeout(() => {
+            lastActiveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, TRANSITION_MS + 80);
     }, []);
 
     // --- Activation d'une section ---
@@ -38,54 +54,73 @@ const SidebarFocusMode = ({ children }) => {
         if (!wrapper || !section) return;
         if (section.classList.contains('active-focus')) return;
 
-        wrapper.querySelectorAll('details.active-focus')
-            .forEach(el => el.classList.remove('active-focus'));
+        wrapper.querySelectorAll('details').forEach(el => {
+            el.classList.remove('active-focus');
+            el.open = false;
+        });
 
         section.classList.add('active-focus');
-        section.open = true; // garantit que le contenu est déplié
+        section.open = true; // Seule voie d'ouverture autorisée
+        lastActivationTsRef.current = Date.now();
         lastActiveRef.current = section;
         setIsIsolated(true);
         scrollActiveToTop();
     }, [scrollActiveToTop]);
 
-    // --- Écoute focus + clic ---
     useEffect(() => {
         const wrapper = wrapperRef.current;
         if (!wrapper) return;
 
-        const handleInteraction = (e) => {
+        // Clic : uniquement sur <summary>, toggle natif neutralisé
+        const handleSummaryClick = (e) => {
+            const summary = e.target.closest('summary');
+            if (!summary || !wrapper.contains(summary)) return;
+            e.preventDefault(); // Le navigateur ne pilote plus jamais "open"
+
+            const section = summary.closest('details');
+            if (!section) return;
+
+            if (section.classList.contains('active-focus')) {
+                // Ignore le click fantôme qui suit immédiatement le focusin d'activation
+                if (Date.now() - lastActivationTsRef.current < CLICK_DEBOUNCE_MS) return;
+                handleExitFocus(); // Re-clic volontaire sur la barre active => retour vue globale
+            } else {
+                activateSection(section);
+            }
+        };
+
+        // Navigation clavier (Tab) ou focus dans un champ => focus de la section
+        const handleFocusIn = (e) => {
             const section = e.target.closest('details');
             if (section && wrapper.contains(section)) {
                 activateSection(section);
             }
         };
 
-        wrapper.addEventListener('focusin', handleInteraction);
-        wrapper.addEventListener('click', handleInteraction);
+        // Filet de sécurité : tout <details> ouvert hors focus est refermé
+        const handleToggle = (e) => {
+            const d = e.target;
+            if (d.tagName === 'DETAILS' && d.open && !d.classList.contains('active-focus')) {
+                d.open = false;
+            }
+        };
+
+        wrapper.addEventListener('click', handleSummaryClick);
+        wrapper.addEventListener('focusin', handleFocusIn);
+        wrapper.addEventListener('toggle', handleToggle, true); // capture : toggle ne bulle pas
+
+        // État initial : toutes les barres fermées
+        wrapper.querySelectorAll('details').forEach(el => { el.open = false; });
+
         return () => {
-            wrapper.removeEventListener('focusin', handleInteraction);
-            wrapper.removeEventListener('click', handleInteraction);
+            wrapper.removeEventListener('click', handleSummaryClick);
+            wrapper.removeEventListener('focusin', handleFocusIn);
+            wrapper.removeEventListener('toggle', handleToggle, true);
             clearTimeout(settleTimerRef.current);
         };
-    }, [activateSection]);
+    }, [activateSection, handleExitFocus]);
 
-    // --- Sortie du focus : retour Vue Globale + repositionnement sur la section quittée ---
-    const handleExitFocus = useCallback(() => {
-        const wrapper = wrapperRef.current;
-        if (wrapper) {
-            wrapper.querySelectorAll('details.active-focus')
-                .forEach(el => el.classList.remove('active-focus'));
-        }
-        setIsIsolated(false);
-
-        // Après ré-expansion des sections, on recentre sur la section quittée
-        clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = setTimeout(() => {
-            lastActiveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, TRANSITION_MS + 80);
-    }, []);
-
-    // --- Raccourci clavier : Espace / Échap (avec garde-fou sur la saisie) ---
+    // --- Raccourci clavier : Espace / Échap (avec protection champ texte) ---
     useEffect(() => {
         if (!isIsolated) return;
 
@@ -102,7 +137,7 @@ const SidebarFocusMode = ({ children }) => {
                 return;
             }
             if (e.code === 'Space') {
-                if (isTypingContext(e.target)) return; // Ne jamais intercepter l'Espace pendant la saisie
+                if (isTypingContext(e.target)) return; // Ne jamais intercepter l'Espace en saisie
                 e.preventDefault();
                 handleExitFocus();
             }
@@ -135,27 +170,29 @@ const SidebarFocusMode = ({ children }) => {
                     border-width: 0 !important;
                     pointer-events: none;
                 }
+                /* Maximisation hauteur utile : débloque la hauteur max de la section en focus pour tout voir */
                 .sidebar-focus-mode.is-isolated details.active-focus {
-                    box-shadow: 0 4px 20px -2px rgba(1, 108, 184, 0.4);
-                    border-color: rgba(1, 108, 184, 0.8);
-                    background-color: rgba(26, 26, 25, 0.95);
+                    max-height: 9999px !important;
+                    box-shadow: 0 4px 24px -2px rgba(1, 108, 184, 0.45);
+                    border-color: rgba(1, 108, 184, 0.85);
+                    background-color: rgba(26, 26, 25, 0.98);
                 }
                 @media (prefers-reduced-motion: reduce) {
                     .sidebar-focus-mode details { transition: none; }
                 }
             `}</style>
 
-            {/* Bouton de sortie du focus avec raccourci Esp / Esc */}
-            <div className={`shrink-0 overflow-hidden transition-all duration-300 flex justify-center bg-pechard-charcoal ${isIsolated ? 'h-11 border-b border-pechard-blue/30' : 'h-0'}`}>
+            {/* Bouton retour flèche "←" ultra-compact placé juste au-dessus du scroller */}
+            <div className={`shrink-0 overflow-hidden transition-all duration-300 flex items-center justify-between px-3 bg-pechard-charcoal ${isIsolated ? 'h-8 border-b border-pechard-blue/30' : 'h-0'}`}>
                 <button 
                     onClick={handleExitFocus}
-                    className="flex items-center gap-2 text-pechard-blue-light hover:text-white hover:bg-pechard-blue/20 px-4 py-1.5 rounded-lg font-bold text-xs my-1.5 transition-colors"
-                    title="Raccourci : Touche Espace (hors saisie) ou Échap"
+                    className="w-6 h-6 rounded-md bg-pechard-blue/20 text-pechard-blue-light hover:bg-pechard-blue hover:text-white flex items-center justify-center font-extrabold text-sm transition-all shadow-sm"
+                    title="Revenir en Vue globale (Raccourci : Espace ou Échap)"
+                    aria-label="Revenir en vue globale"
                 >
-                    <span>⬅</span>
-                    <span>Revenir (Vue globale)</span>
-                    <kbd className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono border border-slate-700">Esp</kbd>
+                    ←
                 </button>
+                <span className="text-[10px] text-slate-400 font-medium">Mode Focus isolé</span>
             </div>
 
             {/* Conteneur pour SidebarLegacy */}

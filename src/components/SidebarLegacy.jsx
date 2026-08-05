@@ -890,8 +890,8 @@ const SidebarLegacy = () => {
                     <div className="mb-4">
                         <Assistant onResetForm={handleNewDossier} />
                     </div>
-                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
-                            <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-1.5 group">
+                            <AccordionHeader id="titre" num="1" />
                             <div className="p-3 space-y-2">
                                 <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
                                 <div className="flex gap-2"><div className="flex-1"><label>Réf Péchard</label><input type="text" name="refPechard" value={formData.refPechard} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Nom Résidence</label><input type="text" name="nomResidence" value={formData.nomResidence} onChange={handleChange} className="input-field" /></div></div>
