@@ -846,14 +846,6 @@ const SidebarLegacy = () => {
                         {/* AI Controls & Dev Mode */}
                         <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                             <button
-                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
-                                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isAiModeActive ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-300'}`}
-                                title="Activer/Désactiver l'IA"
-                            >
-                                <span className={isAiModeActive ? 'animate-pulse' : ''}>✨</span> IA
-                            </button>
-                            <div className="w-px h-3 bg-slate-700 mx-0.5"></div>
-                            <button
                                 onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
                                 className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isDebugMode ? 'bg-red-900/50 text-red-400' : 'text-slate-500 hover:text-slate-400'}`}
                                 title="Console Développeur"
@@ -1147,6 +1139,27 @@ Objectif :
                                     📋 Prompt Télémétrie
                                 </button>
                             </div>
+                        </div>
+
+                        {/* 10. COMMUTATEUR IA DISCRET */}
+                        <div className="bg-slate-900/60 p-3 rounded border border-slate-800 mt-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs">🤖</span>
+                                <div>
+                                    <div className="text-[11px] font-bold text-slate-300">Moteur d'IA Global</div>
+                                    <div className="text-[9px] text-slate-500">Activer ou désactiver l'exécution des fonctions IA</div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded border transition-colors ${
+                                    isAiModeActive 
+                                        ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 hover:bg-indigo-600/50' 
+                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                                }`}
+                            >
+                                {isAiModeActive ? '● IA Active' : '○ IA Désactivée'}
+                            </button>
                         </div>
                     </div>
                 ) : (
