@@ -204,7 +204,6 @@ const SidebarLegacy = () => {
     if (!context) return null;
 
     const {
-        hoveredSection, setHoveredSection,
         ingestionModal, openIngestion, closeIngestion,
         activeTab, setActiveTab, sidebarWidth, isResizing, uiZoom, pastedJson, setPastedJson,
         orgaAdvancedMode, setOrgaAdvancedMode,
@@ -891,12 +890,7 @@ const SidebarLegacy = () => {
                     <div className="mb-4">
                         <Assistant onResetForm={handleNewDossier} />
                     </div>
-                        <details 
-                            data-section-id="titre"
-                            onMouseEnter={() => setHoveredSection('titre')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'titre' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-1.5 group">
                             <AccordionHeader id="titre" num="1" />
                             <div className="p-3 space-y-2">
                                 <div className="flex gap-2 items-end"><div className="flex-1"><label className="flex items-center w-full">Date de l'expertise <AttachmentUI onDragFinish={resetAllDragStates} docId="doc_mail_expertise" title="Mail de confirmation" /></label><input type="date" name="dateExp" value={formData.dateExp} onChange={handleChange} className="input-field" /></div><div className="flex-1"><label>Heure</label><input type="time" name="heureExp" value={formData.heureExp} onChange={handleChange} className="input-field" /></div></div>
@@ -904,12 +898,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="coord"
-                            onMouseEnter={() => setHoveredSection('coord')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'coord' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="coord" num="2" />
                             <div className="p-3 space-y-2">
                                 <label>Adresse du sinistre</label><input type="text" name="adresse" value={formData.adresse} onChange={handleChange} className="input-field" />
@@ -958,12 +947,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="infos"
-                            onMouseEnter={() => setHoveredSection('infos')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'infos' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="infos" num="3" />
                             <div
                                 className="p-3 space-y-2 relative"
@@ -1075,12 +1059,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="cause"
-                            onMouseEnter={() => setHoveredSection('cause')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'cause' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="cause" num="4" />
                             <div
                                 className="p-3 relative"
@@ -1249,12 +1228,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="orga"
-                            onMouseEnter={() => setHoveredSection('orga')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'orga' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="orga" num="5" />
                             <div className="p-3 space-y-2">
                                 <div className="flex justify-between items-center mb-2 bg-slate-800 p-2 rounded border border-slate-700">
@@ -1375,12 +1349,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="frais"
-                            onMouseEnter={() => setHoveredSection('frais')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'frais' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="frais" num="6" />
                             <div
                                 className="p-3 space-y-2 relative"
@@ -1607,12 +1576,7 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="photos"
-                            onMouseEnter={() => setHoveredSection('photos')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'photos' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="photos" num="7" />
                             <div className="p-3 space-y-4">
                                 <div className="flex justify-between items-center -mb-2">
@@ -1778,22 +1742,12 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
 
-                        <details 
-                            data-section-id="divers"
-                            onMouseEnter={() => setHoveredSection('divers')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'divers' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="divers" num="8" />
                             <div className="p-3"><textarea name="divers" value={formData.divers} onChange={handleChange} rows="3" className="input-field resize-none m-0"></textarea></div>
                         </details>
 
-                        <details 
-                            data-section-id="annexes_libres"
-                            onMouseEnter={() => setHoveredSection('annexes_libres')}
-                            onMouseLeave={() => setHoveredSection(null)}
-                            className={`bg-slate-800/50 rounded border border-slate-700 mb-1.5 group transition-all duration-200 ${hoveredSection === 'annexes_libres' ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)]' : ''}`}
-                        >
+                        <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group">
                             <AccordionHeader id="annexes_libres" num="9" />
                             <div
                                 className="p-3 space-y-3 relative"

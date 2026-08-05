@@ -70,7 +70,6 @@ const initialFormData = {
 };
 
 const initialTitles = {
-  titre: "Titre Document",
   coord: "Données d'expertise",
   infos: "Informations générales & références diverses",
   cause: "Cause et description du sinistre",
@@ -368,13 +367,6 @@ export const ExpertiseProvider = ({ children }) => {
   const [attachedPhotos, setAttachedPhotos] = useState({});
   const [attachedFreeAnnexes, setAttachedFreeAnnexes] = useState([]);
   const [isMerging, setIsMerging] = useState(false);
-
-  // Interaction miroir Preview <-> Sidebar
-  const [hoveredSection, setHoveredSection] = useState(null);
-  const [sectionFocusRequest, setSectionFocusRequest] = useState(null);
-  const requestSectionFocus = useCallback((id) => {
-    setSectionFocusRequest({ id, ts: Date.now() });
-  }, []);
 
   // Blocs et Styles
   const [blocksVisible, setBlocksVisible] = useState(initialVisibility);
@@ -1982,7 +1974,6 @@ Voici le format JSON :
   // --- End Autosave Logic ---
 
   const contextValue = {
-      hoveredSection, setHoveredSection, sectionFocusRequest, requestSectionFocus,
       activeTab, setActiveTab, isPreviewMode, setIsPreviewMode, sidebarWidth, setSidebarWidth, isResizing, setIsResizing,
       uiZoom, setUiZoom, fitBlocks, setFitBlocks, pastedJson, setPastedJson,
       orgaAdvancedMode, setOrgaAdvancedMode,
