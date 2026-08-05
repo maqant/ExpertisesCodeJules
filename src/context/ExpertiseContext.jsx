@@ -23,6 +23,7 @@ import { removeBlobs, fetchBlob } from '../services/attachmentStorage';
 import { attachmentRegistry } from '../services/attachmentRegistry';
 import { safeRead, safeWrite, STORAGE_KEYS } from '../services/storage/referenceStorage';
 import { mergeExperts, mergeStringLists, buildExportPayload, parseImportPayload } from '../services/storage/referenceManager';
+import { openDocumentPreview } from '../services/utils/windowPreviewHelper.js';
 import { FREE_ANNEX_TARGET } from '../domain/attachmentTargets';
 
 // v5.4.0 Magic Drop: Fuzzy file name matching utility
@@ -969,8 +970,7 @@ export const ExpertiseProvider = ({ children }) => {
           }
 
           const blob = new Blob([fileBytes], { type: mimeType });
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
+          openDocumentPreview(blob, `Document - ${dbKey}`);
       } catch (err) {
           console.error("Erreur d'ouverture du fichier", err);
           alert("Erreur lors de l'ouverture : " + err.message);

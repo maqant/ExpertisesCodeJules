@@ -8,6 +8,7 @@ import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
 import GeneratedDocModal from './GeneratedDocModal'; // v6.0.0
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
 import { generateDocument } from '../services/generators/generatorEngine.js'; // v6.0.0
+import { openDocumentPreview } from '../services/utils/windowPreviewHelper.js';
 import { Eye, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import UniversalIngestionModal from './UniversalIngestionModal';
 import BrioPrepModal from './BrioPrepModal';
@@ -2112,10 +2113,7 @@ Objectif :
                                                             src={photo.dataUrl} 
                                                             alt={photo.name} 
                                                             className="max-w-full max-h-full object-contain cursor-pointer" 
-                                                            onClick={() => {
-                                                                const w = window.open("");
-                                                                w.document.write(`<img src="${photo.dataUrl}" style="max-width: 100%; max-height: 100%; display: block; margin: auto;"/>`);
-                                                            }}
+                                                            onClick={() => openDocumentPreview(photo.dataUrl, photo.name)}
                                                         />
                                                     )}
                                                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

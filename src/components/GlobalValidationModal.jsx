@@ -7,6 +7,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { buildFieldDiff } from '../domain/merge/conservativeMerge.js';
 import { FieldStatus } from '../domain/merge/mergeStrategies.js';
+import { openDocumentPreview } from '../services/utils/windowPreviewHelper.js';
 import { 
     normalizeEmail, 
     parseFullName, 
@@ -1185,7 +1186,7 @@ const GlobalValidationModal = () => {
                                                 {matchedFile && (
                                                     <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold border border-blue-500/30 shrink-0 flex items-center gap-1" title={matchedFile.name}>
                                                         📎 {matchedFile.name.length > 20 ? matchedFile.name.slice(0, 20) + '…' : matchedFile.name}
-                                                        <button onClick={(e) => { e.stopPropagation(); window.open(URL.createObjectURL(matchedFile)); }} className="hover:text-white cursor-pointer ml-1" title="Voir la pièce jointe">👁️</button>
+                                                        <button onClick={(e) => { e.stopPropagation(); openDocumentPreview(matchedFile, matchedFile.name); }} className="hover:text-white cursor-pointer ml-1" title="Voir la pièce jointe">👁️</button>
                                                     </span>
                                                 )}
                                                 {exp.isDuplicate && (
@@ -1251,7 +1252,7 @@ const GlobalValidationModal = () => {
                                                         <div className="col-span-2 bg-blue-900/20 border border-blue-500/30 rounded p-2 flex items-center gap-2">
                                                             <span className="text-sm">📎</span>
                                                             <span className="text-[10px] text-blue-300 font-medium">Pièce jointe : {matchedFile.name}</span>
-                                                            <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(matchedFile)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
+                                                            <button onClick={(e) => { e.preventDefault(); openDocumentPreview(matchedFile, matchedFile.name); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
                                                             <span className="text-[9px] text-slate-500 ml-auto">Sera attachée automatiquement</span>
                                                         </div>
                                                     )}
@@ -1263,7 +1264,7 @@ const GlobalValidationModal = () => {
                                                             <div key={idx} className="col-span-2 bg-indigo-900/20 border border-indigo-500/30 rounded p-2 flex items-center gap-2 mt-1">
                                                                 <span className="text-sm">📎</span>
                                                                 <span className="text-[10px] text-indigo-300 font-medium">Pièce jointe additionnelle : {mFile.name}</span>
-                                                                <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(mFile)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
+                                                                <button onClick={(e) => { e.preventDefault(); openDocumentPreview(mFile, mFile.name); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1">👁️ Aperçu</button>
                                                             </div>
                                                         );
                                                     })}
@@ -1318,7 +1319,7 @@ const GlobalValidationModal = () => {
                                                 {isAutoMatched && (
                                                     <span className="text-[9px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold border border-green-500/30 ml-2">Match Auto</span>
                                                 )}
-                                                <button onClick={(e) => { e.preventDefault(); window.open(URL.createObjectURL(file)); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1 ml-2">👁️ Aperçu</button>
+                                                <button onClick={(e) => { e.preventDefault(); openDocumentPreview(file, file.name); }} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded cursor-pointer transition-colors border border-slate-600 flex items-center gap-1 ml-2">👁️ Aperçu</button>
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <label className="text-[10px] text-slate-400 uppercase">Lier à :</label>
