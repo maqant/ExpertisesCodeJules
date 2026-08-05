@@ -217,11 +217,11 @@ const Assistant = ({ onResetForm }) => {
     const canAnalyze = (hasFiles || rawText.trim()) && !isAnalyzing;
 
     return (
-        <div className="bg-slate-900 rounded-xl border border-pechard-blue/40 p-3 space-y-2.5 shadow-lg relative print:hidden">
+        <div className="bg-slate-900 rounded-xl border border-pechard-blue/40 p-2.5 space-y-2 shadow-lg relative print:hidden">
             {/* Titre du composant */}
-            <div className="flex items-center justify-between border-b border-pechard-blue/20 pb-2">
+            <div className="flex items-center justify-between border-b border-pechard-blue/20 pb-1.5">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm">✨</span>
+                    <span className="text-xs">✨</span>
                     <span className="text-xs font-extrabold text-white tracking-wide">Assistant</span>
                 </div>
                 {hasFiles && (
@@ -231,13 +231,13 @@ const Assistant = ({ onResetForm }) => {
                 )}
             </div>
 
-            {/* Zone de Drag & Drop avec pointillés (Hauteur optimale) */}
+            {/* Zone de Drag & Drop compacte (-25% hauteur) */}
             <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`min-h-[125px] rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 p-4 flex flex-col items-center justify-center text-center ${
+                className={`min-h-[90px] rounded-lg border-2 border-dashed cursor-pointer transition-all duration-200 p-2.5 flex flex-col items-center justify-center text-center ${
                     isDragOver
                         ? 'border-pechard-blue bg-pechard-blue/20 scale-[1.01]'
                         : 'border-pechard-blue/40 hover:border-pechard-blue bg-slate-950/60 hover:bg-slate-950/80'
@@ -251,13 +251,13 @@ const Assistant = ({ onResetForm }) => {
                     onChange={(e) => { handleAddFiles(Array.from(e.target.files)); e.target.value = null; }}
                     className="hidden"
                 />
-                <div className="text-2xl mb-1.5 pointer-events-none">
+                <div className="text-xl mb-1 pointer-events-none">
                     {isDragOver ? '📥' : '📁'}
                 </div>
                 <p className="text-xs font-bold text-slate-200 pointer-events-none">
                     {isDragOver ? 'Relâchez vos fichiers ici' : 'Glisser-déposer vos documents ou cliquer'}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-1 pointer-events-none">
+                <p className="text-[9px] text-slate-400 mt-0.5 pointer-events-none">
                     PDF · Images · Emails (.msg, .eml)
                 </p>
             </div>
@@ -288,7 +288,7 @@ const Assistant = ({ onResetForm }) => {
             )}
 
             {/* Zone Texte Brut Dépliable */}
-            <div className="pt-1">
+            <div className="pt-0.5">
                 <button
                     onClick={() => setShowTextArea(!showTextArea)}
                     className="text-[10px] font-bold text-pechard-blue-light hover:text-white flex items-center gap-1.5 transition-colors focus:outline-none"
@@ -302,7 +302,7 @@ const Assistant = ({ onResetForm }) => {
                         value={rawText}
                         onChange={(e) => setRawText(e.target.value)}
                         placeholder="Collez ici le corps d'un mail ou du texte brut d'expertise..."
-                        className="mt-2 w-full h-24 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-pechard-blue outline-none resize-none font-mono"
+                        className="mt-1.5 w-full h-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-pechard-blue outline-none resize-none font-mono"
                     />
                 )}
             </div>
@@ -311,7 +311,7 @@ const Assistant = ({ onResetForm }) => {
             <button
                 onClick={handleStartClick}
                 disabled={!canAnalyze}
-                className="w-full bg-pechard-blue hover:bg-pechard-blue-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold py-2.5 px-4 rounded-xl shadow-pechard transition-all flex items-center justify-center gap-2"
+                className="w-full bg-pechard-blue hover:bg-pechard-blue-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold py-2 px-3 rounded-xl shadow-pechard transition-all flex items-center justify-center gap-2"
             >
                 {isAnalyzing ? (
                     <>

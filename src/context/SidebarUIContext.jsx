@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState } from 'react';
 const SidebarUIContext = createContext();
 
 export const SidebarUIProvider = ({ children }) => {
-    const [uiMode, setUiMode] = useState(0); // Mode 0 (Legacy) par défaut
+    const [uiMode, setUiMode] = useState(6); // Mode 6 (Dynamic Focus) par défaut
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isAckModalOpen, setIsAckModalOpen] = useState(false);
 
