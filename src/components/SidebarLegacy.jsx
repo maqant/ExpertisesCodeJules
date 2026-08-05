@@ -518,8 +518,7 @@ const SidebarLegacy = () => {
                 agentsModel: aiConfig.model,
                 // v7.0.0 - Utiliser la cause lue depuis Zustand, pas la closure
                 existingContext: currentCause ? { cause: currentCause } : {},
-                addDebugLog,
-                isDeepThinkingMode
+                addDebugLog
             });
 
             if (result.success && result.data) {

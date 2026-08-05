@@ -25,7 +25,7 @@ const emoji = (file) => {
 const formatSize = (b) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} Ko` : `${(b / 1024 / 1024).toFixed(1)} Mo`;
 
 const SmartBridgeDropzone = ({ onFileDrop }) => {
-    const { bridgeFiles: files, setBridgeFiles: setFiles, isDeepThinkingMode, toggleDeepThinkingMode, telemetry } = useContext(ExpertiseContext);
+    const { bridgeFiles: files, setBridgeFiles: setFiles, telemetry } = useContext(ExpertiseContext);
     const [isDragOver, setIsDragOver] = useState(false);
     const inputRef = useRef(null);
 
@@ -125,13 +125,6 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                     <div className="flex flex-col items-start text-left w-full">
                         <div className="flex items-center justify-between w-full">
                             <p className="text-[10px] font-bold text-white uppercase tracking-wider leading-tight pointer-events-none">Smart Bridge</p>
-                            <label className="flex items-center gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                <span className={`text-[8px] font-bold uppercase ${isDeepThinkingMode ? 'text-indigo-300' : 'text-slate-500'}`}>Mode lourd</span>
-                                <input type="checkbox" className="hidden" checked={isDeepThinkingMode} onChange={toggleDeepThinkingMode} />
-                                <div className={`w-6 h-3 rounded-full flex items-center transition-colors ${isDeepThinkingMode ? 'bg-indigo-500' : 'bg-slate-600'}`}>
-                                    <div className={`w-2.5 h-2.5 bg-white rounded-full shadow-sm transform transition-transform ${isDeepThinkingMode ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
-                                </div>
-                            </label>
                         </div>
                         <div className="flex items-center justify-between w-full mt-1">
                             <p className="text-[9px] leading-tight pointer-events-none">Glissez vos mails (.msg) et documents</p>
@@ -161,13 +154,6 @@ const SmartBridgeDropzone = ({ onFileDrop }) => {
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-1 cursor-pointer">
-                                <span className={`text-[8px] font-bold uppercase ${isDeepThinkingMode ? 'text-indigo-300' : 'text-slate-500'}`}>Mode lourd</span>
-                                <input type="checkbox" className="hidden" checked={isDeepThinkingMode} onChange={toggleDeepThinkingMode} />
-                                <div className={`w-6 h-3 rounded-full flex items-center transition-colors ${isDeepThinkingMode ? 'bg-indigo-500' : 'bg-slate-600'}`}>
-                                    <div className={`w-2.5 h-2.5 bg-white rounded-full shadow-sm transform transition-transform ${isDeepThinkingMode ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
-                                </div>
-                            </label>
                             <button onClick={handlePasteText} className="text-[9px] text-slate-400 hover:text-indigo-300 transition-colors" title="Coller le texte du presse-papier">
                                 📋 Coller
                             </button>

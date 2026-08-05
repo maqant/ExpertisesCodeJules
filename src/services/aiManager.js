@@ -630,7 +630,6 @@ export const processGlobalIngestion = async ({
     onStatusChange = null,
     existingContext = {},
     addDebugLog = null,
-    isDeepThinkingMode = false,
     agentsModel = null,
     fallbackModel = null
 } = {}) => {
@@ -683,7 +682,6 @@ export const processGlobalIngestion = async ({
     try {
         const rawFilesCount = Array.from(files).length;
         log('INGESTION_START', 'INFO', `Début du traitement de ${rawFilesCount} fichier(s).`);
-        log('MODE_STRATEGY', 'INFO', `Mode Lourd (Deep Thinking) : ${isDeepThinkingMode ? 'ACTIF' : 'INACTIF'} | Agents: ${agentsModel ?? 'default'} | Balai: ${fallbackModel ?? 'default'}`);
         
         if (onStatusChange) onStatusChange('routing');
         
