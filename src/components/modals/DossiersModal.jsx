@@ -2,20 +2,27 @@ import React, { useState, useContext } from 'react';
 import { useSidebarUI } from '../../context/SidebarUIContext';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 
-const DossiersModal = () => {
+const DossiersModal = ({ isOpenOverride, onCloseOverride, onSelectOverride, customTitle }) => {
     const { isLoadDossierModalOpen, setIsLoadDossierModalOpen } = useSidebarUI();
     const { savedDossiers, loadDossier, deleteDossier, currentDossierId, saveDossier, saveDossierAs } = useContext(ExpertiseContext);
     const [searchQuery, setSearchQuery] = useState('');
 
-    if (!isLoadDossierModalOpen) return null;
+    const isOpen = isOpenOverride !== undefined ? isOpenOverride : isLoadDossierModalOpen;
+    const handleClose = onCloseOverride || (() => setIsLoadDossierModalOpen(false));
+
+    if (!isOpen) return null;
 
     const filteredDossiers = (savedDossiers || []).filter(d => 
         (d.name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleSelectDossier = (dossier) => {
-        loadDossier(dossier);
-        setIsLoadDossierModalOpen(false);
+        if (onSelectOverride) {
+            onSelectOverride(dossier);
+        } else {
+            loadDossier(dossier);
+            setIsLoadDossierModalOpen(false);
+        }
     };
 
     const handleDeleteDossier = (e, dossierId) => {
@@ -28,7 +35,7 @@ const DossiersModal = () => {
     return (
         <div 
             className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden"
-            onClick={() => setIsLoadDossierModalOpen(false)}
+            onClick={handleClose}
         >
             <div 
                 className="bg-slate-900 text-slate-100 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col border border-slate-700 shadow-2xl overflow-hidden"
@@ -38,10 +45,12 @@ const DossiersModal = () => {
                 <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
                     <div className="flex items-center gap-2">
                         <span className="text-xl">📂</span>
-                        <h2 className="text-base font-extrabold text-white tracking-wide">Gestion &amp; Chargement des Dossiers</h2>
+                        <h2 className="text-base font-extrabold text-white tracking-wide">
+                            {customTitle || "Gestion & Chargement des Dossiers"}
+                        </h2>
                     </div>
                     <button 
-                        onClick={() => setIsLoadDossierModalOpen(false)}
+                        onClick={handleClose}
                         className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors font-bold text-sm"
                         aria-label="Fermer"
                     >
@@ -51,22 +60,24 @@ const DossiersModal = () => {
 
                 {/* Toolbar */}
                 <div className="p-4 bg-slate-900/50 border-b border-slate-800 flex flex-col gap-3">
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => { saveDossier(); }}
-                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>💾</span> Sauvegarder l'état actuel
-                        </button>
-                        {currentDossierId && (
+                    {!onSelectOverride && (
+                        <div className="flex gap-2">
                             <button 
-                                onClick={() => { saveDossierAs(); }}
-                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+                                onClick={() => { saveDossier(); }}
+                                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
                             >
-                                <span>📁</span> Dupliquer / Copier
+                                <span>💾</span> Sauvegarder l'état actuel
                             </button>
-                        )}
-                    </div>
+                            {currentDossierId && (
+                                <button 
+                                    onClick={() => { saveDossierAs(); }}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span>📁</span> Dupliquer / Copier
+                                </button>
+                            )}
+                        </div>
+                    )}
                     
                     {/* Search Bar */}
                     <div className="relative">
@@ -117,15 +128,17 @@ const DossiersModal = () => {
                                                 onClick={() => handleSelectDossier(d)}
                                                 className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors shadow"
                                             >
-                                                Charger
+                                                {onSelectOverride ? 'Sélectionner' : 'Charger'}
                                             </button>
-                                            <button 
-                                                onClick={(e) => handleDeleteDossier(e, d.id)}
-                                                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
-                                                title="Supprimer ce dossier"
-                                            >
-                                                🗑️
-                                            </button>
+                                            {!onSelectOverride && (
+                                                <button 
+                                                    onClick={(e) => handleDeleteDossier(e, d.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                                                    title="Supprimer ce dossier"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
                                         </div>
                                     </li>
                                 );

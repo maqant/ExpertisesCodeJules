@@ -3,8 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { useSidebarUI } from '../context/SidebarUIContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
-import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
-import SmartBridgeDropzone from './SmartBridgeDropzone';
+import Assistant from './Assistant'; // v9.22.0 - Composant d'ingestion unifié
 import SmartBridgeModal from './SmartBridgeModal'; // v5.9.4
 import GeneratedDocModal from './GeneratedDocModal'; // v6.0.0
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js'; // v5.9.4
@@ -881,19 +880,16 @@ const SidebarLegacy = () => {
                     </div>
                 )}
 
-                {/* v5.9.4 - Smart Bridge (Relocation & Restore) - Toujours visible */}
-                <div className="mt-2 mb-2">
-                    <SmartBridgeDropzone onFileDrop={handleSmartBridgeDrop} />
-                </div>
+
 
             </div>
 
             <div className="flex-1 overflow-y-auto p-4" style={{ zoom: uiZoom }}>
                 <div>
-                    {/* v5.9.4 - Relocation & Restore */}
-                    <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all mb-4" : "transition-all mb-4"}>
-                            <GlobalAiAssistant />
-                        </div>
+                    {/* v9.22.0 - Composant Assistant unifié */}
+                    <div className="mb-4">
+                        <Assistant onResetForm={handleNewDossier} />
+                    </div>
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
                             <summary className="p-3 text-xs font-bold uppercase text-indigo-400 cursor-pointer select-none group-open:border-b border-slate-700">1. Titre Document</summary>
                             <div className="p-3 space-y-2">
