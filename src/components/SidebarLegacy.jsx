@@ -1,3 +1,4 @@
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { useSidebarUI } from '../context/SidebarUIContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
