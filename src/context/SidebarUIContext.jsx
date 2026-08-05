@@ -10,6 +10,7 @@ export const SidebarUIProvider = ({ children }) => {
     // Modales flottantes globales
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isLoadDossierModalOpen, setIsLoadDossierModalOpen] = useState(false);
+    const [isQuickDecompteOpen, setIsQuickDecompteOpen] = useState(false);
 
     // Bascule propre depuis Settings vers Dossiers
     const openDossiersFromSettings = () => {
@@ -24,6 +25,7 @@ export const SidebarUIProvider = ({ children }) => {
             isAckModalOpen, setIsAckModalOpen,
             isSettingsModalOpen, setIsSettingsModalOpen,
             isLoadDossierModalOpen, setIsLoadDossierModalOpen,
+            isQuickDecompteOpen, setIsQuickDecompteOpen,
             openDossiersFromSettings
         }}>
             {children}

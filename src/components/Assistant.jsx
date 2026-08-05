@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js';
+import { useSidebarUI } from '../context/SidebarUIContext';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import DossiersModal from './modals/DossiersModal';
 
@@ -33,6 +34,8 @@ const Assistant = ({ onResetForm }) => {
         setPendingAiData, setAiStatus, setRawContexts,
         addDebugLog, commitLogSession
     } = context;
+
+    const { setIsQuickDecompteOpen } = useSidebarUI();
 
     const [files, setFiles] = useState([]);
     const [rawText, setRawText] = useState('');
@@ -297,6 +300,15 @@ const Assistant = ({ onResetForm }) => {
                         <span>Analyser avec l'IA</span>
                     </>
                 )}
+            </button>
+
+            {/* Bouton Gestionnaire Financier Rapide */}
+            <button
+                onClick={() => setIsQuickDecompteOpen(true)}
+                className="w-full bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/60 text-slate-300 hover:text-emerald-300 text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
+            >
+                <span>📊</span>
+                <span>Gestionnaire Financier Rapide</span>
             </button>
 
             {/* Modale des 3 choix d'intention */}

@@ -12,6 +12,7 @@ import DebugConsole from './components/DebugConsole';
 import FloatingActionMenu from './components/navigation/FloatingActionMenu';
 import SettingsModal from './components/modals/SettingsModal';
 import DossiersModal from './components/modals/DossiersModal';
+import QuickDecompteModal from './components/modals/QuickDecompteModal';
 import { useState } from 'react';
 
 import packageJson from '../package.json';
@@ -53,9 +54,10 @@ function App() {
             {/* Console de débogage v6.2.0 */}
             <DebugConsole />
 
-            {/* Modales globales de Paramètres et de Chargement des dossiers */}
+            {/* Modales globales de Paramètres, Chargement et Décompte Rapide */}
             <SettingsModal />
             <DossiersModal />
+            <QuickDecompteModal />
           </div>
         </SidebarUIProvider>
       </IngestionPipelineProvider>
