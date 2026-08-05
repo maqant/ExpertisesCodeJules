@@ -3,8 +3,10 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js';
 import { useSidebarUI } from '../context/SidebarUIContext';
+import { generateDocument } from '../services/generators/generatorEngine.js';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import DossiersModal from './modals/DossiersModal';
+import GeneratedDocModal from './GeneratedDocModal';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.edi'];
 
@@ -47,6 +49,10 @@ const Assistant = ({ onResetForm }) => {
     const [showDestinationModal, setShowDestinationModal] = useState(false);
     const [showClassifySelectionModal, setShowClassifySelectionModal] = useState(false);
     const [pendingAnalysisResult, setPendingAnalysisResult] = useState(null);
+
+    // Résultat GeneratedDoc (mail de décompte)
+    const [generatedDecompteText, setGeneratedDecompteText] = useState(null);
+    const [isDecompteModalOpen, setIsDecompteModalOpen] = useState(false);
 
     const fileInputRef = useRef(null);
 
@@ -159,6 +165,24 @@ const Assistant = ({ onResetForm }) => {
                         });
                         setShowClassifySelectionModal(true);
                     }
+                } else if (intent === 'DECOMPTE') {
+                    // Option 4: Générer un mail de décompte depuis les expenses extraites
+                    const expenses = (result.data?.expenses || []).map(e => ({
+                        ...e,
+                        id: e.id || crypto.randomUUID(),
+                        compteDe: e.compteDe || 'unassigned'
+                    }));
+                    const text = await generateDocument('declaration', {
+                        formData: result.data?.formData || {},
+                        rawContexts: result.contexts || {},
+                        references: [],
+                        occupants: [],
+                        expenses,
+                    });
+                    setGeneratedDecompteText(text);
+                    setIsDecompteModalOpen(true);
+                    // On ne vide pas les fichiers — on garde pour retry éventuel
+                    return;
                 }
 
                 // Réinitialiser les fichiers/texte droppés
@@ -302,15 +326,7 @@ const Assistant = ({ onResetForm }) => {
                 )}
             </button>
 
-            {/* Bouton Gestionnaire Financier Rapide */}
-            <button
-                onClick={() => setIsQuickDecompteOpen(true)}
-                className="w-full bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/60 text-slate-300 hover:text-emerald-300 text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-                <span>📊</span>
-                <span>Gestionnaire Financier Rapide</span>
-            </button>
-
+            {/* Bouton Gestionnaire Financier Rapide — remplacé par le choix dans la modale d'analyse */}
             {/* Modale des 3 choix d'intention */}
             <AnalysisDestinationModal
                 isOpen={showDestinationModal}
@@ -324,6 +340,13 @@ const Assistant = ({ onResetForm }) => {
                 onCloseOverride={() => handleManualDossierSelected(null)}
                 onSelectOverride={handleManualDossierSelected}
                 customTitle="Choisir le dossier de destination"
+            />
+
+            {/* Résultat du mail de décompte généré (option DECOMPTE) */}
+            <GeneratedDocModal
+                isOpen={isDecompteModalOpen}
+                generatedText={generatedDecompteText}
+                onClose={() => { setIsDecompteModalOpen(false); setGeneratedDecompteText(null); }}
             />
         </div>
     );

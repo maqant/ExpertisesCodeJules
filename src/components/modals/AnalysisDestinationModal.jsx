@@ -90,6 +90,22 @@ const AnalysisDestinationModal = ({ isOpen, onClose, onChoice }) => {
                             </div>
                         </div>
                     </button>
+
+                    {/* Option 4: Mail de décompte */}
+                    <button
+                        onClick={() => onChoice('DECOMPTE')}
+                        className="w-full text-left bg-slate-800/90 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/60 p-3.5 rounded-xl transition-all group flex items-start gap-3 shadow-sm"
+                    >
+                        <span className="text-2xl p-2 rounded-lg bg-slate-900 border border-slate-700 group-hover:border-emerald-500/50">📊</span>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-bold text-xs text-white group-hover:text-emerald-300 transition-colors">
+                                Mail de décompte
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                                Extrait les montants des fichiers ou captures et génère un mail de décompte IA.
+                            </div>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
