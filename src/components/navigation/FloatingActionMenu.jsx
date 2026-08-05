@@ -25,7 +25,6 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
   const { uiMode, setUiMode, setIsAckModalOpen, setIsSettingsModalOpen } = useSidebarUI();
   const { hideAnnexIndex, setHideAnnexIndex } = useContext(ExpertiseContext);
 
-  // Close menu on outside click or Escape key
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e) => {
@@ -66,15 +65,15 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
 
   return (
     <div ref={menuRef} className="fixed top-4 right-4 z-[9999] print:hidden no-print">
-      {/* Trigger Button */}
+      {/* Trigger Button — couleurs Péchard */}
       <button
         onClick={() => setOpen((prev) => !prev)}
         title="Menu d'options et d'actions"
         aria-expanded={open}
         className={`w-11 h-11 rounded-full flex items-center justify-center shadow-xl border-2 transition-all duration-200 cursor-pointer ${
           open
-            ? 'bg-indigo-600 text-white border-indigo-400 scale-105 shadow-indigo-500/30'
-            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-indigo-400 hover:shadow-2xl'
+            ? 'bg-pechard-blue text-white border-pechard-blue scale-105 shadow-pechard-blue/30'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-pechard-blue hover:shadow-2xl'
         }`}
       >
         <span className="text-xl leading-none">⚡</span>
@@ -83,9 +82,9 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
       {/* Dropdown Panel */}
       {open && (
         <div className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-          {/* Header Branding */}
-          <div className="px-4 py-3 bg-slate-900 text-white flex justify-between items-center">
-            <span className="text-xs font-extrabold tracking-wider text-indigo-400">BUREAU PÉCHARD</span>
+          {/* Header Branding — charcoal Péchard */}
+          <div className="px-4 py-3 flex justify-between items-center" style={{ backgroundColor: '#1A1A19' }}>
+            <span className="text-xs font-extrabold tracking-wider" style={{ color: '#016CB8' }}>BUREAU PÉCHARD</span>
             <span className="text-[10px] text-slate-400 font-mono">v{packageJson.version}</span>
           </div>
 
@@ -98,7 +97,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
               id="float-phase-select"
               value={viewMode}
               onChange={(e) => setViewMode(e.target.value)}
-              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:border-pechard-blue focus:ring-2 focus:ring-pechard-blue/20 outline-none cursor-pointer"
             >
               {PHASES.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -117,7 +116,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
               id="float-ui-select"
               value={uiMode}
               onChange={(e) => setUiMode(Number(e.target.value))}
-              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:border-pechard-blue focus:ring-2 focus:ring-pechard-blue/20 outline-none cursor-pointer"
             >
               {UI_MODES.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -131,7 +130,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
           <div className="py-2 border-b border-slate-100 space-y-0.5">
             <button
               onClick={handleOpenMailModal}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-pechard-blue/10 hover:text-pechard-blue transition-colors text-left"
             >
               <span className="text-base">✉️</span>
               <span>Ecrire un mail</span>
@@ -139,7 +138,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
 
             <button
               onClick={handleOpenSettings}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-pechard-blue/10 hover:text-pechard-blue transition-colors text-left"
             >
               <span className="text-base">⚙️</span>
               <span>Paramètres</span>
@@ -147,7 +146,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
 
             <button
               onClick={handleCopySummary}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-pechard-blue/10 hover:text-pechard-blue transition-colors text-left"
             >
               <span className="text-base">📋</span>
               <span>Copier le résumé brut</span>
@@ -155,14 +154,14 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
 
             <button
               onClick={handleOpenBugReport}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-pechard-blue/10 hover:text-pechard-blue transition-colors text-left"
             >
               <span className="text-base">🪲</span>
               <span>Bug / Suggestion</span>
             </button>
           </div>
 
-          {/* Toggle Index Visible (Keeps menu open) */}
+          {/* Toggle Index Visible */}
           <div className="p-3 bg-slate-50/80 flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
               <span>👁️</span> Index visible
@@ -170,7 +169,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
             <button
               onClick={() => setHideAnnexIndex(!hideAnnexIndex)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                !hideAnnexIndex ? 'bg-indigo-600' : 'bg-slate-300'
+                !hideAnnexIndex ? 'bg-pechard-blue' : 'bg-slate-300'
               }`}
             >
               <span

@@ -851,7 +851,7 @@ const SidebarLegacy = () => {
                         <h1 className="text-[11px] font-bold text-white leading-tight uppercase tracking-wider">Page de garde</h1>
                         <div className="flex items-center gap-1 mt-0.5 text-[9px]">
                             <span className="text-slate-500">Dossier :</span>
-                            <span className="text-indigo-300 font-bold truncate max-w-[100px]">{activeName}</span>
+                            <span className="font-bold truncate max-w-[100px]" style={{ color: '#016CB8' }}>{activeName}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -859,10 +859,10 @@ const SidebarLegacy = () => {
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" style={{ backgroundColor: '#016CB8' }} onMouseOver={e => e.currentTarget.style.backgroundColor='#0158A0'} onMouseOut={e => e.currentTarget.style.backgroundColor='#016CB8'} title="Sauvegarder">
                                 💾 Save
                             </button>
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_load_dossier'); setIsLoadDossierModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Gestion & Chargement des Dossiers">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_load_dossier'); setIsLoadDossierModalOpen(true); }} className="text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" style={{ backgroundColor: '#016CB8' }} onMouseOver={e => e.currentTarget.style.backgroundColor='#0158A0'} onMouseOut={e => e.currentTarget.style.backgroundColor='#016CB8'} title="Gestion & Chargement des Dossiers">
                                 📂 Load
                             </button>
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
