@@ -70,6 +70,7 @@ const initialFormData = {
 };
 
 const initialTitles = {
+  titre: "Titre Document",
   coord: "Données d'expertise",
   infos: "Informations générales & références diverses",
   cause: "Cause et description du sinistre",
