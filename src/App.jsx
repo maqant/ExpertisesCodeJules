@@ -10,6 +10,8 @@ import TerrainView from './components/Pendant/TerrainView';
 import GlobalValidationModal from './components/GlobalValidationModal';
 import DebugConsole from './components/DebugConsole';
 import FloatingActionMenu from './components/navigation/FloatingActionMenu';
+import SettingsModal from './components/modals/SettingsModal';
+import DossiersModal from './components/modals/DossiersModal';
 import { useState } from 'react';
 
 import packageJson from '../package.json';
@@ -50,6 +52,10 @@ function App() {
 
             {/* Console de débogage v6.2.0 */}
             <DebugConsole />
+
+            {/* Modales globales de Paramètres et de Chargement des dossiers */}
+            <SettingsModal />
+            <DossiersModal />
           </div>
         </SidebarUIProvider>
       </IngestionPipelineProvider>

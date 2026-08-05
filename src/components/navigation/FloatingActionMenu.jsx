@@ -22,7 +22,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const { uiMode, setUiMode, setIsAckModalOpen } = useSidebarUI();
+  const { uiMode, setUiMode, setIsAckModalOpen, setIsSettingsModalOpen } = useSidebarUI();
   const { hideAnnexIndex, setHideAnnexIndex } = useContext(ExpertiseContext);
 
   // Close menu on outside click or Escape key
@@ -45,7 +45,7 @@ export default function FloatingActionMenu({ viewMode, setViewMode }) {
   }, [open]);
 
   const handleOpenSettings = () => {
-    window.dispatchEvent(new CustomEvent('app:open-settings'));
+    setIsSettingsModalOpen(true);
     setOpen(false);
   };
 

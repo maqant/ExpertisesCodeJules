@@ -1,5 +1,5 @@
-import React, { useContext, useState, useRef, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { useSidebarUI } from '../context/SidebarUIContext';
 import { extractDataFromDocument, extractValidAttachmentsFromMsg, extractAdministrativeData, extractNarrativeData, extractFinancialData, processGlobalIngestion, refineText, refineCauseWithInput } from '../services/aiManager';
 import AnnexModal from './AnnexModal';
 import GlobalAiAssistant from './GlobalAiAssistant'; // v5.9.4 - Relocation & Restore
@@ -172,6 +172,8 @@ const SidebarLegacy = () => {
     const toggleResponsable = useFinanceStore(state => state.toggleResponsable);
     const responsablesIds = useFinanceStore(state => state.metier?.responsablesIds) || [];
     
+    const { setIsLoadDossierModalOpen } = useSidebarUI();
+
     // -- PROMPT STORE --
     const { customPrompts, getPrompt, setPrompt, resetPrompt, resetAll } = usePromptStore();
     const [selectedAgent, setSelectedAgent] = useState('ROUTER');
@@ -861,6 +863,9 @@ const SidebarLegacy = () => {
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_load_dossier'); setIsLoadDossierModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" title="Gestion & Chargement des Dossiers">
+                                📂 Load
+                            </button>
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
                                 🔄 Reset
                             </button>
@@ -881,313 +886,12 @@ const SidebarLegacy = () => {
                     <SmartBridgeDropzone onFileDrop={handleSmartBridgeDrop} />
                 </div>
 
-                <div className="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'builder' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_editor'); setActiveTab('builder'); }}>Éditeur</button>
-                    <button className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'tab_settings'); setActiveTab('settings'); }}>Paramètres</button>
-                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4" style={{ zoom: uiZoom }}>
-                {activeTab === 'settings' ? (
-                    <div className="space-y-6">
-
-                        {/* 1. GESTION DES DOSSIERS */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">📂 Gestion des dossiers</h3>
-                            <div className="flex gap-2 mb-3">
-                                <button onClick={saveDossier} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-1.5 rounded text-xs font-bold shadow">💾 Sauvegarder</button>
-                                {currentDossierId && <button onClick={saveDossierAs} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded text-xs font-bold shadow">📁 Copier</button>}
-                            </div>
-                            {savedDossiers.length > 0 && <input type="text" placeholder="🔍 Rechercher..." value={dossierSearch} onChange={(e) => setDossierSearch(e.target.value)} className="input-field mb-3 w-full" />}
-                            <div className="border-t border-slate-700 pt-3 max-h-48 overflow-y-auto pr-1">
-                                {savedDossiers.length === 0 ? <p className="text-[10px] text-slate-400 italic text-center">Aucun dossier.</p> : 
-                                    <ul className="space-y-2">
-                                        {savedDossiers.filter(d => (d.name || '').toLowerCase().includes(dossierSearch.toLowerCase())).map(d => (
-                                            <li 
-                                                key={d.id} 
-                                                onClick={() => loadDossier(d)}
-                                                className="group flex justify-between items-center bg-slate-900 hover:bg-slate-800 p-1.5 rounded border border-slate-600 transition-colors cursor-pointer"
-                                            >
-                                                <div className="flex flex-col min-w-0 mr-2">
-                                                    <span className="font-bold text-xs text-white truncate">{d.name}</span>
-                                                    <span className="text-[9px] text-slate-400">{d.date}</span>
-                                                </div>
-                                                <button 
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation();
-                                                        deleteDossier(d.id); 
-                                                    }} 
-                                                    className="text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded transition-colors opacity-40 group-hover:opacity-100 flex-shrink-0" 
-                                                    title="Supprimer"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                }
-                            </div>
-                        </div>
-
-                        {/* 2. BASE EXPERTS — usage métier quotidien */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">{editingExpert ? "✏️ Modifier l'Expert" : "➕ Base Experts"}</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Nom</label><input type="text" value={addExpertForm.nom} onChange={e=>setAddExpertForm({...addExpertForm, nom:e.target.value})} placeholder="GABER Lionel" className="input-field mb-0"/></div><div className="flex-1"><label>Tél</label><input type="text" value={addExpertForm.tel} onChange={e=>setAddExpertForm({...addExpertForm, tel:e.target.value})} placeholder="04XX XX XX" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddExpert} className="w-full mt-2 bg-green-700 hover:bg-green-600 py-1.5 rounded text-xs font-bold">{editingExpert ? "Enregistrer" : "Ajouter"}</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-48 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs">
-                                    {sortedExperts.map((exp, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{formatExpertDisplay(exp)}</span><div><button onClick={()=>{setAddExpertForm({nom:exp.nom,tel:exp.tel});setEditingExpert({oldNom:exp.nom,oldTel:exp.tel})}}>✏️</button> <button onClick={()=>window.confirm('Supprimer ?')&&setExpertsList(expertsList.filter(e=>e!==exp))} className="text-red-400">🗑️</button></div></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* 2. BASE FRANCHISES — en second, usage métier quotidien */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2">➕ Base Franchises</h3>
-                            <div className="flex gap-2"><div className="flex-1"><label>Mois/Année</label><input type="text" value={addFranchiseForm.moisAnnee} onChange={e=>setAddFranchiseForm({...addFranchiseForm, moisAnnee:e.target.value})} placeholder="Mai 2026" className="input-field mb-0"/></div><div className="flex-1"><label>Montant</label><input type="text" value={addFranchiseForm.montant} onChange={e=>setAddFranchiseForm({...addFranchiseForm, montant:e.target.value})} placeholder="335,00 €" className="input-field mb-0"/></div></div>
-                            <button onClick={handleAddFranchise} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold">Ajouter</button>
-                            <div className="mt-4 pt-4 border-t border-slate-700 max-h-32 overflow-y-auto pr-1">
-                                <ul className="space-y-1 text-xs text-slate-300">
-                                    {franchises.map((f, idx) => <li key={idx} className="flex justify-between items-center bg-slate-900 px-2 py-1.5 rounded border border-slate-700"><span>{f}</span><button onClick={()=>window.confirm('Supprimer ?')&&setFranchises(franchises.filter(x=>x!==f))} className="hover:text-red-400 shrink-0">🗑️</button></li>)}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* 4. PROMPTS IA — intégrés dans Paramètres (anciennement onglet dédié) */}
-                        <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                            <h3 className="text-sm font-bold text-white mb-2 flex items-center justify-between">
-                                <span>🧪 Prompts IA</span>
-                            </h3>
-                            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                                Modifiez dynamiquement les consignes données à chaque agent IA. 
-                                Les modifications prennent effet immédiatement.
-                            </p>
-
-                            <div className="mb-4">
-                                <label className="block text-slate-400 mb-1 text-xs font-bold">Sélectionner un Agent</label>
-                                <select 
-                                    value={selectedAgent} 
-                                    onChange={(e) => setSelectedAgent(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white focus:border-indigo-500 outline-none text-xs"
-                                >
-                                    {Object.keys(DEFAULT_PROMPTS).map(key => (
-                                        <option key={key} value={key}>
-                                            {key} {customPrompts[key] ? '*(Modifié)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="block text-slate-400 mb-1 text-xs font-bold flex justify-between">
-                                    <span>Prompt Système</span>
-                                    {customPrompts[selectedAgent] && <span className="text-orange-400 text-[10px]">Modifié</span>}
-                                </label>
-                                <textarea
-                                    value={currentPromptDraft}
-                                    onChange={(e) => setCurrentPromptDraft(e.target.value)}
-                                    className="w-full h-96 bg-slate-900 border border-slate-600 rounded p-3 text-emerald-300 font-mono focus:border-indigo-500 outline-none text-[11px] leading-relaxed resize-y"
-                                    spellCheck="false"
-                                />
-                            </div>
-
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={handleSavePrompt}
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                >
-                                    💾 Sauvegarder ce prompt
-                                </button>
-                                <button 
-                                    onClick={handleResetPrompt}
-                                    disabled={!customPrompts[selectedAgent]}
-                                    className="px-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                    title="Rétablir le prompt d'origine"
-                                >
-                                    🔄 Réinitialiser
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 6. GESTION DES RÉFÉRENTIELS (EXPORTS/IMPORTS) */}
-                        <ReferenceManagerPanel />
-
-                        {/* 7. SAUVEGARDE GLOBALE */}
-                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg">
-                            <h3 className="text-sm font-bold text-white mb-2">💾 Sauvegarde Globale</h3>
-                            <button onClick={exportGlobalData} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📥 Exporter Sauvegarde Totale (.json)</button>
-                            <p className="text-[10px] text-indigo-200 leading-tight">Pour restaurer, utilisez simplement la zone "Importer Fichier" au-dessus avec votre fichier .json.</p>
-                        </div>
-
-                        {/* 7. TÉLÉMÉTRIE */}
-                        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 p-4 rounded border border-emerald-500 shadow-lg mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2">📊 Télémétrie &amp; Usage</h3>
-                            <button onClick={() => exportTelemetryJson()} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold shadow mb-2">📉 Télécharger les Données (.json)</button>
-                             <p className="text-center text-slate-500 mt-2 text-[10px]">Version {packageInfo.version}</p>
-                        </div>
-
-                        {/* 8. GOLDEN DATASET */}
-                        <div className="bg-gradient-to-r from-purple-900 to-fuchsia-900 p-4 rounded border border-purple-500 shadow-lg mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2">📊 Golden Dataset (Erreurs IA)</h3>
-                            <p className="text-[10px] text-purple-200 leading-tight mb-3">
-                                Enregistrements capturés dans le sas de validation. ({datasetRecords.length} enregistrements)
-                            </p>
-                            
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={exportDatasetJSON}
-                                    disabled={datasetRecords.length === 0}
-                                    className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                >
-                                    📥 Télécharger (.json)
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (window.confirm('Voulez-vous vraiment vider le dataset ? N\'oubliez pas de le télécharger d\'abord !')) {
-                                            clearDatasetRecords();
-                                        }
-                                    }}
-                                    disabled={datasetRecords.length === 0}
-                                    className="px-3 bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded text-xs font-bold shadow transition-colors"
-                                    title="Vider les enregistrements"
-                                >
-                                    🗑️ Vider
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 9. ANALYSE EXPERT (PROMPT) */}
-                        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-4 rounded border border-blue-500 shadow-lg mt-4">
-                            <h3 className="text-sm font-bold text-white mb-2">🧠 Prompt d'Analyse IA</h3>
-                            <p className="text-[10px] text-blue-200 leading-tight mb-3">
-                                Copiez ce prompt pour demander à une IA d'analyser vos fichiers Télémétrie et Golden Dataset.
-                            </p>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        const prompt = `Agis comme Architecte Logiciel Senior, Data Analyst et Prompt Engineer spécialisé en extraction documentaire assurance.
-
-Tu reçois un export Golden Dataset contenant :
-- inputText : données brutes envoyées à l'IA
-- aiOutput : prédiction initiale de l'IA
-- userCorrection : version finale corrigée par l'utilisateur
-- feedback : catégories d'erreurs et note manuelle
-- diffSummary / fieldDiffs si présents
-
-Objectif :
-1. Identifier les champs les plus corrigés, rejetés ou ajoutés.
-2. Classer chaque erreur selon :
-   - hallucination : l'IA invente ou déduit sans source suffisante
-   - omission : l'IA rate une information présente
-   - confusion de rôle : déclarant / occupant / syndic / ACP / prestataire
-   - confusion de référence : police / sinistre compagnie / référence interne / facture / devis
-   - erreur financière : montant, TVA, type devis/facture, compteDe
-   - erreur de temporalité : date sinistre / déclaration / facture / devis
-   - erreur de fusion : doublon, faux intervenant, entité rejetée
-3. Pour chaque champ critique, fournir :
-   - fréquence d'erreur
-   - exemples représentatifs
-   - cause probable
-   - impact métier
-   - correction recommandée : prompt, post-traitement, règle déterministe ou UI
-   - ROI estimé : élevé / moyen / faible
-4. Ne propose pas d'amélioration générique. Chaque recommandation doit être reliée à un écart observé entre aiOutput et userCorrection.
-5. Si une information n'est pas mesurable dans l'export, indique explicitement quelle donnée manque et comment l'ajouter au dataset.`;
-                                        navigator.clipboard.writeText(prompt);
-                                        alert("Prompt Golden Dataset copié !");
-                                    }}
-                                    className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    📋 Prompt Golden Dataset
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const prompt = `Agis comme Product Analyst et Architecte Logiciel spécialisé en télémétrie UX métier.
-
-Tu reçois un export de télémétrie contenant :
-- eventType : CLICK, FOCUS, BLUR, DROP, TOGGLE, AI_START, AI_PROCESSING
-- componentId : identifiant stable du composant ou du champ
-- details.initialValue / finalValue / changed / timeSpentMs
-- meta : entityType, fieldName, section, criticality, source, validationContext si présent
-
-Objectif :
-1. Identifier les champs qui coûtent le plus de temps utilisateur.
-2. Distinguer :
-   - lecture/validation sans changement
-   - correction effective
-   - hésitation probable : temps élevé sans changement
-   - friction UI : recherche, dropdown, rattachement, navigation répétée
-3. Agréger les résultats par :
-   - fieldName
-   - section métier
-   - entityType
-   - criticality
-   - dossierId
-4. Produire un classement :
-   - top champs modifiés
-   - top champs avec temps cumulé élevé
-   - top champs avec temps médian élevé
-   - top champs critiques modifiés
-5. Croiser avec le Golden Dataset si disponible :
-   - si un champ est souvent corrigé dans le Golden Dataset et coûteux dans la télémétrie, priorité ROI élevée
-   - si un champ coûteux n'est pas corrigé, suspecter une friction UI ou une validation difficile
-6. Proposer uniquement des améliorations reliées aux signaux observés.`;
-                                        navigator.clipboard.writeText(prompt);
-                                        alert("Prompt Télémétrie copié !");
-                                    }}
-                                    className="flex-1 bg-teal-600 hover:bg-teal-500 text-white py-2 rounded text-xs font-bold shadow flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    📋 Prompt Télémétrie
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 10. COMMUTATEUR IA DISCRET */}
-                        <div className="bg-slate-900/60 p-3 rounded border border-slate-800 mt-4 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs">🤖</span>
-                                <div>
-                                    <div className="text-[11px] font-bold text-slate-300">Moteur d'IA Global</div>
-                                    <div className="text-[9px] text-slate-500">Activer ou désactiver l'exécution des fonctions IA</div>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_toggle_ai'); toggleAiMode(); }}
-                                className={`text-[10px] font-bold px-2.5 py-1 rounded border transition-colors ${
-                                    isAiModeActive 
-                                        ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 hover:bg-indigo-600/50' 
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                                }`}
-                            >
-                                {isAiModeActive ? '● IA Active' : '○ IA Désactivée'}
-                            </button>
-                        </div>
-
-                        {/* 11. CONSOLE DÉVELOPPEUR DISCRÈTE */}
-                        <div className="bg-slate-900/60 p-3 rounded border border-slate-800 mt-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs">🦂</span>
-                                <div>
-                                    <div className="text-[11px] font-bold text-slate-300">Console Développeur</div>
-                                    <div className="text-[9px] text-slate-500">Mode d'inspection et journaux techniques</div>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
-                                className={`text-[10px] font-bold px-2.5 py-1 rounded border transition-colors ${
-                                    isDebugMode 
-                                        ? 'bg-red-900/40 text-red-300 border-red-500/50 hover:bg-red-900/60' 
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                                }`}
-                            >
-                                {isDebugMode ? '● Debug Actif' : '○ Debug Masqué'}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        {/* v5.9.4 - Relocation & Restore */}
-                        <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all mb-4" : "transition-all mb-4"}>
+                <div>
+                    {/* v5.9.4 - Relocation & Restore */}
+                    <div className={!isAiModeActive ? "opacity-50 pointer-events-none select-none grayscale transition-all mb-4" : "transition-all mb-4"}>
                             <GlobalAiAssistant />
                         </div>
                         <details className="bg-slate-800/50 rounded border border-slate-700 mb-2 group" open>
@@ -2139,7 +1843,6 @@ Objectif :
                             }} className="w-full bg-slate-700/60 hover:bg-slate-600 border border-slate-500/60 border-dashed py-1.5 rounded text-xs font-bold text-slate-300">↕ Ajouter un espaceur</button>
                         </div>
                     </div>
-                )}
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             
