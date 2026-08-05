@@ -1815,29 +1815,42 @@ const SidebarLegacy = () => {
                             </div>
                         </details>
                         
-                        <div className="bg-slate-900 border border-slate-600 rounded p-3 mt-4">
-                            <h3 className="text-xs font-bold text-white mb-2 uppercase">🧱 Gestion des blocs affichés</h3>
-                            <div className="flex flex-wrap gap-2 mb-3 text-[10px]">
-                                {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres'].map(key => (
-                                    <label key={key} className={`px-2 py-1 rounded cursor-pointer border ${blocksVisible[key] === false ? 'bg-slate-800 border-slate-600 text-slate-400' : 'bg-indigo-600 border-indigo-500 text-white'}`}><input type="checkbox" className="hidden" checked={blocksVisible[key] !== false} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />{key === 'frais_liste' ? 'LISTE' : key.toUpperCase()}</label>
-                                ))}
+                        <details className="bg-slate-900/60 border border-slate-700/60 rounded-xl mt-4 overflow-hidden group transition-all">
+                            <summary className="px-3 py-2 text-[11px] font-semibold text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-between select-none bg-slate-800/40 hover:bg-slate-800/80 transition-colors">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="text-xs">🧩</span>
+                                    <span>Gestion des blocs affichés</span>
+                                </span>
+                                <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+                            </summary>
+                            <div className="p-3 border-t border-slate-800 bg-slate-900/90 space-y-3">
+                                <div className="flex flex-wrap gap-1.5 text-[10px]">
+                                    {['titre', 'coord', 'infos', 'cause', 'orga', 'frais', 'frais_liste', 'photos', 'divers', 'annexes_libres'].map(key => (
+                                        <label key={key} className={`px-2 py-1 rounded cursor-pointer border transition-colors ${blocksVisible[key] === false ? 'bg-slate-800/80 border-slate-700 text-slate-500 hover:text-slate-300' : 'bg-pechard-blue/30 border-pechard-blue/50 text-pechard-blue-light font-bold hover:bg-pechard-blue/50'}`}>
+                                            <input type="checkbox" className="hidden" checked={blocksVisible[key] !== false} onChange={() => setBlocksVisible(p => ({...p, [key]: !p[key]}))} />
+                                            {key === 'frais_liste' ? 'LISTE' : key.toUpperCase()}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="space-y-1.5 pt-1 border-t border-slate-800">
+                                    <button onClick={() => { 
+                                        const newId = `custom_${crypto.randomUUID()}`;
+                                        setCustomBlocks([...customBlocks, { id: newId, text: 'Nouveau texte libre...' }]); 
+                                        setStyles(prev => ({ ...prev, [newId]: { border: true, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }})); 
+                                        setBlocksVisible(prev => ({ ...prev, [newId]: true })); 
+                                        setBlockOrder(prev => [...prev, newId]);
+                                        setBlockWidths(prev => ({ ...prev, [newId]: '100%' })); 
+                                    }} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white py-1.5 rounded text-xs font-semibold transition-colors flex items-center justify-center gap-1">+ Ajouter un bloc "Texte libre"</button>
+                                    <button onClick={() => {
+                                        const newId = 'spacer_' + crypto.randomUUID();
+                                        setStyles(prev => ({ ...prev, [newId]: { spacerHeight: 20 } }));
+                                        setBlocksVisible(prev => ({ ...prev, [newId]: true }));
+                                        setBlockOrder(prev => [...prev, newId]);
+                                        setBlockWidths(prev => ({ ...prev, [newId]: '100%' }));
+                                    }} className="w-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 border-dashed py-1.5 rounded text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-1">↕ Ajouter un espaceur</button>
+                                </div>
                             </div>
-                            <button onClick={() => { 
-                                const newId = `custom_${crypto.randomUUID()}`;
-                                setCustomBlocks([...customBlocks, { id: newId, text: 'Nouveau texte libre...' }]); 
-                                setStyles(prev => ({ ...prev, [newId]: { border: true, fontSize: 12, color: '#0f172a', fontFamily: 'Arial', textAlign: 'left' }})); 
-                                setBlocksVisible(prev => ({ ...prev, [newId]: true })); 
-                                setBlockOrder(prev => [...prev, newId]);
-                                setBlockWidths(prev => ({ ...prev, [newId]: '100%' })); 
-                            }} className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 py-1.5 rounded text-xs font-bold">+ Ajouter un bloc "Texte libre"</button>
-                            <button onClick={() => {
-                                const newId = 'spacer_' + crypto.randomUUID();
-                                setStyles(prev => ({ ...prev, [newId]: { spacerHeight: 20 } }));
-                                setBlocksVisible(prev => ({ ...prev, [newId]: true }));
-                                setBlockOrder(prev => [...prev, newId]);
-                                setBlockWidths(prev => ({ ...prev, [newId]: '100%' }));
-                            }} className="w-full bg-slate-700/60 hover:bg-slate-600 border border-slate-500/60 border-dashed py-1.5 rounded text-xs font-bold text-slate-300">↕ Ajouter un espaceur</button>
-                        </div>
+                        </details>
                     </div>
             </div>
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}

@@ -80,14 +80,14 @@ const SidebarFocusMode = ({ children }) => {
         const wrapper = wrapperRef.current;
         if (!wrapper) return;
 
-        // Clic : uniquement sur <summary>, toggle natif neutralisé
+        // Clic : uniquement sur <summary> d'une section principale (data-section-id)
         const handleSummaryClick = (e) => {
             const summary = e.target.closest('summary');
             if (!summary || !wrapper.contains(summary)) return;
-            e.preventDefault(); // Le navigateur ne pilote plus jamais "open"
 
-            const section = summary.closest('details');
-            if (!section) return;
+            const section = summary.closest('details[data-section-id]');
+            if (!section) return; // Laisse le comportement natif sur les accordéons auxiliaires sans data-section-id
+            e.preventDefault(); // Le navigateur ne pilote plus jamais "open" sur les sections principales
 
             if (section.classList.contains('active-focus')) {
                 // Ignore le click fantôme qui suit immédiatement le focusin d'activation
@@ -98,18 +98,18 @@ const SidebarFocusMode = ({ children }) => {
             }
         };
 
-        // Navigation clavier (Tab) ou focus dans un champ => focus de la section
+        // Navigation clavier (Tab) ou focus dans un champ => focus de la section principale
         const handleFocusIn = (e) => {
-            const section = e.target.closest('details');
+            const section = e.target.closest('details[data-section-id]');
             if (section && wrapper.contains(section)) {
                 activateSection(section);
             }
         };
 
-        // Filet de sécurité : tout <details> ouvert hors focus est refermé
+        // Filet de sécurité : tout <details> principal ouvert hors focus est refermé
         const handleToggle = (e) => {
             const d = e.target;
-            if (d.tagName === 'DETAILS' && d.open && !d.classList.contains('active-focus')) {
+            if (d.tagName === 'DETAILS' && d.hasAttribute('data-section-id') && d.open && !d.classList.contains('active-focus')) {
                 d.open = false;
             }
         };
