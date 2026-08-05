@@ -2,9 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --pechard-blue: #016CB8;
+  --pechard-blue-dark: #0158A0;
+  --pechard-charcoal: #1A1A19;
+  --pechard-gray-bg: #F8F9FA;
+}
+
 @layer base {
   body {
     @apply bg-slate-100 overflow-hidden font-sans;
+  }
+
+  /* Focus unifié charte Péchard */
+  input:focus, select:focus, textarea:focus, button:focus-visible {
+    @apply outline-none ring-2 ring-pechard-blue/50 border-pechard-blue;
+  }
+}
+
+@layer components {
+  .btn-pechard {
+    @apply bg-pechard-blue hover:bg-pechard-blue-dark text-white font-semibold rounded-lg transition-colors shadow-pechard;
+  }
+  .accordion-header-pechard {
+    @apply bg-pechard-charcoal text-white border-l-4 border-pechard-blue;
   }
 }
 
@@ -59,7 +80,7 @@
 .fit-button.is-fit { background-color: #059669; }
 .fit-button.is-fit:hover { background-color: #047857; }
 
-::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #016CB8; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #0158A0; }
 .input-field { width: 100%; background-color: #1e293b; border: 1px solid #475569; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: white; margin-bottom: 0.5rem; }
 .input-field:focus { outline: none; border-color: #016CB8; }
 input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }

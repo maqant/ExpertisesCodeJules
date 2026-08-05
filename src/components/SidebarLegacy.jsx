@@ -125,16 +125,16 @@ const AccordionHeader = ({ id, num }) => {
 
     return (
         <summary
-            className="p-2 flex items-center group-open:border-b border-slate-700 cursor-pointer select-none bg-slate-800/80 hover:bg-slate-700/80 rounded-t"
+            className="p-2.5 flex items-center group-open:border-b border-pechard-blue/30 cursor-pointer select-none accordion-header-pechard hover:bg-pechard-charcoal-soft rounded-t transition-colors"
             onDragEnter={handleDragEnterHeader}
             onDragLeave={handleDragLeaveHeader}
             onDrop={handleDropHeader}
             onDragOver={(e) => e.preventDefault()}
         >
-            <span className="text-xs font-bold text-indigo-400 shrink-0 mr-2 pointer-events-none">{num}.</span>
+            <span className="text-xs font-black text-pechard-blue-light shrink-0 mr-2 pointer-events-none">{num}.</span>
             {!isEditing ? (
                 <span 
-                    className="text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors inline-block"
+                    className="text-xs font-bold uppercase text-white tracking-wide w-full hover:bg-white/10 px-1 rounded transition-colors inline-block"
                     title="Double-cliquez pour renommer"
                     onDoubleClick={(e) => { 
                         e.preventDefault(); 
@@ -150,7 +150,7 @@ const AccordionHeader = ({ id, num }) => {
                     value={blockTitles[id]} 
                     onChange={(e) => handleTitleChange(id, e.target.value)} 
                     onClick={(e) => e.stopPropagation()} 
-                    className="bg-transparent border-none outline-none text-xs font-bold uppercase text-indigo-300 w-full hover:bg-slate-900/50 px-1 rounded transition-colors" 
+                    className="bg-transparent border-none outline-none text-xs font-bold uppercase text-pechard-blue-light w-full hover:bg-white/10 px-1 rounded transition-colors" 
                     autoFocus
                     onDoubleClick={(e) => e.stopPropagation()}
                     onBlur={() => setIsEditing(false)}
@@ -839,33 +839,33 @@ const SidebarLegacy = () => {
     return (
         <>
         <div 
-            className="no-print h-full flex flex-col bg-slate-800 border-r border-slate-700 relative shadow-2xl z-10" 
+            className="no-print h-full flex flex-col bg-slate-900 border-r border-slate-700/80 relative shadow-2xl z-10" 
             style={{ width: `${sidebarWidth}px`, minWidth: '300px', maxWidth: '800px' }}
             onFocusCapture={handleFocusCapture}
             onBlurCapture={handleBlurCapture}
             onToggleCapture={handleToggleCapture}
         >
-            <div className="p-3 border-b border-slate-700 bg-slate-800">
+            <div className="p-3 border-b border-slate-700/80 bg-pechard-charcoal">
                 <div className="flex justify-between items-center mb-1">
                     <div>
-                        <h1 className="text-[11px] font-bold text-white leading-tight uppercase tracking-wider">Page de garde</h1>
+                        <h1 className="text-[11px] font-extrabold text-white leading-tight uppercase tracking-wider">Page de garde</h1>
                         <div className="flex items-center gap-1 mt-0.5 text-[9px]">
-                            <span className="text-slate-500">Dossier :</span>
-                            <span className="font-bold truncate max-w-[100px]" style={{ color: '#016CB8' }}>{activeName}</span>
+                            <span className="text-slate-400">Dossier :</span>
+                            <span className="font-bold truncate max-w-[110px] text-pechard-blue-light">{activeName}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="flex gap-1.5">
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
                             </button>
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" style={{ backgroundColor: '#016CB8' }} onMouseOver={e => e.currentTarget.style.backgroundColor='#0158A0'} onMouseOut={e => e.currentTarget.style.backgroundColor='#016CB8'} title="Sauvegarder">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_save_dossier'); saveDossier(); }} className="btn-pechard px-2 py-1 rounded text-[9px] font-bold shadow flex items-center justify-center gap-1" title="Sauvegarder">
                                 💾 Save
                             </button>
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_load_dossier'); setIsLoadDossierModalOpen(true); }} className="text-white px-1.5 py-1 rounded text-[9px] font-bold shadow transition-colors flex items-center justify-center gap-1" style={{ backgroundColor: '#016CB8' }} onMouseOver={e => e.currentTarget.style.backgroundColor='#0158A0'} onMouseOut={e => e.currentTarget.style.backgroundColor='#016CB8'} title="Gestion & Chargement des Dossiers">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_load_dossier'); setIsLoadDossierModalOpen(true); }} className="btn-pechard px-2 py-1 rounded text-[9px] font-bold shadow flex items-center justify-center gap-1" title="Gestion & Chargement des Dossiers">
                                 📂 Load
                             </button>
-                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-900 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
+                            <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_reset_view'); handleReset(); }} className="bg-slate-950 text-red-400 hover:bg-slate-800 px-1.5 py-1 rounded text-[9px] font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1" title="Réinitialiser la vue">
                                 🔄 Reset
                             </button>
                         </div>
@@ -1320,7 +1320,7 @@ const SidebarLegacy = () => {
                                         )}
                                     </div>
                                 )})}
-                                <button id="add-occ-btn" onClick={addOcc} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une partie impliquée</button>
+                                <button id="add-occ-btn" onClick={addOcc} className="w-full mt-2 btn-pechard py-1.5 rounded text-xs font-bold">+ Ajouter une partie impliquée</button>
 
                                 {/* v5.6.2 - Liste des Intervenants validés */}
                                 {intervenantsList && intervenantsList.length > 0 && (
@@ -1567,7 +1567,7 @@ const SidebarLegacy = () => {
                                         )}
                                     </div>
                                 )})}
-                                <button id="add-exp-btn" onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-xs font-bold shadow">+ Ajouter une ligne de frais</button>
+                                <button id="add-exp-btn" onClick={() => { const newId = addExpense(); setExpandedExpId(newId); }} className="w-full mt-2 btn-pechard py-1.5 rounded text-xs font-bold">+ Ajouter une ligne de frais</button>
                                 <datalist id="prestataires-list">
                                     {[...new Set(expenses.reduce((acc, e) => { if (e.prestataire) acc.push(e.prestataire); return acc; }, []))]
                                         .sort((a, b) => a.localeCompare(b))
@@ -1708,7 +1708,7 @@ const SidebarLegacy = () => {
                                                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
                                                             onClick={() => handleConvertPhotoToDevis(photo.dbKey)} 
-                                                            className="bg-indigo-600 hover:bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]" 
+                                                            className="bg-pechard-blue hover:bg-pechard-blue-dark text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] shadow-pechard" 
                                                             title="Transformer en Devis/Facture (IA)"
                                                             disabled={processingPhotoId === photo.dbKey}
                                                         >
@@ -1843,7 +1843,7 @@ const SidebarLegacy = () => {
             {showAnnexModal && <AnnexModal mode={annexModalMode} onClose={() => setShowAnnexModal(false)} />}
             
 
-            <div className="p-4 pb-6 border-t border-slate-700 bg-slate-900 flex flex-col gap-2">
+            <div className="p-4 pb-6 border-t border-slate-700/80 bg-pechard-charcoal flex flex-col gap-2">
                 <div className="relative">
                     <button
                         onClick={() => {
@@ -1851,7 +1851,7 @@ const SidebarLegacy = () => {
                             setShowPrintMenu(p => !p);
                         }}
                         disabled={isMerging}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2.5 rounded font-bold text-white transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
+                        className="w-full btn-pechard py-2.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2"
                     >
                         {isMerging ? '⏳ Génération...' : '🖨️ Imprimer'} <span className="text-xs">▾</span>
                     </button>

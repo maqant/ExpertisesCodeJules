@@ -217,15 +217,15 @@ const Assistant = ({ onResetForm }) => {
     const canAnalyze = (hasFiles || rawText.trim()) && !isAnalyzing;
 
     return (
-        <div className="bg-slate-900/90 rounded-xl border border-indigo-500/30 p-3 space-y-2.5 shadow-lg relative print:hidden">
+        <div className="bg-slate-900 rounded-xl border border-pechard-blue/40 p-3 space-y-2.5 shadow-lg relative print:hidden">
             {/* Titre du composant */}
-            <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2">
+            <div className="flex items-center justify-between border-b border-pechard-blue/20 pb-2">
                 <div className="flex items-center gap-2">
                     <span className="text-sm">✨</span>
                     <span className="text-xs font-extrabold text-white tracking-wide">Assistant</span>
                 </div>
                 {hasFiles && (
-                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                    <span className="text-[9px] font-bold bg-pechard-blue/20 text-pechard-blue-light px-2 py-0.5 rounded-full border border-pechard-blue/40">
                         {files.length} fichier{files.length > 1 ? 's' : ''}
                     </span>
                 )}
@@ -239,8 +239,8 @@ const Assistant = ({ onResetForm }) => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`min-h-[125px] rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 p-4 flex flex-col items-center justify-center text-center ${
                     isDragOver
-                        ? 'border-indigo-400 bg-indigo-500/20 scale-[1.01]'
-                        : 'border-indigo-500/40 hover:border-indigo-400 bg-slate-950/60 hover:bg-slate-950/80'
+                        ? 'border-pechard-blue bg-pechard-blue/20 scale-[1.01]'
+                        : 'border-pechard-blue/40 hover:border-pechard-blue bg-slate-950/60 hover:bg-slate-950/80'
                 }`}
             >
                 <input 
@@ -291,7 +291,7 @@ const Assistant = ({ onResetForm }) => {
             <div className="pt-1">
                 <button
                     onClick={() => setShowTextArea(!showTextArea)}
-                    className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors focus:outline-none"
+                    className="text-[10px] font-bold text-pechard-blue-light hover:text-white flex items-center gap-1.5 transition-colors focus:outline-none"
                 >
                     <span>{showTextArea ? '▼' : '▶'}</span>
                     <span>📝 Coller du texte brut (optionnel)</span>
@@ -302,7 +302,7 @@ const Assistant = ({ onResetForm }) => {
                         value={rawText}
                         onChange={(e) => setRawText(e.target.value)}
                         placeholder="Collez ici le corps d'un mail ou du texte brut d'expertise..."
-                        className="mt-2 w-full h-24 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 outline-none resize-none font-mono"
+                        className="mt-2 w-full h-24 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-pechard-blue outline-none resize-none font-mono"
                     />
                 )}
             </div>
@@ -311,7 +311,7 @@ const Assistant = ({ onResetForm }) => {
             <button
                 onClick={handleStartClick}
                 disabled={!canAnalyze}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold py-2.5 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+                className="w-full bg-pechard-blue hover:bg-pechard-blue-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold py-2.5 px-4 rounded-xl shadow-pechard transition-all flex items-center justify-center gap-2"
             >
                 {isAnalyzing ? (
                     <>
@@ -325,6 +325,7 @@ const Assistant = ({ onResetForm }) => {
                     </>
                 )}
             </button>
+
 
             {/* Bouton Gestionnaire Financier Rapide — remplacé par le choix dans la modale d'analyse */}
             {/* Modale des 3 choix d'intention */}
