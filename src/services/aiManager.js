@@ -48,6 +48,7 @@ import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // 
 import { usePromptStore } from '../store/promptStore.js';
 import { isPdf, isPdfDeep } from './utils/fileUtils.js';
 import { processIngestedFile } from './utils/filePreprocessor.js';
+import { resolveEnvApiKey } from '../ai/ai.config.js';
 import { buildAiPayload } from '../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../ai/ai.config.js';
 import { AI_ROLES } from '../ai/ai.catalog.js';
@@ -97,7 +98,7 @@ export const extractDataFromDocument = async (files, documentType = 'facture', p
     const fileArray = Array.isArray(files) ? files : [files];
 
     // Determine the actual mode: Force "live" if an API key is available, otherwise fallback to "mock"
-    const apiKey = providedApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const apiKey = providedApiKey || resolveEnvApiKey();
     const mode = apiKey ? 'live' : 'mock';
 
     if (mode === 'mock') {
@@ -430,7 +431,7 @@ Si l'information se trouve dans l'email principal et pas dans une pièce jointe,
 export const reformatCompteRendu = async (rawNotes, provider = 'openai', model = 'gpt-5.4', providedApiKey = null) => {
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
-    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const apiKey = providedApiKey || config.apiKey || resolveEnvApiKey();
     
     if (!apiKey) {
         // Mode Mock si pas de clé API
@@ -515,7 +516,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
 
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
-    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const apiKey = providedApiKey || config.apiKey || resolveEnvApiKey();
     
     if (!apiKey) {
         return { success: false, error: "Clé API non configurée." };
@@ -555,7 +556,7 @@ export const refineText = async (currentText, directive, providedApiKey = null) 
 export const refineCauseWithInput = async (existingCause, newInput, providedApiKey = null) => {
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
     const config = sanitizeAiConfig(configStr ? JSON.parse(configStr) : {});
-    const apiKey = providedApiKey || config.apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+    const apiKey = providedApiKey || config.apiKey || resolveEnvApiKey();
     
     if (!apiKey) return { success: false, error: "Clé API non configurée." };
     if (!newInput || newInput.trim() === '') return { success: true, cause: existingCause, changed: false };

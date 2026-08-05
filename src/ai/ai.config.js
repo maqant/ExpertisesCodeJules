@@ -1,14 +1,23 @@
 // src/ai/ai.config.js
 import { AI_ROLES, AI_ROLE_META, isValidModelId, AI_PROVIDERS, BASE_DEFAULT_MODEL, DEFAULT_ROLE_MODELS } from './ai.catalog.js';
 
+/**
+ * Source de vérité unique pour la clé API.
+ * Priorité : Vercel Environment Variable (VITE_OPENAI_API_KEY).
+ * Le optional chaining protège les contextes non-Vite (tests Node).
+ */
+export const resolveEnvApiKey = () =>
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OPENAI_API_KEY) || '';
+
 export const TEMPERATURE_BOUNDS = Object.freeze({ min: 0, max: 1, step: 0.05 });
 
-// v4 : introduction GPT-5.6 (Terra/Luna/Sol) + purge validée des processOverrides.
-export const AI_CONFIG_VERSION = 4;
+// v5 : clé API résolue exclusivement via Vercel ENV (VITE_OPENAI_API_KEY).
+// Suppression du panneau Laboratoire IA — plus aucune saisie manuelle.
+export const AI_CONFIG_VERSION = 5;
 
 export const buildDefaultAiConfig = () => ({
     __configVersion: AI_CONFIG_VERSION,
-    apiKey: '',
+    apiKey: resolveEnvApiKey(),
     provider: AI_PROVIDERS.OPENAI,
     parameters: { temperature: 0.1 },
     roles: {
@@ -57,7 +66,8 @@ export const sanitizeAiConfig = (raw) => {
 
     return {
         __configVersion: AI_CONFIG_VERSION,
-        apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : def.apiKey,
+        // G1 : la variable d'environnement Vercel prime TOUJOURS sur toute valeur persistée
+        apiKey: resolveEnvApiKey() || (typeof raw.apiKey === 'string' ? raw.apiKey.trim() : ''),
         provider: typeof raw.provider === 'string' ? raw.provider : def.provider,
         parameters: { temperature: validTemp },
         roles,
