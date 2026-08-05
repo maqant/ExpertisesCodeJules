@@ -233,6 +233,17 @@ const SidebarLegacy = () => {
         exportTelemetryJson
     } = context;
 
+    useEffect(() => {
+        const handleOpenSettings = () => setActiveTab('settings');
+        const handleCopySummaryEvent = () => handleCopyResume();
+        window.addEventListener('app:open-settings', handleOpenSettings);
+        window.addEventListener('app:copy-raw-summary', handleCopySummaryEvent);
+        return () => {
+            window.removeEventListener('app:open-settings', handleOpenSettings);
+            window.removeEventListener('app:copy-raw-summary', handleCopySummaryEvent);
+        };
+    }, [setActiveTab]);
+
     const sortedOccupants = useSortedOccupants(occupants);
 
     const extractFieldTelemetry = (target) => {
@@ -2138,8 +2149,8 @@ Objectif :
                     <input type="number" min="1" value={coverPageCount} onChange={(e) => setCoverPageCount(parseInt(e.target.value) || 1)} className="w-12 bg-slate-900 border border-slate-600 rounded px-1 text-center text-white font-bold" />
                 </div>
                 <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
-                    <input type="checkbox" checked={hideAnnexIndex} onChange={e => setHideAnnexIndex(e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
-                    <span>Cacher l'index des annexes</span>
+                    <input type="checkbox" checked={!hideAnnexIndex} onChange={e => setHideAnnexIndex(!e.target.checked)} className="w-3 h-3 rounded bg-slate-700 accent-indigo-600" />
+                    <span>👁️ Index visible</span>
                 </label>
                 <div className="relative">
                     <button
