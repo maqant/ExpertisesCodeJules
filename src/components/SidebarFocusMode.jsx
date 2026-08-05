@@ -1,17 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { ExpertiseContext } from '../context/ExpertiseContext';
 
 const TRANSITION_MS = 400;
 const CLICK_DEBOUNCE_MS = 350; // anti double-déclenchement focusin -> click
 
 const SidebarFocusMode = ({ children }) => {
+    const { sectionFocusRequest } = useContext(ExpertiseContext);
     const [isIsolated, setIsIsolated] = useState(false);
+    const [activeSectionTitle, setActiveSectionTitle] = useState('');
     const wrapperRef = useRef(null);
     const scrollRef = useRef(null);
     const lastActiveRef = useRef(null);
     const settleTimerRef = useRef(null);
     const lastActivationTsRef = useRef(0);
 
-    // --- Scroll : cale le haut de la section active en haut du conteneur (juste sous la flèche/Assistant) ---
+    // --- Scroll : cale le haut de la section active juste sous le bandeau sticky ---
     const scrollActiveToTop = useCallback(() => {
         const scroller = scrollRef.current;
         if (!scroller) return;
@@ -41,6 +44,7 @@ const SidebarFocusMode = ({ children }) => {
             });
         }
         setIsIsolated(false);
+        setActiveSectionTitle('');
 
         clearTimeout(settleTimerRef.current);
         settleTimerRef.current = setTimeout(() => {
@@ -63,6 +67,11 @@ const SidebarFocusMode = ({ children }) => {
         section.open = true; // Seule voie d'ouverture autorisée
         lastActivationTsRef.current = Date.now();
         lastActiveRef.current = section;
+
+        // Extraction du titre de la section pour affichage contextuel
+        const summaryText = section.querySelector('summary')?.textContent || '';
+        setActiveSectionTitle(summaryText.trim());
+
         setIsIsolated(true);
         scrollActiveToTop();
     }, [scrollActiveToTop]);
@@ -119,6 +128,22 @@ const SidebarFocusMode = ({ children }) => {
             clearTimeout(settleTimerRef.current);
         };
     }, [activateSection, handleExitFocus]);
+
+    // --- Clic miroir depuis la Preview A4 -> Active immédiatement le focus sur la section ---
+    useEffect(() => {
+        if (!sectionFocusRequest) return;
+        const wrapper = wrapperRef.current;
+        if (!wrapper) return;
+        try {
+            const safeId = CSS.escape(sectionFocusRequest.id);
+            const targetSection = wrapper.querySelector(`details[data-section-id="${safeId}"]`);
+            if (targetSection) {
+                activateSection(targetSection);
+            }
+        } catch (err) {
+            console.warn('[SidebarFocusMode] Erreur de sélection focus:', err);
+        }
+    }, [sectionFocusRequest, activateSection]);
 
     // --- Raccourci clavier : Espace / Échap (avec protection champ texte) ---
     useEffect(() => {
@@ -182,21 +207,30 @@ const SidebarFocusMode = ({ children }) => {
                 }
             `}</style>
 
-            {/* Bouton retour flèche "←" ultra-compact placé juste au-dessus du scroller */}
-            <div className={`shrink-0 overflow-hidden transition-all duration-300 flex items-center justify-between px-3 bg-pechard-charcoal ${isIsolated ? 'h-8 border-b border-pechard-blue/30' : 'h-0'}`}>
-                <button 
-                    onClick={handleExitFocus}
-                    className="w-6 h-6 rounded-md bg-pechard-blue/20 text-pechard-blue-light hover:bg-pechard-blue hover:text-white flex items-center justify-center font-extrabold text-sm transition-all shadow-sm"
-                    title="Revenir en Vue globale (Raccourci : Espace ou Échap)"
-                    aria-label="Revenir en vue globale"
-                >
-                    ←
-                </button>
-                <span className="text-[10px] text-slate-400 font-medium">Mode Focus isolé</span>
-            </div>
-
-            {/* Conteneur pour SidebarLegacy */}
+            {/* Conteneur principal scrollable avec bandeau sticky de sortie positionné au sommet du viewport du scroller */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar relative w-full h-full">
+                {/* Bandeau sticky contextuel "← Vue globale" : directement au-dessus de la section active et visible en permanence pendant le scroll */}
+                <div 
+                    className={`sticky top-0 z-50 overflow-hidden transition-all duration-300 flex items-center justify-between px-3 bg-pechard-charcoal/95 backdrop-blur-md border-b border-pechard-blue/40 shadow-lg ${
+                        isIsolated ? 'h-9 opacity-100 mb-2' : 'h-0 opacity-0 p-0 border-none pointer-events-none'
+                    }`}
+                >
+                    <button 
+                        onClick={handleExitFocus}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-pechard-blue/20 text-pechard-blue-light hover:bg-pechard-blue hover:text-white font-extrabold text-xs transition-all shadow-sm group cursor-pointer"
+                        title="Revenir en Vue globale (Raccourci : Espace ou Échap)"
+                        aria-label="Revenir en vue globale"
+                    >
+                        <span className="text-sm font-black group-hover:-translate-x-0.5 transition-transform">←</span>
+                        <span>Vue globale</span>
+                    </button>
+                    {activeSectionTitle && (
+                        <span className="text-[10px] text-pechard-blue-light font-bold truncate max-w-[200px] bg-pechard-blue/10 px-2 py-0.5 rounded border border-pechard-blue/20">
+                            {activeSectionTitle}
+                        </span>
+                    )}
+                </div>
+
                 {children}
             </div>
         </div>
