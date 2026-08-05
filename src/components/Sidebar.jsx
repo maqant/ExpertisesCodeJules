@@ -8,10 +8,9 @@ import SidebarFocusMode from './SidebarFocusMode';
 import { useSidebarUI } from '../context/SidebarUIContext';
 
 const Sidebar = () => {
-    // Le contexte SidebarUIContext est fourni par App.jsx
     const { uiMode } = useSidebarUI();
 
-    // Mode 1: Slim & Expand (Icon Drawer)
+    // Mode 1: Slim Icon Sidebar
     if (uiMode === 1) {
         return (
             <SidebarSlim>
@@ -20,7 +19,7 @@ const Sidebar = () => {
         );
     }
 
-    // Mode 3: Accordion (Focus Mode)
+    // Mode 3: Accordion / Categorized Mode
     if (uiMode === 3) {
         return (
             <SidebarAccordion>
@@ -29,7 +28,7 @@ const Sidebar = () => {
         );
     }
 
-    // Mode 4: Floating Dock (Dynamic Island)
+    // Mode 4: Floating Widget Mode
     if (uiMode === 4) {
         return (
             <SidebarFloating>

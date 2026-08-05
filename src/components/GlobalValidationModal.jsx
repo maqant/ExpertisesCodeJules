@@ -1,5 +1,6 @@
 import React, { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
+import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
 import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
 import { useDatasetStore } from '../store/datasetStore';
 import { useFinanceStore } from '../store/financeStore';
@@ -155,6 +156,7 @@ const fuzzyMatchExpense = (aiExp, existingExps) => {
 
 const GlobalValidationModal = () => {
     const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles, currentDossierId } = useContext(ExpertiseContext);
+    const ingestionStep = useIngestionFlowStore(state => state.step);
 
     // Initialiser la télémétrie de la modale
     const [telemetrySessionId] = useState(() => crypto.randomUUID());
@@ -394,7 +396,7 @@ const GlobalValidationModal = () => {
         setAttachedCpFile(null);
     }
 
-    if (!pendingAiData || !editableData) return null;
+    if (!pendingAiData || !editableData || (ingestionStep !== INGESTION_STEPS.GENERAL && ingestionStep !== INGESTION_STEPS.IDLE)) return null;
 
     // -- Handlers --
 

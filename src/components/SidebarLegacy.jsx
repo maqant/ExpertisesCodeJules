@@ -2615,7 +2615,7 @@ Objectif :
                 setBrioOverrides({});
                 brioOverridesRef.current = {};
                 triggerSmartBridgeAnalysis(flowFiles, createMergeScope({ cause: causeRef.current, attachedFiles }));
-                setIngestionStep(INGESTION_STEPS.GENERAL);
+                setIngestionStep(INGESTION_STEPS.BRIO);
             }}
             onManualSelect={(dossier) => {
                 if (dossier) {
@@ -2624,7 +2624,7 @@ Objectif :
                 setBrioOverrides({});
                 brioOverridesRef.current = {};
                 triggerSmartBridgeAnalysis(flowFiles, createMergeScope({ cause: causeRef.current, attachedFiles }));
-                setIngestionStep(INGESTION_STEPS.GENERAL);
+                setIngestionStep(INGESTION_STEPS.BRIO);
             }}
             onCreateNew={() => {
                 const created = handleNewDossier();
