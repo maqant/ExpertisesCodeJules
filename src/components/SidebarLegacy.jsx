@@ -843,16 +843,6 @@ const SidebarLegacy = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* AI Controls & Dev Mode */}
-                        <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
-                            <button
-                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
-                                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${isDebugMode ? 'bg-red-900/50 text-red-400' : 'text-slate-500 hover:text-slate-400'}`}
-                                title="Console Développeur"
-                            >
-                                🦂
-                            </button>
-                        </div>
                         <div className="flex gap-1.5">
                             <button onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_new_dossier'); handleNewDossier(); }} className="bg-slate-700 hover:bg-slate-600 text-white px-1.5 py-1 rounded text-[9px] font-bold border border-slate-600 transition-colors flex items-center justify-center gap-1" title="Nouveau dossier">
                                 ➕ New
@@ -1159,6 +1149,27 @@ Objectif :
                                 }`}
                             >
                                 {isAiModeActive ? '● IA Active' : '○ IA Désactivée'}
+                            </button>
+                        </div>
+
+                        {/* 11. CONSOLE DÉVELOPPEUR DISCRÈTE */}
+                        <div className="bg-slate-900/60 p-3 rounded border border-slate-800 mt-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs">🦂</span>
+                                <div>
+                                    <div className="text-[11px] font-bold text-slate-300">Console Développeur</div>
+                                    <div className="text-[9px] text-slate-500">Mode d'inspection et journaux techniques</div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { if(contextTelemetry) contextTelemetry.logEvent('CLICK', 'btn_debug_mode'); toggleDebugMode(); }}
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded border transition-colors ${
+                                    isDebugMode 
+                                        ? 'bg-red-900/40 text-red-300 border-red-500/50 hover:bg-red-900/60' 
+                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                                }`}
+                            >
+                                {isDebugMode ? '● Debug Actif' : '○ Debug Masqué'}
                             </button>
                         </div>
                     </div>
