@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { ExpertiseContext } from '../context/ExpertiseContext';
 
 const TRANSITION_MS = 400;
 const CLICK_DEBOUNCE_MS = 350; // anti double-déclenchement focusin -> click
 
 const SidebarFocusMode = ({ children }) => {
+    const { sectionFocusRequest } = useContext(ExpertiseContext);
     const [isIsolated, setIsIsolated] = useState(false);
     const wrapperRef = useRef(null);
     const scrollRef = useRef(null);
@@ -119,6 +121,17 @@ const SidebarFocusMode = ({ children }) => {
             clearTimeout(settleTimerRef.current);
         };
     }, [activateSection, handleExitFocus]);
+
+    // --- Clic miroir depuis la Preview A4 -> Active immédiatement le focus sur la section ---
+    useEffect(() => {
+        if (!sectionFocusRequest) return;
+        const wrapper = wrapperRef.current;
+        if (!wrapper) return;
+        const targetSection = wrapper.querySelector(`details[data-section-id="${sectionFocusRequest.id}"], details:has(#${sectionFocusRequest.id})`);
+        if (targetSection) {
+            activateSection(targetSection);
+        }
+    }, [sectionFocusRequest, activateSection]);
 
     // --- Raccourci clavier : Espace / Échap (avec protection champ texte) ---
     useEffect(() => {

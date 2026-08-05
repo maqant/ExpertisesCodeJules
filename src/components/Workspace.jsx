@@ -127,10 +127,15 @@ const PageBreakLines = () => {
 };
 
 const BlockContainer = ({ id, children }) => {
-    const { blockWidths, styles, setStyles } = useContext(ExpertiseContext);
+    const {
+        blockWidths, styles, setStyles,
+        hoveredSection, setHoveredSection, requestSectionFocus
+    } = useContext(ExpertiseContext);
     const { attachToBlock, getByBlock } = useDocumentStore();
     const [isDragOver, setIsDragOver] = useState(false);
 
+    const targetSectionId = id === 'frais_liste' ? 'frais' : id;
+    const isMirrorHovered = hoveredSection === targetSectionId;
     const isHalf = blockWidths[id] === '50%';
     const marginMm = styles[id]?.marginBottom;
     const linkedDocs = getByBlock(id);
@@ -159,13 +164,21 @@ const BlockContainer = ({ id, children }) => {
         }
     };
 
+    const handleClick = (e) => {
+        if (e.target.closest('.block-controls, input, select, button, [contenteditable="true"]')) return;
+        requestSectionFocus(targetSectionId);
+    };
+
     return (
         <div
             id={`block-${id}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative group hover:ring-2 hover:ring-indigo-400/30 p-2 ${isHalf ? 'w-1/2' : 'w-full'} ${isDragOver ? 'bg-indigo-900/20 ring-2 ring-indigo-500 rounded' : ''}`}
+            onMouseEnter={() => setHoveredSection(targetSectionId)}
+            onMouseLeave={() => setHoveredSection(null)}
+            onClick={handleClick}
+            className={`relative group p-2 cursor-pointer transition-all duration-200 ${isHalf ? 'w-1/2' : 'w-full'} ${isDragOver ? 'bg-pechard-blue/20 ring-2 ring-pechard-blue rounded' : ''} ${isMirrorHovered ? 'ring-2 ring-pechard-blue shadow-[0_0_12px_rgba(1,108,184,0.45)] rounded-md' : 'hover:ring-2 hover:ring-pechard-blue/40'}`}
             style={{ marginBottom: marginMm !== undefined ? `${marginMm}mm` : '0.5rem' }}
         >
             <BlockHeaderControls id={id} />
