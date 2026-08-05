@@ -71,6 +71,25 @@ export function getEffectiveRefs(block) {
     return { paymentRef, mailRef, linked };
 }
 
+// --- Helpers défensifs (domaine pur, sans dépendance) ---
+
+/**
+ * Garantit un tableau exploitable : ni null, ni undefined, ni entrées falsy.
+ * Ne mute jamais l'entrée.
+ */
+export function sanitizeContactList(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(item => item != null && typeof item === 'object');
+}
+
+/**
+ * Recherche défensive par id : tolère les entrées malformées sans jamais lever.
+ */
+function findByRefId(list, refId) {
+    if (refId == null) return undefined;
+    return sanitizeContactList(list).find(item => item?.id === refId);
+}
+
 /**
  * Résolution du contact actif pour un bloc (nom + IBAN).
  */
@@ -80,16 +99,16 @@ export function resolveBlockRecipientContact(block, localContacts = [], { occupa
     if (!ref) return block.recipientSnapshot || null;
 
     if (ref.kind === 'local') {
-        const found = localContacts.find(c => c.id === ref.id);
-        if (found) return { nom: found.nom, iban: found.iban };
+        const found = findByRefId(localContacts, ref.id);
+        if (found) return { nom: found.nom || found.displayName, iban: found.iban };
     }
     if (ref.kind === 'occupant') {
-        const found = occupants.find(o => o.id === ref.id);
-        if (found) return { nom: found.nom || found.name, iban: found.iban };
+        const found = findByRefId(occupants, ref.id);
+        if (found) return { nom: found.nom || found.name || found.displayName, iban: found.iban };
     }
     if (ref.kind === 'intervenant') {
-        const found = intervenants.find(i => i.id === ref.id);
-        if (found) return { nom: found.nom || found.name, iban: found.iban };
+        const found = findByRefId(intervenants, ref.id);
+        if (found) return { nom: found.nom || found.name || found.displayName, iban: found.iban };
     }
     return block.recipientSnapshot || null;
 }

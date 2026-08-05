@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import { useFinanceStore } from '../../../store/financeStore.js';
 import { ALLOCATION_STATUS, CLOSURE_MODE, genId } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildProrataAllocations } from '../../../domain/decompteSplitter/prorataDistribution.js';
-import { createBlockRecipientState, migrateDraftRecipients } from '../../../domain/decompteSplitter/blockRecipientModel.js';
+import { createBlockRecipientState, migrateDraftRecipients, sanitizeContactList } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 
 const SplitterContext = createContext(null);
 
@@ -34,8 +34,11 @@ function canTransition(from, to) {
 
 function splitterReducer(state, action) {
     switch (action.type) {
-        case 'INIT_DRAFT':
-            return action.payload ? migrateDraftRecipients(action.payload) : initialState;
+        case 'INIT_DRAFT': {
+            if (!action.payload) return initialState;
+            const migrated = migrateDraftRecipients(action.payload);
+            return { ...migrated, localContacts: sanitizeContactList(migrated.localContacts) };
+        }
 
         case 'INGESTION_START': {
             const targetStatus = action.payload?.isAppend ? 'parsing_append' : 'parsing';
@@ -324,7 +327,21 @@ function splitterReducer(state, action) {
         }
 
         case 'ADD_LOCAL_CONTACT': {
-            const { contact, blockId } = action.payload;
+            // Normalisation du payload : supporte { contact, blockId } ET le contact direct.
+            const payload = action.payload || {};
+            const isWrapped = Object.prototype.hasOwnProperty.call(payload, 'contact');
+            const contact = isWrapped ? payload.contact : payload;
+            const blockId = isWrapped ? payload.blockId : undefined;
+
+            // Validation stricte : jamais d'insertion d'un contact invalide (zéro corruption d'état).
+            if (!contact || typeof contact !== 'object' || contact.id == null) {
+                console.error(
+                    '[DecompteSplitter] ADD_LOCAL_CONTACT rejeté : contact invalide.',
+                    { payload: action.payload }
+                );
+                return state;
+            }
+
             const blocks = blockId
                 ? state.blocks.map(b => {
                     if (b.id !== blockId) return b;
@@ -340,9 +357,10 @@ function splitterReducer(state, action) {
                     };
                 })
                 : state.blocks;
+
             return {
                 ...state,
-                localContacts: [...(state.localContacts || []), contact],
+                localContacts: [...sanitizeContactList(state.localContacts), contact],
                 blocks
             };
         }
@@ -392,7 +410,12 @@ function splitterReducer(state, action) {
 
 export const DecompteSplitterProvider = ({ children }) => {
     const { decompteSplitter, saveDecompteSplitterDraft } = useFinanceStore();
-    const [state, dispatch] = useReducer(splitterReducer, decompteSplitter.draft || initialState);
+    const [state, dispatch] = useReducer(splitterReducer, null, () => {
+        const draft = decompteSplitter.draft;
+        if (!draft) return initialState;
+        const migrated = migrateDraftRecipients(draft);
+        return { ...migrated, localContacts: sanitizeContactList(migrated.localContacts) };
+    });
     
     // Auto-save debouncé vers le store global
     const timerRef = useRef(null);

@@ -144,7 +144,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                 });
                             }}
                             onCreateContact={(newContact) => {
-                                dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
+                                dispatch({ type: 'ADD_LOCAL_CONTACT', payload: { contact: newContact, blockId: block.id } });
                                 const ref = { kind: 'local', id: newContact.id };
                                 const snapshot = { displayName: newContact.displayName || newContact.nom, email: newContact.email || null, iban: newContact.iban || null, isCompany: false };
                                 const updates = { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot };
@@ -182,7 +182,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                     payload: { blockId: block.id, updates: { mailRecipientRef: ref, mailRecipientSnapshot: snapshot } }
                                 })}
                                 onCreateContact={(newContact) => {
-                                    dispatch({ type: 'ADD_LOCAL_CONTACT', payload: newContact });
+                                    dispatch({ type: 'ADD_LOCAL_CONTACT', payload: { contact: newContact, blockId: block.id } });
                                     dispatch({
                                         type: 'UPDATE_BLOCK',
                                         payload: {

@@ -194,15 +194,16 @@ export function createLocalContact(draft, { fromSourceId = null } = {}) {
  * Les overrides "masquent" leur source pour éviter les doublons visuels.
  */
 export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [] } = {}) {
+    const cleanLocalContacts = (localContacts || []).filter(c => c != null && typeof c === 'object');
     const dossierCandidates = buildRecipientCandidates({ occupants, intervenants })
         .map(c => ({ ...c, kind: 'dossier' }));
 
     const overriddenSourceIds = new Set(
-        localContacts.filter(c => c.origin === 'override' && c.sourceId).map(c => c.sourceId)
+        cleanLocalContacts.filter(c => c.origin === 'override' && c.sourceId).map(c => c.sourceId)
     );
 
     const visibleDossier = dossierCandidates.filter(c => !overriddenSourceIds.has(c.id));
-    const locals = localContacts.map(c => ({ ...c, kind: 'local' }));
+    const locals = cleanLocalContacts.map(c => ({ ...c, kind: 'local' }));
 
     return [...visibleDossier, ...locals];
 }
