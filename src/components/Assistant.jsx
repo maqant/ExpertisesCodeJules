@@ -131,31 +131,14 @@ const Assistant = ({ onResetForm }) => {
         setShowDestinationModal(true);
     };
 
-    // Exécution de l'analyse selon le choix retenu
-    const handleChoiceSelected = async (intent) => {
-        setShowDestinationModal(false);
-
-        // Rétablissement de la modale BrioPrepModal uniquement pour Nouveau dossier
-        // ADD_CURRENT et CLASSIFY n'ont pas besoin du pré-traitement Brio
-        if (intent === 'NEW') {
-            if (files.length > 0) {
-                startIngestion(files, aiConfig);
-            }
-            setIngestionStep(INGESTION_STEPS.BRIO);
-        }
-
+    // Pipeline générique d'analyse IA et injection dans le dossier courant
+    const runAnalysisPipeline = async (filesToProcess) => {
         setIsAnalyzing(true);
         setAiStatus('processing');
 
         try {
-            // Option 3: Nouveau dossier -> Réinitialiser le formulaire d'abord !
-            if (intent === 'NEW' && typeof onResetForm === 'function') {
-                onResetForm();
-            }
-
-            // Exécution du pipeline IA unifié
             const result = await processGlobalIngestion({
-                files,
+                files: filesToProcess,
                 providedApiKey: aiConfig?.apiKey,
                 onStatusChange: setAiStatus,
                 agentsModel: aiConfig?.model,
@@ -164,54 +147,7 @@ const Assistant = ({ onResetForm }) => {
 
             if (result && result.success && result.data) {
                 if (result.contexts) setRawContexts(result.contexts);
-
-                if (intent === 'ADD_CURRENT' || intent === 'NEW') {
-                    // Option 1 & 3: Injecter directement (fonctionne aussi en mode "Nouveau non sauvegardé" sans erreur)
-                    injectAnalysisResult(result.data, result.extractedFiles);
-                } else if (intent === 'CLASSIFY') {
-                    // Option 2: Recherche par référence
-                    let matchedDossier = null;
-                    for (const f of files) {
-                        matchedDossier = findMatchingDossier(f.name, savedDossiers);
-                        if (matchedDossier) break;
-                    }
-                    if (!matchedDossier && rawText.trim()) {
-                        matchedDossier = findMatchingDossier(rawText.slice(0, 500), savedDossiers);
-                    }
-
-                    if (matchedDossier) {
-                        // Dossier trouvé -> Charger le dossier puis injecter
-                        loadDossier(matchedDossier);
-                        injectAnalysisResult(result.data, result.extractedFiles);
-                    } else {
-                        // Aucun dossier correspondant -> Ouvrir la modale de sélection de destination
-                        setPendingAnalysisResult({
-                            data: result.data,
-                            extractedFiles: result.extractedFiles
-                        });
-                        setShowClassifySelectionModal(true);
-                    }
-                } else if (intent === 'DECOMPTE') {
-                    // Option 4: Générer un mail de décompte depuis les expenses extraites
-                    const expenses = (result.data?.expenses || []).map(e => ({
-                        ...e,
-                        id: e.id || crypto.randomUUID(),
-                        compteDe: e.compteDe || 'unassigned'
-                    }));
-                    const text = await generateDocument('declaration', {
-                        formData: result.data?.formData || {},
-                        rawContexts: result.contexts || {},
-                        references: [],
-                        occupants: [],
-                        expenses,
-                    });
-                    setGeneratedDecompteText(text);
-                    setIsDecompteModalOpen(true);
-                    // On ne vide pas les fichiers — on garde pour retry éventuel
-                    return;
-                }
-
-                // Réinitialiser les fichiers/texte droppés
+                injectAnalysisResult(result.data, result.extractedFiles);
                 setFiles([]);
                 setRawText('');
             } else {
@@ -227,16 +163,102 @@ const Assistant = ({ onResetForm }) => {
         }
     };
 
-    // Callback si sélection manuelle d'un dossier après Classer (sans match)
-    const handleManualDossierSelected = (dossier) => {
+    // Exécution de l'analyse selon le choix retenu
+    const handleChoiceSelected = async (intent) => {
+        setShowDestinationModal(false);
+
+        // Option 3: Nouveau dossier -> Réinitialiser le formulaire & déclencher Brio
+        if (intent === 'NEW') {
+            if (typeof onResetForm === 'function') {
+                onResetForm();
+            }
+            if (files.length > 0) {
+                startIngestion(files, aiConfig);
+            }
+            setIngestionStep(INGESTION_STEPS.BRIO);
+            await runAnalysisPipeline(files);
+            return;
+        }
+
+        // Option 1: Ajouter à ce dossier
+        if (intent === 'ADD_CURRENT') {
+            await runAnalysisPipeline(files);
+            return;
+        }
+
+        // Option 2: Classer dans un autre dossier -> Choisir/Détecter le dossier AVANT l'analyse !
+        if (intent === 'CLASSIFY') {
+            let matchedDossier = null;
+            for (const f of files) {
+                matchedDossier = findMatchingDossier(f.name, savedDossiers);
+                if (matchedDossier) break;
+            }
+            if (!matchedDossier && rawText.trim()) {
+                matchedDossier = findMatchingDossier(rawText.slice(0, 500), savedDossiers);
+            }
+
+            if (matchedDossier) {
+                // Dossier correspondant trouvé par référence -> Charger d'abord, puis analyser
+                loadDossier(matchedDossier);
+                await runAnalysisPipeline(files);
+            } else {
+                // Aucun dossier correspondant -> Ouvrir la liste des dossiers pour sélection AVANT analyse
+                setShowClassifySelectionModal(true);
+            }
+            return;
+        }
+
+        // Option 4: Mail de décompte
+        if (intent === 'DECOMPTE') {
+            setIsAnalyzing(true);
+            setAiStatus('processing');
+            try {
+                const result = await processGlobalIngestion({
+                    files,
+                    providedApiKey: aiConfig?.apiKey,
+                    onStatusChange: setAiStatus,
+                    agentsModel: aiConfig?.model,
+                    addDebugLog
+                });
+
+                if (result && result.success && result.data) {
+                    if (result.contexts) setRawContexts(result.contexts);
+                    const expenses = (result.data?.expenses || []).map(e => ({
+                        ...e,
+                        id: e.id || crypto.randomUUID(),
+                        compteDe: e.compteDe || 'unassigned'
+                    }));
+                    const text = await generateDocument('declaration', {
+                        formData: result.data?.formData || {},
+                        rawContexts: result.contexts || {},
+                        references: [],
+                        occupants: [],
+                        expenses,
+                    });
+                    setGeneratedDecompteText(text);
+                    setIsDecompteModalOpen(true);
+                } else {
+                    alert("L'analyse IA n'a pas pu extraire de données valides.");
+                }
+            } catch (err) {
+                console.error('[Assistant] Erreur décompte:', err);
+                alert('Erreur lors de la génération du décompte : ' + err.message);
+            } finally {
+                setIsAnalyzing(false);
+                setAiStatus('idle');
+                if (typeof commitLogSession === 'function') commitLogSession();
+            }
+            return;
+        }
+    };
+
+    // Callback si sélection manuelle d'un dossier après Classer (sans match préalable)
+    const handleManualDossierSelected = async (dossier) => {
         setShowClassifySelectionModal(false);
         if (dossier) {
             loadDossier(dossier);
-            if (pendingAnalysisResult) {
-                injectAnalysisResult(pendingAnalysisResult.data, pendingAnalysisResult.extractedFiles);
-            }
+            await runAnalysisPipeline(files);
         }
-        setPendingAnalysisResult(null);
     };
 
     const hasFiles = files.length > 0;
