@@ -3,7 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js';
 import { useSidebarUI } from '../context/SidebarUIContext';
-import { generateDocument } from '../services/generators/generatorEngine.js';
+import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import DossiersModal from './modals/DossiersModal';
 import GeneratedDocModal from './GeneratedDocModal';
@@ -38,6 +38,7 @@ const Assistant = ({ onResetForm }) => {
     } = context;
 
     const { setIsQuickDecompteOpen } = useSidebarUI();
+    const { startIngestion, setStep: setIngestionStep } = useIngestionFlowStore();
 
     const [files, setFiles] = useState([]);
     const [rawText, setRawText] = useState('');
