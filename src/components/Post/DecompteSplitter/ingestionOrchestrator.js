@@ -23,7 +23,7 @@ export async function ingestDocument(file, dispatch, options = {}) {
 
         // Les postes sont issus directement de result.postes (déjà réconciliés et vérifiés par financialIntegrityChecker)
         const expenses = (result.postes || []).map(p => ({
-            id: p.id || crypto.randomUUID(),
+            id: crypto.randomUUID(),
             desc: p.libelle,
             montantReclame: p.montantStr,
             montantValide: p.montantStr,

@@ -12,7 +12,7 @@ Ta tâche est d'extraire TOUTES les informations financières avec une FIDÉLIT�
 Retourne UNIQUEMENT un objet JSON avec cette structure :
 {
   "postes": [
-    { "id": "uuid-unique", "libelle": "Description exacte du poste", "montant": 760.00 }
+    { "libelle": "Description exacte du poste", "montant": 760.00 }
   ],
   "beneficiaire": {
     "nom": "Nom complet du bénéficiaire/assuré si visible",
@@ -102,7 +102,7 @@ export async function extractFinancialData(file, providedApiKey = null) {
 
     // Réconciliation & Vérification d'intégrité comptable immédiate
     const rawPostes = parsed.postes.map(p => ({
-        id: p.id || crypto.randomUUID(),
+        id: crypto.randomUUID(),
         libelle: p.libelle || "Poste inconnu",
         montant: p.montant
     }));

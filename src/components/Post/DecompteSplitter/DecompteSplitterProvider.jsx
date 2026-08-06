@@ -71,6 +71,28 @@ function splitterReducer(state, action) {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
             const { expenses, meta, autoBlock } = action.payload;
             const shouldAddBlock = autoBlock && state.blocks.length === 0;
+            const existingTargetBlockId = (!shouldAddBlock && state.blocks.length > 0) ? state.blocks[0].id : null;
+
+            let newAllocations = state.allocations;
+            if (shouldAddBlock && autoBlock?.allocations) {
+                newAllocations = [...state.allocations, ...autoBlock.allocations];
+            } else if (existingTargetBlockId && autoBlock?.allocations) {
+                const reassigned = autoBlock.allocations.map(a => ({
+                    ...a,
+                    id: crypto.randomUUID(),
+                    blockId: existingTargetBlockId
+                }));
+                newAllocations = [...state.allocations, ...reassigned];
+            } else if (existingTargetBlockId && !autoBlock?.allocations) {
+                const defaultAllocations = expenses.map(e => ({
+                    id: crypto.randomUUID(),
+                    blockId: existingTargetBlockId,
+                    expenseId: e.id,
+                    montant: e.montantValide,
+                    status: 'assigned'
+                }));
+                newAllocations = [...state.allocations, ...defaultAllocations];
+            }
 
             return {
                 ...state,
@@ -82,7 +104,7 @@ function splitterReducer(state, action) {
                 appendError: null,
                 localContacts: (shouldAddBlock && autoBlock.contact) ? [...state.localContacts, autoBlock.contact] : state.localContacts,
                 blocks: (shouldAddBlock && autoBlock.block) ? [...state.blocks, autoBlock.block] : state.blocks,
-                allocations: (shouldAddBlock && autoBlock.allocations) ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
+                allocations: newAllocations,
             };
         }
             
