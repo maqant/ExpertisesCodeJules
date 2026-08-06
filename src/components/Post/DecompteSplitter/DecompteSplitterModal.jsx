@@ -46,7 +46,7 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
         const fileArray = Array.from(files);
         for (let i = 0; i < fileArray.length; i++) {
             const file = fileArray[i];
-            const isAppend = opts.isAppend ?? (i > 0 || state.ingestionStatus === 'ready');
+            const isAppend = (opts.isAppend === true) || (i > 0);
             await ingestDocument(file, dispatch, { isAppend });
         }
     };
@@ -118,12 +118,15 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
         return () => window.removeEventListener('paste', handleGlobalPaste);
     }, [state.ingestionStatus]);
 
+    const hasProcessedInitialRef = useRef(false);
+
     // Auto-ingestion des fichiers transmis lors de l'ouverture (ex: option 4 Assistant)
     useEffect(() => {
-        if (initialFiles && initialFiles.length > 0 && state.ingestionStatus === 'idle') {
+        if (initialFiles && initialFiles.length > 0 && !hasProcessedInitialRef.current) {
+            hasProcessedInitialRef.current = true;
             handleDrop(initialFiles, { isAppend: false });
         }
-    }, [initialFiles, state.ingestionStatus]);
+    }, [initialFiles]);
 
     const handlePasteButtonClick = async () => {
         try {
