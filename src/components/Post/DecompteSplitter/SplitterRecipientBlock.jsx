@@ -94,49 +94,56 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                 )}
             </div>
 
-            {/* Formulaire destinataires (Double Destinataire Paiement VS Mail) */}
+            {/* Formulaire destinataires (Destinataire Mail + Bénéficiaire Paiement optionnel) */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Destinataire du PAIEMENT (ING / Excel) */}
+                <div className="space-y-3">
+                    {/* Destinataire de L'E-MAIL (Principal) */}
                     <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                Destinataire du paiement (ING / Excel)
+                        <div className="flex justify-between items-center mb-1.5">
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                Destinataire de l'e-mail
                             </label>
-                            <button
-                                onClick={() => dispatch({
-                                    type: 'UPDATE_BLOCK',
-                                    payload: {
-                                        blockId: block.id,
-                                        updates: {
-                                            mailRecipientLinked: !isMailRecipientLinked,
-                                            mailRecipientRef: !isMailRecipientLinked ? null : block.mailRecipientRef,
-                                            mailRecipientSnapshot: !isMailRecipientLinked ? null : block.mailRecipientSnapshot
-                                        }
-                                    }
+                            <div className="flex gap-1 bg-slate-200 p-0.5 rounded">
+                                {[
+                                    { id: 'Monsieur', label: 'Mr' },
+                                    { id: 'Madame', label: 'Mme' },
+                                    { id: 'ACP', label: 'ACP' },
+                                    { id: 'Société', label: 'Sté' }
+                                ].map(opt => {
+                                    const isSel = (block.mailCivility || 'Monsieur') === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => dispatch({
+                                                type: 'UPDATE_BLOCK',
+                                                payload: { blockId: block.id, updates: { mailCivility: opt.id } }
+                                            })}
+                                            className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+                                                isSel 
+                                                    ? 'bg-indigo-600 text-white shadow-sm' 
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
                                 })}
-                                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                                    isMailRecipientLinked 
-                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold' 
-                                        : 'bg-slate-100 border-slate-300 text-slate-500 hover:text-slate-700'
-                                }`}
-                                title={isMailRecipientLinked ? "Cliquez pour séparer le destinataire de l'e-mail" : "Cliquez pour lier le destinataire du paiement à l'e-mail"}
-                            >
-                                <ArrowRightLeft className="w-2.5 h-2.5" />
-                                {isMailRecipientLinked ? 'Lié au paiement' : 'Séparer e-mail'}
-                            </button>
+                            </div>
                         </div>
                         <SingleRecipientSelector 
-                            recipientRef={block.paymentRecipientRef || block.recipientRef}
-                            recipientSnapshot={block.paymentRecipientSnapshot || block.recipientSnapshot}
+                            recipientRef={block.mailRecipientRef || block.paymentRecipientRef || block.recipientRef}
+                            recipientSnapshot={block.mailRecipientSnapshot || block.paymentRecipientSnapshot || block.recipientSnapshot}
                             localContacts={state.localContacts}
                             occupants={occupants}
                             intervenants={intervenants}
                             onSelect={(ref, snapshot) => {
-                                const updates = { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot };
+                                const updates = { mailRecipientRef: ref, mailRecipientSnapshot: snapshot };
                                 if (isMailRecipientLinked) {
-                                    updates.mailRecipientRef = ref;
-                                    updates.mailRecipientSnapshot = snapshot;
+                                    updates.paymentRecipientRef = ref;
+                                    updates.paymentRecipientSnapshot = snapshot;
+                                    updates.recipientRef = ref;
+                                    updates.recipientSnapshot = snapshot;
                                 }
                                 dispatch({
                                     type: 'UPDATE_BLOCK',
@@ -147,10 +154,12 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                 dispatch({ type: 'ADD_LOCAL_CONTACT', payload: { contact: newContact, blockId: block.id } });
                                 const ref = { kind: 'local', id: newContact.id };
                                 const snapshot = { displayName: newContact.displayName || newContact.nom, email: newContact.email || null, iban: newContact.iban || null, isCompany: false };
-                                const updates = { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot };
+                                const updates = { mailRecipientRef: ref, mailRecipientSnapshot: snapshot };
                                 if (isMailRecipientLinked) {
-                                    updates.mailRecipientRef = ref;
-                                    updates.mailRecipientSnapshot = snapshot;
+                                    updates.paymentRecipientRef = ref;
+                                    updates.paymentRecipientSnapshot = snapshot;
+                                    updates.recipientRef = ref;
+                                    updates.recipientSnapshot = snapshot;
                                 }
                                 dispatch({
                                     type: 'UPDATE_BLOCK',
@@ -160,43 +169,88 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         />
                     </div>
 
-                    {/* Destinataire de L'E-MAIL (Outlook) */}
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                            Destinataire de l'e-mail
-                        </label>
-                        {isMailRecipientLinked ? (
-                            <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500 flex items-center justify-between">
-                                <span>Identique au destinataire du paiement</span>
-                                <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">Synchronisé</span>
-                            </div>
-                        ) : (
-                            <SingleRecipientSelector 
-                                recipientRef={block.mailRecipientRef}
-                                recipientSnapshot={block.mailRecipientSnapshot}
-                                localContacts={state.localContacts}
-                                occupants={occupants}
-                                intervenants={intervenants}
-                                onSelect={(ref, snapshot) => dispatch({
-                                    type: 'UPDATE_BLOCK',
-                                    payload: { blockId: block.id, updates: { mailRecipientRef: ref, mailRecipientSnapshot: snapshot } }
-                                })}
-                                onCreateContact={(newContact) => {
-                                    dispatch({ type: 'ADD_LOCAL_CONTACT', payload: { contact: newContact, blockId: block.id } });
+                    {/* Case à cocher : Destinataire du mail différent du bénéficiaire du paiement */}
+                    <div className="pt-1">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                            <input 
+                                type="checkbox" 
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                checked={!isMailRecipientLinked}
+                                onChange={(e) => {
+                                    const isSeparate = e.target.checked;
                                     dispatch({
                                         type: 'UPDATE_BLOCK',
                                         payload: {
                                             blockId: block.id,
                                             updates: {
-                                                mailRecipientRef: { kind: 'local', id: newContact.id },
-                                                mailRecipientSnapshot: { displayName: newContact.displayName || newContact.nom, email: newContact.email || null, iban: newContact.iban || null, isCompany: false }
+                                                mailRecipientLinked: !isSeparate,
+                                                mailRecipientRef: !isSeparate ? null : block.mailRecipientRef,
+                                                mailRecipientSnapshot: !isSeparate ? null : block.mailRecipientSnapshot
                                             }
                                         }
                                     });
                                 }}
                             />
-                        )}
+                            <span>Le destinataire du mail est différent du bénéficiaire du paiement</span>
+                        </label>
                     </div>
+
+                    {/* Bénéficiaire du paiement (Apparaît si case cochée) */}
+                    {!isMailRecipientLinked && (
+                        <div className="bg-amber-50/80 p-3 rounded-md border border-amber-200 space-y-2 mt-2">
+                            <div className="flex justify-between items-center">
+                                <label className="block text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                                    Bénéficiaire du paiement (Banque / ING)
+                                </label>
+                                <div className="flex gap-1 bg-amber-200/60 p-0.5 rounded">
+                                    {[
+                                        { id: 'Monsieur', label: 'Mr' },
+                                        { id: 'Madame', label: 'Mme' },
+                                        { id: 'ACP', label: 'ACP' },
+                                        { id: 'Société', label: 'Sté' }
+                                    ].map(opt => {
+                                        const isSel = (block.paymentCivility || 'Monsieur') === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => dispatch({
+                                                    type: 'UPDATE_BLOCK',
+                                                    payload: { blockId: block.id, updates: { paymentCivility: opt.id } }
+                                                })}
+                                                className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+                                                    isSel 
+                                                        ? 'bg-amber-800 text-white shadow-sm' 
+                                                        : 'text-amber-900 hover:bg-amber-300/60'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <SingleRecipientSelector 
+                                recipientRef={block.paymentRecipientRef || block.recipientRef}
+                                recipientSnapshot={block.paymentRecipientSnapshot || block.recipientSnapshot}
+                                localContacts={state.localContacts}
+                                occupants={occupants}
+                                intervenants={intervenants}
+                                onSelect={(ref, snapshot) => {
+                                    dispatch({
+                                        type: 'UPDATE_BLOCK',
+                                        payload: {
+                                            blockId: block.id,
+                                            updates: { paymentRecipientRef: ref, paymentRecipientSnapshot: snapshot, recipientRef: ref, recipientSnapshot: snapshot }
+                                        }
+                                    });
+                                }}
+                                onCreateContact={(newContact) => {
+                                    dispatch({ type: 'ADD_LOCAL_CONTACT', payload: { contact: newContact, blockId: block.id } });
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -349,11 +403,11 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                     <div className="flex-1">
                         <label className="block text-[10px] text-slate-500 mb-1">Poste à ajouter</label>
                         <select 
-                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
+                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white text-slate-900 font-medium"
                             value={expenseToAdd}
                             onChange={e => setExpenseToAdd(e.target.value)}
                         >
-                            <option value="">-- Choisir un poste --</option>
+                            <option value="" className="text-slate-500 bg-white">-- Choisir un poste --</option>
                             {expenses.map(exp => {
                                 const isSuspended = state.allocations.some(a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED);
                                 if (isSuspended) return null;
@@ -363,7 +417,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
 
                                 const resolved = resolveExpenseView(exp);
                                 return (
-                                    <option key={exp.id} value={exp.id}>
+                                    <option key={exp.id} value={exp.id} className="text-slate-900 bg-white py-1 font-medium">
                                         {resolved.computedLabel} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
                                     </option>
                                 );

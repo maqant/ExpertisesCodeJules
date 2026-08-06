@@ -51,6 +51,21 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
  * @param {object} [piiData] - Données PII (occupants, intervenants, localContacts)
  * @returns {string} Le texte du mail prêt à être copié
  */
+export const resolveCivilitySalutation = (civility, displayName = '') => {
+    const cleanName = (displayName || '').trim();
+    switch (civility) {
+        case 'Madame':
+            return cleanName ? `Madame ${cleanName},` : `Madame,`;
+        case 'ACP':
+            return cleanName ? `Chers Copropriétaires de la Résidence ${cleanName},` : `Chers Copropriétaires,`;
+        case 'Société':
+            return cleanName ? `Messieurs les Administrateurs de la ${cleanName},` : `Messieurs,`;
+        case 'Monsieur':
+        default:
+            return cleanName ? `Monsieur ${cleanName},` : `Monsieur,`;
+    }
+};
+
 export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) => {
     if (!block) return '';
 
@@ -63,15 +78,27 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
     const mailRecipient = resolveEffectiveMailRecipient(block, allCandidates);
     const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
 
-    const salutation = mailRecipient
-        ? buildSalutation([mailRecipient])
-        : `Bonjour Madame, Monsieur,`;
+    const mailCivility = block.mailCivility || 'Monsieur';
+    const mailName = mailRecipient?.displayName || block.mailRecipientSnapshot?.displayName || '';
+
+    const salutation = mailCivility
+        ? resolveCivilitySalutation(mailCivility, mailName)
+        : (mailRecipient ? buildSalutation([mailRecipient]) : `Bonjour Madame, Monsieur,`);
 
     let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';
     if (rawIban) {
         const cleanIban = rawIban.replace(/\s+/g, '');
         ibanStr = cleanIban.match(/.{1,4}/g)?.join(' ') || cleanIban;
+    }
+
+    // Phrase d'attribution bancaire (adaptée selon la séparation du destinataire mail VS bénéficiaire paiement)
+    let paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur votre compte, IBAN : ${ibanStr}.`;
+    if (block.mailRecipientLinked === false) {
+        const payCiv = block.paymentCivility || 'Monsieur';
+        const payName = paymentSnapshot?.displayName || block.paymentRecipientNom || 'le bénéficiaire désigné';
+        const payTitle = resolveCivilitySalutation(payCiv, payName).replace(/,$/, '');
+        paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur le compte IBAN ${ibanStr} au bénéfice de ${payTitle}.`;
     }
 
     // Trouver les allocations
@@ -93,7 +120,6 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
         const sign = isFranchise ? '(-)' : '(+)';
         const libelle = exp.desc || exp.type || 'Poste inconnu';
         
-        // Formatage du montant
         const formatMontant = Math.abs(val).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',');
         
         itemsLines.push(`${sign} Poste ${libelle} : ${formatMontant} € ;`);
@@ -101,7 +127,6 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
 
     const totalStr = total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',');
 
-    // Clause de fin
     let closureText = '';
     if (block.closureMode === CLOSURE_MODE.CLOTURE) {
         closureText = 'Sauf erreur, ce paiement clôture ce dossier.';
@@ -115,7 +140,7 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
 
 Je reviens vers vous dans ce dossier.
 
-La compagnie nous confirme le versement de l’indemnité sur votre compte, IBAN : ${ibanStr}.
+${paymentSentence}
 
 Le décompte est le suivant :
 ${itemsLines.join('\n')}
