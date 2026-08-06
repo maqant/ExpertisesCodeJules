@@ -3,6 +3,7 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js';
 import { useSidebarUI } from '../context/SidebarUIContext';
+import { generateDocument } from '../services/generators/generatorEngine.js';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import DossiersModal from './modals/DossiersModal';
@@ -128,8 +129,9 @@ const Assistant = ({ onResetForm }) => {
     const handleChoiceSelected = async (intent) => {
         setShowDestinationModal(false);
 
-        // Rétablissement de la modale BrioPrepModal lors de l'ingestion d'un dossier
-        if (intent === 'NEW' || intent === 'ADD_CURRENT' || intent === 'CLASSIFY') {
+        // Rétablissement de la modale BrioPrepModal uniquement pour Nouveau dossier
+        // ADD_CURRENT et CLASSIFY n'ont pas besoin du pré-traitement Brio
+        if (intent === 'NEW') {
             if (files.length > 0) {
                 startIngestion(files, aiConfig);
             }
