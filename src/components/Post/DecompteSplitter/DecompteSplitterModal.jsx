@@ -43,9 +43,12 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
 
     const handleDrop = async (files, opts = {}) => {
         if (!files || files.length === 0) return;
-        const file = files[0];
-        const isAppend = opts.isAppend ?? (state.ingestionStatus === 'ready');
-        await ingestDocument(file, dispatch, { isAppend });
+        const fileArray = Array.from(files);
+        for (let i = 0; i < fileArray.length; i++) {
+            const file = fileArray[i];
+            const isAppend = opts.isAppend ?? (i > 0 || state.ingestionStatus === 'ready');
+            await ingestDocument(file, dispatch, { isAppend });
+        }
     };
 
     const handleSendToDossier = () => {
