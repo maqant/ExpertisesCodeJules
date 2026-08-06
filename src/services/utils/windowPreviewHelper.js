@@ -61,6 +61,13 @@ export function openDocumentPreview(target, title = 'Aperçu Document') {
     } else if (target instanceof Blob) { // File hérite de Blob
         url = URL.createObjectURL(target);
         helperOwnsUrl = true;
+    } else if (target && target.file instanceof Blob) {
+        url = URL.createObjectURL(target.file);
+        helperOwnsUrl = true;
+    } else if (target && target.content && (target.content instanceof Uint8Array || target.content instanceof ArrayBuffer || Array.isArray(target.content))) {
+        const blob = new Blob([target.content], { type: target.type || target.mimeType || 'application/pdf' });
+        url = URL.createObjectURL(blob);
+        helperOwnsUrl = true;
     } else {
         console.error('[openDocumentPreview] Cible invalide :', target);
         return { ok: false, reason: 'invalid-target' };

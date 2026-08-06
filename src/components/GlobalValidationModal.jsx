@@ -37,20 +37,21 @@ const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile })
         files.forEach(f => handleAttachFile(docId, f));
     };
 
-    const previewUrl = useObjectUrl(pendingFile);
     const [previewError, setPreviewError] = useState(null);
 
     const handlePreviewPending = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!previewUrl) {
+        if (!pendingFile) {
             setPreviewError("Aperçu indisponible : le fichier n'est plus accessible.");
-            console.error('[MiniAttachmentUI] Blob URL absent pour :', pendingFile?.name);
             return;
         }
         try {
             setPreviewError(null);
-            openObjectUrlInNewTab(previewUrl);
+            const res = openDocumentPreview(pendingFile, pendingFile.name || title);
+            if (!res.ok) {
+                setPreviewError("Aperçu indisponible : cible de fichier non valide.");
+            }
         } catch (err) {
             console.error('[MiniAttachmentUI] Échec ouverture aperçu :', pendingFile?.name, err);
             setPreviewError("L'aperçu n'a pas pu s'ouvrir. Réessayez ou vérifiez le fichier.");
