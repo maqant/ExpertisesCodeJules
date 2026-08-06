@@ -6,7 +6,7 @@ import { useSidebarUI } from '../context/SidebarUIContext';
 import { generateDocument } from '../services/generators/generatorEngine.js';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
-import DossiersModal from './modals/DossiersModal';
+import SmartBridgeModal from './SmartBridgeModal';
 import GeneratedDocModal from './GeneratedDocModal';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.edi'];
@@ -49,7 +49,7 @@ const Assistant = ({ onResetForm }) => {
 
     // Contrôle des modales d'intention & sélection
     const [showDestinationModal, setShowDestinationModal] = useState(false);
-    const [showClassifySelectionModal, setShowClassifySelectionModal] = useState(false);
+    const [smartBridgeState, setSmartBridgeState] = useState({ isOpen: false, matchedDossier: null });
     const [pendingAnalysisResult, setPendingAnalysisResult] = useState(null);
 
     // Résultat GeneratedDoc (mail de décompte)
@@ -186,7 +186,7 @@ const Assistant = ({ onResetForm }) => {
             return;
         }
 
-        // Option 2: Classer dans un autre dossier -> Choisir/Détecter le dossier AVANT l'analyse !
+        // Option 2: Classer dans un autre dossier -> Ouvrir le Smart Bridge ("Dossier trouvé !" ou "Introuvable")
         if (intent === 'CLASSIFY') {
             let matchedDossier = null;
             for (const f of files) {
@@ -197,14 +197,10 @@ const Assistant = ({ onResetForm }) => {
                 matchedDossier = findMatchingDossier(rawText.slice(0, 500), savedDossiers);
             }
 
-            if (matchedDossier) {
-                // Dossier correspondant trouvé par référence -> Charger d'abord, puis analyser
-                loadDossier(matchedDossier);
-                await runAnalysisPipeline(files);
-            } else {
-                // Aucun dossier correspondant -> Ouvrir la liste des dossiers pour sélection AVANT analyse
-                setShowClassifySelectionModal(true);
-            }
+            setSmartBridgeState({
+                isOpen: true,
+                matchedDossier
+            });
             return;
         }
 
@@ -348,12 +344,34 @@ const Assistant = ({ onResetForm }) => {
                 onChoice={handleChoiceSelected}
             />
 
-            {/* Modale de sélection manuelle d'un dossier si CLASSIFY sans match */}
-            <DossiersModal
-                isOpenOverride={showClassifySelectionModal}
-                onCloseOverride={() => handleManualDossierSelected(null)}
-                onSelectOverride={handleManualDossierSelected}
-                customTitle="Choisir le dossier de destination"
+            {/* Smart Bridge Modal : Pop-up "Dossier trouvé !" ou "Dossier introuvable" */}
+            <SmartBridgeModal
+                isOpen={smartBridgeState.isOpen}
+                matchedDossier={smartBridgeState.matchedDossier}
+                savedDossiers={savedDossiers}
+                onClose={() => setSmartBridgeState({ isOpen: false, matchedDossier: null })}
+                onOpenMatched={async () => {
+                    const target = smartBridgeState.matchedDossier;
+                    setSmartBridgeState({ isOpen: false, matchedDossier: null });
+                    if (target) {
+                        loadDossier(target);
+                        await runAnalysisPipeline(files);
+                    }
+                }}
+                onManualSelect={async (dossier) => {
+                    setSmartBridgeState({ isOpen: false, matchedDossier: null });
+                    if (dossier) {
+                        loadDossier(dossier);
+                        await runAnalysisPipeline(files);
+                    }
+                }}
+                onCreateNew={async () => {
+                    setSmartBridgeState({ isOpen: false, matchedDossier: null });
+                    if (typeof onResetForm === 'function') onResetForm();
+                    if (files.length > 0) startIngestion(files, aiConfig);
+                    setIngestionStep(INGESTION_STEPS.BRIO);
+                    await runAnalysisPipeline(files);
+                }}
             />
 
             {/* Résultat du mail de décompte généré (option DECOMPTE) */}
