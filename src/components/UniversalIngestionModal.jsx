@@ -1,8 +1,8 @@
-import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { isEmptyValue } from '../domain/merge/conservativeMerge.js';
-import { STANDARD_FRANCHISES } from '../domain/claims/franchises.js';
+import { buildUnifiedFranchisesOptions } from '../domain/claims/franchises.js';
 import { formatOccupantLabel } from '../services/utils/contactUtils.js';
 import ComboboxField from './ui/ComboboxField.jsx';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -38,6 +38,8 @@ const UniversalIngestionModal = () => {
     const [localData, setLocalData] = useState({});
     const [numPages, setNumPages] = useState(null);
     const [textContent, setTextContent] = useState('');
+
+    const franchiseOptions = useMemo(() => buildUnifiedFranchisesOptions(franchises).map(f => ({ id: f.id, label: f.label })), [franchises]);
 
     // Populate localData when modal opens
     useEffect(() => {
@@ -300,7 +302,7 @@ const UniversalIngestionModal = () => {
                                     <ComboboxField
                                         value={localData.franchise || ''}
                                         onChange={(v) => handleChange({ target: { name: 'franchise', value: v } })}
-                                        options={STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label }))}
+                                        options={franchiseOptions}
                                         className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm"
                                         placeholder="Saisir ou sélectionner..."
                                     />

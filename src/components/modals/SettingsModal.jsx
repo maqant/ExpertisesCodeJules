@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useSidebarUI } from '../../context/SidebarUIContext';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { useDatasetStore } from '../../store/datasetStore.js';
+import { sortFranchisesChronologically } from '../../domain/claims/franchises.js';
 import packageInfo from '../../../package.json';
 
 const SettingsModal = () => {
@@ -143,10 +144,10 @@ const SettingsModal = () => {
                         {safeFranchises.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-slate-700/60 max-h-32 overflow-y-auto pr-1">
                                 <ul className="space-y-1 text-xs">
-                                    {safeFranchises.map((f, idx) => (
+                                    {sortFranchisesChronologically(safeFranchises).map((f, idx) => (
                                         <li key={idx} className="flex justify-between items-center bg-slate-900/90 px-2.5 py-1.5 rounded border border-slate-700">
                                             <span className="text-slate-100 font-medium">{formatFranchiseDisplay(f)}</span>
-                                            <button onClick={()=>setFranchises(safeFranchises.filter((_, i)=>i!==idx))} className="text-red-400">🗑️</button>
+                                            <button onClick={()=>setFranchises(safeFranchises.filter((item)=>item!==f))} className="text-red-400">🗑️</button>
                                         </li>
                                     ))}
                                 </ul>

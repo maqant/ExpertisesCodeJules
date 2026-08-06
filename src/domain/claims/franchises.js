@@ -20,16 +20,81 @@ export const BUILTIN_CHRONOLOGICAL_FRANCHISES = [
   "Février 2022 - 286,30 €", "Janvier 2022 - 280,05 €"
 ];
 
-export const IMMUTABLE_CHRONOLOGICAL_FRANCHISES = Object.freeze([
-  { id: 'fr_sans',    label: 'Sans franchise',           kind: 'text',   amount: 0 },
-  { id: 'fr_legale',  label: 'Franchise légale indexée', kind: 'text',   amount: null },
-  { id: 'fr_anglaise',label: 'Franchise anglaise',       kind: 'text',   amount: null },
-  ...BUILTIN_CHRONOLOGICAL_FRANCHISES.map((item, idx) => ({ id: `abex_${idx}`, label: item, kind: 'text', amount: null })),
+export const PINNED_FRANCHISE_OPTIONS = Object.freeze([
+  { id: 'fr_sans',     label: 'Sans franchise',           kind: 'text',   amount: 0 },
+  { id: 'fr_legale',   label: 'Franchise légale indexée', kind: 'text',   amount: null },
+  { id: 'fr_anglaise', label: 'Franchise anglaise',       kind: 'text',   amount: null },
+]);
+
+export const TRAILING_FRANCHISE_OPTIONS = Object.freeze([
   { id: 'fr_250',     label: '250.00',                   kind: 'amount', amount: 250 },
   { id: 'fr_300',     label: '300.00',                   kind: 'amount', amount: 300 },
 ]);
 
-/** @type {ReadonlyArray<FranchiseOption>} */
+const FRENCH_MONTHS = Object.freeze({
+  'janvier': 1, 'fevrier': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
+  'juillet': 7, 'aout': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12,
+});
+
+const normalizeToken = (str) =>
+  String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+/**
+ * Extrait un score chronologique d'un libellé "Mois AAAA - montant".
+ * @returns {{ score: number, dated: true } | { dated: false }}
+ */
+export function parseFranchiseChronology(label) {
+  const match = /^([A-Za-zÀ-ÿ]+)\s+(\d{4})\b/.exec(String(label).trim());
+  if (!match) return { dated: false };
+  const month = FRENCH_MONTHS[normalizeToken(match[1])];
+  const year = Number(match[2]);
+  if (!month || !Number.isFinite(year)) return { dated: false };
+  return { dated: true, score: year * 100 + month };
+}
+
+/**
+ * Tri chronologique décroissant (plus récent en premier).
+ */
+export function sortFranchisesChronologically(labels) {
+  const dated = [];
+  const undated = [];
+  labels.forEach((label, index) => {
+    const chrono = parseFranchiseChronology(label);
+    if (chrono.dated) dated.push({ label, score: chrono.score, index });
+    else undated.push({ label, index });
+  });
+  dated.sort((a, b) => (b.score - a.score) || (a.index - b.index));
+  return [...dated.map(d => d.label), ...undated.map(u => u.label)];
+}
+
+/**
+ * Source de vérité unique pour TOUTES les surfaces (Paramètres + Modales).
+ * Fusionne builtins + franchises utilisateur, déduplique, trie chronologiquement décroissant.
+ */
+export function buildUnifiedFranchisesOptions(userFranchises = []) {
+  const safeUser = Array.isArray(userFranchises)
+    ? userFranchises.filter(f => typeof f === 'string' && f.trim() !== '')
+    : [];
+
+  const seen = new Set();
+  const merged = [];
+  for (const label of [...safeUser, ...BUILTIN_CHRONOLOGICAL_FRANCHISES]) {
+    const key = normalizeToken(label).replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(label.trim());
+  }
+
+  const sorted = sortFranchisesChronologically(merged);
+
+  return [
+    ...PINNED_FRANCHISE_OPTIONS,
+    ...sorted.map((label, idx) => ({ id: `dyn_${idx}`, label, kind: 'text', amount: null })),
+    ...TRAILING_FRANCHISE_OPTIONS,
+  ];
+}
+
+export const IMMUTABLE_CHRONOLOGICAL_FRANCHISES = Object.freeze(buildUnifiedFranchisesOptions([]));
 export const STANDARD_FRANCHISES = IMMUTABLE_CHRONOLOGICAL_FRANCHISES;
 
 /**
