@@ -108,13 +108,19 @@ const Assistant = ({ onResetForm }) => {
         
         const activeBrioOverrides = useIngestionFlowStore.getState().brioOverrides || {};
 
+        // Fichiers à attacher : PJ extraites des MSG + fichiers originaux non-MSG (PDF, images, etc.)
+        const allPendingFiles = [
+            ...(extractedFiles || []),
+            ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
+        ];
+
         setPendingAiData({
             formData: { ...(typeof formData === 'object' ? formData : {}), ...activeBrioOverrides },
             occupants,
             expenses,
             experts,
             intervenants,
-            pendingFiles: extractedFiles,
+            pendingFiles: allPendingFiles,
             _rawInputText: resultData._rawInputText || null
         });
     };
