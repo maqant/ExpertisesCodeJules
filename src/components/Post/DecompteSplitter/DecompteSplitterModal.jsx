@@ -11,7 +11,9 @@ import DropZone from '../../DropZone.jsx';
 import { ingestDocument } from './ingestionOrchestrator.js';
 import { integrateToDossier } from '../../../services/decompteIntegrationService.js';
 
-const SplitterInner = ({ onClose, dossierName }) => {
+import { useSidebarUI } from '../../../context/SidebarUIContext.jsx';
+
+const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
     const { pii } = useFinanceStore();
     const { state, dispatch } = useDecompteSplitter();
 
@@ -112,6 +114,13 @@ const SplitterInner = ({ onClose, dossierName }) => {
         window.addEventListener('paste', handleGlobalPaste);
         return () => window.removeEventListener('paste', handleGlobalPaste);
     }, [state.ingestionStatus]);
+
+    // Auto-ingestion des fichiers transmis lors de l'ouverture (ex: option 4 Assistant)
+    useEffect(() => {
+        if (initialFiles && initialFiles.length > 0 && state.ingestionStatus === 'idle') {
+            handleDrop(initialFiles, { isAppend: false });
+        }
+    }, [initialFiles, state.ingestionStatus]);
 
     const handlePasteButtonClick = async () => {
         try {
@@ -408,12 +417,17 @@ const SplitterInner = ({ onClose, dossierName }) => {
     );
 };
 
-export const DecompteSplitterModal = ({ isOpen, onClose, dossierName }) => {
+export const DecompteSplitterModal = ({ isOpen: isOpenOverride, onClose: onCloseOverride, dossierName, initialFiles: initialFilesOverride }) => {
+    const sidebarUI = useSidebarUI();
+    const isOpen = isOpenOverride !== undefined ? isOpenOverride : (sidebarUI?.isDecompteSplitterOpen || false);
+    const onClose = onCloseOverride || (sidebarUI?.closeDecompteSplitter || (() => {}));
+    const initialFiles = initialFilesOverride || sidebarUI?.decompteSplitterFiles || [];
+
     if (!isOpen) return null;
     
     return (
         <DecompteSplitterProvider>
-            <SplitterInner onClose={onClose} dossierName={dossierName} />
+            <SplitterInner onClose={onClose} dossierName={dossierName} initialFiles={initialFiles} />
         </DecompteSplitterProvider>
     );
 };

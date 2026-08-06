@@ -38,7 +38,7 @@ const Assistant = ({ onResetForm }) => {
         addDebugLog, commitLogSession
     } = context;
 
-    const { setIsQuickDecompteOpen } = useSidebarUI();
+    const { setIsQuickDecompteOpen, openDecompteSplitterWithFiles } = useSidebarUI();
     const { startIngestion, setStep: setIngestionStep } = useIngestionFlowStore();
 
     const [files, setFiles] = useState([]);
@@ -208,46 +208,11 @@ const Assistant = ({ onResetForm }) => {
             return;
         }
 
-        // Option 4: Mail de décompte
+        // Option 4: Gestionnaire financier / Ventilation de décompte
         if (intent === 'DECOMPTE') {
-            setIsAnalyzing(true);
-            setAiStatus('processing');
-            try {
-                const result = await processGlobalIngestion({
-                    files,
-                    providedApiKey: aiConfig?.apiKey,
-                    onStatusChange: setAiStatus,
-                    agentsModel: aiConfig?.model,
-                    addDebugLog
-                });
-
-                if (result && result.success && result.data) {
-                    if (result.contexts) setRawContexts(result.contexts);
-                    const expenses = (result.data?.expenses || []).map(e => ({
-                        ...e,
-                        id: e.id || crypto.randomUUID(),
-                        compteDe: e.compteDe || 'unassigned'
-                    }));
-                    const text = await generateDocument('declaration', {
-                        formData: result.data?.formData || {},
-                        rawContexts: result.contexts || {},
-                        references: [],
-                        occupants: [],
-                        expenses,
-                    });
-                    setGeneratedDecompteText(text);
-                    setIsDecompteModalOpen(true);
-                } else {
-                    alert("L'analyse IA n'a pas pu extraire de données valides.");
-                }
-            } catch (err) {
-                console.error('[Assistant] Erreur décompte:', err);
-                alert('Erreur lors de la génération du décompte : ' + err.message);
-            } finally {
-                setIsAnalyzing(false);
-                setAiStatus('idle');
-                if (typeof commitLogSession === 'function') commitLogSession();
-            }
+            openDecompteSplitterWithFiles(files);
+            setFiles([]);
+            setRawText('');
             return;
         }
     };

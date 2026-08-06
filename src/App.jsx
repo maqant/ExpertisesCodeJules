@@ -13,6 +13,7 @@ import FloatingActionMenu from './components/navigation/FloatingActionMenu';
 import SettingsModal from './components/modals/SettingsModal';
 import DossiersModal from './components/modals/DossiersModal';
 import QuickDecompteModal from './components/modals/QuickDecompteModal';
+import DecompteSplitterModal from './components/Post/DecompteSplitter/DecompteSplitterModal';
 import { useState } from 'react';
 
 import packageJson from '../package.json';
@@ -54,10 +55,11 @@ function App() {
             {/* Console de débogage v6.2.0 */}
             <DebugConsole />
 
-            {/* Modales globales de Paramètres, Chargement et Décompte Rapide */}
+            {/* Modales globales de Paramètres, Chargement, Décompte Rapide et Gestionnaire Financier */}
             <SettingsModal />
             <DossiersModal />
             <QuickDecompteModal />
+            <DecompteSplitterModal />
           </div>
         </SidebarUIProvider>
       </IngestionPipelineProvider>

@@ -11,6 +11,20 @@ export const SidebarUIProvider = ({ children }) => {
     const [isLoadDossierModalOpen, setIsLoadDossierModalOpen] = useState(false);
     const [isQuickDecompteOpen, setIsQuickDecompteOpen] = useState(false);
 
+    // Modale globale Gestionnaire Financier (Decompte Splitter)
+    const [isDecompteSplitterOpen, setIsDecompteSplitterOpen] = useState(false);
+    const [decompteSplitterFiles, setDecompteSplitterFiles] = useState([]);
+
+    const openDecompteSplitterWithFiles = (files) => {
+        setDecompteSplitterFiles(files || []);
+        setIsDecompteSplitterOpen(true);
+    };
+
+    const closeDecompteSplitter = () => {
+        setIsDecompteSplitterOpen(false);
+        setDecompteSplitterFiles([]);
+    };
+
     // Bascule propre depuis Settings vers Dossiers
     const openDossiersFromSettings = () => {
         setIsSettingsModalOpen(false);
@@ -24,6 +38,9 @@ export const SidebarUIProvider = ({ children }) => {
             isSettingsModalOpen, setIsSettingsModalOpen,
             isLoadDossierModalOpen, setIsLoadDossierModalOpen,
             isQuickDecompteOpen, setIsQuickDecompteOpen,
+            isDecompteSplitterOpen, setIsDecompteSplitterOpen,
+            decompteSplitterFiles, setDecompteSplitterFiles,
+            openDecompteSplitterWithFiles, closeDecompteSplitter,
             openDossiersFromSettings
         }}>
             {children}
