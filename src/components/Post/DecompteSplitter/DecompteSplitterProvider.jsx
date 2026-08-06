@@ -430,6 +430,16 @@ function splitterReducer(state, action) {
             };
         }
 
+        case 'PURGE_ORPHAN_ALLOCATIONS': {
+            const validIds = new Set(action.payload?.activeExpenseIds || []);
+            const purged = state.allocations.filter(a => validIds.has(a.expenseId));
+            const removedCount = state.allocations.length - purged.length;
+            if (removedCount > 0) {
+                console.info(`[DecompteSplitter] Purge de ${removedCount} allocation(s) orpheline(s).`);
+            }
+            return removedCount > 0 ? { ...state, allocations: purged } : state;
+        }
+
         default:
             return state;
     }

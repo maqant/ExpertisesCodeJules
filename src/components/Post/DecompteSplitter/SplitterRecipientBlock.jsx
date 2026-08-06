@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
 import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
 import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail } from 'lucide-react';
-import { resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
+import { resolveExpenseView, getDisplayLabel } from '../../../domain/decompteSplitter/labelResolver.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
@@ -15,7 +15,20 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
     const [splitAmount, setSplitAmount] = useState('');
     const [expenseToAdd, setExpenseToAdd] = useState('');
 
-    const blockAllocations = state.allocations.filter(a => a.blockId === block.id);
+    const activeExpenseIds = useMemo(() => new Set((expenses || []).map(e => e.id)), [expenses]);
+
+    useEffect(() => {
+        const activeIds = (expenses || []).map(e => e.id);
+        const hasOrphans = state.allocations.some(a => !activeIds.includes(a.expenseId));
+        if (hasOrphans) {
+            dispatch({ type: 'PURGE_ORPHAN_ALLOCATIONS', payload: { activeExpenseIds: activeIds } });
+        }
+    }, [expenses, state.allocations, dispatch]);
+
+    const blockAllocations = useMemo(
+        () => state.allocations.filter(a => a.blockId === block.id && activeExpenseIds.has(a.expenseId)),
+        [state.allocations, block.id, activeExpenseIds]
+    );
     const totalBlockEuro = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
 
     const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
@@ -374,7 +387,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             return (
                                 <li key={alloc.id} className="flex justify-between items-center text-sm py-1 border-b border-slate-100 last:border-0">
                                     <div className="flex items-center gap-2 truncate pr-2">
-                                        <span className="truncate text-slate-700 font-medium">{resolvedView.computedLabel}</span>
+                                        <span className="truncate text-slate-900 font-bold">{getDisplayLabel(resolvedView, exp)}</span>
                                         {alloc.origin === 'prorata' && (
                                             <span className="px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-600 text-[9px] font-bold uppercase tracking-wider">Prorata</span>
                                         )}
@@ -417,8 +430,8 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
 
                                 const resolved = resolveExpenseView(exp);
                                 return (
-                                    <option key={exp.id} value={exp.id} className="text-slate-900 bg-white py-1 font-medium">
-                                        {resolved.computedLabel} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
+                                    <option key={exp.id} value={exp.id} className="text-slate-900 bg-white py-1 font-semibold">
+                                        {getDisplayLabel(resolved, exp)} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
                                     </option>
                                 );
                             })}

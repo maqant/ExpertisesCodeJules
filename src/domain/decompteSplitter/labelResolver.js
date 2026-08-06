@@ -56,6 +56,22 @@ export const resolveExpenseView = (expense, override = {}, dossierIndex = new Ma
 };
 
 /**
+ * Libellé d'affichage garanti non-vide pour l'UI.
+ * Contrat unique : toute l'UI DOIT passer par cette fonction.
+ */
+export const getDisplayLabel = (resolvedView, rawExpense = {}) => {
+    const label = resolvedView?.desc?.trim()
+        || rawExpense.desc?.trim()
+        || rawExpense.type;
+
+    if (import.meta.env.DEV && !label) {
+        console.warn('[labelResolver] Poste sans libellé résolvable:', rawExpense.id);
+    }
+
+    return label || 'Poste sans libellé';
+};
+
+/**
  * Résout la liste complète (utilitaire pour le panier et le matcher).
  */
 export const resolveAllExpenseViews = (expenses = [], overrides = {}, dossierExpenses = []) => {
