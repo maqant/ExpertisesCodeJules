@@ -700,10 +700,7 @@ const GlobalValidationModal = () => {
                                             updateFormField('franchise', v);
                                             if (v) setSelectedFormFields(prev => new Set(prev).add('franchise'));
                                         }}
-                                        options={[
-                                            ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
-                                            ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
-                                        ]}
+                                        options={STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label }))}
                                         className="w-full bg-orange-50/50 border border-orange-300 rounded px-2 py-1.5 text-xs focus:border-orange-500 outline-none"
                                         placeholder="Ex: Légale..."
                                     />
@@ -851,10 +848,7 @@ const GlobalValidationModal = () => {
                                                                     { source: 'GlobalValidationModal', entityType: 'formData', fieldName: key, section: meta.section, criticality: meta.criticality, validationContext: 'golden_dataset_validation' }
                                                                 );
                                                             }}
-                                                            options={[
-                                                                ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
-                                                                ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
-                                                            ]}
+                                                            options={STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label }))}
                                                             className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-green-400 font-medium focus:border-indigo-500 outline-none"
                                                         />
                                                     ) : (

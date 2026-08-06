@@ -300,10 +300,7 @@ const UniversalIngestionModal = () => {
                                     <ComboboxField
                                         value={localData.franchise || ''}
                                         onChange={(v) => handleChange({ target: { name: 'franchise', value: v } })}
-                                        options={[
-                                            ...STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label })),
-                                            ...(franchises || []).map((f, i) => ({ id: `dyn_${i}`, label: f }))
-                                        ]}
+                                        options={STANDARD_FRANCHISES.map(f => ({ id: f.id, label: f.label }))}
                                         className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none text-sm"
                                         placeholder="Saisir ou sélectionner..."
                                     />

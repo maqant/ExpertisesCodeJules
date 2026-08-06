@@ -6,14 +6,31 @@
  * @property {number|null} amount    Montant normalisé (null si non calculable).
  */
 
-/** @type {ReadonlyArray<FranchiseOption>} */
-export const STANDARD_FRANCHISES = Object.freeze([
+export const BUILTIN_CHRONOLOGICAL_FRANCHISES = [
+  "Avril 2026 - 333,39 €", "Mars 2026 - 333,01 €", "Février 2026 - 331,21 €", "Janvier 2026 - 329,77 €", "Décembre 2025 - 329,55 €", 
+  "Novembre 2025 - 327,71 €", "Octobre 2025 - 326,52 €", "Septembre 2025 - 327,49 €", "Août 2025 - 327,52 €", "Juillet 2025 - 325,93 €", 
+  "Juin 2025 - 324,79 €", "Mai 2025 - 325,30 €", "Avril 2025 - 328,01 €", "Mars 2025 - 328,26 €", "Février 2025 - 327,60 €", 
+  "Janvier 2025 - 323,13 €", "Décembre 2024 - 321,84 €", "Novembre 2024 - 321,30 €", "Octobre 2024 - 319,76 €", "Septembre 2024 - 321,36 €", 
+  "Août 2024 - 321,36 €", "Juillet 2024 - 319,09 €", "Juin 2024 - 318,38 €", "Mai 2024 - 317,22 €", "Avril 2024 - 318,75 €", 
+  "Mars 2024 - 317,00 €", "Février 2024 - 314,75 €", "Janvier 2024 - 313,22 €", "Décembre 2023 - 311,88 €", "Novembre 2023 - 311,34 €", 
+  "Octobre 2023 - 310,27 €", "Septembre 2023 - 312,43 €", "Août 2023 - 310,05 €", "Juillet 2023 - 307,57 €", "Juin 2023 - 308,02 €", 
+  "Mai 2023 - 306,86 €", "Avril 2023 - 308,92 €", "Mars 2023 - 307,17 €", "Février 2023 - 309,33 €", "Janvier 2023 - 309,04 €", 
+  "Décembre 2022 - 309,53 €", "Novembre 2022 - 310,23 €", "Octobre 2022 - 303,04 €", "Septembre 2022 - 300,16 €", "Août 2022 - 297,75 €", 
+  "Juillet 2022 - 295,30 €", "Juin 2022 - 292,80 €", "Mai 2022 - 290,58 €", "Avril 2022 - 289,61 €", "Mars 2022 - 288,11 €", 
+  "Février 2022 - 286,30 €", "Janvier 2022 - 280,05 €"
+];
+
+export const IMMUTABLE_CHRONOLOGICAL_FRANCHISES = Object.freeze([
+  { id: 'fr_sans',    label: 'Sans franchise',           kind: 'text',   amount: 0 },
+  { id: 'fr_legale',  label: 'Franchise légale indexée', kind: 'text',   amount: null },
+  { id: 'fr_anglaise',label: 'Franchise anglaise',       kind: 'text',   amount: null },
+  ...BUILTIN_CHRONOLOGICAL_FRANCHISES.map((item, idx) => ({ id: `abex_${idx}`, label: item, kind: 'text', amount: null })),
   { id: 'fr_250',     label: '250.00',                   kind: 'amount', amount: 250 },
   { id: 'fr_300',     label: '300.00',                   kind: 'amount', amount: 300 },
-  { id: 'fr_legale',  label: 'Franchise légale indexée', kind: 'text',   amount: null },
-  { id: 'fr_sans',    label: 'Sans franchise',           kind: 'text',   amount: 0 },
-  { id: 'fr_anglaise',label: 'Franchise anglaise',       kind: 'text',   amount: null },
 ]);
+
+/** @type {ReadonlyArray<FranchiseOption>} */
+export const STANDARD_FRANCHISES = IMMUTABLE_CHRONOLOGICAL_FRANCHISES;
 
 /**
  * Normalise une saisie libre vers un format standard pour fiabiliser
