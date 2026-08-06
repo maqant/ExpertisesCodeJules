@@ -10,6 +10,8 @@ import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilde
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
 
+const FIELD_CLS = "w-full text-xs text-slate-900 font-semibold bg-white border border-slate-300 rounded p-1.5 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none placeholder:text-slate-400";
+
 export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
     const [splitAmount, setSplitAmount] = useState('');
@@ -271,7 +273,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">IBAN</label>
                         <input 
                             type="text" 
-                            className="w-full text-xs border-slate-300 rounded p-1.5 font-mono uppercase bg-white"
+                            className={`${FIELD_CLS} font-mono uppercase`}
                             placeholder={activeContact?.iban || "BEXX XXXX XXXX XXXX"}
                             value={block.ibanOverride || ''}
                             onChange={e => dispatch({ 
@@ -346,7 +348,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         </div>
                     </div>
                     <textarea 
-                        className="w-full text-xs border-slate-300 rounded p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        className={FIELD_CLS}
                         rows="2"
                         placeholder="Texte libre à insérer dans l'e-mail..."
                         value={block.remarque || ''}
@@ -361,7 +363,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                     <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">Référence (Communication)</label>
                     <input 
                         type="text" 
-                        className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
+                        className={FIELD_CLS}
                         placeholder="Référence de communication ING..."
                         value={block.referenceCommunication !== undefined ? block.referenceCommunication : dossierName}
                         onChange={e => dispatch({ 
@@ -441,7 +443,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         <label className="block text-[10px] text-slate-500 mb-1">Montant (opt.)</label>
                         <input 
                             type="number" 
-                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white"
+                            className={FIELD_CLS}
                             placeholder="Tout"
                             value={splitAmount}
                             onChange={e => setSplitAmount(e.target.value)}

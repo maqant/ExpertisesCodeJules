@@ -98,35 +98,14 @@ export const SingleRecipientSelector = ({
                 </div>
 
                 <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-semibold text-slate-600">Nom complet *</label>
+                    <label className="text-[11px] font-semibold text-slate-600">Nom *</label>
                     <input 
                         type="text" 
-                        placeholder="ex : Jean Dupont" 
+                        placeholder="Nom (ex: Dupont, La Croisette...)" 
                         className={FIELD_CLASS}
                         value={draft.displayName}
                         onChange={e => setDraft(d => ({...d, displayName: e.target.value}))}
-                    />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-semibold text-slate-600">E-mail</label>
-                    <input 
-                        type="email" 
-                        placeholder="ex : jean.dupont@mail.fr" 
-                        className={FIELD_CLASS}
-                        value={draft.email}
-                        onChange={e => setDraft(d => ({...d, email: e.target.value}))}
-                    />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-semibold text-slate-600">IBAN (optionnel)</label>
-                    <input 
-                        type="text" 
-                        placeholder="BE76 ..." 
-                        className={`${FIELD_CLASS} uppercase font-mono tracking-wide`}
-                        value={draft.iban}
-                        onChange={e => setDraft(d => ({...d, iban: e.target.value}))}
+                        autoFocus
                     />
                 </div>
 
@@ -147,7 +126,12 @@ export const SingleRecipientSelector = ({
                     </button>
                     <button 
                         type="button"
-                        className="bg-indigo-600 text-white hover:bg-indigo-700 rounded-md text-xs font-bold px-4 py-1.5 flex items-center gap-1 shadow-sm"
+                        disabled={!draft.displayName.trim()}
+                        className={`rounded-md text-xs font-bold px-4 py-1.5 flex items-center gap-1 shadow-sm ${
+                            draft.displayName.trim() 
+                                ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
                         onClick={handleSave}
                     >
                         <Check className="w-3.5 h-3.5" /> Valider

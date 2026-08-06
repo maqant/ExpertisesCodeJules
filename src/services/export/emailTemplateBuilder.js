@@ -55,14 +55,14 @@ export const resolveCivilitySalutation = (civility, displayName = '') => {
     const cleanName = (displayName || '').trim();
     switch (civility) {
         case 'Madame':
-            return cleanName ? `Madame ${cleanName},` : `Madame,`;
+            return cleanName ? `Bonjour Madame ${cleanName},` : `Bonjour Madame,`;
         case 'ACP':
             return cleanName ? `Chers Copropriétaires de la Résidence ${cleanName},` : `Chers Copropriétaires,`;
         case 'Société':
-            return cleanName ? `Messieurs les Administrateurs de la ${cleanName},` : `Messieurs,`;
+            return cleanName ? `Messieurs les Administrateurs de la société ${cleanName},` : `Messieurs,`;
         case 'Monsieur':
         default:
-            return cleanName ? `Monsieur ${cleanName},` : `Monsieur,`;
+            return cleanName ? `Bonjour Monsieur ${cleanName},` : `Bonjour Monsieur,`;
     }
 };
 
