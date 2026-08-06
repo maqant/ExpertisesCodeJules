@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { User, AlertCircle, Plus, Edit2, Check, X } from 'lucide-react';
 import { buildAllCandidates, createLocalContact, validateContactDraft } from '../../../services/utils/contactUtils.js';
 
+const FIELD_CLASS = "w-full text-sm text-slate-900 font-semibold bg-white border border-slate-300 rounded-lg p-2 placeholder:text-slate-400 placeholder:font-normal focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none";
+
 /**
  * Sélecteur de destinataire unitaire (Paiement ou E-mail).
  */
@@ -90,44 +92,65 @@ export const SingleRecipientSelector = ({
 
     if (isEditing) {
         return (
-            <div className="flex flex-col gap-2 bg-slate-50 p-2 rounded border border-indigo-200">
-                <div className="flex items-center justify-between text-[10px] font-semibold text-indigo-700 uppercase tracking-wider mb-1">
-                    <span>{draft.sourceId ? 'Modifier pour ce paiement' : 'Nouveau contact'}</span>
+            <div className="flex flex-col gap-2.5 bg-white p-3 rounded-lg border-2 border-indigo-200 shadow-sm">
+                <div className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">
+                    {draft.sourceId ? 'Modifier pour ce paiement' : 'Nouveau contact'}
                 </div>
-                <input 
-                    type="text" 
-                    placeholder="Nom complet *" 
-                    className="w-full text-xs border-slate-300 rounded p-1.5 bg-white focus:border-indigo-500 focus:ring-indigo-500"
-                    value={draft.displayName}
-                    onChange={e => setDraft(d => ({...d, displayName: e.target.value}))}
-                />
-                <input 
-                    type="email" 
-                    placeholder="E-mail" 
-                    className="w-full text-xs border-slate-300 rounded p-1.5 bg-white focus:border-indigo-500 focus:ring-indigo-500"
-                    value={draft.email}
-                    onChange={e => setDraft(d => ({...d, email: e.target.value}))}
-                />
-                <input 
-                    type="text" 
-                    placeholder="IBAN (optionnel)" 
-                    className="w-full text-xs border-slate-300 rounded p-1.5 bg-white focus:border-indigo-500 focus:ring-indigo-500 uppercase"
-                    value={draft.iban}
-                    onChange={e => setDraft(d => ({...d, iban: e.target.value}))}
-                />
-                {error && <span className="text-[10px] text-red-500">{error}</span>}
+
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold text-slate-600">Nom complet *</label>
+                    <input 
+                        type="text" 
+                        placeholder="ex : Jean Dupont" 
+                        className={FIELD_CLASS}
+                        value={draft.displayName}
+                        onChange={e => setDraft(d => ({...d, displayName: e.target.value}))}
+                    />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold text-slate-600">E-mail</label>
+                    <input 
+                        type="email" 
+                        placeholder="ex : jean.dupont@mail.fr" 
+                        className={FIELD_CLASS}
+                        value={draft.email}
+                        onChange={e => setDraft(d => ({...d, email: e.target.value}))}
+                    />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold text-slate-600">IBAN (optionnel)</label>
+                    <input 
+                        type="text" 
+                        placeholder="BE76 ..." 
+                        className={`${FIELD_CLASS} uppercase font-mono tracking-wide`}
+                        value={draft.iban}
+                        onChange={e => setDraft(d => ({...d, iban: e.target.value}))}
+                    />
+                </div>
+
+                {error && (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        {error}
+                    </div>
+                )}
+
                 <div className="flex gap-2 justify-end mt-1">
                     <button 
-                        className="text-slate-500 hover:text-slate-700 text-xs px-2 py-1 flex items-center gap-1"
+                        type="button"
+                        className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md text-xs font-semibold px-3 py-1.5 flex items-center gap-1"
                         onClick={() => setIsEditing(false)}
                     >
-                        <X className="w-3 h-3" /> Annuler
+                        <X className="w-3.5 h-3.5" /> Annuler
                     </button>
                     <button 
-                        className="bg-indigo-600 text-white hover:bg-indigo-700 rounded text-xs px-3 py-1 flex items-center gap-1"
+                        type="button"
+                        className="bg-indigo-600 text-white hover:bg-indigo-700 rounded-md text-xs font-bold px-4 py-1.5 flex items-center gap-1 shadow-sm"
                         onClick={handleSave}
                     >
-                        <Check className="w-3 h-3" /> Valider
+                        <Check className="w-3.5 h-3.5" /> Valider
                     </button>
                 </div>
             </div>
@@ -135,32 +158,62 @@ export const SingleRecipientSelector = ({
     }
 
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
             <div className="flex gap-2 items-center">
                 <div className="relative flex-1">
                     <select
-                        className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white p-2"
+                        className="w-full text-sm text-slate-900 font-semibold bg-white border border-slate-300 rounded-lg p-2.5 shadow-sm cursor-pointer focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
                         value={recipientRef ? `${recipientRef.kind}:${recipientRef.id}` : ''}
                         onChange={handleChange}
+                        aria-label="Sélectionner un destinataire"
                     >
-                        <option value="">-- Sélectionner un destinataire --</option>
+                        <option value="" className="text-slate-500 bg-white font-normal">-- Sélectionner un destinataire --</option>
                         {candidates.map(c => (
-                            <option key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`}>
+                            <option key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`} className="text-slate-900 bg-white font-medium py-1">
                                 {c.displayName} {c.email ? `(${c.email})` : ''} - [{c.origin}]
                             </option>
                         ))}
                     </select>
                 </div>
                 <button 
+                    type="button"
                     onClick={() => startEdit(selectedContact)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                    className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg transition-colors bg-white shadow-sm shrink-0"
                     title="Créer ou modifier un contact"
                 >
                     <Plus className="w-4 h-4" />
                 </button>
             </div>
+
+            {selectedContact && (
+                <div className="flex items-start gap-2.5 bg-indigo-50/60 border border-indigo-100 rounded-lg p-2.5 shadow-xs">
+                    <User className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-900 truncate">
+                            {selectedContact.displayName}
+                        </p>
+                        {selectedContact.email && (
+                            <p className="text-xs text-slate-600 truncate font-medium">{selectedContact.email}</p>
+                        )}
+                        {selectedContact.iban && (
+                            <p className="text-xs font-mono text-slate-700 tracking-wide truncate">
+                                {selectedContact.iban}
+                            </p>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => startEdit(selectedContact)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-md shrink-0 transition-colors"
+                        title="Modifier pour ce paiement"
+                    >
+                        <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+
             {recipientRef && !selectedContact && recipientSnapshot && (
-                <span className="text-[10px] text-amber-600">
+                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
                     ⚠ Contact source introuvable — snapshot figé utilisé : {recipientSnapshot.displayName}
                 </span>
             )}
