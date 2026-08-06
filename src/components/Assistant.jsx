@@ -118,6 +118,15 @@ const Assistant = ({ onResetForm }) => {
     // Exécution de l'analyse selon le choix retenu
     const handleChoiceSelected = async (intent) => {
         setShowDestinationModal(false);
+
+        // Rétablissement de la modale BrioPrepModal lors de l'ingestion d'un dossier
+        if (intent === 'NEW' || intent === 'ADD_CURRENT' || intent === 'CLASSIFY') {
+            if (files.length > 0) {
+                startIngestion(files, aiConfig);
+            }
+            setIngestionStep(INGESTION_STEPS.BRIO);
+        }
+
         setIsAnalyzing(true);
         setAiStatus('processing');
 

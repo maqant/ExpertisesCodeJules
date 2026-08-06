@@ -133,7 +133,7 @@ const BrioPrepModal = ({ isOpen, onClose, onContinue, brioDeferred }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[25000] bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-slate-900 rounded-xl border border-indigo-500/40 shadow-2xl p-6 w-full max-w-[700px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
