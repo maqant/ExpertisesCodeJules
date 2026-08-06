@@ -149,9 +149,10 @@ function splitterReducer(state, action) {
         case 'DISTRIBUTE_PRORATA': {
             try {
                 const newAllocations = buildProrataAllocations(action.payload.expense, state.allocations, action.payload.baseExpenseIds || null);
+                const filteredAllocations = state.allocations.filter(a => a.expenseId !== action.payload.expense.id);
                 return {
                     ...state,
-                    allocations: [...state.allocations, ...newAllocations]
+                    allocations: [...filteredAllocations, ...newAllocations]
                 };
             } catch (err) {
                 throw err;

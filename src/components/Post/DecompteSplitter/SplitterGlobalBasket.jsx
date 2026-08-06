@@ -316,14 +316,14 @@ const SplitterGlobalBasket = ({ expenses, onAddDocument }) => {
                                             >
                                                 En suspens
                                             </button>
-                                            {Math.abs(reste) > 0.001 && computeProrataWeights(exp.id, allocations).length > 0 && (
+                                            {computeProrataWeights(exp.id, allocations).length > 0 && (
                                                 <button
                                                     onClick={() => setActivePopoverExpId(activePopoverExpId === exp.id ? null : exp.id)}
-                                                    className="flex items-center justify-center py-1 px-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 hover:text-indigo-700 rounded transition-colors"
+                                                    className="flex items-center justify-center py-1 px-2 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 rounded transition-colors"
                                                     title="Ventiler au prorata des autres postes"
                                                 >
-                                                    <Percent className="w-3.5 h-3.5 mr-1" />
-                                                    Prorata
+                                                    <Percent className="w-3.5 h-3.5 mr-1 text-slate-400 hover:text-indigo-600" />
+                                                    % Prorata
                                                 </button>
                                             )}
                                         </>

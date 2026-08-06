@@ -81,9 +81,9 @@ export const splitLargestRemainder = (montantCentimes, weights) => {
  * @throws {Error} avec .code ∈ PRORATA_ERRORS
  */
 export const buildProrataAllocations = (expense, allocations, baseExpenseIds = null) => {
-    const resteCentimes = Math.round(getResteAVentiler(expense, allocations) * 100);
-    if (resteCentimes === 0) {
-        throw Object.assign(new Error('Rien à ventiler sur ce poste'), { code: PRORATA_ERRORS.NOTHING_TO_DISTRIBUTE });
+    const totalCentimes = Math.round(cleanAmount(expense.montantValide || expense.montantReclame || 0) * 100);
+    if (totalCentimes === 0) {
+        throw Object.assign(new Error('Le montant du poste est nul'), { code: PRORATA_ERRORS.NOTHING_TO_DISTRIBUTE });
     }
 
     const weights = computeProrataWeights(expense.id, allocations, baseExpenseIds);
@@ -94,7 +94,7 @@ export const buildProrataAllocations = (expense, allocations, baseExpenseIds = n
         );
     }
 
-    const parts = splitLargestRemainder(resteCentimes, weights);
+    const parts = splitLargestRemainder(totalCentimes, weights);
 
     return parts
         .filter(p => p.montantCentimes !== 0) // pas d'allocation fantôme à 0€
