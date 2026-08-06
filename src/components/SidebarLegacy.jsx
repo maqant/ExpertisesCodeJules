@@ -2232,6 +2232,7 @@ const SidebarLegacy = () => {
                 }
                 setBrioOverrides(brioOverridesToSet);
                 brioOverridesRef.current = brioOverridesToSet;
+                useIngestionFlowStore.getState().setBrioOverrides(brioOverridesToSet);
                 
                 // If analysis finished early, pendingAiData is already set, so we merge overrides directly
                 setPendingAiData(prev => {

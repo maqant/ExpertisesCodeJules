@@ -98,14 +98,22 @@ const Assistant = ({ onResetForm }) => {
     // Injecter les données analysées par l'IA dans l'état courant
     const injectAnalysisResult = (resultData, extractedFiles = []) => {
         if (!resultData) return;
+        const formData = resultData.formData || resultData;
         const occupants = (resultData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
         const expenses = (resultData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));
+        const experts = resultData.experts || [];
+        const intervenants = resultData.intervenants || [];
         
+        const activeBrioOverrides = useIngestionFlowStore.getState().brioOverrides || {};
+
         setPendingAiData({
-            ...resultData,
+            formData: { ...(typeof formData === 'object' ? formData : {}), ...activeBrioOverrides },
             occupants,
             expenses,
-            files: extractedFiles
+            experts,
+            intervenants,
+            pendingFiles: extractedFiles,
+            _rawInputText: resultData._rawInputText || null
         });
     };
 
