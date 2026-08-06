@@ -21,11 +21,11 @@ const initialState = {
 };
 
 const INGESTION_TRANSITIONS = {
-    idle: ['parsing', 'ready'],
-    parsing: ['ready', 'error', 'idle'],
-    parsing_append: ['ready', 'error'],
+    idle: ['parsing', 'ready', 'parsing_append'],
+    parsing: ['ready', 'error', 'idle', 'parsing_append'],
+    parsing_append: ['ready', 'error', 'parsing_append'],
     ready: ['parsing', 'parsing_append', 'idle'],
-    error: ['parsing', 'idle'],
+    error: ['parsing', 'idle', 'parsing_append'],
 };
 
 function canTransition(from, to) {
@@ -51,6 +51,8 @@ function splitterReducer(state, action) {
             if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
             const { expenses, meta, autoBlock } = action.payload;
+            const shouldAddBlock = autoBlock && state.blocks.length === 0;
+
             return {
                 ...state,
                 ingestionStatus: 'ready',
@@ -59,15 +61,17 @@ function splitterReducer(state, action) {
                 detectedMeta: meta || null,
                 ingestionError: null,
                 appendError: null,
-                localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
-                blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
-                allocations: autoBlock && autoBlock.allocations ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
+                localContacts: (shouldAddBlock && autoBlock.contact) ? [...state.localContacts, autoBlock.contact] : state.localContacts,
+                blocks: (shouldAddBlock && autoBlock.block) ? [...state.blocks, autoBlock.block] : state.blocks,
+                allocations: (shouldAddBlock && autoBlock.allocations) ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
             };
         }
 
         case 'INGESTION_APPEND_SUCCESS': {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
             const { expenses, meta, autoBlock } = action.payload;
+            const shouldAddBlock = autoBlock && state.blocks.length === 0;
+
             return {
                 ...state,
                 ingestionStatus: 'ready',
@@ -76,9 +80,9 @@ function splitterReducer(state, action) {
                 detectedMeta: meta || state.detectedMeta,
                 ingestionError: null,
                 appendError: null,
-                localContacts: autoBlock ? [...state.localContacts, autoBlock.contact] : state.localContacts,
-                blocks: autoBlock ? [...state.blocks, autoBlock.block] : state.blocks,
-                allocations: autoBlock && autoBlock.allocations ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
+                localContacts: (shouldAddBlock && autoBlock.contact) ? [...state.localContacts, autoBlock.contact] : state.localContacts,
+                blocks: (shouldAddBlock && autoBlock.block) ? [...state.blocks, autoBlock.block] : state.blocks,
+                allocations: (shouldAddBlock && autoBlock.allocations) ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
             };
         }
             
