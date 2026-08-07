@@ -1,6 +1,7 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
-import { buildSalutation, buildAllCandidates } from '../utils/contactUtils.js';
+import { parseFullName, buildSalutation, buildAllCandidates } from '../utils/contactUtils.js';
+import { formatPersonName } from '../utils/formatUtils.js';
 import { formatBeneficiaryInline } from '../utils/beneficiaryTitle.js';
 
 /**
@@ -43,27 +44,24 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
     return null;
 };
 
-/**
- * Génère le corps du mail pour un destinataire spécifique.
- * 
- * @param {object} block - Le bloc destinataire
- * @param {Array} allocations - Les allocations du brouillon
- * @param {Array} expenses - Les postes financiers (source de vérité)
- * @param {object} [piiData] - Données PII (occupants, intervenants, localContacts)
- * @returns {string} Le texte du mail prêt à être copié
- */
-export const resolveCivilitySalutation = (civility, displayName = '') => {
-    const cleanName = (displayName || '').trim();
+// DÉTERMINISTE — l'identité ne passe JAMAIS par l'IA.
+export const resolveCivilitySalutation = (civility, mailName = '') => {
+    const { lastName, full } = parseFullName(mailName);
+
     switch (civility) {
         case 'Madame':
-            return cleanName ? `Bonjour Madame ${cleanName},` : `Bonjour Madame,`;
+            return lastName ? `Bonjour Madame ${formatPersonName(lastName)},` : 'Bonjour Madame,';
         case 'ACP':
-            return cleanName ? `Chers Copropriétaires de la Résidence ${cleanName},` : `Chers Copropriétaires,`;
+            return full
+                ? `Chers Copropriétaires de la Résidence ${formatPersonName(full)},`
+                : 'Chers Copropriétaires,';
         case 'Société':
-            return cleanName ? `Messieurs les Administrateurs de la société ${cleanName},` : `Messieurs,`;
+            return full
+                ? `Messieurs les Administrateurs de la société ${full},`
+                : 'Messieurs,';
         case 'Monsieur':
         default:
-            return cleanName ? `Bonjour Monsieur ${cleanName},` : `Bonjour Monsieur,`;
+            return lastName ? `Bonjour Monsieur ${formatPersonName(lastName)},` : 'Bonjour Monsieur,';
     }
 };
 

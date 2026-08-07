@@ -1,24 +1,32 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
-import { cleanAmount } from '../../../store/financeStore.js';
+import { cleanAmount, useFinanceStore } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
 import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
-import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail, Loader2 } from 'lucide-react';
+import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail, Loader2, Info, ListPlus } from 'lucide-react';
 import { resolveExpenseView, getDisplayLabel } from '../../../domain/decompteSplitter/labelResolver.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
-import { buildAllCandidates, buildIbanCandidates, formatIbanDisplay } from '../../../services/utils/contactUtils.js';
+import { buildAllCandidates, buildIbanCandidates, formatIbanDisplay, buildReferenceCandidates } from '../../../services/utils/contactUtils.js';
 import { refineText } from '../../../services/aiManager.js';
 
 const FIELD_CLS = "w-full text-xs text-slate-900 font-semibold bg-white border border-slate-300 rounded p-1.5 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none placeholder:text-slate-400";
 
 export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenants, dossierName }) => {
     const { state, dispatch } = useDecompteSplitter();
+    const formData = useFinanceStore(s => s.metier?.formData || {});
+
     const [splitAmount, setSplitAmount] = useState('');
     const [expenseToAdd, setExpenseToAdd] = useState('');
     const [isRefiningRemarque, setIsRefiningRemarque] = useState(false);
     const [refineError, setRefineError] = useState(null);
+    const [copyFeedback, setCopyFeedback] = useState(null); // 'mail' | 'ing' | null
+
+    const flashFeedback = (kind) => {
+        setCopyFeedback(kind);
+        setTimeout(() => setCopyFeedback(null), 2500);
+    };
 
     // Résolution du contact actif AVANT toute mémoïsation qui en dépend (fix TDZ)
     const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
@@ -53,6 +61,17 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         return list;
     }, [occupants, intervenants, state.documentCandidates, state.documentIbans, state.localContacts, activeContact]);
 
+    const referenceCandidates = useMemo(
+        () => buildReferenceCandidates({
+            refPechard: formData.refPechard,
+            numSinistreCie: formData.numSinistreCie,
+            refCompagnie: formData.refCompagnie,
+            numPolice: formData.numPolice,
+            dossierName
+        }),
+        [formData.refPechard, formData.numSinistreCie, formData.refCompagnie, formData.numPolice, dossierName]
+    );
+
     const activeExpenseIds = useMemo(() => new Set((expenses || []).map(e => e.id)), [expenses]);
 
     useEffect(() => {
@@ -68,6 +87,18 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         [state.allocations, block.id, activeExpenseIds]
     );
     const totalBlockEuro = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
+    const hasAllocations = blockAllocations.length > 0;
+
+    const availableExpenses = useMemo(() => {
+        return (expenses || []).filter(exp => {
+            const isSuspended = state.allocations.some(
+                a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED
+            );
+            if (isSuspended) return false;
+            const reste = getResteAVentiler(exp, state.allocations);
+            return !isResteEpuise(reste);
+        });
+    }, [expenses, state.allocations]);
 
     const handleRefineRemarque = async () => {
         if (!block.remarque?.trim() || isRefiningRemarque) return;
@@ -123,21 +154,42 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         setSplitAmount('');
     };
 
+    const handleAddAllAvailable = () => {
+        availableExpenses.forEach(exp => {
+            const reste = getResteAVentiler(exp, state.allocations);
+            if (isResteEpuise(reste)) return;
+            const signedStr = reste.toLocaleString('fr-FR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            dispatch({
+                type: 'ADD_ALLOCATION',
+                payload: {
+                    blockId: block.id,
+                    expenseId: exp.id,
+                    montant: signedStr,
+                    status: ALLOCATION_STATUS.ASSIGNED
+                }
+            });
+        });
+        setExpenseToAdd('');
+        setSplitAmount('');
+    };
+
     const handleCopyMail = () => {
+        if (!hasAllocations) return;
         const text = buildEmailTemplate(block, state.allocations, expenses, {
             occupants,
             prestataires: intervenants,
             localContacts: state.localContacts
         });
-        if (!text) {
-            alert("Aucun poste alloué à ce bloc.");
-            return;
-        }
+        if (!text) return;
         navigator.clipboard.writeText(text);
-        alert("E-mail copié dans le presse-papier !");
+        flashFeedback('mail');
     };
 
     const handleCopyINGBlock = () => {
+        if (!hasAllocations) return;
         const allCandidates = buildAllCandidates({
             occupants: occupants || [],
             intervenants: intervenants || [],
@@ -146,7 +198,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         });
         const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, allCandidates);
         navigator.clipboard.writeText(tsvContent);
-        alert("Paiement copié pour macro ING !");
+        flashFeedback('ing');
     };
 
     const isMailRecipientLinked = block.mailRecipientLinked !== false;
@@ -460,6 +512,28 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             payload: { blockId: block.id, updates: { referenceCommunication: e.target.value } } 
                         })}
                     />
+                    {referenceCandidates.length > 0 && (
+                        <select
+                            className="mt-1 w-full text-[11px] text-slate-700 bg-white border border-slate-200 rounded p-1 shadow-xs cursor-pointer"
+                            value=""
+                            autoComplete="off"
+                            onChange={(e) => {
+                                if (e.target.value) {
+                                    dispatch({
+                                        type: 'UPDATE_BLOCK',
+                                        payload: { blockId: block.id, updates: { referenceCommunication: e.target.value } }
+                                    });
+                                }
+                            }}
+                        >
+                            <option value="">-- Insérer une référence du dossier ({referenceCandidates.length}) --</option>
+                            {referenceCandidates.map((item, idx) => (
+                                <option key={idx} value={item.value}>
+                                    {item.value} [{item.provenance}]
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
             </div>
 
@@ -467,7 +541,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
             <div className="border-t border-slate-200 pt-3">
                 <h4 className="text-xs font-semibold text-slate-700 mb-2">Postes alloués ({blockAllocations.length})</h4>
                 
-                {blockAllocations.length > 0 ? (
+                {hasAllocations ? (
                     <ul className="space-y-1 mb-3">
                         {blockAllocations.map(alloc => {
                             const exp = expenses.find(e => e.id === alloc.expenseId);
@@ -500,54 +574,72 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                         })}
                     </ul>
                 ) : (
-                    <p className="text-xs text-slate-400 italic mb-3">Aucun poste assigné à ce destinataire.</p>
+                    <div className="flex items-start gap-2 bg-indigo-50 border border-indigo-200 rounded-md p-2.5 mb-3">
+                        <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-indigo-800 font-medium">
+                            Ajoutez au moins un poste à ce paiement pour pouvoir générer le mail et l'export bancaire.
+                        </p>
+                    </div>
                 )}
 
-                <div className="flex gap-2 items-end bg-slate-50 p-2 rounded border border-slate-200">
-                    <div className="flex-1">
-                        <label className="block text-[10px] text-slate-500 mb-1">Poste à ajouter</label>
-                        <select 
-                            className="w-full text-xs border-slate-300 rounded p-1.5 bg-white text-slate-900 font-medium"
-                            value={expenseToAdd}
-                            onChange={e => setExpenseToAdd(e.target.value)}
+                <div className={`flex flex-col gap-2 p-2 rounded border transition-colors ${
+                    !hasAllocations
+                        ? 'bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/20'
+                        : 'bg-slate-50 border-slate-200'
+                }`}>
+                    <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-semibold text-slate-600 mb-1">Poste à ajouter</label>
+                            <select 
+                                className="w-full text-xs border-slate-300 rounded p-1.5 bg-white text-slate-900 font-medium"
+                                value={expenseToAdd}
+                                onChange={e => setExpenseToAdd(e.target.value)}
+                            >
+                                <option value="" className="text-slate-500 bg-white">-- Choisir un poste --</option>
+                                {availableExpenses.map(exp => {
+                                    const reste = getResteAVentiler(exp, state.allocations);
+                                    const resolved = resolveExpenseView(exp);
+                                    return (
+                                        <option key={exp.id} value={exp.id} className="text-slate-900 bg-white py-1 font-semibold">
+                                            {getDisplayLabel(resolved, exp)} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                        <div className="w-24">
+                            <label className="block text-[10px] font-semibold text-slate-600 mb-1">Montant (opt.)</label>
+                            <input 
+                                type="number" 
+                                className={FIELD_CLS}
+                                placeholder="Tout"
+                                value={splitAmount}
+                                onChange={e => setSplitAmount(e.target.value)}
+                                min="0"
+                                step="0.01"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleAddAllocation}
+                            disabled={!expenseToAdd}
+                            className={`p-1.5 rounded transition-colors ${expenseToAdd ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                            title="Ajouter au paiement"
                         >
-                            <option value="" className="text-slate-500 bg-white">-- Choisir un poste --</option>
-                            {expenses.map(exp => {
-                                const isSuspended = state.allocations.some(a => a.expenseId === exp.id && a.status === ALLOCATION_STATUS.SUSPENDED);
-                                if (isSuspended) return null;
-
-                                const reste = getResteAVentiler(exp, state.allocations);
-                                if (isResteEpuise(reste)) return null;
-
-                                const resolved = resolveExpenseView(exp);
-                                return (
-                                    <option key={exp.id} value={exp.id} className="text-slate-900 bg-white py-1 font-semibold">
-                                        {getDisplayLabel(resolved, exp)} (Dispo: {reste.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €)
-                                    </option>
-                                );
-                            })}
-                        </select>
+                            <Plus className="w-4 h-4" />
+                        </button>
                     </div>
-                    <div className="w-24">
-                        <label className="block text-[10px] text-slate-500 mb-1">Montant (opt.)</label>
-                        <input 
-                            type="number" 
-                            className={FIELD_CLS}
-                            placeholder="Tout"
-                            value={splitAmount}
-                            onChange={e => setSplitAmount(e.target.value)}
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
-                    <button 
-                        onClick={handleAddAllocation}
-                        disabled={!expenseToAdd}
-                        className={`p-1.5 rounded transition-colors ${expenseToAdd ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                        title="Ajouter au paiement"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </button>
+
+                    {availableExpenses.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleAddAllAvailable}
+                            className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-100/70 hover:bg-indigo-200/80 border border-indigo-300 rounded py-1.5 transition-colors shadow-xs"
+                            title="Affecte à ce paiement tous les postes du panier non encore alloués, pour leur montant restant exact"
+                        >
+                            <ListPlus className="w-3.5 h-3.5" />
+                            Ajouter tous les postes disponibles ({availableExpenses.length})
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -559,19 +651,29 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={handleCopyINGBlock}
-                        className="flex items-center gap-1 text-[11px] font-semibold bg-[#ff6200] hover:bg-[#e65800] text-white px-2.5 py-1.5 rounded shadow-sm transition-colors"
-                        title="Copier le format ING pour ce paiement"
+                        disabled={!hasAllocations}
+                        className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded shadow-sm transition-colors ${
+                            hasAllocations
+                                ? 'bg-[#ff6200] hover:bg-[#e65800] text-white'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                        title={hasAllocations ? "Copier le format ING pour ce paiement" : "Allouez au moins 1 poste pour activer la copie ING"}
                     >
                         <Copy className="w-3.5 h-3.5" />
-                        Copier (ING)
+                        {copyFeedback === 'ing' ? 'Copié ✓' : 'Copier (ING)'}
                     </button>
                     <button 
                         onClick={handleCopyMail}
-                        className="flex items-center gap-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1.5 rounded shadow-sm transition-colors"
-                        title="Copier l'e-mail personnalisé avec la salutation exacte pour ce destinataire"
+                        disabled={!hasAllocations}
+                        className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded shadow-sm transition-colors ${
+                            hasAllocations
+                                ? 'bg-slate-800 hover:bg-slate-700 text-white'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                        title={hasAllocations ? "Copier l'e-mail personnalisé pour ce destinataire" : "Allouez au moins 1 poste pour activer la copie du mail"}
                     >
                         <Mail className="w-3.5 h-3.5" />
-                        Copier le mail
+                        {copyFeedback === 'mail' ? 'Copié ✓' : 'Copier le mail'}
                     </button>
                 </div>
             </div>

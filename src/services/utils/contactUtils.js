@@ -27,29 +27,61 @@ const resolveCivility = (party) => {
   return ''; // neutre maîtrisé, jamais d'invention
 };
 
+const NAME_PARTICLES = new Set(['van', 'de', 'du', 'der', 'den', 'des', 'le', 'la', 'von', "d'", 'ten', 'ter', 'el', 'al', 'da', 'di']);
+
 /**
  * Découpe une chaîne brute ("Dominique Jordan", "Jean-Pierre De La Tour")
- * en { firstName, lastName }. Heuristique déterministe SANS deviner le genre.
- * Règle: dernier token = nom de famille (les particules nl/de/van sont rattachées au nom de famille).
+ * en { firstName, lastName, full }. Heuristique déterministe SANS deviner le genre.
  */
 export const parseFullName = (rawName) => {
-  if (typeof rawName !== 'string') return { firstName: '', lastName: '' };
-  const tokens = rawName.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return { firstName: '', lastName: '' };
-  if (tokens.length === 1) return { firstName: '', lastName: tokens[0] };
+  const cleaned = (rawName || '').toString().trim().replace(/\s+/g, ' ');
+  if (!cleaned) return { firstName: null, lastName: null, full: '' };
 
-  const PARTICLES = new Set(['de', 'du', 'des', 'van', 'von', 'le', 'la', 'el', "d'", 'da', 'di']);
-  let i = tokens.length - 1;
-  const lastParts = [tokens[i]];
-  i -= 1;
-  while (i >= 0 && PARTICLES.has(tokens[i].toLowerCase().replace(/'$/, "'"))) {
-    lastParts.unshift(tokens[i]);
-    i -= 1;
+  const tokens = cleaned.split(' ');
+  if (tokens.length === 1) {
+    return { firstName: null, lastName: tokens[0], full: cleaned };
   }
-  const lastName = lastParts.join(' ');
-  const firstName = tokens.slice(0, i + 1).join(' ');
-  return { firstName, lastName };
+
+  let lastNameStart = tokens.length - 1;
+  for (let i = 1; i < tokens.length; i++) {
+    const cleanToken = tokens[i].toLowerCase().replace(/'$/, "'");
+    if (NAME_PARTICLES.has(cleanToken)) {
+      lastNameStart = i;
+      break;
+    }
+  }
+
+  const firstName = tokens.slice(0, lastNameStart).join(' ') || null;
+  const lastName = tokens.slice(lastNameStart).join(' ');
+
+  return { firstName, lastName, full: cleaned };
 };
+
+export function buildReferenceCandidates({ refPechard, refCompagnie, numSinistreCie, numPolice, dossierName } = {}) {
+  const cleanRef = (raw) => {
+    const t = (raw || '').toString().trim().replace(/\s+/g, ' ');
+    if (!t) return '';
+    if (/^[\d\s./-]+$/.test(t) && /\d/.test(t)) return t.replace(/[\s./-]/g, '');
+    return t;
+  };
+
+  const seen = new Set();
+  const candidates = [];
+  const push = (raw, provenance) => {
+    const value = cleanRef(raw);
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    candidates.push({ value, provenance });
+  };
+
+  if (refPechard) push(refPechard, 'Référence Péchard');
+  if (numSinistreCie) push(numSinistreCie, 'Référence AXA / Cie');
+  else if (refCompagnie) push(refCompagnie, 'Référence AXA / Cie');
+  else if (numPolice) push(numPolice, 'Police AXA / Cie');
+  if (dossierName) push(dossierName, 'Nom du dossier');
+
+  return candidates;
+}
 
 /**
  * Construit une partie normalisée à partir d'un objet occupant OU intervenant.
