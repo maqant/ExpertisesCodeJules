@@ -84,6 +84,23 @@ export const parseLocalisation = (raw) => {
 };
 
 /**
+ * Identifiant logique d'unité immobilière (Logement/Lot).
+ * Deux occupants (ex: copropriétaires/conjoints) partageant le même
+ * étage + lot + appartement obtiennent le MÊME housingUnitId.
+ * Retourne null si aucune information de localisation exploitable.
+ */
+export const resolveHousingUnitId = (occ) => {
+  const norm = (v) => (v ?? '').toString().trim().toLowerCase();
+  const etage = norm(normalizeEtage(occ?.etage) ?? occ?.etage);
+  const lot = norm(occ?.lot);
+  const appartement = norm(occ?.appartement);
+
+  if (!etage && !lot && !appartement) return null;
+
+  return `hu_${etage || '_'}|${lot || '_'}|${appartement || '_'}`;
+};
+
+/**
  * Clé de logement pour regrouper les copropriétaires d'une même unité.
  * null si aucune information de localisation (=> pas de regroupement hasardeux).
  */

@@ -101,3 +101,19 @@ export const getEligibleParents = (occupants = [], selfId) =>
       typeof p.statut === 'string' &&
       (p.statut.includes('Propriétaire') || p.statut === 'ACP')
   );
+
+/**
+ * Regroupe les occupants par unité immobilière (housingUnitId).
+ * Les occupants sans housingUnitId sont retournés dans `unassigned`.
+ * Purement additif — n'altère ni les occupants ni les liens parent/enfant.
+ */
+export const groupByHousingUnit = (occupants = []) => {
+  const units = new Map();
+  const unassigned = [];
+  for (const occ of occupants) {
+    if (!occ?.housingUnitId) { unassigned.push(occ); continue; }
+    if (!units.has(occ.housingUnitId)) units.set(occ.housingUnitId, []);
+    units.get(occ.housingUnitId).push(occ);
+  }
+  return { units, unassigned };
+};

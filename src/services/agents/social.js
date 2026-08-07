@@ -18,7 +18,7 @@ import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 import { executeAiCall } from '../../ai/apiClient.js';
-import { normalizeEtage, parseLocalisation } from '../../domain/logement.js';
+import { normalizeEtage, parseLocalisation, resolveHousingUnitId } from '../../domain/logement.js';
 
 // ---------------------------------------------------------------------------
 // Helpers purs (exportés pour testabilité)
@@ -62,8 +62,16 @@ export const deduplicatePersons = (items) => {
     if (!key) { result.push(item); continue; }
 
     if (byKey.has(key)) {
-      // Identité strictement identique => fusion des champs vides
       const existing = byKey.get(key);
+      const hasDiscriminant = normStr(item?.prenom) !== '' || normStr(item?.civilite) !== '';
+
+      if (!hasDiscriminant) {
+        addFlag(item, 'AMBIGUITE_HOMONYME');
+        addFlag(existing, 'AMBIGUITE_HOMONYME');
+        result.push(item);
+        continue;
+      }
+
       Object.keys(item).forEach((k) => {
         if (k === 'id' || k === 'flags') return;
         const isEmpty = (v) => v === undefined || v === null || v === '' || v === false;
@@ -113,7 +121,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
             data: {
                 experts: [{ nom: "EXPERT MOCK", prenom: "", tel: "0499 99 99 99" }],
                 occupants: [{
-                    id: crypto.randomUUID(), nom: "DUPONT", prenom: "Jean", etage: "1er", etageRaw: "1er étage", lot: "5", appartement: "2", statut: "Locataire", tel: "0499 88 88 88", email: "jean@mock.com",
+                    id: crypto.randomUUID(), nom: "DUPONT", prenom: "Jean", etage: "1er", etageRaw: "1er étage", lot: "5", appartement: "2", housingUnitId: "hu_1er|5|2", statut: "Locataire", tel: "0499 88 88 88", email: "jean@mock.com",
                     rc: false, rcPolice: "", secAssurance: false, secCie: "", secPolice: "", secType: "", contreExpert: false, flags: []
                 }],
                 intervenants: [{
@@ -149,12 +157,17 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
             const parsedData = JSON.parse(data.choices[0].message.content);
 
             const buildOccupantId = (occ) => {
-                const seed = [occ.nom, occ.prenom, occ.etage, occ.lot, occ.appartement, occ.statut]
-                  .map((v) => (v ?? '').toString().trim().toLowerCase())
+                const norm = (v) => (v ?? '').toString().trim().toLowerCase();
+                const seed = [occ.nom, occ.prenom, occ.civilite, occ.etage, occ.lot, occ.appartement, occ.statut]
+                  .map(norm)
                   .join('|');
-              
+
                 if (seed.replace(/\|/g, '') === '') return crypto.randomUUID();
-              
+
+                if (!norm(occ.prenom) && !norm(occ.civilite)) {
+                  return `occ_${crypto.randomUUID()}`;
+                }
+
                 let h = 5381;
                 for (let i = 0; i < seed.length; i++) h = (h * 33) ^ seed.charCodeAt(i);
                 return `occ_${(h >>> 0).toString(16)}`;
@@ -162,7 +175,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
             const normalizeOccupant = (raw) => {
                 if (!raw || typeof raw !== 'object') return null;
-              
+
                 const link = raw.proprietaireLie && typeof raw.proprietaireLie === 'object'
                   ? {
                       nom: raw.proprietaireLie.nom ?? null,
@@ -170,14 +183,16 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
                       source: raw.proprietaireLie.source ?? null,
                     }
                   : { nom: null, prenom: null, source: null };
-              
+
                 const rawEtage = raw.etage ?? null;
                 const parsedLoc = parseLocalisation(rawEtage || raw.localisation || '');
 
                 const canonEtage = normalizeEtage(rawEtage) || parsedLoc.etage || rawEtage || null;
                 const lot = raw.lot ?? parsedLoc.lot ?? null;
                 const appartement = raw.appartement ?? parsedLoc.appartement ?? null;
-              
+
+                const flags = Array.isArray(raw.flags) ? [...raw.flags] : [];
+
                 const occ = {
                   ...raw,
                   etage: canonEtage,
@@ -186,9 +201,23 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
                   appartement,
                   proprietaireLie: link,
                   linkedProprietaireId: raw.linkedProprietaireId ?? null,
-                  flags: Array.isArray(raw.flags) ? [...raw.flags] : []
+                  flags
                 };
-              
+
+                occ.housingUnitId = resolveHousingUnitId(occ);
+
+                const hasRawEtage = (rawEtage ?? '').toString().trim() !== '';
+                if (hasRawEtage && !normalizeEtage(rawEtage)) {
+                  if (!occ.flags.includes('ETAGE_AMBIGU')) occ.flags.push('ETAGE_AMBIGU');
+                }
+
+                const conflict = (a, b) => a != null && b != null
+                  && a.toString().trim().toLowerCase() !== b.toString().trim().toLowerCase();
+
+                if (conflict(raw.lot, parsedLoc.lot) || conflict(raw.appartement, parsedLoc.appartement)) {
+                  if (!occ.flags.includes('AMBIGUITE_LOGEMENT')) occ.flags.push('AMBIGUITE_LOGEMENT');
+                }
+
                 occ.id = occ.id ?? buildOccupantId(occ);
                 return occ;
             };
