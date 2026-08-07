@@ -74,7 +74,7 @@ const SplitterGlobalBasket = ({ expenses, onAddDocument }) => {
                     <input 
                         ref={fileInputRef}
                         type="file"
-                        accept=".pdf,image/*"
+                        accept=".pdf,image/*,.edi,.txt,.docx,.msg,.xlsx"
                         className="hidden"
                         onChange={(e) => {
                             if (e.target.files && e.target.files.length > 0) {

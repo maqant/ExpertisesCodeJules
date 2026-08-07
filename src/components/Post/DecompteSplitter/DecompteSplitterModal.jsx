@@ -158,13 +158,13 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
                             <UploadCloud className="w-10 h-10" />
                         </div>
                         <h2 className="text-2xl font-bold text-slate-800 mb-3">Importer un document financier</h2>
-                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez une lettre de décompte ou de paiement (PDF/image). L'IA détectera automatiquement le type de document.</p>
+                        <p className="text-slate-500 mb-8 leading-relaxed">Glissez un document financier (PDF, EDI, TXT, DOCX, Image...). L'IA détectera et extraira automatiquement les postes.</p>
                         
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <DropZone 
                                 onFiles={(files) => handleDrop(files, { isAppend: false })} 
-                                accept=".pdf,image/*" 
-                                label="Glissez la lettre de décompte de la compagnie (PDF) ici pour extraire les postes à ventiler." 
+                                accept=".pdf,image/*,.edi,.txt,.docx,.msg,.xlsx" 
+                                label="Glissez votre décompte ou fichier EDI ici pour extraire les postes à ventiler." 
                             />
                             
                             <div className="mt-4 flex items-center justify-center">

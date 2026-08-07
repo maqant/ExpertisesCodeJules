@@ -4,6 +4,7 @@ import { executeAiCall } from '../ai/apiClient.js';
 import { isPdfDeep } from './utils/fileUtils.js';
 import { pdfToBase64Images, fileToBase64 } from './utils/pdfUtils.js';
 import { checkFinancialIntegrity } from './financialIntegrityChecker.js';
+import { processIngestedFile } from './utils/filePreprocessor.js';
 
 const EXTRACTION_PROMPT = `Tu es un expert comptable en assurance. Tu vas recevoir un document financier (décompte, lettre de versement, décompte de sinistre, etc.).
 
@@ -36,7 +37,8 @@ Règles pour le BÉNÉFICIAIRE :
 
 IMPORTANT : Ne retourne RIEN d'autre que le JSON. Pas d'explication, pas de commentaire.`;
 
-async function prepareFileContent(file) {
+async function prepareFileContent(rawFile) {
+    const file = await processIngestedFile(rawFile);
     const contentArray = [{ type: "text", text: "Voici le document financier à analyser." }];
 
     if (await isPdfDeep(file)) {
@@ -47,14 +49,14 @@ async function prepareFileContent(file) {
                 image_url: { url: img }
             });
         }
-    } else if (file.type.startsWith('image/')) {
+    } else if (file.type && file.type.startsWith('image/')) {
         const base64Image = await fileToBase64(file);
         contentArray.push({
             type: "image_url",
             image_url: { url: base64Image }
         });
     } else {
-        throw new Error("Format de fichier non supporté. Veuillez glisser un PDF ou une image.");
+        throw new Error("Format de fichier non supporté. Veuillez utiliser un PDF, une image, un fichier EDI, TXT, DOCX ou MSG.");
     }
 
     return contentArray;
