@@ -20,6 +20,9 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
     const [isRefiningRemarque, setIsRefiningRemarque] = useState(false);
     const [refineError, setRefineError] = useState(null);
 
+    // Résolution du contact actif AVANT toute mémoïsation qui en dépend (fix TDZ)
+    const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
+
     const ibanCandidates = useMemo(() => {
         const list = buildIbanCandidates({
             occupants: occupants || [],
@@ -50,6 +53,22 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         return list;
     }, [occupants, intervenants, state.documentCandidates, state.documentIbans, state.localContacts, activeContact]);
 
+    const activeExpenseIds = useMemo(() => new Set((expenses || []).map(e => e.id)), [expenses]);
+
+    useEffect(() => {
+        const activeIds = (expenses || []).map(e => e.id);
+        const hasOrphans = state.allocations.some(a => !activeIds.includes(a.expenseId));
+        if (hasOrphans) {
+            dispatch({ type: 'PURGE_ORPHAN_ALLOCATIONS', payload: { activeExpenseIds: activeIds } });
+        }
+    }, [expenses, state.allocations, dispatch]);
+
+    const blockAllocations = useMemo(
+        () => state.allocations.filter(a => a.blockId === block.id && activeExpenseIds.has(a.expenseId)),
+        [state.allocations, block.id, activeExpenseIds]
+    );
+    const totalBlockEuro = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
+
     const handleRefineRemarque = async () => {
         if (!block.remarque?.trim() || isRefiningRemarque) return;
         setIsRefiningRemarque(true);
@@ -71,24 +90,6 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
             setIsRefiningRemarque(false);
         }
     };
-
-    const activeExpenseIds = useMemo(() => new Set((expenses || []).map(e => e.id)), [expenses]);
-
-    useEffect(() => {
-        const activeIds = (expenses || []).map(e => e.id);
-        const hasOrphans = state.allocations.some(a => !activeIds.includes(a.expenseId));
-        if (hasOrphans) {
-            dispatch({ type: 'PURGE_ORPHAN_ALLOCATIONS', payload: { activeExpenseIds: activeIds } });
-        }
-    }, [expenses, state.allocations, dispatch]);
-
-    const blockAllocations = useMemo(
-        () => state.allocations.filter(a => a.blockId === block.id && activeExpenseIds.has(a.expenseId)),
-        [state.allocations, block.id, activeExpenseIds]
-    );
-    const totalBlockEuro = blockAllocations.reduce((sum, a) => sum + cleanAmount(a.montant), 0);
-
-    const activeContact = resolveBlockRecipientContact(block, state.localContacts, { occupants, intervenants });
 
     const handleAddAllocation = () => {
         if (!expenseToAdd) return;
