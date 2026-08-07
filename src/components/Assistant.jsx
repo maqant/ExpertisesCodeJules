@@ -3,7 +3,6 @@ import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
 import { findMatchingDossier } from '../services/utils/bridgeMatcher.js';
 import { useSidebarUI } from '../context/SidebarUIContext';
-import { generateDocument } from '../services/generators/generatorEngine.js';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import SmartBridgeModal from './SmartBridgeModal';
@@ -38,7 +37,7 @@ const Assistant = ({ onResetForm }) => {
         addDebugLog, commitLogSession
     } = context;
 
-    const { setIsQuickDecompteOpen, openDecompteSplitterWithFiles } = useSidebarUI();
+    const { openDecompteSplitterWithFiles } = useSidebarUI();
     const { startIngestion, setStep: setIngestionStep } = useIngestionFlowStore();
 
     const [files, setFiles] = useState([]);
@@ -50,7 +49,6 @@ const Assistant = ({ onResetForm }) => {
     // Contrôle des modales d'intention & sélection
     const [showDestinationModal, setShowDestinationModal] = useState(false);
     const [smartBridgeState, setSmartBridgeState] = useState({ isOpen: false, matchedDossier: null });
-    const [pendingAnalysisResult, setPendingAnalysisResult] = useState(null);
 
     // Résultat GeneratedDoc (mail de décompte)
     const [generatedDecompteText, setGeneratedDecompteText] = useState(null);
@@ -163,20 +161,43 @@ const Assistant = ({ onResetForm }) => {
         }
     };
 
+    // Factorisation du flux "Nouveau dossier depuis l'analyse"
+    const handleCreateNewFromAnalysis = async () => {
+        if (typeof onResetForm === 'function') onResetForm();
+        if (files.length > 0) startIngestion(files, aiConfig);
+        setIngestionStep(INGESTION_STEPS.BRIO);
+        await runAnalysisPipeline(files);
+    };
+
+    // Parcours UNIQUE de classement vers un autre dossier.
+    // Le dossier cible est chargé AVANT toute analyse.
+    // Si le chargement échoue : aucune analyse, aucun dossier modifié, fichiers conservés.
+    const handleClassifyIntoDossier = async (targetDossier) => {
+        setSmartBridgeState({ isOpen: false, matchedDossier: null });
+        if (!targetDossier) return;
+
+        try {
+            await loadDossier(targetDossier);
+        } catch (err) {
+            console.error('[Assistant] Échec du chargement du dossier cible:', err);
+            alert(
+                `Impossible de charger le dossier « ${targetDossier.name || 'sans nom'} ».\n` +
+                `L'analyse n'a pas été lancée et aucun document n'a été ajouté.\n` +
+                `Vos fichiers restent dans la zone de dépôt.\n\nDétail : ${err.message}`
+            );
+            return;
+        }
+
+        await runAnalysisPipeline(files);
+    };
+
     // Exécution de l'analyse selon le choix retenu
     const handleChoiceSelected = async (intent) => {
         setShowDestinationModal(false);
 
         // Option 3: Nouveau dossier -> Réinitialiser le formulaire & déclencher Brio
         if (intent === 'NEW') {
-            if (typeof onResetForm === 'function') {
-                onResetForm();
-            }
-            if (files.length > 0) {
-                startIngestion(files, aiConfig);
-            }
-            setIngestionStep(INGESTION_STEPS.BRIO);
-            await runAnalysisPipeline(files);
+            await handleCreateNewFromAnalysis();
             return;
         }
 
@@ -210,15 +231,6 @@ const Assistant = ({ onResetForm }) => {
             setFiles([]);
             setRawText('');
             return;
-        }
-    };
-
-    // Callback si sélection manuelle d'un dossier après Classer (sans match préalable)
-    const handleManualDossierSelected = async (dossier) => {
-        setShowClassifySelectionModal(false);
-        if (dossier) {
-            loadDossier(dossier);
-            await runAnalysisPipeline(files);
         }
     };
 
@@ -350,27 +362,11 @@ const Assistant = ({ onResetForm }) => {
                 matchedDossier={smartBridgeState.matchedDossier}
                 savedDossiers={savedDossiers}
                 onClose={() => setSmartBridgeState({ isOpen: false, matchedDossier: null })}
-                onOpenMatched={async () => {
-                    const target = smartBridgeState.matchedDossier;
-                    setSmartBridgeState({ isOpen: false, matchedDossier: null });
-                    if (target) {
-                        loadDossier(target);
-                        await runAnalysisPipeline(files);
-                    }
-                }}
-                onManualSelect={async (dossier) => {
-                    setSmartBridgeState({ isOpen: false, matchedDossier: null });
-                    if (dossier) {
-                        loadDossier(dossier);
-                        await runAnalysisPipeline(files);
-                    }
-                }}
+                onOpenMatched={() => handleClassifyIntoDossier(smartBridgeState.matchedDossier)}
+                onManualSelect={(dossier) => handleClassifyIntoDossier(dossier)}
                 onCreateNew={async () => {
                     setSmartBridgeState({ isOpen: false, matchedDossier: null });
-                    if (typeof onResetForm === 'function') onResetForm();
-                    if (files.length > 0) startIngestion(files, aiConfig);
-                    setIngestionStep(INGESTION_STEPS.BRIO);
-                    await runAnalysisPipeline(files);
+                    await handleCreateNewFromAnalysis();
                 }}
             />
 
