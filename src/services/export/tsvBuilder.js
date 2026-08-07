@@ -1,6 +1,7 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
 import { resolveRecipientSnapshot } from '../utils/contactUtils.js';
+import { formatBeneficiaryLabel } from '../utils/beneficiaryTitle.js';
 
 /**
  * Nettoie une chaîne de caractères pour être sûre dans un TSV.
@@ -96,7 +97,10 @@ export const buildINGTsvExport = (draft, expenses, dossierName = '', targetBlock
         if (!paymentRef && !paymentSnapshot?.displayName) return;
 
         const snapshot = paymentSnapshot || resolveRecipientSnapshot(paymentRef, allCandidates) || {};
-        const beneficiaire = sanitizeTsvCell(snapshot.displayName || 'Inconnu');
+        const civility = block.paymentCivility || (block.mailRecipientLinked !== false ? block.mailCivility : undefined);
+        const rawName = snapshot.displayName || 'Inconnu';
+        const formattedName = formatBeneficiaryLabel(civility, rawName) || rawName;
+        const beneficiaire = sanitizeTsvCell(formattedName).slice(0, 70);
         const iban = sanitizeTsvCell(block.ibanOverride || snapshot.iban || '');
 
         const blockAllocations = draft.allocations.filter(a => a.blockId === block.id && a.status === 'assigned');

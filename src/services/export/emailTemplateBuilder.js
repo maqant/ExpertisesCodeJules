@@ -1,6 +1,7 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
 import { buildSalutation, buildAllCandidates } from '../utils/contactUtils.js';
+import { formatBeneficiaryInline } from '../utils/beneficiaryTitle.js';
 
 /**
  * Résolution ÉTANCHE du destinataire e-mail effectif.
@@ -95,10 +96,11 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
     // Phrase d'attribution bancaire (adaptée selon la séparation du destinataire mail VS bénéficiaire paiement)
     let paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur votre compte, IBAN : ${ibanStr}.`;
     if (block.mailRecipientLinked === false) {
-        const payCiv = block.paymentCivility || 'Monsieur';
-        const payName = paymentSnapshot?.displayName || block.paymentRecipientNom || 'le bénéficiaire désigné';
-        const payTitle = resolveCivilitySalutation(payCiv, payName).replace(/,$/, '');
-        paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur le compte IBAN ${ibanStr} au bénéfice de ${payTitle}.`;
+        const payCiv = block.paymentCivility;
+        const payName = paymentSnapshot?.displayName || block.paymentRecipientNom || '';
+        const inlineTitle = formatBeneficiaryInline(payCiv, payName);
+        const designation = inlineTitle ? inlineTitle : 'du bénéficiaire désigné';
+        paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur le compte de ${designation}, IBAN : ${ibanStr}.`;
     }
 
     // Trouver les allocations
