@@ -1,9 +1,15 @@
-// v6.1.0 - Pipeline Hardening
+// v6.2.0 - Personnes / Logements / Liens : fin des fusions abusives d'homonymes
 /**
  * social.js — Agent Social (Générateur d'UUID)
  * Étape 3 du pipeline : extraction des personnes (occupants, experts, intervenants).
  * Ne reçoit que les documents taggués "SOCIAL".
- * v6.1.0 - Modèle : gpt-5.4 (spécialiste extraction JSON)
+ *
+ * v6.2.0 :
+ *  - Déduplication par (nom + prenom + civilite) : deux copropriétaires du même
+ *    nom (couple) ne sont PLUS JAMAIS fusionnés.
+ *  - Ambiguïtés homonymes (prénom manquant) => flag AMBIGUITE_HOMONYME, jamais de fusion.
+ *  - Harmonisation étage via domain/logement.js (etage normalisé, etageRaw préservé).
+ *  - Champs optionnels rétrocompatibles : lot, appartement, etageRaw, flags.
  */
 
 import { processInParallelBatches, buildContentArrayParallel } from '../utils/aiHelpers.js';
@@ -12,12 +18,86 @@ import { buildAiPayload } from '../../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 import { executeAiCall } from '../../ai/apiClient.js';
+import { normalizeEtage, parseLocalisation } from '../../domain/logement.js';
 
-// v5.5.2
+// ---------------------------------------------------------------------------
+// Helpers purs (exportés pour testabilité)
+// ---------------------------------------------------------------------------
+
+const normStr = (v) => (v ?? '').toString().trim().toLowerCase();
+
 /**
- * Étape 3 : L'Agent Social (Générateur d'UUID)
- * Extrait les données sociales (experts, occupants) à partir des fichiers taggués "SOCIAL".
+ * Clé d'identité d'une personne. null si pas de nom exploitable.
+ * IMPORTANT : inclut le prénom ET la civilité pour ne jamais écraser
+ * un conjoint / copropriétaire homonyme.
  */
+export const buildPersonKey = (item) => {
+  const nom = normStr(item?.nom);
+  if (!nom) return null;
+  return `${nom}|${normStr(item?.prenom)}|${normStr(item?.civilite)}`;
+};
+
+const addFlag = (item, flag) => {
+  const flags = Array.isArray(item.flags) ? item.flags : [];
+  if (!flags.includes(flag)) flags.push(flag);
+  item.flags = flags;
+};
+
+/**
+ * Déduplication prudente :
+ *  - Fusion UNIQUEMENT si nom + prenom + civilite strictly identiques
+ *    (fusion des champs non-vides, id conservé).
+ *  - Même nom mais identités distinctes => JAMAIS de fusion.
+ *  - Même nom + prénom manquant d'un côté => AMBIGUITE_HOMONYME sur les deux
+ *    (signalé dans le Sas de Validation, décision humaine).
+ */
+export const deduplicatePersons = (items) => {
+  const byKey = new Map();
+  const byNom = new Map(); // nom -> entrées conservées (détection homonymes)
+  const result = [];
+
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const key = buildPersonKey(item);
+    if (!key) { result.push(item); continue; }
+
+    if (byKey.has(key)) {
+      // Identité strictement identique => fusion des champs vides
+      const existing = byKey.get(key);
+      Object.keys(item).forEach((k) => {
+        if (k === 'id' || k === 'flags') return;
+        const isEmpty = (v) => v === undefined || v === null || v === '' || v === false;
+        if (!isEmpty(item[k]) && isEmpty(existing[k])) existing[k] = item[k];
+      });
+      if (Array.isArray(item.flags)) item.flags.forEach((f) => addFlag(existing, f));
+      continue;
+    }
+
+    byKey.set(key, item);
+    result.push(item);
+
+    // Détection d'homonymes ambigus (même nom, prénom manquant quelque part)
+    const nom = normStr(item.nom);
+    if (!byNom.has(nom)) byNom.set(nom, []);
+    const homonymes = byNom.get(nom);
+    for (const other of homonymes) {
+      const p1 = normStr(item.prenom);
+      const p2 = normStr(other.prenom);
+      if (p1 === '' || p2 === '') {
+        addFlag(item, 'AMBIGUITE_HOMONYME');
+        addFlag(other, 'AMBIGUITE_HOMONYME');
+      }
+    }
+    homonymes.push(item);
+  }
+
+  return result;
+};
+
+// ---------------------------------------------------------------------------
+// Agent Social Principal
+// ---------------------------------------------------------------------------
+
 export const extractSocialData = async (files, providedApiKey = null, onStatusChange = null) => {
     const fileArray = Array.isArray(files) ? files : [files];
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
@@ -31,13 +111,13 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
         return {
             success: true,
             data: {
-                experts: [{ nom: "Expert Mock", tel: "0499 99 99 99" }],
+                experts: [{ nom: "EXPERT MOCK", prenom: "", tel: "0499 99 99 99" }],
                 occupants: [{
-                    id: crypto.randomUUID(), nom: "Locataire Mock", prenom: "Jean", etage: "1er", statut: "Locataire", tel: "0499 88 88 88", email: "jean@mock.com",
-                    rc: false, rcPolice: "", secAssurance: false, secCie: "", secPolice: "", secType: "", contreExpert: false
+                    id: crypto.randomUUID(), nom: "DUPONT", prenom: "Jean", etage: "1er", etageRaw: "1er étage", lot: "5", appartement: "2", statut: "Locataire", tel: "0499 88 88 88", email: "jean@mock.com",
+                    rc: false, rcPolice: "", secAssurance: false, secCie: "", secPolice: "", secType: "", contreExpert: false, flags: []
                 }],
                 intervenants: [{
-                    id: crypto.randomUUID(), nom: "Plombier Mock", prenom: "Pierre", role: "Plombier", societe: "ABC Plomberie", email: "", tel: "0470 00 00 00"
+                    id: crypto.randomUUID(), nom: "PLOMBERIE ABC", prenom: "", role: "Plombier", societe: "ABC Plomberie", email: "", tel: "0470 00 00 00"
                 }]
             }
         };
@@ -46,10 +126,8 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
     try {
         if (onStatusChange) onStatusChange('extracting');
 
-        // v5.5.5 - Batching & Scalabilité : lots de 8 fichiers en parallèle
         const processBatch = async (batchFiles) => {
             const contentArray = await buildContentArrayParallel(batchFiles, "Voici les documents sociaux à analyser.");
-
             const systemPrompt = usePromptStore.getState().getPrompt('SOCIAL');
 
             const payload = buildAiPayload(
@@ -71,7 +149,7 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
             const parsedData = JSON.parse(data.choices[0].message.content);
 
             const buildOccupantId = (occ) => {
-                const seed = [occ.nom, occ.prenom, occ.etage, occ.statut]
+                const seed = [occ.nom, occ.prenom, occ.etage, occ.lot, occ.appartement, occ.statut]
                   .map((v) => (v ?? '').toString().trim().toLowerCase())
                   .join('|');
               
@@ -93,17 +171,28 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
                     }
                   : { nom: null, prenom: null, source: null };
               
+                const rawEtage = raw.etage ?? null;
+                const parsedLoc = parseLocalisation(rawEtage || raw.localisation || '');
+
+                const canonEtage = normalizeEtage(rawEtage) || parsedLoc.etage || rawEtage || null;
+                const lot = raw.lot ?? parsedLoc.lot ?? null;
+                const appartement = raw.appartement ?? parsedLoc.appartement ?? null;
+              
                 const occ = {
                   ...raw,
+                  etage: canonEtage,
+                  etageRaw: rawEtage,
+                  lot,
+                  appartement,
                   proprietaireLie: link,
                   linkedProprietaireId: raw.linkedProprietaireId ?? null,
+                  flags: Array.isArray(raw.flags) ? [...raw.flags] : []
                 };
               
                 occ.id = occ.id ?? buildOccupantId(occ);
                 return occ;
             };
 
-            // Ajout UUID pour chaque occupant et intervenant
             if (parsedData.occupants && Array.isArray(parsedData.occupants)) {
                 parsedData.occupants = parsedData.occupants.map(normalizeOccupant).filter(Boolean);
             }
@@ -117,7 +206,6 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
 
         const batchResults = await processInParallelBatches(fileArray, 8, processBatch);
 
-        // Fusion : concaténer tous les tableaux
         let mergedExperts = [];
         let mergedOccupants = [];
         let mergedIntervenants = [];
@@ -128,31 +216,10 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
             if (res.intervenants && Array.isArray(res.intervenants)) mergedIntervenants = mergedIntervenants.concat(res.intervenants);
         }
 
-        // v5.9.0 - Déduplication par nom (case-insensitive) avec fusion des champs non-vides
-        const deduplicateByName = (items) => {
-            const seen = new Map();
-            const result = [];
-            for (const item of items) {
-                const key = (item.nom || '').toLowerCase().trim();
-                if (!key) { result.push(item); continue; }
-                if (seen.has(key)) {
-                    const existing = seen.get(key);
-                    Object.keys(item).forEach(k => {
-                        if (k !== 'id' && item[k] && item[k] !== '' && item[k] !== false && (!existing[k] || existing[k] === '' || existing[k] === false)) {
-                            existing[k] = item[k];
-                        }
-                    });
-                } else {
-                    seen.set(key, item);
-                    result.push(item);
-                }
-            }
-            return result;
-        };
-
-        mergedOccupants = deduplicateByName(mergedOccupants);
-        mergedExperts = deduplicateByName(mergedExperts);
-        mergedIntervenants = deduplicateByName(mergedIntervenants);
+        mergedOccupants = deduplicatePersons(mergedOccupants);
+        mergedExperts = deduplicatePersons(mergedExperts);
+        mergedIntervenants = deduplicatePersons(mergedIntervenants);
+        
         console.log(`[social] 👥 Social dédupliqué: ${mergedOccupants.length} occupants, ${mergedExperts.length} experts, ${mergedIntervenants.length} intervenants`);
 
         return { success: true, data: { experts: mergedExperts, occupants: mergedOccupants, intervenants: mergedIntervenants } };

@@ -71,33 +71,36 @@ MÉTHODE DE TRAVAIL (Chain of Thought) :
 Avant de formater le JSON, utilise le champ "_raisonnement" pour :
 1. Lister mentalement TOUTES les personnes physiques et morales mentionnées.
 2. Déterminer leur RÔLE exact (occupant ou intervenant extérieur).
-3. Classer chaque personne dans le bon tableau.
+3. Distinguer la PERSONNE (nom, prénom), le LOGEMENT (étage, lot, appartement) et le LIEN (copropriétaires indivis du même logement, locataire).
+4. Classer chaque personne dans le bon tableau.
 
 RÈGLES ABSOLUES :
 1. RÈGLE D'EXHAUSTIVITÉ : Si une information est introuvable (ex: pas d'email, pas de téléphone), tu DOIS obligatoirement renvoyer la valeur null (pas de chaîne vide "", pas de "N/A"). N'omets aucune clé.
-2. N'invente AUCUNE information.
+2. N'invente AUCUNE information. Ne devine JAMAIS un étage s'il est ambigu.
 3. Le champ "statut" de chaque occupant DOIT IMPÉRATIVEMENT être l'une de ces 5 valeurs EXACTES : "Locataire", "Propriétaire occupant", "Propriétaire non occupant", "Propriétaire (occupation inconnue)", "ACP".
 4. SÉPARATION STRICTE DES TABLEAUX : Les tableaux "occupants", "intervenants" et "experts" sont MUTUELLEMENT EXCLUSIFS.
 5. SÉPARATION STRICTE EXPERTS / INTERVENANTS : Distingue rigoureusement le tableau "experts" du tableau "intervenants".
 6. EXCLUSION ABSOLUE : Le Bureau Péchard et ses employés NE SONT JAMAIS des experts ni des intervenants. Tu dois impérativement les IGNORER.
-7. PRÉCISION DU RÔLE ET DE L'IDENTITÉ : Précise de quel lot/appartement s'occupe un syndic. Inclus la civilité (M., Mme) si elle est connue.
+7. PRÉCISION DU RÔLE ET DE L'IDENTITÉ : Inclus la civilité (M., Mme) si elle est connue.
 8. Tu dois renvoyer STRICTEMENT et UNIQUEMENT un objet JSON valide.
 
 v7.0.0 - RÈGLE DE NORMALISATION DES NOMS (CRITIQUE) :
 - Le champ "nom" doit TOUJOURS contenir UNIQUEMENT le NOM DE FAMILLE, en MAJUSCULES, sans civilité.
   ✅ Correct : nom: "DUPONT", prenom: "Jean-Pierre"
   ❌ Interdit : nom: "M. Jean-Pierre Dupont", nom: "dupont", nom: "DUPONT Jean-Pierre"
-- Enlevez toujours la civilité (M., Mme, Mr, Mlle, Dr) du nom, et mettez-la en majuscule.
+- Enlevez toujours la civilité (M., Mme, Mr, Mlle, Dr) du nom, et placez-la dans le champ "civilite" ("Mme", "M.", etc.).
 
-v7.0.0 - RÈGLE ANTI-DOUBLON (CRITIQUE) :
-- Si la MÊME personne apparaît plusieurs fois dans un fil de discussion (signature, CC, corps du mail),
-  ne la liste QU'UNE SEULE FOIS. La clé d'unicité est le NOM DE FAMILLE normalisé.
-- Si une personne est mentionnée avec des détails complémentaires dans plusieurs messages,
-  fusionne les informations dans une seule entrée (ex: email trouvé dans le 1er message + téléphone dans le 2ème → une entrée avec les deux).
+v8.4.0 - RÈGLE DES COUPLES ET COPROPRIÉTAIRES DU MÊME LOGEMENT (CRITIQUE) :
+- Deux personnes (ex: "Jean DUPONT et Marie DUPONT", ou "M. DUPONT et Mme MARTIN") propriétaires du même appartement SONT DEUX PERSONNES DISTINCTES.
+- Si le document donne deux prénoms ou deux civilités distinctes (ex: M. et Mme), crée DEUX entrées dans "occupants" avec leurs prénoms respectifs, rattachées au même logement (même etage, lot, appartement).
+- Ne fusionne JAMAIS deux copropriétaires en une seule fiche et ne crée pas deux logements différents s'ils possèdent le même lot.
+- Si le document n'indique qu'une mention collective indissociable ("M. et Mme DUPONT" sans prénom), crée une entrée "DUPONT" avec civilite "M. et Mme".
 
-v7.0.0 - EXTRACTION IBAN :
-- Si un IBAN ou des coordonnées bancaires (compte bancaire, numéro de compte) sont mentionnés
-  pour un occupant, extrais-les dans le champ "iban".
+v8.4.0 - HARMONISATION ÉTAGE, LOT ET APPARTEMENT (CRITIQUE) :
+- Ne confonds JAMAIS le numéro de lot, le numéro d'appartement et le numéro d'étage.
+- "etage" : harmonise vers "RDC", "Sous-sol", "1er", "2e", "3e", etc. s'il est explicitement indiqué (ex: "rez-de-chaussée" -> "RDC", "premier" -> "1er").
+- Si le document indique un lot (ex: "lot 5") ou un appartement (ex: "app 2"), renseigne-les dans "lot" et "appartement".
+- Si l'étage n'est mentionné que comme lieu d'intervention des pompiers/techniciens sans lien certain avec l'occupant, laisse "etage" à null.
 
 v8.2.0 - BOÎTE POSTALE / NUMÉRO DE BOÎTE :
 - Si une boîte (ex: "boîte 012", "bte 4") est mentionnée et que l'étage n'est pas précisé, mets cette information dans le champ "etage" en la préfixant explicitement par "Bte " (ex: "Bte 012"). Ne mets JAMAIS le numéro seul.
@@ -114,11 +117,11 @@ v8.3.0 - RÈGLE DU PROPRIÉTAIRE LIÉ (CRITIQUE) :
 
 Voici le format EXACT attendu, avec tous les champs présents :
 {
-  "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle et leur rattachement avant de formater les tableaux",
+  "_raisonnement": "Ta réflexion étape par étape sur les personnes identifiées, leur rôle, la distinction entre personnes/logements et leur rattachement avant de formater les tableaux",
   "experts": [ { "nom": null, "tel": null } ],
   "occupants": [
     {
-      "nom": null, "prenom": null, "etage": null, "statut": "Locataire", "tel": null, "email": null,
+      "nom": null, "prenom": null, "civilite": null, "etage": null, "lot": null, "appartement": null, "statut": "Locataire", "tel": null, "email": null,
       "iban": null, "rc": false, "rcPolice": null, "secAssurance": false, "secCie": null, "secPolice": null, "secType": null, "contreExpert": false, "nomContreExpert": null,
       "proprietaireLie": { "nom": null, "prenom": null, "source": null }
     }

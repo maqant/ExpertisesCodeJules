@@ -1042,8 +1042,14 @@ const GlobalValidationModal = () => {
                                             {/* Summary row */}
                                             <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-slate-700/30" onClick={() => toggleOccExpand(occ.id)}>
                                                 <span className="text-xs shrink-0">{isExpanded ? '▼' : '▶'}</span>
-                                                <span className="text-sm font-bold text-white flex-1 truncate">{occ.nom || 'Sans nom'}</span>
+                                                <span className="text-sm font-bold text-white flex-1 truncate">{[occ.prenom, occ.nom].filter(Boolean).join(' ') || 'Sans nom'}</span>
                                                 <span className="text-[10px] text-slate-400 shrink-0">{occ.statut}</span>
+                                                {Array.isArray(occ.flags) && occ.flags.includes('AMBIGUITE_HOMONYME') && (
+                                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold border border-amber-500/30 shrink-0" title="Prénom manquant ou ambiguïté homonyme">⚠️ Homonyme</span>
+                                                )}
+                                                {occupantAnalysis.some(o => o.id !== occ.id && ((o.lot && o.lot === occ.lot) || (o.appartement && o.appartement === occ.appartement))) && (
+                                                    <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold border border-indigo-500/30 shrink-0" title="Partage le même lot/appartement">👥 Copropriétaire</span>
+                                                )}
                                                 {occ.isDuplicate && (
                                                     <span className="text-[9px] bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded font-bold border border-orange-500/30 shrink-0">⚠️ Conflit</span>
                                                 )}
@@ -1063,7 +1069,10 @@ const GlobalValidationModal = () => {
                                             {isExpanded && !isIgnored && (
                                                 <div className="px-4 pb-3 pt-1 bg-slate-800/30 grid grid-cols-2 gap-2">
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Nom</label><input type="text" data-telemetry-id="occ_nom" value={occ.nom || ''} onChange={(e) => updateOccField(occ.id, 'nom', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
-                                                    <div><label className="text-[9px] text-slate-500 uppercase">Étage</label><input type="text" data-telemetry-id="occ_etage" value={occ.etage || ''} onChange={(e) => updateOccField(occ.id, 'etage', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
+                                                    <div><label className="text-[9px] text-slate-500 uppercase">Prénom</label><input type="text" data-telemetry-id="occ_prenom" value={occ.prenom || ''} onChange={(e) => updateOccField(occ.id, 'prenom', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" /></div>
+                                                    <div><label className="text-[9px] text-slate-500 uppercase">Étage</label><input type="text" data-telemetry-id="occ_etage" value={occ.etage || ''} onChange={(e) => updateOccField(occ.id, 'etage', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" placeholder="1er, RDC..." /></div>
+                                                    <div><label className="text-[9px] text-slate-500 uppercase">Lot / Unité</label><input type="text" data-telemetry-id="occ_lot" value={occ.lot || ''} onChange={(e) => updateOccField(occ.id, 'lot', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" placeholder="Lot 5..." /></div>
+                                                    <div><label className="text-[9px] text-slate-500 uppercase">Appartement / Porte</label><input type="text" data-telemetry-id="occ_appartement" value={occ.appartement || ''} onChange={(e) => updateOccField(occ.id, 'appartement', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none" placeholder="Appt 2..." /></div>
                                                     <div><label className="text-[9px] text-slate-500 uppercase">Statut</label>
                                                         <select data-telemetry-id="occ_statut" value={occ.statut || 'Locataire'} onChange={(e) => updateOccField(occ.id, 'statut', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:border-indigo-500 outline-none">
                                                             {STATUT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
