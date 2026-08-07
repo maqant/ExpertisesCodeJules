@@ -4,11 +4,12 @@ import { cleanAmount } from '../../../store/financeStore.js';
 import { getResteAVentiler, isResteEpuise, ALLOCATION_STATUS, CLOSURE_MODE } from '../../../domain/decompteSplitter/allocationModel.js';
 import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/blockRecipientModel.js';
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
-import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail } from 'lucide-react';
+import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail, Loader2 } from 'lucide-react';
 import { resolveExpenseView, getDisplayLabel } from '../../../domain/decompteSplitter/labelResolver.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
+import { refineText } from '../../../services/aiManager.js';
 
 const FIELD_CLS = "w-full text-xs text-slate-900 font-semibold bg-white border border-slate-300 rounded p-1.5 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none placeholder:text-slate-400";
 
@@ -16,6 +17,30 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
     const { state, dispatch } = useDecompteSplitter();
     const [splitAmount, setSplitAmount] = useState('');
     const [expenseToAdd, setExpenseToAdd] = useState('');
+    const [isRefiningRemarque, setIsRefiningRemarque] = useState(false);
+    const [refineError, setRefineError] = useState(null);
+
+    const handleRefineRemarque = async () => {
+        if (!block.remarque?.trim() || isRefiningRemarque) return;
+        setIsRefiningRemarque(true);
+        setRefineError(null);
+        try {
+            const res = await refineText(block.remarque, 'REWRITE');
+            const resultText = (typeof res === 'string' ? res : res?.text || res?.refinedText || '').trim();
+            if (!resultText) {
+                throw new Error(res?.error || "L'affinage a retourné un texte vide.");
+            }
+            dispatch({
+                type: 'APPLY_REFINED_REMARQUE',
+                payload: { blockId: block.id, refinedText: resultText }
+            });
+        } catch (err) {
+            console.error('[SplitterRecipientBlock] Échec affinage IA :', err);
+            setRefineError("L'affinage IA a échoué. Votre texte est inchangé.");
+        } finally {
+            setIsRefiningRemarque(false);
+        }
+    };
 
     const activeExpenseIds = useMemo(() => new Set((expenses || []).map(e => e.id)), [expenses]);
 
@@ -318,35 +343,41 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                 <div>
                     <div className="flex justify-between items-center mb-1">
                         <label className="block text-[10px] font-medium text-slate-500 uppercase">Remarque éventuelle</label>
-                        <div className="flex gap-1.5">
-                            {block.remarqueOriginal !== undefined && (
+                        <div className="flex gap-1.5 items-center">
+                            {block.remarqueOriginal !== undefined && block.remarqueOriginal !== null && (
                                 <button
                                     onClick={() => dispatch({ 
-                                        type: 'UPDATE_BLOCK', 
-                                        payload: { blockId: block.id, updates: { remarque: block.remarqueOriginal } } 
+                                        type: 'REVERT_REFINED_REMARQUE', 
+                                        payload: { blockId: block.id } 
                                     })}
-                                    className="text-[10px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                                    className="text-[10px] text-slate-500 hover:text-slate-700 flex items-center gap-1 font-medium"
+                                    title="Rétablir le texte original"
                                 >
                                     <RotateCcw className="w-2.5 h-2.5" />
                                     Rétablir l'original
                                 </button>
                             )}
                             <button
-                                onClick={() => {
-                                    const text = block.remarque || '';
-                                    const refined = text.replace(/nous/gi, 'je').trim();
-                                    dispatch({
-                                        type: 'UPDATE_BLOCK',
-                                        payload: { blockId: block.id, updates: { remarque: refined, remarqueOriginal: text } }
-                                    });
-                                }}
-                                className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
+                                onClick={handleRefineRemarque}
+                                disabled={!block.remarque?.trim() || isRefiningRemarque}
+                                className={`text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
+                                    !block.remarque?.trim() || isRefiningRemarque
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                        : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
+                                }`}
                             >
-                                <Sparkles className="w-2.5 h-2.5" />
-                                Affinage IA
+                                {isRefiningRemarque ? (
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="w-2.5 h-2.5 text-indigo-600" />
+                                )}
+                                {isRefiningRemarque ? 'Affinage IA...' : 'Affinage IA'}
                             </button>
                         </div>
                     </div>
+                    {refineError && (
+                        <p className="text-[10px] text-red-500 font-medium mb-1">{refineError}</p>
+                    )}
                     <textarea 
                         className={FIELD_CLS}
                         rows="2"

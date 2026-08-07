@@ -242,7 +242,7 @@ function splitterReducer(state, action) {
                 ...state,
                 blocks: state.blocks.map(b =>
                     b.id === blockId
-                        ? { ...b, remarqueOriginal: b.remarque, remarque: refinedText }
+                        ? { ...b, remarqueOriginal: b.remarqueOriginal ?? b.remarque, remarque: refinedText }
                         : b
                 )
             };
@@ -392,15 +392,24 @@ function splitterReducer(state, action) {
             };
         }
 
+        case 'ADD_ALLOCATION':
         case 'ASSIGN_ALLOCATION': {
+            const { expenseId, blockId, montant, status } = action.payload || {};
+            if (expenseId == null || blockId == null) {
+                console.error('[DecompteSplitter] ALLOCATION rejetée : payload invalide.', action.payload);
+                return state;
+            }
+            const cleanedAllocs = state.allocations.filter(
+                a => !(a.expenseId === expenseId && a.status === ALLOCATION_STATUS.SUSPENDED)
+            );
             const newAlloc = {
                 id: genId(),
-                expenseId: action.payload.expenseId,
-                blockId: action.payload.blockId,
-                montant: action.payload.montant,
-                status: ALLOCATION_STATUS.ASSIGNED
+                expenseId,
+                blockId,
+                montant: montant || '0,00',
+                status: status || ALLOCATION_STATUS.ASSIGNED
             };
-            return { ...state, allocations: [...state.allocations, newAlloc] };
+            return { ...state, allocations: [...cleanedAllocs, newAlloc] };
         }
 
         case 'REMOVE_ALLOCATION': {
@@ -441,6 +450,9 @@ function splitterReducer(state, action) {
         }
 
         default:
+            if (import.meta.env.DEV) {
+                console.error(`[DecompteSplitter] Action inconnue rejetée : "${action.type}"`, action);
+            }
             return state;
     }
 }
