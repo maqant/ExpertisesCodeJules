@@ -577,6 +577,9 @@ export const ExpertiseProvider = ({ children }) => {
 
   const loadDossier = async (dossier) => {
 
+      // Reset du draft DecompteSplitter — un draft n'a aucun sens inter-dossiers
+      financeStore.clearDecompteSplitterDraft();
+
       setTelemetrySessionId(crypto.randomUUID());
       setCurrentVersion(dossier.version || 0);
       const d = dossier.data;

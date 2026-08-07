@@ -17,7 +17,8 @@ const initialState = {
     ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
     ingestionError: null,
     ingestionRequestId: null,
-    detectedMeta: null
+    detectedMeta: null,
+    resumedFromDraft: false  // flag pour afficher le bandeau de restauration
 };
 
 const INGESTION_TRANSITIONS = {
@@ -30,6 +31,31 @@ const INGESTION_TRANSITIONS = {
 
 function canTransition(from, to) {
     return INGESTION_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/**
+ * Vérifie si un draft est "meaningful" (non vide, contient du travail réel).
+ * Un draft vide ou sans postes/blocs n'est pas worth restoring.
+ */
+function isDraftMeaningful(draft) {
+    if (!draft) return false;
+    const hasExpenses = (draft.extractedExpenses || []).length > 0;
+    const hasBlocks = (draft.blocks || []).length > 0;
+    const hasAllocations = (draft.allocations || []).length > 0;
+    return hasExpenses || hasBlocks || hasAllocations;
+}
+
+/**
+ * Fusionne un contact détecté par l'IA dans la liste des contacts locaux,
+ * avec déduplication par nom (case-insensitive).
+ */
+function mergeDetectedContact(existingContacts, detectedContact) {
+    if (!detectedContact || !detectedContact.nom) return existingContacts;
+    const sanitized = sanitizeContactList(existingContacts);
+    const nameNorm = detectedContact.nom.trim().toLowerCase();
+    const alreadyExists = sanitized.some(c => (c.nom || '').trim().toLowerCase() === nameNorm);
+    if (alreadyExists) return sanitized;
+    return [...sanitized, detectedContact];
 }
 
 function splitterReducer(state, action) {
@@ -50,8 +76,7 @@ function splitterReducer(state, action) {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
             if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
-            const { expenses, meta, autoBlock } = action.payload;
-            const shouldAddBlock = autoBlock && state.blocks.length === 0;
+            const { expenses, meta, detectedContact } = action.payload;
 
             return {
                 ...state,
@@ -61,50 +86,30 @@ function splitterReducer(state, action) {
                 detectedMeta: meta || null,
                 ingestionError: null,
                 appendError: null,
-                localContacts: (shouldAddBlock && autoBlock.contact) ? [...state.localContacts, autoBlock.contact] : state.localContacts,
-                blocks: (shouldAddBlock && autoBlock.block) ? [...state.blocks, autoBlock.block] : state.blocks,
-                allocations: (shouldAddBlock && autoBlock.allocations) ? [...state.allocations, ...autoBlock.allocations] : state.allocations,
+                resumedFromDraft: false,
+                // Le contact détecté par l'IA est ajouté aux contacts locaux,
+                // SANS créer de bloc ni d'allocation. L'utilisateur ventile manuellement.
+                localContacts: mergeDetectedContact(state.localContacts, detectedContact),
             };
         }
 
         case 'INGESTION_APPEND_SUCCESS': {
             if (state.ingestionRequestId !== action.payload.requestId) return state;
-            const { expenses, meta, autoBlock } = action.payload;
-            const shouldAddBlock = autoBlock && state.blocks.length === 0;
-            const existingTargetBlockId = (!shouldAddBlock && state.blocks.length > 0) ? state.blocks[0].id : null;
-
-            let newAllocations = state.allocations;
-            if (shouldAddBlock && autoBlock?.allocations) {
-                newAllocations = [...state.allocations, ...autoBlock.allocations];
-            } else if (existingTargetBlockId && autoBlock?.allocations) {
-                const reassigned = autoBlock.allocations.map(a => ({
-                    ...a,
-                    id: crypto.randomUUID(),
-                    blockId: existingTargetBlockId
-                }));
-                newAllocations = [...state.allocations, ...reassigned];
-            } else if (existingTargetBlockId && !autoBlock?.allocations) {
-                const defaultAllocations = expenses.map(e => ({
-                    id: crypto.randomUUID(),
-                    blockId: existingTargetBlockId,
-                    expenseId: e.id,
-                    montant: e.montantValide,
-                    status: 'assigned'
-                }));
-                newAllocations = [...state.allocations, ...defaultAllocations];
-            }
+            if (!canTransition(state.ingestionStatus, 'ready')) return state;
+            
+            const { expenses, meta, detectedContact } = action.payload;
 
             return {
                 ...state,
                 ingestionStatus: 'ready',
                 ingestionRequestId: null,
+                // Les nouveaux postes s'ajoutent au panier global, statut "À ventiler".
+                // AUCUNE allocation automatique. L'utilisateur ventile manuellement.
                 extractedExpenses: [...state.extractedExpenses, ...expenses],
                 detectedMeta: meta || state.detectedMeta,
                 ingestionError: null,
                 appendError: null,
-                localContacts: (shouldAddBlock && autoBlock.contact) ? [...state.localContacts, autoBlock.contact] : state.localContacts,
-                blocks: (shouldAddBlock && autoBlock.block) ? [...state.blocks, autoBlock.block] : state.blocks,
-                allocations: newAllocations,
+                localContacts: mergeDetectedContact(state.localContacts, detectedContact),
             };
         }
             
@@ -126,7 +131,8 @@ function splitterReducer(state, action) {
                 ingestionRequestId: null,
                 extractedExpenses: [],
                 detectedMeta: null,
-                ingestionError: null
+                ingestionError: null,
+                resumedFromDraft: false
             };
         }
             
@@ -160,7 +166,15 @@ function splitterReducer(state, action) {
         }
             
         case 'RESET_INGESTION':
-            return { ...state, ingestionStatus: 'idle', extractedExpenses: [], detectedMeta: null, ingestionError: null, allocations: [], blocks: [], ingestionRequestId: null };
+            return { ...state, ingestionStatus: 'idle', extractedExpenses: [], detectedMeta: null, ingestionError: null, allocations: [], blocks: [], localContacts: [], ingestionRequestId: null, resumedFromDraft: false };
+
+        // Reset complet de la session — utilisé pour "Repartir de zéro" et après integrateToDossier
+        case 'RESET_SESSION':
+            return { ...initialState };
+
+        // Acquittement de la restauration du draft — masque le bandeau
+        case 'ACK_RESUMED_DRAFT':
+            return { ...state, resumedFromDraft: false };
 
         case 'ADD_BLOCK': {
             const newBlock = {
@@ -458,23 +472,29 @@ function splitterReducer(state, action) {
 }
 
 export const DecompteSplitterProvider = ({ children }) => {
-    const { decompteSplitter, saveDecompteSplitterDraft } = useFinanceStore();
+    const { decompteSplitter, saveDecompteSplitterDraft, clearDecompteSplitterDraft } = useFinanceStore();
     const [state, dispatch] = useReducer(splitterReducer, null, () => {
         const draft = decompteSplitter.draft;
-        if (!draft) return initialState;
+        if (!draft || !isDraftMeaningful(draft)) return initialState;
+        // Restauration d'un draft meaningful : flag pour afficher le bandeau
         const migrated = migrateDraftRecipients(draft);
-        return { ...migrated, localContacts: sanitizeContactList(migrated.localContacts) };
+        return { ...migrated, localContacts: sanitizeContactList(migrated.localContacts), resumedFromDraft: true };
     });
     
-    // Auto-save debouncé vers le store global
+    // Auto-save debounced vers le store global — sauvegarde null si état vide
     const timerRef = useRef(null);
     useEffect(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
-            saveDecompteSplitterDraft(state);
+            if (isDraftMeaningful(state)) {
+                saveDecompteSplitterDraft(state);
+            } else {
+                // Pas de draft fantôme : un état vide efface le draft
+                clearDecompteSplitterDraft();
+            }
         }, 800);
         return () => clearTimeout(timerRef.current);
-    }, [state, saveDecompteSplitterDraft]);
+    }, [state, saveDecompteSplitterDraft, clearDecompteSplitterDraft]);
 
     return (
         <SplitterContext.Provider value={{ state, dispatch }}>

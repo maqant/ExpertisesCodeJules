@@ -14,7 +14,7 @@ import { integrateToDossier } from '../../../services/decompteIntegrationService
 import { useSidebarUI } from '../../../context/SidebarUIContext.jsx';
 
 const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
-    const { pii } = useFinanceStore();
+    const { pii, clearDecompteSplitterDraft } = useFinanceStore();
     const { state, dispatch } = useDecompteSplitter();
 
     const expenses = state.extractedExpenses || [];
@@ -57,6 +57,8 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
         try {
             const result = integrateToDossier(state);
             alert(`Succès ! \n${result.addedExpensesCount} frais créés.\n${result.paymentAdded ? `Paiement global de ${result.totalEuroStr} € enregistré.` : ''}`);
+            clearDecompteSplitterDraft();
+            dispatch({ type: 'RESET_SESSION' });
             setIsSaved(true);
             setTimeout(() => onClose(), 2000);
         } catch (err) {
@@ -239,6 +241,32 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
 
         return (
             <div className="flex flex-1 overflow-hidden relative">
+                {/* Banner pour brouillon restauré */}
+                {state.resumedFromDraft && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700">
+                        <span className="font-medium text-slate-200">
+                            📋 Brouillon d'une ventilation précédente restauré
+                        </span>
+                        <div className="flex gap-2 items-center">
+                            <button
+                                onClick={() => dispatch({ type: 'ACK_RESUMED_DRAFT' })}
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-[11px] transition-colors shadow-sm"
+                            >
+                                Continuer
+                            </button>
+                            <button
+                                onClick={() => {
+                                    clearDecompteSplitterDraft();
+                                    dispatch({ type: 'RESET_SESSION' });
+                                }}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-lg text-[11px] border border-slate-600 transition-colors"
+                            >
+                                Repartir de zéro
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Overlay de chargement léger lors de l'ajout d'un 2e document */}
                 {state.ingestionStatus === 'parsing_append' && (
                     <div className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">

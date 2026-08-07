@@ -3,7 +3,12 @@ import { normalizeFinancialDocument, DocumentValidationError } from '../../../se
 
 /**
  * Orchestre l'ingestion d'un document (initial ou additionnel en mode append) :
- * appel IA, validation, normalisation, vérification d'intégrité financière, dispatch.
+ * appel IA, validation, normalisation, dispatch.
+ *
+ * PRINCIPE ARCHITECTURAL : l'ingestion EXTRAIT, elle n'ALLOUE JAMAIS.
+ * Tous les postes extraits atterrissent dans le panier global, statut "À ventiler".
+ * La ventilation vers les blocs de paiement est une décision exclusivement humaine.
+ * Le bénéficiaire détecté par l'IA est transmis comme simple suggestion de contact.
  *
  * @param {File} file
  * @param {Function} dispatch - dispatch du SplitterContext
@@ -37,14 +42,19 @@ export async function ingestDocument(file, dispatch, options = {}) {
             integrity: result.integrity || null
         };
 
-        // Construction déterministe du bloc bénéficiaire (si trouvé)
-        const autoBlock = (meta.beneficiaire && meta.beneficiaire.nom)
-            ? buildAutoBlock(meta.beneficiaire, expenses)
+        // Le bénéficiaire détecté est proposé comme CONTACT, jamais comme bloc pré-alloué.
+        const detectedContact = (meta.beneficiaire && meta.beneficiaire.nom)
+            ? {
+                id: crypto.randomUUID(),
+                nom: meta.beneficiaire.nom,
+                iban: meta.beneficiaire.iban || '',
+                origine: 'ai_detected',
+            }
             : null;
 
         dispatch({
             type: isAppend ? 'INGESTION_APPEND_SUCCESS' : 'INGESTION_SUCCESS',
-            payload: { requestId, expenses, meta: enrichedMeta, autoBlock },
+            payload: { requestId, expenses, meta: enrichedMeta, detectedContact },
         });
     } catch (err) {
         dispatch({
@@ -56,37 +66,6 @@ export async function ingestDocument(file, dispatch, options = {}) {
             },
         });
     }
-}
-
-function buildAutoBlock(beneficiaire, expenses) {
-    const contact = {
-        id: crypto.randomUUID(),
-        nom: beneficiaire.nom,
-        iban: beneficiaire.iban || '',
-        origine: 'ai_detected',
-    };
-    const blockId = crypto.randomUUID();
-    const block = {
-        id: blockId,
-        recipientRef: { kind: 'local', id: contact.id },
-        recipientSnapshot: null,
-        ibanOverride: '',
-        closureMode: 'attente',
-        remarque: ''
-    };
-    const allocations = expenses.map(e => ({
-        id: crypto.randomUUID(),
-        blockId: blockId,
-        expenseId: e.id,
-        montant: e.montantValide,
-        status: 'assigned'
-    }));
-
-    return {
-        contact,
-        block,
-        allocations
-    };
 }
 
 function toUserMessage(err) {

@@ -113,6 +113,9 @@ export const useFinanceStore = create((set, get) => ({
   saveDecompteSplitterDraft: (draft) => set((state) => ({
     decompteSplitter: { ...state.decompteSplitter, draft }
   })),
+  clearDecompteSplitterDraft: () => set((state) => ({
+    decompteSplitter: { ...state.decompteSplitter, draft: null }
+  })),
 
   // --- Occupants (PII) ---
   addOccupant: (occupant) => set((state) => {
