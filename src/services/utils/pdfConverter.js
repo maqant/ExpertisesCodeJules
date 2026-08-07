@@ -105,7 +105,7 @@ export const convertTextToPdfBytes = async (file) => {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/\\n/g, '<br/>');
+        .replace(/\r\n|\r|\n/g, '<br/>');
 
     const html = `
         <div style="margin-bottom: 20px;">

@@ -1,10 +1,9 @@
 import { buildAiPayload } from '../ai/ai.resolver.js';
 import { sanitizeAiConfig } from '../ai/ai.config.js';
 import { executeAiCall } from '../ai/apiClient.js';
-import { isPdfDeep } from './utils/fileUtils.js';
 import { pdfToBase64Images, fileToBase64 } from './utils/pdfUtils.js';
 import { checkFinancialIntegrity } from './financialIntegrityChecker.js';
-import { processIngestedFile } from './utils/filePreprocessor.js';
+import { resolveFileForAi, FILE_KIND } from './utils/fileContentResolver.js';
 
 const EXTRACTION_PROMPT = `Tu es un expert comptable en assurance. Tu vas recevoir un document financier (décompte, lettre de versement, décompte de sinistre, etc.).
 
@@ -38,25 +37,37 @@ Règles pour le BÉNÉFICIAIRE :
 IMPORTANT : Ne retourne RIEN d'autre que le JSON. Pas d'explication, pas de commentaire.`;
 
 async function prepareFileContent(rawFile) {
-    const file = await processIngestedFile(rawFile);
-    const contentArray = [{ type: "text", text: "Voici le document financier à analyser." }];
+    const resolved = await resolveFileForAi(rawFile);
 
-    if (await isPdfDeep(file)) {
-        const base64Images = await pdfToBase64Images(file);
+    if (resolved.kind === FILE_KIND.REJECTED) {
+        throw new Error(resolved.reason);
+    }
+
+    const contentArray = [];
+
+    if (resolved.kind === FILE_KIND.PDF) {
+        contentArray.push({ type: "text", text: "Voici le document financier à analyser (format PDF)." });
+        const base64Images = await pdfToBase64Images(resolved.file);
         for (const img of base64Images) {
             contentArray.push({
                 type: "image_url",
                 image_url: { url: img }
             });
         }
-    } else if (file.type && file.type.startsWith('image/')) {
-        const base64Image = await fileToBase64(file);
+    } else if (resolved.kind === FILE_KIND.IMAGE) {
+        contentArray.push({ type: "text", text: "Voici le document financier à analyser (format Image)." });
+        const base64Image = await fileToBase64(resolved.file);
         contentArray.push({
             type: "image_url",
             image_url: { url: base64Image }
         });
+    } else if (resolved.kind === FILE_KIND.TEXT) {
+        contentArray.push({
+            type: "text",
+            text: `Voici le contenu textuel brut du document financier (${resolved.sourceName}) à analyser :\n\n${resolved.text}`
+        });
     } else {
-        throw new Error("Format de fichier non supporté. Veuillez utiliser un PDF, une image, un fichier EDI, TXT, DOCX ou MSG.");
+        throw new Error("Format de fichier non supporté. Veuillez utiliser un PDF, une image, un fichier EDI ou TXT.");
     }
 
     return contentArray;
