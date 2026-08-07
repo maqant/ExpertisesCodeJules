@@ -61,38 +61,7 @@ export const extractFinancialData = async (files, providedApiKey = null, onStatu
         // v5.7.0 - Parallélisation massive : 1 micro-agent par fichier
         const promises = fileArray.map(async (item) => {
             const fileName = item.name || 'document_sans_nom';
-            const contentArray = [{ type: "text", text: "Voici le document financier à analyser." }];
-            contentArray.push({ type: "text", text: `\n\n[DÉBUT DOCUMENT : ${fileName}]\n` });
-            
-            if (typeof item === 'string') {
-                 contentArray.push({ type: "text", text: item });
-            } else {
-                const fileNameLower = fileName.toLowerCase();
-                if (fileNameLower.endsWith('.msg')) {
-                    try {
-                        const { bodyText } = await parseMsgFile(item);
-                        contentArray.push({ type: "text", text: bodyText });
-                    } catch (e) {
-                        contentArray.push({ type: "text", text: "[Fichier MSG illisible]" });
-                    }
-                } else if (await isPdfDeep(item)) {
-                    // v5.9.1 - Optimisation Hybride PDF : texte si facture numérique, vision si scan
-                    const hybrid = await pdfExtractHybrid(item);
-                    if (hybrid.mode === 'text') {
-                        contentArray.push({ type: "text", text: hybrid.text });
-                    } else {
-                        for (const img of (hybrid.images || [])) {
-                            contentArray.push({ type: "image_url", image_url: { url: img } });
-                        }
-                    }
-                } else if (item.type && item.type.startsWith('image/')) {
-                    const base64Image = await fileToBase64(item);
-                    contentArray.push({ type: "image_url", image_url: { url: base64Image } });
-                } else {
-                    contentArray.push({ type: "text", text: "[Format non supporté pour la vision]" });
-                }
-            }
-            contentArray.push({ type: "text", text: `\n[FIN DOCUMENT : ${fileName}]\n` });
+            const contentArray = await buildContentArrayParallel([item], "Voici le document financier à analyser.");
 
             const basePrompt = usePromptStore.getState().getPrompt('FINANCIAL');
             

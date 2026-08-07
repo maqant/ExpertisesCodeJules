@@ -87,20 +87,23 @@ export const processInParallelBatches = async (files, batchSize, processFunction
     return await Promise.all(batchPromises);
 };
 
-// v5.9.3 - Smart Retry & Résilience
-/**
- * Enveloppe une fonction async avec une logique de retry automatique.
- * Gère les erreurs transitoires (429 Rate Limit, 500 Server Error, timeout réseau).
- *
- * @param {() => Promise<any>} asyncFn - La fonction à tenter (sans arguments, utilisez une closure)
- * @param {number} maxRetries - Nombre de tentatives supplémentaires après l'échec initial (défaut: 1)
- * @param {number} delayMs - Délai en ms avant chaque retry, doublé à chaque tentative (défaut: 2000)
- * @returns {Promise<any>} - Le résultat de la fonction si succès
- * @throws {Error} - Relance l'erreur finale si tous les retries sont épuisés
- *
- * @example
- * const result = await withRetry(() => extractAdministrativeData(files, apiKey), 1, 2000);
- */
+// v5.9.3 - Smart Retry & Résilience avec fail-fast sur erreurs non transitoires
+const isNonRetryableError = (err) => {
+    const status = err?.status ?? err?.response?.status ?? err?.code;
+    if ([400, 401, 403, 404, 422].includes(Number(status))) return true;
+
+    const msg = String(err?.message || err || '').toLowerCase();
+    return (
+        msg.includes('api key') ||
+        msg.includes('clé api') ||
+        msg.includes('unauthorized') ||
+        msg.includes('forbidden') ||
+        msg.includes('invalid_request') ||
+        msg.includes('invalid request') ||
+        msg.includes('bad request')
+    );
+};
+
 export const withRetry = async (asyncFn, maxRetries = 1, delayMs = 2000) => {
     let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -108,10 +111,15 @@ export const withRetry = async (asyncFn, maxRetries = 1, delayMs = 2000) => {
             return await asyncFn();
         } catch (err) {
             lastError = err;
+
+            if (isNonRetryableError(err)) {
+                console.error(`[withRetry] 🛑 Erreur non transitoire détectée — abandon immédiat sans retry:`, err.message || err);
+                throw err;
+            }
+
             const isLastAttempt = attempt === maxRetries;
             if (isLastAttempt) break;
 
-            // Délai exponentiel : 2s, 4s, 8s...
             const waitMs = delayMs * Math.pow(2, attempt);
             console.warn(
                 `[withRetry] ⚠️ Tentative ${attempt + 1}/${maxRetries + 1} échouée — ` +
@@ -124,33 +132,35 @@ export const withRetry = async (asyncFn, maxRetries = 1, delayMs = 2000) => {
     throw lastError;
 };
 
-/**
- * Cache de session de niveau Fichier (WeakMap).
- * Stocke les PROMESSES d'extraction brute pour éviter la duplication des opérations coûteuses
- * (parsing PDF, conversion canvas base64, parsing MSG) tout en gérant la concurrence sans race conditions.
- * Purge automatiquement en cas de rejet de la promesse (anti-erreur silencieuse).
- */
-const fileRawExtractionCache = new WeakMap();
+// Cache d'extraction de session, keyé par signature unique du contenu fichier.
+// Cycle de vie : réinitialisé au début de chaque processGlobalIngestion.
+let sessionExtractionCache = new Map();
+
+export function clearSessionExtractionCache() {
+    sessionExtractionCache = new Map();
+    console.log('[aiHelpers] 🧹 Cache d\'extraction de session réinitialisé');
+}
+
+function getFileSignature(file) {
+    if (typeof file === 'string') return `str:${file.substring(0, 100)}_${file.length}`;
+    return `${file.name || 'unnamed'}|${file.size ?? 0}|${file.lastModified ?? 0}`;
+}
 
 function getCachedFileExtraction(file, key, extractionFn) {
     if (typeof file !== 'object' || file === null) return extractionFn();
-    
-    let fileMap = fileRawExtractionCache.get(file);
-    if (!fileMap) {
-        fileMap = new Map();
-        fileRawExtractionCache.set(file, fileMap);
+
+    const cacheKey = `${getFileSignature(file)}::${key}`;
+
+    if (sessionExtractionCache.has(cacheKey)) {
+        return sessionExtractionCache.get(cacheKey);
     }
-    
-    if (fileMap.has(key)) {
-        return fileMap.get(key);
-    }
-    
+
     const promise = extractionFn().catch(err => {
-        fileMap.delete(key);
+        sessionExtractionCache.delete(cacheKey);
         throw err;
     });
-    
-    fileMap.set(key, promise);
+
+    sessionExtractionCache.set(cacheKey, promise);
     return promise;
 }
 

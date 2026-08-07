@@ -44,7 +44,7 @@ import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
 import { runMergeAgent } from './agents/merger.js';
-import { withRetry, buildContentArrayParallel, mapInParallelBounded } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
+import { withRetry, buildContentArrayParallel, mapInParallelBounded, clearSessionExtractionCache } from './utils/aiHelpers.js';
 import { usePromptStore } from '../store/promptStore.js';
 import { isPdf, isPdfDeep } from './utils/fileUtils.js';
 import { processIngestedFile } from './utils/filePreprocessor.js';
@@ -634,6 +634,7 @@ export const processGlobalIngestion = async ({
     fallbackModel = null
 } = {}) => {
     
+    clearSessionExtractionCache();
     const log = makeSafeDebugLog(addDebugLog);
     if (!files) {
         throw new Error('[processGlobalIngestion] paramètre "files" manquant.');
@@ -734,27 +735,32 @@ export const processGlobalIngestion = async ({
         const dur_preprocess = ((Date.now() - t0_preprocess) / 1000).toFixed(2);
         if (addDebugLog) log('METRIC_PREPROCESS', 'INFO', `⏱️ Prétraitement + Extraction PJ terminés en ${dur_preprocess}s`);
 
-        // Extraction du texte complet pour le Golden Dataset (Feedback)
-        let fullExtractedText = "";
-        try {
-            const rawContentArray = await buildContentArrayParallel(filesToRoute, "");
-            const rawInputTextParts = rawContentArray
-                .filter(c => c.type === 'text' && c.text)
-                .map(c => `[DÉBUT SOURCE : ${c.sourceFileName || 'Inconnu'}]\n${c.text}\n[FIN SOURCE : ${c.sourceFileName || 'Inconnu'}]`);
-            fullExtractedText = rawInputTextParts.join('\n\n---\n\n').trim();
-        } catch (e) {
-            console.warn("[aiManager] Erreur lors de l'extraction globale du texte pour dataset:", e);
-        }
-
-        // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
+        // 1. Routage et Extraction du texte complet (Golden Dataset) EN PARALLÈLE
         const t0_router = Date.now();
-        if (addDebugLog) log('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
-        const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
+        if (addDebugLog) log('ROUTEUR', 'INFO', 'Analyse, routage et extraction du texte en parallèle...');
+
+        const [textExtractionResult, routeResult] = await Promise.all([
+            (async () => {
+                try {
+                    const rawContentArray = await buildContentArrayParallel(filesToRoute, "");
+                    const rawInputTextParts = rawContentArray
+                        .filter(c => c.type === 'text' && c.text)
+                        .map(c => `[DÉBUT SOURCE : ${c.sourceFileName || 'Inconnu'}]\n${c.text}\n[FIN SOURCE : ${c.sourceFileName || 'Inconnu'}]`);
+                    return rawInputTextParts.join('\n\n---\n\n').trim();
+                } catch (e) {
+                    console.warn("[aiManager] Erreur lors de l'extraction globale du texte pour dataset:", e);
+                    return "";
+                }
+            })(),
+            routeDocuments(filesToRoute, providedApiKey, onStatusChange)
+        ]);
+
+        const fullExtractedText = textExtractionResult;
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
         const routeMap = routeResult.data;
         const dur_router = ((Date.now() - t0_router) / 1000).toFixed(2);
-        if (addDebugLog) log('METRIC_ROUTER', 'INFO', `⏱️ Routage terminé en ${dur_router}s`);
+        if (addDebugLog) log('METRIC_ROUTER', 'INFO', `⏱️ Routage et extraction du texte terminés en ${dur_router}s`);
         if (addDebugLog) log('ROUTEUR', 'SUCCESS', routeMap);
 
         // 2. Séparation des fichiers
@@ -974,18 +980,27 @@ export const processGlobalIngestion = async ({
         let finalOccupants = occupants;
         let finalExpenses = expenses;
         
-        try {
-            const mergerRes = await withRetry(() => runMergeAgent(occupants, expenses, providedApiKey));
-            if (mergerRes.success && mergerRes.data) {
-                finalOccupants = mergerRes.data.occupants || occupants;
-                finalExpenses = mergerRes.data.expenses || expenses;
-                if (addDebugLog) log('AGENT_MERGER', 'SUCCESS', mergerRes.data);
-            } else {
-                if (addDebugLog) log('AGENT_MERGER', 'WARNING', 'Échec de la fusion intelligente, conservation des données brutes.', mergerRes.error);
+        const needsMerge = (occupants?.length ?? 0) > 1 || (expenses?.length ?? 0) > 1;
+
+        if (needsMerge) {
+            if (addDebugLog) log('AGENT_MERGER', 'INFO', 'Lancement de la déduplication intelligente (Merge Agent)...');
+            console.log(`[aiManager] ✨ Lancement Merge Agent sur ${occupants.length} occupants et ${expenses.length} dépenses...`);
+            try {
+                const mergerRes = await withRetry(() => runMergeAgent(occupants, expenses, providedApiKey));
+                if (mergerRes.success && mergerRes.data) {
+                    finalOccupants = mergerRes.data.occupants || occupants;
+                    finalExpenses = mergerRes.data.expenses || expenses;
+                    if (addDebugLog) log('AGENT_MERGER', 'SUCCESS', mergerRes.data);
+                } else {
+                    if (addDebugLog) log('AGENT_MERGER', 'WARNING', 'Échec de la fusion intelligente, conservation des données brutes.', mergerRes.error);
+                }
+            } catch (mergeErr) {
+                console.error('[aiManager] ❌ Erreur fatale Agent Merger:', mergeErr);
+                if (addDebugLog) log('AGENT_MERGER', 'ERROR', null, mergeErr.message);
             }
-        } catch (mergeErr) {
-            console.error('[aiManager] ❌ Erreur fatale Agent Merger:', mergeErr);
-            if (addDebugLog) log('AGENT_MERGER', 'ERROR', null, mergeErr.message);
+        } else {
+            console.log(`[aiManager] ⏭️ Merger sauté : pas de pluralité (occupants=${occupants?.length ?? 0}, expenses=${expenses?.length ?? 0})`);
+            if (addDebugLog) log('AGENT_MERGER', 'INFO', `Merger sauté : pas de pluralité (occupants=${occupants?.length ?? 0}, expenses=${expenses?.length ?? 0})`);
         }
 
         // 7. Assemblage final
