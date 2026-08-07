@@ -6,9 +6,9 @@ import { resolveBlockRecipientContact } from '../../../domain/decompteSplitter/b
 import SingleRecipientSelector from './SingleRecipientSelector.jsx';
 import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail, Loader2, Info, ListPlus } from 'lucide-react';
 import { resolveExpenseView, getDisplayLabel } from '../../../domain/decompteSplitter/labelResolver.js';
-import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
+import { buildEmailTemplate, buildEmailHtml } from '../../../services/export/emailTemplateBuilder.js';
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
-import { buildAllCandidates, buildIbanCandidates, formatIbanDisplay, buildReferenceCandidates } from '../../../services/utils/contactUtils.js';
+import { buildAllCandidates, buildIbanCandidates, formatIbanDisplay, buildReferenceCandidates, resolveExplicitCivility } from '../../../services/utils/contactUtils.js';
 import { refineText } from '../../../services/aiManager.js';
 
 const FIELD_CLS = "w-full text-xs text-slate-900 font-semibold bg-white border border-slate-300 rounded p-1.5 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none placeholder:text-slate-400";
@@ -176,16 +176,40 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         setSplitAmount('');
     };
 
-    const handleCopyMail = () => {
+    const handleCopyMail = async () => {
         if (!hasAllocations) return;
-        const text = buildEmailTemplate(block, state.allocations, expenses, {
+        const htmlText = buildEmailHtml(block, state.allocations, expenses, {
             occupants,
             prestataires: intervenants,
             localContacts: state.localContacts
         });
-        if (!text) return;
-        navigator.clipboard.writeText(text);
-        flashFeedback('mail');
+        const plainText = buildEmailTemplate(block, state.allocations, expenses, {
+            occupants,
+            prestataires: intervenants,
+            localContacts: state.localContacts
+        });
+
+        if (!plainText) return;
+
+        try {
+            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+                const htmlBlob = new Blob([htmlText], { type: 'text/html' });
+                const textBlob = new Blob([plainText], { type: 'text/plain' });
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': htmlBlob,
+                        'text/plain': textBlob
+                    })
+                ]);
+            } else {
+                await navigator.clipboard.writeText(plainText);
+            }
+            flashFeedback('mail');
+        } catch (err) {
+            console.warn('[SplitterRecipientBlock] Rich clipboard copy failed, falling back to writeText:', err);
+            await navigator.clipboard.writeText(plainText);
+            flashFeedback('mail');
+        }
     };
 
     const handleCopyINGBlock = () => {
@@ -234,14 +258,14 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                     { id: 'ACP', label: 'ACP' },
                                     { id: 'Société', label: 'Sté' }
                                 ].map(opt => {
-                                    const isSel = (block.mailCivility || 'Monsieur') === opt.id;
+                                    const isSel = block.mailCivility === opt.id;
                                     return (
                                         <button
                                             key={opt.id}
                                             type="button"
                                             onClick={() => dispatch({
                                                 type: 'UPDATE_BLOCK',
-                                                payload: { blockId: block.id, updates: { mailCivility: opt.id } }
+                                                payload: { blockId: block.id, updates: { mailCivility: opt.id, mailCivilityManuallySet: true } }
                                             })}
                                             className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
                                                 isSel 
@@ -263,7 +287,14 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             intervenants={intervenants}
                             documentCandidates={state.documentCandidates || []}
                             onSelect={(ref, snapshot) => {
+                                const allCandidates = buildAllCandidates({ occupants, intervenants, localContacts: state.localContacts, documentCandidates: state.documentCandidates || [] });
+                                const candidate = ref ? allCandidates.find(c => c.kind === ref.kind && c.id === ref.id) : null;
+                                const explicitCivility = resolveExplicitCivility(candidate || snapshot);
+
                                 const updates = { mailRecipientRef: ref, mailRecipientSnapshot: snapshot };
+                                if (explicitCivility && !block.mailCivilityManuallySet) {
+                                    updates.mailCivility = explicitCivility;
+                                }
                                 if (isMailRecipientLinked) {
                                     updates.paymentRecipientRef = ref;
                                     updates.paymentRecipientSnapshot = snapshot;
@@ -426,7 +457,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                     payload: { blockId: block.id, updates: { closureMode: CLOSURE_MODE.ATTENTE } } 
                                 })}
                                 className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
-                                    block.closureMode === CLOSURE_MODE.ATTENTE 
+                                    block.closureMode !== CLOSURE_MODE.CLOTURE 
                                         ? 'bg-white text-indigo-600 shadow-sm' 
                                         : 'text-slate-600 hover:text-slate-800'
                                 }`}
@@ -447,12 +478,62 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                 Clôture
                             </button>
                         </div>
+                        {block.closureMode !== CLOSURE_MODE.CLOTURE && (
+                            <div className="flex items-center justify-between gap-1.5 mt-2 pt-1.5 border-t border-slate-100">
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase">Factures pour :</span>
+                                <div className="flex gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => dispatch({
+                                            type: 'UPDATE_BLOCK',
+                                            payload: { blockId: block.id, updates: { advanceType: 'solde_tva' } }
+                                        })}
+                                        className={`text-[10px] px-2 py-0.5 rounded font-semibold transition-colors ${
+                                            block.advanceType !== 'tva_only'
+                                                ? 'bg-indigo-600 text-white shadow-xs'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        Solde + TVA
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => dispatch({
+                                            type: 'UPDATE_BLOCK',
+                                            payload: { blockId: block.id, updates: { advanceType: 'tva_only' } }
+                                        })}
+                                        className={`text-[10px] px-2 py-0.5 rounded font-semibold transition-colors ${
+                                            block.advanceType === 'tva_only'
+                                                ? 'bg-indigo-600 text-white shadow-xs'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        TVA uniquement
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="block text-[10px] font-medium text-slate-500 uppercase">Remarque éventuelle</label>
+                    <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">Remarque éventuelle</label>
+                    <textarea 
+                        className={FIELD_CLS}
+                        rows="2"
+                        placeholder="Texte libre à insérer dans l'e-mail..."
+                        value={block.remarque || ''}
+                        onChange={e => dispatch({ 
+                            type: 'UPDATE_BLOCK', 
+                            payload: { blockId: block.id, updates: { remarque: e.target.value } } 
+                        })}
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                        <div>
+                            {refineError && (
+                                <p className="text-[10px] text-red-500 font-medium">{refineError}</p>
+                            )}
+                        </div>
                         <div className="flex gap-1.5 items-center">
                             {block.remarqueOriginal !== undefined && block.remarqueOriginal !== null && (
                                 <button
@@ -485,19 +566,6 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             </button>
                         </div>
                     </div>
-                    {refineError && (
-                        <p className="text-[10px] text-red-500 font-medium mb-1">{refineError}</p>
-                    )}
-                    <textarea 
-                        className={FIELD_CLS}
-                        rows="2"
-                        placeholder="Texte libre à insérer dans l'e-mail..."
-                        value={block.remarque || ''}
-                        onChange={e => dispatch({ 
-                            type: 'UPDATE_BLOCK', 
-                            payload: { blockId: block.id, updates: { remarque: e.target.value } } 
-                        })}
-                    />
                 </div>
 
                 <div>

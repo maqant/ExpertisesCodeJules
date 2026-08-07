@@ -338,20 +338,6 @@ const SplitterInner = ({ onClose, dossierName, initialFiles = [] }) => {
                                     Envoyer au dossier
                                 </button>
                             )}
-                            
-                            <button 
-                                onClick={handleCopyTSV}
-                                disabled={!validation.isValid}
-                                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded shadow-sm transition-colors ${
-                                    validation.isValid 
-                                        ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50' 
-                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-transparent'
-                                }`}
-                                title={!validation.isValid ? "Corrigez les erreurs pour exporter" : "Copier format standard avec en-têtes"}
-                            >
-                                {validation.isValid ? <Copy className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                                Format Complet
-                            </button>
 
                             <button 
                                 onClick={handleCopyING}

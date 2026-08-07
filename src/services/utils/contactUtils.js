@@ -14,18 +14,47 @@ export const normalizeEmail = (raw) => {
   return EMAIL_REGEX.test(cleaned) ? cleaned : null;
 };
 
+export const CIVILITY = {
+    MADAME: 'Madame',
+    MONSIEUR: 'Monsieur',
+    ACP: 'ACP',
+    SOCIETE: 'Société',
+};
+
+const CIVILITY_ALIASES = {
+    'madame': CIVILITY.MADAME, 'mme': CIVILITY.MADAME, 'mme.': CIVILITY.MADAME,
+    'monsieur': CIVILITY.MONSIEUR, 'm.': CIVILITY.MONSIEUR, 'mr': CIVILITY.MONSIEUR,
+    'mr.': CIVILITY.MONSIEUR, 'm': CIVILITY.MONSIEUR,
+    'acp': CIVILITY.ACP, 'copropriété': CIVILITY.ACP, 'copropriete': CIVILITY.ACP,
+    'société': CIVILITY.SOCIETE, 'societe': CIVILITY.SOCIETE, 'sté': CIVILITY.SOCIETE,
+    'sa': CIVILITY.SOCIETE, 'srl': CIVILITY.SOCIETE, 'asbl': CIVILITY.SOCIETE,
+    'sprl': CIVILITY.SOCIETE,
+};
+
+/**
+ * Résout la civilité EXPLICITE d'un contact.
+ * Retourne une valeur de CIVILITY, ou `null` si aucune civilité n'est connue.
+ * Ne devine JAMAIS depuis le prénom (contrainte projet n°4).
+ */
+export const resolveExplicitCivility = (contact) => {
+    if (!contact) return null;
+
+    // 1. Champ civilité explicite (dossier ou document)
+    const raw = (contact.civility ?? contact.civilite ?? contact.titre ?? contact.statut ?? '').toString().trim().toLowerCase();
+    if (raw && CIVILITY_ALIASES[raw]) return CIVILITY_ALIASES[raw];
+
+    // 2. Type structurel explicite (ACP / société)
+    const type = (contact.type ?? contact.kind ?? contact.origin ?? '').toString().trim().toLowerCase();
+    if (type === 'acp' || type === 'copropriete') return CIVILITY.ACP;
+    if (['company', 'société', 'societe', 'entreprise', 'prestataire'].includes(type) && (contact.isCompany || contact.isSociete)) return CIVILITY.SOCIETE;
+
+    return null;
+};
+
 /**
  * Détermine la civilité d'affichage à partir du champ statut/civilité.
- * Robuste : fallback neutre si inconnu.
- * @param {object} party
- * @returns {string} ex: "Madame", "Monsieur", "" (neutre)
  */
-const resolveCivility = (party) => {
-  const source = `${party?.civilite ?? ''} ${party?.statut ?? ''}`.toLowerCase();
-  if (/(madame|mme|f[ée]minin|^f$)/.test(source)) return 'Madame';
-  if (/(monsieur|mr|m\.|masculin|^m$)/.test(source)) return 'Monsieur';
-  return ''; // neutre maîtrisé, jamais d'invention
-};
+const resolveCivility = (party) => resolveExplicitCivility(party) || '';
 
 const NAME_PARTICLES = new Set(['van', 'de', 'du', 'der', 'den', 'des', 'le', 'la', 'von', "d'", 'ten', 'ter', 'el', 'al', 'da', 'di']);
 

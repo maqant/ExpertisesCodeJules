@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { cleanAmount } from '../../../store/financeStore.js';
 import { ALLOCATION_STATUS } from '../../../domain/decompteSplitter/allocationModel.js';
+import { useDecompteSplitter } from './DecompteSplitterProvider.jsx';
+import { getHumanLabel, resolveExpenseView } from '../../../domain/decompteSplitter/labelResolver.js';
+import { formatPersonName } from '../../../services/utils/formatUtils.js';
 import { Check, X } from 'lucide-react';
 
 const ProrataBasePopover = ({ targetExpense, expenses, allocations, onApply, onClose }) => {
+    const { state } = useDecompteSplitter();
+
     // 1. Identify eligible base expenses
     const eligibleExpenses = expenses.filter(exp => {
         if (exp.id === targetExpense.id) return false;
@@ -34,10 +39,20 @@ const ProrataBasePopover = ({ targetExpense, expenses, allocations, onApply, onC
             <h4 className="text-xs font-bold text-slate-700 mb-2">Base de calcul du prorata</h4>
             <div className="space-y-1.5 mb-3 max-h-40 overflow-y-auto custom-scrollbar">
                 {eligibleExpenses.map(exp => {
-                    const allocatedTotal = allocations
-                        .filter(a => a.expenseId === exp.id && a.status !== ALLOCATION_STATUS.SUSPENDED)
-                        .reduce((s, a) => s + cleanAmount(a.montant), 0);
+                    const expAllocs = allocations.filter(a => a.expenseId === exp.id && a.status !== ALLOCATION_STATUS.SUSPENDED);
+                    const allocatedTotal = expAllocs.reduce((s, a) => s + cleanAmount(a.montant), 0);
                     
+                    const recipientNames = expAllocs.map(a => {
+                        const block = (state?.blocks || []).find(b => b.id === a.blockId);
+                        if (!block) return 'Destinataire non défini';
+                        const snapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
+                        const name = snapshot?.displayName || block.paymentRecipientNom || 'Destinataire non défini';
+                        return formatPersonName(name);
+                    });
+                    const recipientLabel = recipientNames.length > 0 ? Array.from(new Set(recipientNames)).join(', ') : 'Non alloué';
+                    const humanLabel = getHumanLabel(resolveExpenseView(exp), exp);
+                    const fullDisplay = `${humanLabel} (${recipientLabel})`;
+
                     return (
                         <label key={exp.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-1 rounded">
                             <input 
@@ -46,8 +61,8 @@ const ProrataBasePopover = ({ targetExpense, expenses, allocations, onApply, onC
                                 checked={selectedIds.has(exp.id)}
                                 onChange={() => toggleExpense(exp.id)}
                             />
-                            <span className="truncate flex-1 text-slate-600" title={exp.desc || exp.type}>{exp.desc || exp.type}</span>
-                            <span className="font-medium text-slate-800 whitespace-nowrap text-xs">{allocatedTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                            <span className="truncate flex-1 text-slate-700 font-medium text-xs" title={fullDisplay}>{fullDisplay}</span>
+                            <span className="font-semibold text-slate-800 whitespace-nowrap text-xs">{allocatedTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                         </label>
                     );
                 })}

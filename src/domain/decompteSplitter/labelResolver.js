@@ -55,6 +55,63 @@ export const resolveExpenseView = (expense, override = {}, dossierIndex = new Ma
     };
 };
 
+const FINANCE_ACRONYMS = new Set([
+    'TVA', 'HTVA', 'TVAC', 'TTC', 'HT', 'RC', 'ACP',
+    'SA', 'SRL', 'SPRL', 'ASBL', 'SCRL', 'RDC', 'PVE', 'PV', 'ING', 'IBAN', 'BIC'
+]);
+
+const ACCENT_DICTIONARY = {
+    'BATIMENT': 'bâtiment', 'BATIMENTS': 'bâtiments',
+    'ELECTRICITE': 'électricité', 'ELECTRIQUE': 'électrique', 'ELECTRIQUES': 'électriques',
+    'ELECTROMENAGER': 'électroménager',
+    'DEGAT': 'dégât', 'DEGATS': 'dégâts',
+    'ETUDE': 'étude', 'ETUDES': 'études',
+    'ETANCHEITE': 'étanchéité',
+    'DEBLAIEMENT': 'déblaiement', 'DEBLAIS': 'déblais',
+    'DEMOLITION': 'démolition', 'DEMOLITIONS': 'démolitions',
+    'CHOMAGE': 'chômage',
+    'PREJUDICE': 'préjudice', 'PREJUDICES': 'préjudices',
+    'DEPLACEMENT': 'déplacement', 'DEPLACEMENTS': 'déplacements',
+    'VETUSTE': 'vétusté',
+    'RECUPERATION': 'récupération', 'RECUPERABLE': 'récupérable',
+    'INDEMNITE': 'indemnité', 'INDEMNITES': 'indemnités',
+    'HONORAIRE': 'honoraire', 'HONORAIRES': 'honoraires',
+    'A': 'à',
+};
+
+const humanizeToken = (token) => {
+    const bare = token.replace(/[.,;:()]/g, '');
+    if (FINANCE_ACRONYMS.has(bare)) return token;
+    const accented = ACCENT_DICTIONARY[bare];
+    if (accented) return token.replace(bare, accented);
+    return token.toLocaleLowerCase('fr-FR');
+};
+
+const isRawUppercaseLabel = (label) => {
+    const letters = label.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+    if (!letters) return false;
+    return letters === letters.toLocaleUpperCase('fr-FR');
+};
+
+/**
+ * Formate un libellé financier brut en titre français propre.
+ * Ex: "BATIMENT" -> "Bâtiment", "FRAIS DE RECHERCHES" -> "Frais de recherches"
+ */
+export const formatExpenseLabel = (rawLabel = '') => {
+    const source = String(rawLabel).trim();
+    if (!source || !isRawUppercaseLabel(source)) return source;
+
+    const tokens = source.split(/\s+/).map(humanizeToken);
+
+    const firstIdx = tokens.findIndex(t => !FINANCE_ACRONYMS.has(t.replace(/[.,;:()]/g, '')));
+    if (firstIdx !== -1) {
+        const t = tokens[firstIdx];
+        tokens[firstIdx] = t.charAt(0).toLocaleUpperCase('fr-FR') + t.slice(1);
+    }
+
+    return tokens.join(' ');
+};
+
 /**
  * Libellé d'affichage garanti non-vide pour l'UI.
  * Contrat unique : toute l'UI DOIT passer par cette fonction.
@@ -68,8 +125,11 @@ export const getDisplayLabel = (resolvedView, rawExpense = {}) => {
         console.warn('[labelResolver] Poste sans libellé résolvable:', rawExpense.id);
     }
 
-    return label || 'Poste sans libellé';
+    return formatExpenseLabel(label || 'Poste sans libellé');
 };
+
+export const getHumanLabel = (resolvedView, rawExpense = {}) =>
+    getDisplayLabel(resolvedView, rawExpense);
 
 /**
  * Résout la liste complète (utilitaire pour le panier et le matcher).
