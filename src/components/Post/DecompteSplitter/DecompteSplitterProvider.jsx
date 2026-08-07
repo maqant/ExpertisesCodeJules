@@ -12,6 +12,8 @@ const initialState = {
     allocations: [],
     blocks: [],
     localContacts: [],
+    documentCandidates: [],
+    documentIbans: [],
     unassignedPolicy: 'strict',
     extractedExpenses: [],
     ingestionStatus: 'idle', // 'idle' | 'uploading' | 'parsing' | 'ready' | 'error'
@@ -63,7 +65,20 @@ function splitterReducer(state, action) {
         case 'INIT_DRAFT': {
             if (!action.payload) return initialState;
             const migrated = migrateDraftRecipients(action.payload);
-            return { ...migrated, localContacts: sanitizeContactList(migrated.localContacts) };
+            return {
+                ...migrated,
+                localContacts: sanitizeContactList(migrated.localContacts),
+                documentCandidates: migrated.documentCandidates || [],
+                documentIbans: migrated.documentIbans || []
+            };
+        }
+
+        case 'RESET_DOCUMENT_SUGGESTIONS': {
+            return {
+                ...state,
+                documentCandidates: [],
+                documentIbans: []
+            };
         }
 
         case 'INGESTION_START': {
@@ -77,6 +92,18 @@ function splitterReducer(state, action) {
             if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
             const { expenses, meta, detectedContact } = action.payload;
+            const newDocCandidates = detectedContact ? [{
+                id: detectedContact.id || crypto.randomUUID(),
+                displayName: detectedContact.nom,
+                nom: detectedContact.nom,
+                iban: detectedContact.iban || '',
+                origin: 'Lettre / Document'
+            }] : [];
+            const newDocIbans = (detectedContact && detectedContact.iban) ? [{
+                iban: detectedContact.iban,
+                holderName: detectedContact.nom,
+                origin: 'Lettre / Document'
+            }] : [];
 
             return {
                 ...state,
@@ -87,9 +114,9 @@ function splitterReducer(state, action) {
                 ingestionError: null,
                 appendError: null,
                 resumedFromDraft: false,
-                // Le contact détecté par l'IA est ajouté aux contacts locaux,
-                // SANS créer de bloc ni d'allocation. L'utilisateur ventile manuellement.
                 localContacts: mergeDetectedContact(state.localContacts, detectedContact),
+                documentCandidates: newDocCandidates,
+                documentIbans: newDocIbans,
             };
         }
 
@@ -98,18 +125,30 @@ function splitterReducer(state, action) {
             if (!canTransition(state.ingestionStatus, 'ready')) return state;
             
             const { expenses, meta, detectedContact } = action.payload;
+            const appendedDocCandidates = detectedContact ? [{
+                id: detectedContact.id || crypto.randomUUID(),
+                displayName: detectedContact.nom,
+                nom: detectedContact.nom,
+                iban: detectedContact.iban || '',
+                origin: 'Lettre / Document'
+            }] : [];
+            const appendedDocIbans = (detectedContact && detectedContact.iban) ? [{
+                iban: detectedContact.iban,
+                holderName: detectedContact.nom,
+                origin: 'Lettre / Document'
+            }] : [];
 
             return {
                 ...state,
                 ingestionStatus: 'ready',
                 ingestionRequestId: null,
-                // Les nouveaux postes s'ajoutent au panier global, statut "À ventiler".
-                // AUCUNE allocation automatique. L'utilisateur ventile manuellement.
                 extractedExpenses: [...state.extractedExpenses, ...expenses],
                 detectedMeta: meta || state.detectedMeta,
                 ingestionError: null,
                 appendError: null,
                 localContacts: mergeDetectedContact(state.localContacts, detectedContact),
+                documentCandidates: [...(state.documentCandidates || []), ...appendedDocCandidates],
+                documentIbans: [...(state.documentIbans || []), ...appendedDocIbans],
             };
         }
             

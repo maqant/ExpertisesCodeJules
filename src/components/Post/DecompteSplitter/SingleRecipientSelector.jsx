@@ -13,6 +13,7 @@ export const SingleRecipientSelector = ({
     localContacts = [],
     occupants = [],
     intervenants = [],
+    documentCandidates = [],
     onSelect,
     onCreateContact,
     // Alias legacy défensifs
@@ -28,9 +29,23 @@ export const SingleRecipientSelector = ({
     const effectiveOnCreate = onCreateContact || onCreateLocalContact;
 
     const candidates = useMemo(
-        () => buildAllCandidates({ occupants, intervenants, localContacts }),
-        [occupants, intervenants, localContacts]
+        () => buildAllCandidates({ occupants, intervenants, localContacts, documentCandidates }),
+        [occupants, intervenants, localContacts, documentCandidates]
     );
+
+    const groupedCandidates = useMemo(() => {
+        const groups = {
+            'Dossier actif': [],
+            'Document analysé': [],
+            'Session actuelle': []
+        };
+        candidates.forEach(c => {
+            const cat = c.sourceCategory || (c.kind === 'dossier' ? 'Dossier actif' : c.kind === 'document' ? 'Document analysé' : 'Session actuelle');
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(c);
+        });
+        return groups;
+    }, [candidates]);
 
     const selectedContact = useMemo(() => {
         if (!recipientRef) return null;
@@ -105,6 +120,8 @@ export const SingleRecipientSelector = ({
                         className={FIELD_CLASS}
                         value={draft.displayName}
                         onChange={e => setDraft(d => ({...d, displayName: e.target.value}))}
+                        autoComplete="off"
+                        data-form-type="other"
                         autoFocus
                     />
                 </div>
@@ -149,14 +166,22 @@ export const SingleRecipientSelector = ({
                         className="w-full text-sm text-slate-900 font-semibold bg-white border border-slate-300 rounded-lg p-2.5 shadow-sm cursor-pointer focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
                         value={recipientRef ? `${recipientRef.kind}:${recipientRef.id}` : ''}
                         onChange={handleChange}
+                        autoComplete="off"
                         aria-label="Sélectionner un destinataire"
                     >
                         <option value="" className="text-slate-500 bg-white font-normal">-- Sélectionner un destinataire --</option>
-                        {candidates.map(c => (
-                            <option key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`} className="text-slate-900 bg-white font-medium py-1">
-                                {c.displayName} {c.email ? `(${c.email})` : ''} - [{c.origin}]
-                            </option>
-                        ))}
+                        {Object.entries(groupedCandidates).map(([groupLabel, list]) => {
+                            if (list.length === 0) return null;
+                            return (
+                                <optgroup key={groupLabel} label={groupLabel} className="font-bold text-slate-700 bg-slate-100">
+                                    {list.map(c => (
+                                        <option key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`} className="text-slate-900 bg-white font-medium py-1">
+                                            {c.displayName} {c.email ? `(${c.email})` : '(sans e-mail)'} - [{c.origin}]
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            );
+                        })}
                     </select>
                 </div>
                 <button 

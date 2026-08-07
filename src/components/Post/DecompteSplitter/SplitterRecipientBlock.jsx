@@ -8,7 +8,7 @@ import { Trash2, Plus, ArrowRightLeft, Sparkles, RotateCcw, Copy, Mail, Loader2 
 import { resolveExpenseView, getDisplayLabel } from '../../../domain/decompteSplitter/labelResolver.js';
 import { buildEmailTemplate } from '../../../services/export/emailTemplateBuilder.js';
 import { buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
-import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
+import { buildAllCandidates, buildIbanCandidates, formatIbanDisplay } from '../../../services/utils/contactUtils.js';
 import { refineText } from '../../../services/aiManager.js';
 
 const FIELD_CLS = "w-full text-xs text-slate-900 font-semibold bg-white border border-slate-300 rounded p-1.5 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none placeholder:text-slate-400";
@@ -19,6 +19,36 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
     const [expenseToAdd, setExpenseToAdd] = useState('');
     const [isRefiningRemarque, setIsRefiningRemarque] = useState(false);
     const [refineError, setRefineError] = useState(null);
+
+    const ibanCandidates = useMemo(() => {
+        const list = buildIbanCandidates({
+            occupants: occupants || [],
+            intervenants: intervenants || [],
+            documentCandidates: state.documentCandidates || [],
+            documentIbans: state.documentIbans || [],
+            localContacts: state.localContacts || []
+        });
+
+        const suggestedIban = activeContact?.iban ? activeContact.iban.replace(/\s/g, '').toUpperCase() : null;
+        if (suggestedIban) {
+            const idx = list.findIndex(item => item.iban === suggestedIban);
+            if (idx > 0) {
+                const [item] = list.splice(idx, 1);
+                item.provenance = `Suggéré (${activeContact.displayName || activeContact.nom}) — ${item.provenance}`;
+                list.unshift(item);
+            } else if (idx === -1) {
+                list.unshift({
+                    iban: suggestedIban,
+                    ibanDisplay: formatIbanDisplay(suggestedIban),
+                    isValidFormat: true,
+                    provenance: `Suggéré (${activeContact.displayName || activeContact.nom})`,
+                    holderName: activeContact.displayName || activeContact.nom,
+                    sourceKind: 'dossier'
+                });
+            }
+        }
+        return list;
+    }, [occupants, intervenants, state.documentCandidates, state.documentIbans, state.localContacts, activeContact]);
 
     const handleRefineRemarque = async () => {
         if (!block.remarque?.trim() || isRefiningRemarque) return;
@@ -110,7 +140,8 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
         const allCandidates = buildAllCandidates({
             occupants: occupants || [],
             intervenants: intervenants || [],
-            localContacts: state.localContacts || []
+            localContacts: state.localContacts || [],
+            documentCandidates: state.documentCandidates || []
         });
         const tsvContent = buildINGTsvExport(state, expenses, dossierName, block.id, allCandidates);
         navigator.clipboard.writeText(tsvContent);
@@ -177,6 +208,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             localContacts={state.localContacts}
                             occupants={occupants}
                             intervenants={intervenants}
+                            documentCandidates={state.documentCandidates || []}
                             onSelect={(ref, snapshot) => {
                                 const updates = { mailRecipientRef: ref, mailRecipientSnapshot: snapshot };
                                 if (isMailRecipientLinked) {
@@ -276,6 +308,7 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                                 localContacts={state.localContacts}
                                 occupants={occupants}
                                 intervenants={intervenants}
+                                documentCandidates={state.documentCandidates || []}
                                 onSelect={(ref, snapshot) => {
                                     dispatch({
                                         type: 'UPDATE_BLOCK',
@@ -301,11 +334,35 @@ export const SplitterRecipientBlock = ({ block, expenses, occupants, intervenant
                             className={`${FIELD_CLS} font-mono uppercase`}
                             placeholder={activeContact?.iban || "BEXX XXXX XXXX XXXX"}
                             value={block.ibanOverride || ''}
+                            autoComplete="off"
+                            data-form-type="other"
                             onChange={e => dispatch({ 
                                 type: 'UPDATE_BLOCK', 
                                 payload: { blockId: block.id, updates: { ibanOverride: e.target.value } } 
                             })}
                         />
+                        {ibanCandidates.length > 0 && (
+                            <select
+                                className="mt-1 w-full text-[11px] text-slate-700 bg-white border border-slate-200 rounded p-1 shadow-xs cursor-pointer"
+                                value=""
+                                autoComplete="off"
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        dispatch({
+                                            type: 'UPDATE_BLOCK',
+                                            payload: { blockId: block.id, updates: { ibanOverride: e.target.value } }
+                                        });
+                                    }
+                                }}
+                            >
+                                <option value="">-- Suggerer un IBAN ({ibanCandidates.length} disponible{ibanCandidates.length > 1 ? 's' : ''}) --</option>
+                                {ibanCandidates.map((item, idx) => (
+                                    <option key={idx} value={item.iban}>
+                                        {item.ibanDisplay} [{item.provenance}]{!item.isValidFormat ? ' ⚠️ format non standard' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[10px] font-medium text-slate-500 mb-1 uppercase">Statut du paiement</label>

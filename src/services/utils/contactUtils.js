@@ -55,11 +55,10 @@ export const parseFullName = (rawName) => {
  * Construit une partie normalisée à partir d'un objet occupant OU intervenant.
  * @param {object} raw
  * @param {string} origin - 'occupant' | 'intervenant'
- * @returns {object|null} contact normalisé, ou null si pas d'e-mail valide
+ * @returns {object|null} contact normalisé, ou null si pas d'e-mail ou nom
  */
 const toContact = (raw, origin) => {
   const email = normalizeEmail(raw?.email);
-  if (!email) return null;
 
   let nom = (raw?.nom ?? '').trim();
   let prenom = (raw?.prenom ?? '').trim();
@@ -71,13 +70,16 @@ const toContact = (raw, origin) => {
   }
 
   const fullName = [prenom, nom].filter(Boolean).join(' ').trim();
+  if (!fullName && !email) return null;
 
   return {
-    id: raw?.id ?? `${origin}-${email}`,
+    id: raw?.id ?? `${origin}-${fullName || email}`,
     origin,
-    email,
+    email: email || '',
+    hasEmail: Boolean(email),
     nom,
     prenom,
+    iban: raw?.iban || '',
     civility: resolveCivility(raw),
     displayName: fullName || email,
     raw,
@@ -85,8 +87,8 @@ const toContact = (raw, origin) => {
 };
 
 /**
- * Agrège occupants + intervenants en une liste de contacts uniques (par e-mail),
- * ne conservant que ceux possédant une adresse valide.
+ * Agrège occupants + intervenants en une liste de contacts uniques (par e-mail ou nom),
+ * ne conservant que ceux possédant une adresse valide ou un nom.
  * @param {object} params
  * @param {Array} [params.occupants]
  * @param {Array} [params.intervenants]
@@ -101,14 +103,95 @@ export const buildRecipientCandidates = ({ occupants = [], intervenants = [] }) 
     ...safeIntervenants.map((i) => toContact(i, 'intervenant')),
   ].filter(Boolean);
 
-  // Déduplication par e-mail (premier rencontré gagne)
+  // Déduplication par e-mail ou nom
   const seen = new Set();
   return all.filter((c) => {
-    if (seen.has(c.email)) return false;
-    seen.add(c.email);
+    const normName = c.displayName.toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = c.email ? `email:${c.email}` : `name:${normName}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 };
+
+export const normalizeIban = (raw) => {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.replace(/\s/g, '').toUpperCase();
+  return cleaned.length >= 14 ? cleaned : null;
+};
+
+export const formatIbanDisplay = (iban) => {
+  const norm = normalizeIban(iban);
+  if (!norm) return iban || '';
+  return norm.replace(/(.{4})/g, '$1 ').trim();
+};
+
+export const isValidIbanFormat = (iban) => {
+  const norm = normalizeIban(iban);
+  if (!norm) return false;
+  return /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(norm);
+};
+
+export function buildIbanCandidates({ occupants = [], intervenants = [], documentCandidates = [], documentIbans = [], localContacts = [] } = {}) {
+  const candidates = [];
+  const seenNorm = new Set();
+
+  const addIban = (rawIban, provenance, holderName, sourceKind) => {
+    if (!rawIban || typeof rawIban !== 'string') return;
+    const norm = normalizeIban(rawIban);
+    if (!norm || seenNorm.has(norm)) return;
+    seenNorm.add(norm);
+
+    candidates.push({
+      iban: rawIban.replace(/\s/g, '').toUpperCase(),
+      ibanDisplay: formatIbanDisplay(rawIban),
+      isValidFormat: isValidIbanFormat(rawIban),
+      provenance,
+      holderName: holderName || null,
+      sourceKind
+    });
+  };
+
+  (occupants || []).forEach(o => {
+    if (o?.iban) {
+      const name = [o.prenom, o.nom].filter(Boolean).join(' ') || o.nom || 'Occupant';
+      addIban(o.iban, `Dossier : ${name}`, name, 'dossier');
+    }
+  });
+
+  (intervenants || []).forEach(i => {
+    if (i?.iban) {
+      const name = i.nom || i.name || 'Intervenant';
+      addIban(i.iban, `Dossier : ${name}`, name, 'dossier');
+    }
+  });
+
+  (localContacts || []).forEach(c => {
+    if (c?.iban) {
+      const name = c.displayName || 'Contact session';
+      addIban(c.iban, `Session : ${name}`, name, 'local');
+    }
+  });
+
+  (documentCandidates || []).forEach(d => {
+    if (d?.iban) {
+      const name = d.displayName || d.nom || null;
+      const prov = `Doc : ${d.origin || 'Document'}${name ? ` — ${name}` : ' — Titulaire non déterminé'}`;
+      addIban(d.iban, prov, name, 'document');
+    }
+  });
+
+  (documentIbans || []).forEach(di => {
+    const raw = typeof di === 'string' ? di : di?.iban;
+    const name = typeof di === 'object' ? di?.holderName || null : null;
+    const docLabel = typeof di === 'object' && di?.origin ? di.origin : 'Document';
+    if (raw) {
+      addIban(raw, `Doc : ${docLabel}${name ? ` — ${name}` : ' — Titulaire non déterminé'}`, name, 'document');
+    }
+  });
+
+  return candidates;
+}
 
 /**
  * Concatène les e-mails pour Outlook (séparés par "; ").
@@ -193,19 +276,31 @@ export function createLocalContact(draft, { fromSourceId = null } = {}) {
  * Fusionne les candidats du dossier avec les contacts locaux du splitter.
  * Les overrides "masquent" leur source pour éviter les doublons visuels.
  */
-export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [] } = {}) {
+export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [], documentCandidates = [] } = {}) {
     const cleanLocalContacts = (localContacts || []).filter(c => c != null && typeof c === 'object');
     const dossierCandidates = buildRecipientCandidates({ occupants, intervenants })
-        .map(c => ({ ...c, kind: 'dossier' }));
+        .map(c => ({ ...c, kind: 'dossier', sourceCategory: 'Dossier actif' }));
+
+    const docCandidates = (documentCandidates || []).map((c, i) => ({
+        id: c.id || `doc-candidate-${i}`,
+        displayName: c.displayName || c.nom || 'Candidat document',
+        email: c.email || '',
+        hasEmail: Boolean(c.email),
+        iban: c.iban || '',
+        kind: 'document',
+        origin: c.origin || 'Document analysé',
+        sourceCategory: 'Document analysé'
+    }));
 
     const overriddenSourceIds = new Set(
         cleanLocalContacts.filter(c => c.origin === 'override' && c.sourceId).map(c => c.sourceId)
     );
 
     const visibleDossier = dossierCandidates.filter(c => !overriddenSourceIds.has(c.id));
-    const locals = cleanLocalContacts.map(c => ({ ...c, kind: 'local' }));
+    const visibleDocs = docCandidates.filter(c => !overriddenSourceIds.has(c.id));
+    const locals = cleanLocalContacts.map(c => ({ ...c, kind: 'local', hasEmail: Boolean(c.email), sourceCategory: 'Session actuelle' }));
 
-    return [...visibleDossier, ...locals];
+    return [...visibleDossier, ...visibleDocs, ...locals];
 }
 
 /** Résout une RecipientRef en snapshot figé (appelé à la génération rapport). */
