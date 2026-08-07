@@ -15,7 +15,8 @@ Retourne UNIQUEMENT un objet JSON avec cette structure :
     { "libelle": "Description exacte du poste", "montant": 760.00 }
   ],
   "beneficiaire": {
-    "nom": "Nom complet du bénéficiaire/assuré si visible",
+    "civilite": "Madame | Monsieur | ACP | Société | null",
+    "nom": "Nom complet du bénéficiaire SANS la civilité (ex: 'Christine Wolfs')",
     "iban": "IBAN si visible (sinon null)"
   },
   "totalDocument": 65223.12,
@@ -31,8 +32,15 @@ Règles d'extraction des POSTES et des SIGNES :
 - "totalDocument" est le montant total net versé ou à payer indiqué sur la lettre (ex: 65223.12).
 
 Règles pour le BÉNÉFICIAIRE :
-- C'est la personne physique ou morale à qui le versement est destiné (ex: "RESIDENCE CROISETTE").
-- Si non trouvé, mets null pour les deux champs.
+- C'est la personne physique ou morale à qui le versement est destiné.
+- "civilite" : extrais-la UNIQUEMENT si elle est EXPLICITEMENT écrite dans le document :
+  * "MADAME", "Mme", "Mme." -> "Madame"
+  * "MONSIEUR", "M.", "Mr" -> "Monsieur"
+  * "ACP", "Association des Copropriétaires", "Résidence" -> "ACP"
+  * "SA", "SPRL", "SRL", "SOCIÉTÉ", "SCRL" -> "Société"
+- INTERDICTION ABSOLUE de deviner la civilité à partir du prénom. Si aucune mention explicite: "civilite" = null.
+- "nom" ne doit JAMAIS contenir la civilité. Exemple : "MADAME CHRISTINE WOLFS" -> civilite: "Madame", nom: "Christine Wolfs".
+- Si non trouvé, mets null pour les trois champs.
 
 IMPORTANT : Ne retourne RIEN d'autre que le JSON. Pas d'explication, pas de commentaire.`;
 

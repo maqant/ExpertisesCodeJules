@@ -20,6 +20,7 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
         return {
             displayName: liveContact.displayName,
             email: liveContact.email || null,
+            civility: liveContact.civility || liveContact.civilite || null,
             isCompany: !!liveContact.isCompany,
             resolved: true,
         };
@@ -30,6 +31,7 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
         return {
             displayName: snapshot.displayName,
             email: snapshot.email || null,
+            civility: snapshot.civility || snapshot.civilite || null,
             isCompany: !!snapshot.isCompany,
             resolved: true,
         };
@@ -53,10 +55,17 @@ export const resolveCivilitySalutation = (civility, mailName = '') => {
                 ? `Messieurs les Administrateurs de la société ${full},`
                 : 'Messieurs,';
         case 'Monsieur':
-        default:
             return lastName ? `Bonjour Monsieur ${formatPersonName(lastName)},` : 'Bonjour Monsieur,';
+        default:
+            return full ? `Bonjour ${formatPersonName(full)},` : 'Bonjour,';
     }
 };
+
+const sanitizeLabel = (label = '') =>
+    label
+        .replace(/^poste\s+/i, '')
+        .replace(/;\s*$/g, '')
+        .trim();
 
 export const buildEmailDetails = (block, allocations, expenses, piiData = {}) => {
     if (!block) return null;
@@ -70,12 +79,12 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
     const mailRecipient = resolveEffectiveMailRecipient(block, allCandidates);
     const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
 
-    const mailCivility = block.mailCivility || 'Monsieur';
+    const mailCivility = block.mailCivility || mailRecipient?.civility || null;
     const mailName = mailRecipient?.displayName || block.mailRecipientSnapshot?.displayName || '';
 
     const salutation = mailCivility
         ? resolveCivilitySalutation(mailCivility, mailName)
-        : (mailRecipient ? buildSalutation([mailRecipient]) : `Bonjour Madame, Monsieur,`);
+        : (mailName ? `Bonjour ${formatPersonName(mailName)},` : `Bonjour,`);
 
     let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';
@@ -108,7 +117,8 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
 
         const isFranchise = val < 0 || (exp.desc || '').toLowerCase().includes('franchise') || (exp.type || '').toLowerCase().includes('franchise') || exp.isFranchise;
         const sign = isFranchise ? '(-)' : '(+)';
-        const label = getHumanLabel(resolveExpenseView(exp), exp);
+        const rawLabel = getHumanLabel(resolveExpenseView(exp), exp);
+        const label = sanitizeLabel(rawLabel);
         const formatMontant = Math.abs(val).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         items.push({
@@ -121,13 +131,18 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
 
     const totalStr = `${total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
-    let closureText = '';
+    let advanceSentence = '';
+    let invoiceSentence = '';
+
     if (block.closureMode === CLOSURE_MODE.CLOTURE) {
-        closureText = 'Sauf erreur, ce paiement clôture ce dossier.';
-    } else if (block.advanceType === 'tva_only') {
-        closureText = "Ce paiement constitue une avance sur l'indemnité. Nous restons dans l'attente des factures afin de solliciter le versement de la TVA.";
+        advanceSentence = 'Sauf erreur, ce paiement clôture ce dossier.';
     } else {
-        closureText = "Ce paiement constitue une avance sur l'indemnité. Nous restons dans l'attente des factures afin de solliciter le versement du solde et de la TVA.";
+        advanceSentence = "Ce paiement constitue une avance sur l'indemnité.";
+        if (block.advanceType === 'tva_only') {
+            invoiceSentence = "Nous restons dans l'attente des factures afin de solliciter le versement de la TVA.";
+        } else {
+            invoiceSentence = "Nous restons dans l'attente des factures afin de solliciter le versement du solde et de la TVA.";
+        }
     }
 
     const remarqueText = block.remarque?.trim() || '';
@@ -137,7 +152,8 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
         paymentSentence,
         items,
         totalStr,
-        closureText,
+        advanceSentence,
+        invoiceSentence,
         remarqueText
     };
 };
@@ -146,27 +162,30 @@ export const buildEmailHtml = (block, allocations, expenses, piiData = {}) => {
     const details = buildEmailDetails(block, allocations, expenses, piiData);
     if (!details) return '';
 
-    const listHtml = details.items
-        .map(i => `<li style="margin-bottom: 4px;">${i.fullText}</li>`)
-        .join('');
+    const itemsHtml = details.items
+        .map(i => `<p style="margin: 0 0 6px 24px;">\u2022 ${i.sign} ${i.label} : ${i.amountStr}</p>`)
+        .join('\n');
+
+    const invoiceHtml = details.invoiceSentence
+        ? `<p style="margin: 0 0 16px 0;">${details.invoiceSentence}</p>`
+        : '';
 
     const remarqueHtml = details.remarqueText
-        ? `<p style="margin-bottom: 16px;">${details.remarqueText}</p>`
+        ? `<p style="margin: 0 0 16px 0;">${details.remarqueText}</p>`
         : '';
 
     return `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.5;">
-<p style="margin-bottom: 16px;">${details.salutation}</p>
-<p style="margin-bottom: 16px;">Je reviens vers vous dans ce dossier.</p>
-<p style="margin-bottom: 16px;">${details.paymentSentence}</p>
-<p style="margin-bottom: 8px;">Le décompte est le suivant :</p>
-<ul style="margin-top: 0; margin-bottom: 16px; padding-left: 24px; list-style-type: disc;">
-${listHtml}
-</ul>
-<p style="margin-bottom: 16px;"><strong>Total : ${details.totalStr}</strong></p>
-<p style="margin-bottom: 16px;">${details.closureText}</p>
+<p style="margin: 0 0 16px 0;">${details.salutation}</p>
+<p style="margin: 0 0 16px 0;">Je reviens vers vous dans ce dossier.</p>
+<p style="margin: 0 0 16px 0;">${details.paymentSentence}</p>
+<p style="margin: 0 0 8px 0;">Le décompte est le suivant :</p>
+${itemsHtml}
+<p style="margin: 16px 0 16px 0;"><strong>Total : ${details.totalStr}</strong></p>
+<p style="margin: 0 0 ${details.invoiceSentence ? '16px' : '16px'};">${details.advanceSentence}</p>
+${invoiceHtml}
 ${remarqueHtml}
-<p style="margin-bottom: 16px;">Je reste à votre disposition.</p>
-<p style="margin-bottom: 0;">Bien cordialement,</p>
+<p style="margin: 0 0 16px 0;">Je reste à votre disposition.</p>
+<p style="margin: 0;">Bien cordialement,</p>
 </div>`;
 };
 
@@ -174,8 +193,9 @@ export const buildEmailTemplate = (block, allocations, expenses, piiData = {}) =
     const details = buildEmailDetails(block, allocations, expenses, piiData);
     if (!details) return '';
 
-    const itemsText = details.items.map(i => `- ${i.fullText}`).join('\n');
-    const remarqueBlock = details.remarqueText ? `\n${details.remarqueText}\n` : '';
+    const itemsText = details.items.map(i => `\u2022 ${i.fullText}`).join('\n');
+    const invoiceBlock = details.invoiceSentence ? `\n\n${details.invoiceSentence}` : '';
+    const remarqueBlock = details.remarqueText ? `\n\n${details.remarqueText}` : '';
 
     return `${details.salutation}
 
@@ -188,8 +208,8 @@ ${itemsText}
 
 Total : ${details.totalStr}
 
-${details.closureText}
-${remarqueBlock}
+${details.advanceSentence}${invoiceBlock}${remarqueBlock}
+
 Je reste à votre disposition.
 
 Bien cordialement,`;

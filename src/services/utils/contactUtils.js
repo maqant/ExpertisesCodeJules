@@ -51,9 +51,6 @@ export const resolveExplicitCivility = (contact) => {
     return null;
 };
 
-/**
- * Détermine la civilité d'affichage à partir du champ statut/civilité.
- */
 const resolveCivility = (party) => resolveExplicitCivility(party) || '';
 
 const NAME_PARTICLES = new Set(['van', 'de', 'du', 'der', 'den', 'des', 'le', 'la', 'von', "d'", 'ten', 'ter', 'el', 'al', 'da', 'di']);
@@ -112,12 +109,6 @@ export function buildReferenceCandidates({ refPechard, refCompagnie, numSinistre
   return candidates;
 }
 
-/**
- * Construit une partie normalisée à partir d'un objet occupant OU intervenant.
- * @param {object} raw
- * @param {string} origin - 'occupant' | 'intervenant'
- * @returns {object|null} contact normalisé, ou null si pas d'e-mail ou nom
- */
 const toContact = (raw, origin) => {
   const email = normalizeEmail(raw?.email);
 
@@ -142,19 +133,12 @@ const toContact = (raw, origin) => {
     prenom,
     iban: raw?.iban || '',
     civility: resolveCivility(raw),
+    civilite: resolveCivility(raw),
     displayName: fullName || email,
     raw,
   };
 };
 
-/**
- * Agrège occupants + intervenants en une liste de contacts uniques (par e-mail ou nom),
- * ne conservant que ceux possédant une adresse valide ou un nom.
- * @param {object} params
- * @param {Array} [params.occupants]
- * @param {Array} [params.intervenants]
- * @returns {Array<object>} contacts dédupliqués
- */
 export const buildRecipientCandidates = ({ occupants = [], intervenants = [] }) => {
   const safeOccupants = Array.isArray(occupants) ? occupants : [];
   const safeIntervenants = Array.isArray(intervenants) ? intervenants : [];
@@ -164,7 +148,6 @@ export const buildRecipientCandidates = ({ occupants = [], intervenants = [] }) 
     ...safeIntervenants.map((i) => toContact(i, 'intervenant')),
   ].filter(Boolean);
 
-  // Déduplication par e-mail ou nom
   const seen = new Set();
   return all.filter((c) => {
     const normName = c.displayName.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -254,11 +237,6 @@ export function buildIbanCandidates({ occupants = [], intervenants = [], documen
   return candidates;
 }
 
-/**
- * Concatène les e-mails pour Outlook (séparés par "; ").
- * @param {Array<object>} contacts - contacts déjà normalisés
- * @returns {string} ex: "a@x.fr; b@y.fr"
- */
 export const extractEmailsForOutlook = (contacts = []) => {
   const emails = (Array.isArray(contacts) ? contacts : [])
     .map((c) => c?.email)
@@ -266,14 +244,6 @@ export const extractEmailsForOutlook = (contacts = []) => {
   return [...new Set(emails)].join('; ');
 };
 
-/**
- * SOURCE DE VÉRITÉ de la salutation. Générée par CODE, jamais par l'IA.
- * Règle métier : "Bonjour Madame X, Bonjour Monsieur Y,"
- * - Si pas de civilité connue : "Bonjour Prénom Nom,"
- * - Si aucun destinataire : "Bonjour," (fallback sûr)
- * @param {Array<object>} contacts
- * @returns {string}
- */
 export const buildSalutation = (contacts = []) => {
   const list = Array.isArray(contacts) ? contacts : [];
   if (list.length === 0) return 'Bonjour,';
@@ -284,18 +254,15 @@ export const buildSalutation = (contacts = []) => {
       ? (parseFullName(rawLastName)?.lastName || rawLastName)
       : rawLastName;
 
-    // Cas 1 : civilité connue → "Monsieur Mosca"
     if (c?.civility && lastName) {
       return `${c.civility} ${formatPersonName(lastName)}`.trim();
     }
 
-    // Cas 2 : pas de civilité → nom complet formaté "Iman Abd el Alim…"
     const fullName = (c?.displayName || c?.nom || '').trim();
     if (fullName && fullName !== c?.email) {
       return formatPersonName(fullName);
     }
 
-    // Cas 3 : rien d'exploitable (ou nom == email) → vide, filtré ensuite
     return '';
   });
 
@@ -305,7 +272,6 @@ export const buildSalutation = (contacts = []) => {
   return `Bonjour ${validParts.join(', ')},`;
 };
 
-/** Validation stricte — bloquante avant tout décaissement. */
 export function validateContactDraft(draft) {
     const errors = {};
     const name = (draft?.displayName ?? '').trim();
@@ -321,7 +287,6 @@ export function validateContactDraft(draft) {
     return { isValid: Object.keys(errors).length === 0, errors };
 }
 
-/** @returns {object} */
 export function createLocalContact(draft, { fromSourceId = null } = {}) {
     return {
         id: `local:${genId()}`,
@@ -333,25 +298,33 @@ export function createLocalContact(draft, { fromSourceId = null } = {}) {
     };
 }
 
-/**
- * Fusionne les candidats du dossier avec les contacts locaux du splitter.
- * Les overrides "masquent" leur source pour éviter les doublons visuels.
- */
 export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [], documentCandidates = [] } = {}) {
     const cleanLocalContacts = (localContacts || []).filter(c => c != null && typeof c === 'object');
     const dossierCandidates = buildRecipientCandidates({ occupants, intervenants })
-        .map(c => ({ ...c, kind: 'dossier', sourceCategory: 'Dossier actif' }));
+        .map(c => ({
+            ...c,
+            civilite: c.civilite || c.civility || resolveExplicitCivility(c) || null,
+            civility: c.civilite || c.civility || resolveExplicitCivility(c) || null,
+            kind: 'dossier',
+            sourceCategory: 'Dossier actif'
+        }));
 
-    const docCandidates = (documentCandidates || []).map((c, i) => ({
-        id: c.id || `doc-candidate-${i}`,
-        displayName: c.displayName || c.nom || 'Candidat document',
-        email: c.email || '',
-        hasEmail: Boolean(c.email),
-        iban: c.iban || '',
-        kind: 'document',
-        origin: c.origin || 'Document analysé',
-        sourceCategory: 'Document analysé'
-    }));
+    const docCandidates = (documentCandidates || []).map((c, i) => {
+        const civ = c.civilite || c.civility || resolveExplicitCivility(c) || null;
+        return {
+            id: c.id || `doc-candidate-${i}`,
+            displayName: c.displayName || c.nom || 'Candidat document',
+            nom: c.nom || c.displayName || '',
+            civilite: civ,
+            civility: civ,
+            email: c.email || '',
+            hasEmail: Boolean(c.email),
+            iban: c.iban || '',
+            kind: 'document',
+            origin: c.origin || 'Document analysé',
+            sourceCategory: 'Document analysé'
+        };
+    });
 
     const overriddenSourceIds = new Set(
         cleanLocalContacts.filter(c => c.origin === 'override' && c.sourceId).map(c => c.sourceId)
@@ -359,12 +332,18 @@ export function buildAllCandidates({ occupants = [], intervenants = [], localCon
 
     const visibleDossier = dossierCandidates.filter(c => !overriddenSourceIds.has(c.id));
     const visibleDocs = docCandidates.filter(c => !overriddenSourceIds.has(c.id));
-    const locals = cleanLocalContacts.map(c => ({ ...c, kind: 'local', hasEmail: Boolean(c.email), sourceCategory: 'Session actuelle' }));
+    const locals = cleanLocalContacts.map(c => ({
+        ...c,
+        civilite: c.civilite || c.civility || resolveExplicitCivility(c) || null,
+        civility: c.civilite || c.civility || resolveExplicitCivility(c) || null,
+        kind: 'local',
+        hasEmail: Boolean(c.email),
+        sourceCategory: 'Session actuelle'
+    }));
 
     return [...visibleDossier, ...visibleDocs, ...locals];
 }
 
-/** Résout une RecipientRef en snapshot figé (appelé à la génération rapport). */
 export function resolveRecipientSnapshot(ref, allCandidates) {
     if (!ref) return null;
     const found = allCandidates.find(c => c.kind === ref.kind && c.id === ref.id);
@@ -373,17 +352,13 @@ export function resolveRecipientSnapshot(ref, allCandidates) {
         displayName: found.displayName,
         email: found.email ?? '',
         iban: found.iban,
+        civility: found.civility || found.civilite || null,
+        civilite: found.civility || found.civilite || null,
         origin: found.origin,
         resolvedAt: new Date().toISOString(),
     };
 }
 
-/**
- * Formate un occupant pour l'affichage dans les listes déroulantes,
- * en incluant l'étage et le statut si disponibles.
- * @param {object} o L'objet occupant
- * @returns {string} Le label formaté (ex: "7e - Jean Dupont (Locataire)")
- */
 export const formatOccupantLabel = (o) => {
     if (!o) return 'Sans nom';
     const fullName = `${o.nom || ''} ${o.prenom || ''}`.trim() || 'Sans nom';

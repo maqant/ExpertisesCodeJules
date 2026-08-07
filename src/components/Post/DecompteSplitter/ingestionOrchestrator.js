@@ -47,6 +47,8 @@ export async function ingestDocument(file, dispatch, options = {}) {
             ? {
                 id: crypto.randomUUID(),
                 nom: meta.beneficiaire.nom,
+                civilite: meta.beneficiaire.civilite || null,
+                civility: meta.beneficiaire.civilite || null,
                 iban: meta.beneficiaire.iban || '',
                 origine: 'ai_detected',
             }

@@ -22,6 +22,10 @@ export const aiFinancialResponseSchema = z.object({
     postes: z.array(posteSchema).min(1, "Aucun poste détecté"),
     beneficiaire: z.object({
         nom: z.string().nullable().default(null),
+        civilite: z.enum(['Madame', 'Monsieur', 'ACP', 'Société'])
+            .nullable()
+            .optional()
+            .catch(null),
         iban: ibanSchema.optional().default(null),
     }).nullable().default(null),
     totalDocument: z.number().nullable().optional().default(null),
