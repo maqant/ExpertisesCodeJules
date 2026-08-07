@@ -44,7 +44,7 @@ import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
 import { runMergeAgent } from './agents/merger.js';
-import { withRetry, buildContentArrayParallel } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
+import { withRetry, buildContentArrayParallel, mapInParallelBounded } from './utils/aiHelpers.js'; // v5.9.3 - Smart Retry & Résilience
 import { usePromptStore } from '../store/promptStore.js';
 import { isPdf, isPdfDeep } from './utils/fileUtils.js';
 import { processIngestedFile } from './utils/filePreprocessor.js';
@@ -685,46 +685,54 @@ export const processGlobalIngestion = async ({
         
         if (onStatusChange) onStatusChange('routing');
         
-        // On convertit les `files` en Array et on les pré-traite (convertit docx/edi en pdf)
-        let rawFiles = [];
-        for (const f of Array.from(files)) {
+        const t0_preprocess = Date.now();
+
+        // Prétraitement parallèle borné (max 4 fichiers simultanés pour préserver le CPU/Canvas)
+        const rawFilesNested = await mapInParallelBounded(Array.from(files), 4, async (f) => {
             const processed = await processIngestedFile(f);
-            if (processed) rawFiles.push(processed);
-        }
+            return processed ? [processed] : [];
+        });
+        const rawFiles = rawFilesNested.flat();
         
         let allExtractedFiles = [];
         let filesToRoute = [];
 
-        // Extraction automatique des PJ des fichiers MSG
-        for (const file of rawFiles) {
-            // v6.4.4 - Bypass Image Analysis to save time/tokens (they become unassigned photos)
+        // Extraction PJ MSG en parallèle borné (max 4 MSG simultanés)
+        const extractionResults = await mapInParallelBounded(rawFiles, 4, async (file) => {
             if (file.type && file.type.startsWith('image/')) {
-                allExtractedFiles.push(file); // Adds to 'unassigned' later
                 if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour l'image: ${file.name}`);
-                continue; 
+                return { extracted: [file], route: [] };
             }
 
             if (file.name && file.name.toLowerCase().endsWith('.msg')) {
-                // v5.5.5 - Les MSG passent AUSSI par le routeur
-                filesToRoute.push(file);
+                const extracted = [];
+                const route = [file];
                 try {
                     const { files: attachments } = await extractValidAttachmentsFromMsg(file);
-                    // Filter attachments too!
                     for (const att of attachments) {
-                        allExtractedFiles.push(att);
+                        extracted.push(att);
                         if (att.type && att.type.startsWith('image/')) {
                             if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour la PJ image: ${att.name}`);
                         } else {
-                            filesToRoute.push(att);
+                            route.push(att);
                         }
                     }
                 } catch (e) {
                     console.error("Erreur extraction PJ MSG:", e);
                 }
-            } else {
-                filesToRoute.push(file);
+                return { extracted, route };
             }
+
+            return { extracted: [], route: [file] };
+        });
+
+        for (const res of extractionResults) {
+            allExtractedFiles.push(...res.extracted);
+            filesToRoute.push(...res.route);
         }
+
+        const dur_preprocess = ((Date.now() - t0_preprocess) / 1000).toFixed(2);
+        if (addDebugLog) log('METRIC_PREPROCESS', 'INFO', `⏱️ Prétraitement + Extraction PJ terminés en ${dur_preprocess}s`);
 
         // Extraction du texte complet pour le Golden Dataset (Feedback)
         let fullExtractedText = "";
@@ -739,11 +747,14 @@ export const processGlobalIngestion = async ({
         }
 
         // 1. Triage via le Routeur (TOUS les fichiers, y compris MSG)
+        const t0_router = Date.now();
         if (addDebugLog) log('ROUTEUR', 'INFO', 'Analyse et routage en cours...');
         const routeResult = await routeDocuments(filesToRoute, providedApiKey, onStatusChange);
         if (!routeResult.success) throw new Error(routeResult.error || "Échec du routage.");
         
         const routeMap = routeResult.data;
+        const dur_router = ((Date.now() - t0_router) / 1000).toFixed(2);
+        if (addDebugLog) log('METRIC_ROUTER', 'INFO', `⏱️ Routage terminé en ${dur_router}s`);
         if (addDebugLog) log('ROUTEUR', 'SUCCESS', routeMap);
 
         // 2. Séparation des fichiers
@@ -754,11 +765,6 @@ export const processGlobalIngestion = async ({
 
         // v7.0.0 - Dispatch rationalisé : le Routeur est la source de vérité.
         // On ne force plus aveuglément tous les MSG en ADMIN+SOCIAL+RECITS.
-        // Logique :
-        //   - Si le Routeur a classé le fichier → on lui fait confiance (+ on complète si besoin)
-        //   - Si le Routeur n'a PAS classé le fichier → fallback de sécurité
-        //   - ADMIN+SOCIAL sont forcés sur tous les MSG (ils contiennent TOUJOURS des noms et références)
-        //   - RECITS n'est forcé que si déjà classé par le routeur OU s'il n'y a pas d'autre classification
         const dispatchLog = { ADMIN: [], SOCIAL: [], RECITS: [], FINANCIER: [] };
         for (const file of filesToRoute) {
             const fileName = file.name || 'document_sans_nom';
@@ -780,12 +786,11 @@ export const processGlobalIngestion = async ({
             const cats = Array.isArray(categories) ? [...categories] : [categories];
             
             // v7.0.0 - Pour les MSG : forcer ADMIN+SOCIAL comme minimum obligatoire.
-            // RECITS n'est pas forcé → on fait confiance au routeur pour cette décision.
             if (isMsg) {
                 ['ADMIN', 'SOCIAL'].forEach(c => {
                     if (!cats.includes(c)) {
                         cats.push(c);
-                        if (addDebugLog) log('DISPATCH', 'INFO', `MSG "${fileName}" → ${c} forcé (minimum MSG)`);
+                        if (addDebugLog) log('DISPATCH', 'INFO', `MSG "${fileName}" → ${c} forced (minimum MSG)`);
                     }
                 });
             }
@@ -814,10 +819,10 @@ export const processGlobalIngestion = async ({
 
         if (onStatusChange) onStatusChange('extracting');
 
-        // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE (v5.9.0 — cascade)
+        // 3. Phase 1 : Admin + Social + Récits en PARALLÈLE
+        const t0_agents = Date.now();
         if (addDebugLog) log('PHASE_1_AGENTS', 'INFO', 'Lancement Admin, Social, Récits en parallèle...');
-        // v5.9.3 - Smart Retry & Résilience : chaque agent est enveloppé dans withRetry.
-        // Si un agent échoue définitivement, il renvoie un objet vide structuré → le pipeline continue.
+        
         const adminPromise = adminFiles.length > 0
             ? withRetry(() => extractAdministrativeData(adminFiles, providedApiKey, null))
                 .catch(err => { 
@@ -845,36 +850,40 @@ export const processGlobalIngestion = async ({
                 })
             : Promise.resolve({ success: true, data: { occupants: [], experts: [], intervenants: [] } });
 
-        // Attente des 3 agents de Phase 1
-        const [adminRes, narrativeRes, socialRes] = await Promise.all([
-            adminPromise, narrativePromise, socialPromise
-        ]);
-        
-        if (addDebugLog) {
-            if (adminFiles.length > 0) log('AGENT_ADMIN', adminRes.success ? 'SUCCESS' : 'ERROR', adminRes.data, adminRes.error || null);
-            if (narrativeFiles.length > 0) log('AGENT_RECITS', narrativeRes.success ? 'SUCCESS' : 'ERROR', narrativeRes.data, narrativeRes.error || null);
-            if (socialFiles.length > 0) log('AGENT_SOCIAL', socialRes.success ? 'SUCCESS' : 'ERROR', socialRes.data, socialRes.error || null);
-            log('PHASE_1_AGENTS', 'SUCCESS', 'Phase 1 terminée.');
-        }
+        // 🚀 OPTIMISATION MAJEURE : L'agent Financier se déclenche DÈS la fin de l'agent Social,
+        // sans attendre la fin d'Admin et Récits. Il s'exécute ainsi en parallèle avec la suite !
+        const financialPromise = socialPromise.then(async (socialRes) => {
+            const t0_fin = Date.now();
+            const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
+            console.log(`[aiManager] 💰 Agent Financier (déclenché post-Social): ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
+            if (addDebugLog) log('AGENT_FINANCIER', 'INFO', `Lancement Financier (${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants)`);
 
-        // 4. Phase 2 : Agent Financier AVEC la liste des occupants (cascade v5.9.0)
-        // L'agent reçoit les UUIDs des occupants pour rattacher les factures directement
-        const occupantsForFinancial = (socialRes.success && socialRes.data?.occupants) || [];
-        console.log(`[aiManager] 💰 Agent Financier: ${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus`);
-        if (addDebugLog) log('AGENT_FINANCIER', 'INFO', `Lancement Financier (${financialFiles.length} fichiers, ${occupantsForFinancial.length} occupants connus)`);
+            if (financialFiles.length === 0) return { success: true, data: { expenses: [] } };
 
-        // v5.9.3 - Smart Retry & Résilience
-        const financialRes = financialFiles.length > 0
-            ? await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, occupantsForFinancial))
+            const res = await withRetry(() => extractFinancialData(financialFiles, providedApiKey, null, occupantsForFinancial))
                 .catch(err => { 
                     console.error('[aiManager] ❌ Agent Financier KO après retries:', err); 
                     if (addDebugLog) log('AGENT_FINANCIER', 'ERROR', null, err.message);
                     return { success: false, data: { expenses: [] } }; 
-                })
-            : { success: true, data: { expenses: [] } };
+                });
             
-        if (addDebugLog && financialFiles.length > 0) {
-            log('AGENT_FINANCIER', financialRes.success ? 'SUCCESS' : 'ERROR', financialRes.data, financialRes.error || null);
+            const dur_fin = ((Date.now() - t0_fin) / 1000).toFixed(2);
+            if (addDebugLog) log('METRIC_FINANCIER', 'INFO', `⏱️ Agent Financier terminé en ${dur_fin}s`);
+            return res;
+        });
+
+        // Attente globale de TOUS les agents de traitement
+        const [adminRes, narrativeRes, socialRes, financialRes] = await Promise.all([
+            adminPromise, narrativePromise, socialPromise, financialPromise
+        ]);
+        
+        const dur_agents = ((Date.now() - t0_agents) / 1000).toFixed(2);
+        if (addDebugLog) {
+            if (adminFiles.length > 0) log('AGENT_ADMIN', adminRes.success ? 'SUCCESS' : 'ERROR', adminRes.data, adminRes.error || null);
+            if (narrativeFiles.length > 0) log('AGENT_RECITS', narrativeRes.success ? 'SUCCESS' : 'ERROR', narrativeRes.data, narrativeRes.error || null);
+            if (socialFiles.length > 0) log('AGENT_SOCIAL', socialRes.success ? 'SUCCESS' : 'ERROR', socialRes.data, socialRes.error || null);
+            if (financialFiles.length > 0) log('AGENT_FINANCIER', financialRes.success ? 'SUCCESS' : 'ERROR', financialRes.data, financialRes.error || null);
+            log('METRIC_ALL_AGENTS', 'INFO', `⏱️ Phase complète des agents spécialisés (Admin, Social, Récits, Financier) terminée en ${dur_agents}s`);
         }
 
         // --- DÉBUT DU BLOC : AGENT BALAI (Phase 2) ---

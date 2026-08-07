@@ -124,6 +124,55 @@ export const withRetry = async (asyncFn, maxRetries = 1, delayMs = 2000) => {
     throw lastError;
 };
 
+/**
+ * Cache de session de niveau Fichier (WeakMap).
+ * Stocke les PROMESSES d'extraction brute pour éviter la duplication des opérations coûteuses
+ * (parsing PDF, conversion canvas base64, parsing MSG) tout en gérant la concurrence sans race conditions.
+ * Purge automatiquement en cas de rejet de la promesse (anti-erreur silencieuse).
+ */
+const fileRawExtractionCache = new WeakMap();
+
+function getCachedFileExtraction(file, key, extractionFn) {
+    if (typeof file !== 'object' || file === null) return extractionFn();
+    
+    let fileMap = fileRawExtractionCache.get(file);
+    if (!fileMap) {
+        fileMap = new Map();
+        fileRawExtractionCache.set(file, fileMap);
+    }
+    
+    if (fileMap.has(key)) {
+        return fileMap.get(key);
+    }
+    
+    const promise = extractionFn().catch(err => {
+        fileMap.delete(key);
+        throw err;
+    });
+    
+    fileMap.set(key, promise);
+    return promise;
+}
+
+/**
+ * Traitement parallèle avec concurrence limitée (max concurrency).
+ */
+export const mapInParallelBounded = async (items, concurrencyLimit, fn) => {
+    const results = new Array(items.length);
+    let index = 0;
+
+    const worker = async () => {
+        while (index < items.length) {
+            const currentIndex = index++;
+            results[currentIndex] = await fn(items[currentIndex], currentIndex);
+        }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrencyLimit, items.length) }, () => worker());
+    await Promise.all(workers);
+    return results;
+};
+
 // v5.7.2 - Helper pour paralléliser la préparation (PDF->Base64, MSG->texte) des fichiers
 // v5.5.5 - maxTextLength=30000 par défaut (sécurité anti-crash, un seul MSG géant ne peut plus faire exploser le contexte)
 // v5.9.1 - Optimisation Hybride PDF : les PDFs textuels sont extraits en texte brut (forceVision=false par défaut)
@@ -143,22 +192,22 @@ export const buildContentArrayParallel = async (files, introductoryText, options
             const fileNameLower = fileName.toLowerCase();
             if (fileNameLower.endsWith('.msg')) {
                 try {
-                    const { bodyText } = await parseMsgFile(item);
+                    const { bodyText } = await getCachedFileExtraction(item, 'parseMsg', () => parseMsgFile(item));
                     const textToPush = maxTextLength ? bodyText.substring(0, maxTextLength) : bodyText;
                     localContent.push({ type: "text", text: textToPush });
                 } catch (e) {
                     localContent.push({ type: "text", text: "[Fichier MSG illisible]" });
                 }
-            } else if (await isPdfDeep(item)) {
+            } else if (await getCachedFileExtraction(item, 'isPdf', () => isPdfDeep(item))) {
                 if (forceVision) {
                     // Mode vision forcé (ex: Agent Financier sur factures potentiellement scannées)
-                    const base64Images = await pdfToBase64Images(item, maxPdfPages);
+                    const base64Images = await getCachedFileExtraction(item, `pdfImages_${maxPdfPages}`, () => pdfToBase64Images(item, maxPdfPages));
                     for (const img of base64Images) {
                         localContent.push({ type: "image_url", image_url: { url: img, detail: "low" } });
                     }
                 } else {
                     // v5.9.1 - Mode hybride : texte si digital, vision si scanné
-                    const hybrid = await pdfExtractHybrid(item, maxPdfPages);
+                    const hybrid = await getCachedFileExtraction(item, `pdfHybrid_${maxPdfPages}`, () => pdfExtractHybrid(item, maxPdfPages));
                     if (hybrid.mode === 'text') {
                         const textToPush = maxTextLength ? hybrid.text.substring(0, maxTextLength) : hybrid.text;
                         localContent.push({ type: "text", text: textToPush });
@@ -169,11 +218,11 @@ export const buildContentArrayParallel = async (files, introductoryText, options
                     }
                 }
             } else if (item.type && item.type.startsWith('image/')) {
-                const base64Image = await fileToBase64(item);
+                const base64Image = await getCachedFileExtraction(item, 'fileBase64', () => fileToBase64(item));
                 localContent.push({ type: "image_url", image_url: { url: base64Image, detail: "low" } });
             } else if (item.type === 'text/plain' || fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md') || fileNameLower.endsWith('.csv')) {
                 try {
-                    const textContent = await item.text();
+                    const textContent = await getCachedFileExtraction(item, 'fileText', () => item.text());
                     const textToPush = maxTextLength ? textContent.substring(0, maxTextLength) : textContent;
                     localContent.push({ type: "text", text: textToPush });
                 } catch (e) {
