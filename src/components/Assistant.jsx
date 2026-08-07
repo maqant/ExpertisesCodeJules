@@ -7,6 +7,7 @@ import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingest
 import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import SmartBridgeModal from './SmartBridgeModal';
 import GeneratedDocModal from './GeneratedDocModal';
+import { createRawTextFile, captureScreenInteractive, extractImagesFromClipboardEvent } from '../utils/screenCapture.js';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.edi'];
 
@@ -16,6 +17,8 @@ const isAcceptedFile = (file) => {
 };
 
 const getFileEmoji = (file) => {
+    if (file.isCapture) return '📸';
+    if (file.isRawText) return '📝';
     const name = (file.name || '').toLowerCase();
     if (name.endsWith('.msg')) return '📧';
     if (name.endsWith('.pdf')) return '📄';
@@ -45,6 +48,7 @@ const Assistant = ({ onResetForm }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [showTextArea, setShowTextArea] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isCapturing, setIsCapturing] = useState(false);
 
     // Contrôle des modales d'intention & sélection
     const [showDestinationModal, setShowDestinationModal] = useState(false);
@@ -95,6 +99,30 @@ const Assistant = ({ onResetForm }) => {
         }
     };
 
+    const handleCaptureScreen = async () => {
+        setIsCapturing(true);
+        try {
+            const captureFile = await captureScreenInteractive();
+            if (captureFile) {
+                setFiles(prev => [...prev, captureFile]);
+            }
+        } catch (err) {
+            if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+                console.warn('[Assistant] Capture écran ignorée ou non supportée:', err);
+            }
+        } finally {
+            setIsCapturing(false);
+        }
+    };
+
+    const handlePaste = (e) => {
+        const pastedImages = extractImagesFromClipboardEvent(e);
+        if (pastedImages.length > 0) {
+            e.preventDefault();
+            setFiles(prev => [...prev, ...pastedImages]);
+        }
+    };
+
     // Injecter les données analysées par l'IA dans l'état courant
     const injectAnalysisResult = (resultData, extractedFiles = []) => {
         if (!resultData) return;
@@ -135,8 +163,23 @@ const Assistant = ({ onResetForm }) => {
         setAiStatus('processing');
 
         try {
+            let finalFiles = [...filesToProcess];
+            if (rawText.trim()) {
+                const rawTextFile = createRawTextFile(rawText);
+                if (rawTextFile) {
+                    finalFiles.push(rawTextFile);
+                }
+            }
+
+            if (finalFiles.length === 0) {
+                alert("Aucune source (fichier, capture ou texte) n'a été fournie pour l'analyse.");
+                setIsAnalyzing(false);
+                setAiStatus('idle');
+                return;
+            }
+
             const result = await processGlobalIngestion({
-                files: filesToProcess,
+                files: finalFiles,
                 providedApiKey: aiConfig?.apiKey,
                 onStatusChange: setAiStatus,
                 agentsModel: aiConfig?.model,
@@ -169,9 +212,6 @@ const Assistant = ({ onResetForm }) => {
         await runAnalysisPipeline(files);
     };
 
-    // Parcours UNIQUE de classement vers un autre dossier.
-    // Le dossier cible est chargé AVANT toute analyse.
-    // Si le chargement échoue : aucune analyse, aucun dossier modifié, fichiers conservés.
     const handleClassifyIntoDossier = async (targetDossier) => {
         setSmartBridgeState({ isOpen: false, matchedDossier: null });
         if (!targetDossier) return;
@@ -191,23 +231,19 @@ const Assistant = ({ onResetForm }) => {
         await runAnalysisPipeline(files);
     };
 
-    // Exécution de l'analyse selon le choix retenu
     const handleChoiceSelected = async (intent) => {
         setShowDestinationModal(false);
 
-        // Option 3: Nouveau dossier -> Réinitialiser le formulaire & déclencher Brio
         if (intent === 'NEW') {
             await handleCreateNewFromAnalysis();
             return;
         }
 
-        // Option 1: Ajouter à ce dossier
         if (intent === 'ADD_CURRENT') {
             await runAnalysisPipeline(files);
             return;
         }
 
-        // Option 2: Classer dans un autre dossier -> Ouvrir le Smart Bridge ("Dossier trouvé !" ou "Introuvable")
         if (intent === 'CLASSIFY') {
             let matchedDossier = null;
             for (const f of files) {
@@ -225,7 +261,6 @@ const Assistant = ({ onResetForm }) => {
             return;
         }
 
-        // Option 4: Gestionnaire financier / Ventilation de décompte
         if (intent === 'DECOMPTE') {
             openDecompteSplitterWithFiles(files);
             setFiles([]);
@@ -238,7 +273,7 @@ const Assistant = ({ onResetForm }) => {
     const canAnalyze = (hasFiles || rawText.trim()) && !isAnalyzing;
 
     return (
-        <div className="bg-slate-900 rounded-xl border border-pechard-blue/40 p-2.5 space-y-2 shadow-lg relative print:hidden">
+        <div onPaste={handlePaste} className="bg-slate-900 rounded-xl border border-pechard-blue/40 p-2.5 space-y-2 shadow-lg relative print:hidden">
             {/* Titre du composant */}
             <div className="flex items-center justify-between border-b border-pechard-blue/20 pb-1.5">
                 <div className="flex items-center gap-2">
@@ -308,25 +343,37 @@ const Assistant = ({ onResetForm }) => {
                 </div>
             )}
 
-            {/* Zone Texte Brut Dépliable */}
-            <div className="pt-0.5">
+            {/* Actions Secondaires : Capture d'écran & Texte Brut */}
+            <div className="flex items-center justify-between pt-0.5 border-t border-pechard-blue/10">
                 <button
+                    type="button"
+                    onClick={handleCaptureScreen}
+                    disabled={isCapturing || isAnalyzing}
+                    className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    title="Prendre une capture d'écran de l'application ou d'une fenêtre"
+                >
+                    <span>{isCapturing ? '⏳' : '📸'}</span>
+                    <span>{isCapturing ? 'Capture en cours...' : 'Capture d\'écran'}</span>
+                </button>
+
+                <button
+                    type="button"
                     onClick={() => setShowTextArea(!showTextArea)}
                     className="text-[10px] font-bold text-pechard-blue-light hover:text-white flex items-center gap-1.5 transition-colors focus:outline-none"
                 >
                     <span>{showTextArea ? '▼' : '▶'}</span>
-                    <span>📝 Coller du texte brut (optionnel)</span>
+                    <span>📝 Texte brut</span>
                 </button>
-
-                {showTextArea && (
-                    <textarea
-                        value={rawText}
-                        onChange={(e) => setRawText(e.target.value)}
-                        placeholder="Collez ici le corps d'un mail ou du texte brut d'expertise..."
-                        className="mt-1.5 w-full h-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-pechard-blue outline-none resize-none font-mono"
-                    />
-                )}
             </div>
+
+            {showTextArea && (
+                <textarea
+                    value={rawText}
+                    onChange={(e) => setRawText(e.target.value)}
+                    placeholder="Collez ici le corps d'un mail ou du texte brut d'expertise..."
+                    className="mt-1.5 w-full h-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:border-pechard-blue outline-none resize-none font-mono"
+                />
+            )}
 
             {/* Bouton Analyser principal */}
             <button
