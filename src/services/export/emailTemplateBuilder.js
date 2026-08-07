@@ -21,6 +21,11 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
             displayName: liveContact.displayName,
             email: liveContact.email || null,
             civility: liveContact.civility || liveContact.civilite || null,
+            firstName: liveContact.firstName || null,
+            lastName: liveContact.lastName || null,
+            contactType: liveContact.contactType || null,
+            civilitySource: liveContact.civilitySource || null,
+            resolution: liveContact.resolution || null,
             isCompany: !!liveContact.isCompany,
             resolved: true,
         };
@@ -32,6 +37,11 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
             displayName: snapshot.displayName,
             email: snapshot.email || null,
             civility: snapshot.civility || snapshot.civilite || null,
+            firstName: snapshot.firstName || null,
+            lastName: snapshot.lastName || null,
+            contactType: snapshot.contactType || null,
+            civilitySource: snapshot.civilitySource || null,
+            resolution: snapshot.resolution || null,
             isCompany: !!snapshot.isCompany,
             resolved: true,
         };
@@ -40,8 +50,9 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
     return null;
 };
 
-export const resolveCivilitySalutation = (civility, mailName = '') => {
-    const { lastName, full } = parseFullName(mailName);
+export const resolveCivilitySalutation = (civility, mailName = '', recipientObj = null) => {
+    const lastName = recipientObj?.lastName || null;
+    const full = recipientObj?.displayName || mailName || '';
 
     switch (civility) {
         case 'Madame':
@@ -57,7 +68,7 @@ export const resolveCivilitySalutation = (civility, mailName = '') => {
         case 'Monsieur':
             return lastName ? `Bonjour Monsieur ${formatPersonName(lastName)},` : 'Bonjour Monsieur,';
         default:
-            return full ? `Bonjour ${formatPersonName(full)},` : 'Bonjour,';
+            return 'Bonjour,';
     }
 };
 
@@ -79,12 +90,15 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
     const mailRecipient = resolveEffectiveMailRecipient(block, allCandidates);
     const paymentSnapshot = block.paymentRecipientSnapshot || block.recipientSnapshot;
 
-    const mailCivility = block.mailCivility || mailRecipient?.civility || null;
+    const recipientCivility = (mailRecipient?.civility && mailRecipient?.civilitySource !== 'none')
+        ? mailRecipient.civility
+        : null;
+    const mailCivility = block.mailCivility || recipientCivility || null;
     const mailName = mailRecipient?.displayName || block.mailRecipientSnapshot?.displayName || '';
 
     const salutation = mailCivility
-        ? resolveCivilitySalutation(mailCivility, mailName)
-        : (mailName ? `Bonjour ${formatPersonName(mailName)},` : `Bonjour,`);
+        ? resolveCivilitySalutation(mailCivility, mailName, mailRecipient)
+        : 'Bonjour,';
 
     let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';

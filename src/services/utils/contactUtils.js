@@ -301,13 +301,22 @@ export function createLocalContact(draft, { fromSourceId = null } = {}) {
 export function buildAllCandidates({ occupants = [], intervenants = [], localContacts = [], documentCandidates = [] } = {}) {
     const cleanLocalContacts = (localContacts || []).filter(c => c != null && typeof c === 'object');
     const dossierCandidates = buildRecipientCandidates({ occupants, intervenants })
-        .map(c => ({
-            ...c,
-            civilite: c.civilite || c.civility || resolveExplicitCivility(c) || null,
-            civility: c.civilite || c.civility || resolveExplicitCivility(c) || null,
-            kind: 'dossier',
-            sourceCategory: 'Dossier actif'
-        }));
+        .map(c => {
+            const civ = c.civilite || c.civility || resolveExplicitCivility(c) || null;
+            return {
+                ...c,
+                displayName: c.displayName || c.nom,
+                firstName: c.firstName || c.prenom || null,
+                lastName: c.lastName || c.nom || null,
+                civilite: civ,
+                civility: civ,
+                contactType: c.contactType || (civ === 'ACP' ? 'acp' : civ === 'Société' ? 'company' : 'person'),
+                civilitySource: c.civilitySource || (civ ? 'record' : 'none'),
+                resolution: c.resolution || (civ ? 'structured_record' : 'name_only'),
+                kind: 'dossier',
+                sourceCategory: 'Dossier actif'
+            };
+        });
 
     const docCandidates = (documentCandidates || []).map((c, i) => {
         const civ = c.civilite || c.civility || resolveExplicitCivility(c) || null;
@@ -315,8 +324,13 @@ export function buildAllCandidates({ occupants = [], intervenants = [], localCon
             id: c.id || `doc-candidate-${i}`,
             displayName: c.displayName || c.nom || 'Candidat document',
             nom: c.nom || c.displayName || '',
+            firstName: c.firstName || c.prenom || null,
+            lastName: c.lastName || c.nom || c.displayName || null,
             civilite: civ,
             civility: civ,
+            contactType: c.contactType || (civ === 'ACP' ? 'acp' : civ === 'Société' ? 'company' : 'person'),
+            civilitySource: c.civilitySource || (civ ? 'document_explicit' : 'none'),
+            resolution: c.resolution || (civ ? 'civility_explicit' : 'name_only'),
             email: c.email || '',
             hasEmail: Boolean(c.email),
             iban: c.iban || '',
@@ -332,14 +346,23 @@ export function buildAllCandidates({ occupants = [], intervenants = [], localCon
 
     const visibleDossier = dossierCandidates.filter(c => !overriddenSourceIds.has(c.id));
     const visibleDocs = docCandidates.filter(c => !overriddenSourceIds.has(c.id));
-    const locals = cleanLocalContacts.map(c => ({
-        ...c,
-        civilite: c.civilite || c.civility || resolveExplicitCivility(c) || null,
-        civility: c.civilite || c.civility || resolveExplicitCivility(c) || null,
-        kind: 'local',
-        hasEmail: Boolean(c.email),
-        sourceCategory: 'Session actuelle'
-    }));
+    const locals = cleanLocalContacts.map(c => {
+        const civ = c.civilite || c.civility || resolveExplicitCivility(c) || null;
+        return {
+            ...c,
+            displayName: c.displayName || c.nom,
+            firstName: c.firstName || c.prenom || null,
+            lastName: c.lastName || c.nom || null,
+            civilite: civ,
+            civility: civ,
+            contactType: c.contactType || (civ === 'ACP' ? 'acp' : civ === 'Société' ? 'company' : 'person'),
+            civilitySource: c.civilitySource || (civ ? 'manual' : 'none'),
+            resolution: c.resolution || (civ ? 'civility_explicit' : 'name_only'),
+            kind: 'local',
+            hasEmail: Boolean(c.email),
+            sourceCategory: 'Session actuelle'
+        };
+    });
 
     return [...visibleDossier, ...visibleDocs, ...locals];
 }
@@ -350,10 +373,15 @@ export function resolveRecipientSnapshot(ref, allCandidates) {
     if (!found) return null;
     return {
         displayName: found.displayName,
+        firstName: found.firstName || null,
+        lastName: found.lastName || null,
         email: found.email ?? '',
         iban: found.iban,
         civility: found.civility || found.civilite || null,
         civilite: found.civility || found.civilite || null,
+        contactType: found.contactType || 'person',
+        civilitySource: found.civilitySource || 'none',
+        resolution: found.resolution || 'name_only',
         origin: found.origin,
         resolvedAt: new Date().toISOString(),
     };

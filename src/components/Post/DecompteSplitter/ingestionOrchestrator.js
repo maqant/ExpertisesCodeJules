@@ -1,5 +1,6 @@
 import { extractFinancialData } from '../../../services/decompteExtractionService.js';
 import { normalizeFinancialDocument, DocumentValidationError } from '../../../services/decompteExtractionSchema.js';
+import { resolveCandidateWithLuna } from '../../../services/lunaSalutationResolver.js';
 
 /**
  * Orchestre l'ingestion d'un document (initial ou additionnel en mode append) :
@@ -42,16 +43,28 @@ export async function ingestDocument(file, dispatch, options = {}) {
             integrity: result.integrity || null
         };
 
-        // Le bénéficiaire détecté est proposé comme CONTACT, jamais comme bloc pré-alloué.
+        // Le bénéficiaire détecté est analysé une fois par LUNA à l'ingestion
         const detectedContact = (meta.beneficiaire && meta.beneficiaire.nom)
-            ? {
-                id: crypto.randomUUID(),
-                nom: meta.beneficiaire.nom,
-                civilite: meta.beneficiaire.civilite || null,
-                civility: meta.beneficiaire.civilite || null,
-                iban: meta.beneficiaire.iban || '',
-                origine: 'ai_detected',
-            }
+            ? (() => {
+                const luna = resolveCandidateWithLuna({
+                    nom: meta.beneficiaire.nom,
+                    civilite: meta.beneficiaire.civilite || null,
+                });
+                return {
+                    id: crypto.randomUUID(),
+                    nom: meta.beneficiaire.nom,
+                    iban: meta.beneficiaire.iban || '',
+                    origine: 'ai_detected',
+                    displayName: luna.displayName,
+                    firstName: luna.firstName,
+                    lastName: luna.lastName,
+                    civility: luna.civility,
+                    civilite: luna.civility,
+                    contactType: luna.contactType,
+                    civilitySource: luna.civilitySource,
+                    resolution: luna.resolution,
+                };
+            })()
             : null;
 
         dispatch({
