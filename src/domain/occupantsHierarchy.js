@@ -2,12 +2,10 @@
 // Tri & groupement parent/enfant pour l'AFFICHAGE et l'IMPRESSION.
 // Pur. Ne modifie jamais le store. Réutilisé par Sidebar ET le générateur de rapport.
 //
-// ORDRE NATUREL D'UN IMMEUBLE (lecture haut → bas du document) :
-//   Sous-sol (-N) → RDC (0) → 1er → 2e → ... → Combles → ACP (entité globale, en dernier).
-//
-// INVARIANT CRITIQUE : tous les rangs d'étage sont FINIS. Le comparateur ne
-// retourne jamais NaN (Infinity - Infinity = NaN ⇒ tri indéterministe, cause
-// du bug historique "RDC 5 4 3...").
+// ORDRE VERTICAL SCHÉMATIQUE (invariant métier) :
+// le haut de la liste = sommet de l'immeuble, le bas = la rue, puis l'ACP en synthèse.
+//   Combles -> 5e -> 4e -> 3e -> 2e -> 1er -> (entresol) -> RDC -> Sous-sol
+//   -> Étage inconnu -> ACP (toujours en toute fin).
 
 const STATUS_ORDER = {
   'Propriétaire occupant': 1,
@@ -39,15 +37,8 @@ const normalizeLabel = (value) =>
 
 /**
  * Rang d'étage déterministe et FINI.
- * Le statut ACP force le rang GLOBAL quel que soit le champ `etage`
- * (l'ACP représente juridiquement l'immeuble entier, pas un lot).
- *
- * Exemples :
- *   "2ème sous-sol"      → -2      "Rez-de-chaussée"   → 0
- *   "RDC (commerces)"    → 0       "Entresol"          → 0.5
- *   "1er étage"          → 1       "Étage 4" / "4e"    → 4
- *   "Combles"            → 8000    "" / "?"            → 9000
- *   "ACP" / "Immeuble"   → 10000
+ * Sémantique inchangée : plus le rang est élevé, plus on est haut dans l'immeuble.
+ * UNKNOWN et GLOBAL sont des sentinelles hors échelle physique.
  */
 export const floorRank = (etage, statut = '') => {
   if (statut === 'ACP') return RANK.GLOBAL;
@@ -56,7 +47,7 @@ export const floorRank = (etage, statut = '') => {
   if (!s) return RANK.UNKNOWN;
 
   // Entité globale déclarée dans le champ étage lui-même
-  if (/\b(acp|immeuble|general|global|communs?|syndic|copropriete|copropriete)\b/.test(s)) {
+  if (/\b(acp|immeuble|general|global|communs?|syndic|copropriete)\b/.test(s)) {
     return RANK.GLOBAL;
   }
 
@@ -81,21 +72,43 @@ export const floorRank = (etage, statut = '') => {
   return RANK.UNKNOWN;
 };
 
+/**
+ * Segmente un rang en "tier" d'affichage :
+ *   0 = niveau privatif physique (trié en ordre DÉCROISSANT : haut de l'immeuble d'abord)
+ *   1 = étage inconnu (relégué après tous les niveaux physiques)
+ *   2 = entité globale ACP (toujours en toute fin, en synthèse)
+ */
+const floorTier = (rank) => {
+  if (rank === RANK.GLOBAL) return 2;
+  if (rank === RANK.UNKNOWN) return 1;
+  return 0;
+};
+
 const baseSort = (a, b) => {
   const fa = floorRank(a.etage, a.statut);
   const fb = floorRank(b.etage, b.statut);
-  if (fa !== fb) return fa - fb; // rangs toujours finis ⇒ jamais NaN
+
+  // 1) Les tiers d'abord : privatifs, puis inconnus, puis ACP (croissant).
+  const ta = floorTier(fa);
+  const tb = floorTier(fb);
+  if (ta !== tb) return ta - tb;
+
+  // 2) Au sein des niveaux privatifs : ordre DÉCROISSANT de rang
+  //    (Combles 8000 -> 5e -> ... -> 1er -> Mezzanine 0.5 -> RDC 0 -> Sous-sols -1, -2...).
+  //    Reflète la vue schématique verticale : le haut de la liste = le haut de l'immeuble.
+  if (fa !== fb) return fb - fa;
+
+  // 3) Départage : statut métier, puis nom (ordre croissant, inchangé).
   const sa = STATUS_ORDER[a.statut] ?? 99;
   const sb = STATUS_ORDER[b.statut] ?? 99;
   if (sa !== sb) return sa - sb;
-  // tri stable final par nom pour reproductibilité (rapport déterministe)
   return String(a.nom || '').localeCompare(String(b.nom || ''), 'fr', {
     sensitivity: 'base',
   });
 };
 
 /**
- * Retourne une liste à plat triée (Sous-sol → RDC → 1er → ... → ACP), où
+ * Retourne une liste à plat triée (5e → 4e → ... → RDC → Sous-sol → ACP), où
  * chaque Locataire lié est inséré immédiatement APRÈS son propriétaire,
  * avec un flag de profondeur.
  * Règle métier : TOUT Locataire (lié ou non) est indenté (_depth: 1).
@@ -109,7 +122,7 @@ export const buildOccupantHierarchy = (occupants = []) => {
 
   const isLocataire = (occ) => occ.statut === 'Locataire';
 
-  // 1. Tri "métier" indépendant (ordre naturel de l'immeuble)
+  // 1. Tri "métier" indépendant (ordre schématique vertical de l'immeuble)
   const sorted = [...occupants].sort(baseSort);
 
   // 2. Index des locataires par propriétaire lié
