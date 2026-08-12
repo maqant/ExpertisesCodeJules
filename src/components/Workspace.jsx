@@ -126,6 +126,52 @@ const PageBreakLines = () => {
     );
 };
 
+/**
+ * Zone de texte éditable inline (aperçu A4) synchronisée avec le Store.
+ * - Contenu géré impérativement (ref) → aucun conflit React/DOM, curseur stable.
+ * - Synchro externe (sidebar → A4) uniquement si le nœud n'a pas le focus.
+ * - Commit vers le Store au blur (garanti avant tout onClick Enregistrer/Imprimer).
+ */
+const EditableText = ({ value, onCommit, className = '', style }) => {
+    const ref = useRef(null);
+
+    // Synchronisation Store → DOM (édition depuis la sidebar, chargement dossier)
+    useEffect(() => {
+        const el = ref.current;
+        if (el && document.activeElement !== el && el.innerText !== (value ?? '')) {
+            el.innerText = value ?? '';
+        }
+    }, [value]);
+
+    // Commit DOM → Store au blur
+    const handleBlur = useCallback(() => {
+        if (!ref.current) return;
+        const newText = ref.current.innerText.replace(/\n$/, '');
+        if (newText !== (value ?? '')) {
+            onCommit(newText);
+        }
+    }, [value, onCommit]);
+
+    // Collage en texte brut uniquement (bloque le HTML riche Word/mail)
+    const handlePaste = useCallback((e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
+    }, []);
+
+    return (
+        <div
+            ref={ref}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={handleBlur}
+            onPaste={handlePaste}
+            className={`whitespace-pre-wrap break-words outline-none focus:ring-2 focus:ring-indigo-300 rounded ${className}`}
+            style={style}
+        />
+    );
+};
+
 const BlockContainer = ({ id, children }) => {
     const { blockWidths, styles, setStyles } = useContext(ExpertiseContext);
     const { attachToBlock, getByBlock } = useDocumentStore();
@@ -179,7 +225,7 @@ const BlockContainer = ({ id, children }) => {
             )}
 
             <div style={{ fontSize: `${styles[id]?.fontSize || 12}px`, color: styles[id]?.color || '#000', fontFamily: styles[id]?.fontFamily || 'Arial', textAlign: styles[id]?.textAlign || 'left' }}>
-                <div className={`pt-6 ${styles[id]?.border ? 'border-2 border-current p-3 rounded' : ''} outline-none focus:ring-2 focus:ring-indigo-300`} contentEditable suppressContentEditableWarning>
+                <div className={`pt-6 ${styles[id]?.border ? 'border-2 border-current p-3 rounded' : ''}`}>
                     {children}
                 </div>
             </div>
@@ -205,12 +251,18 @@ const Workspace = () => {
     if (!context) return null;
 
     const {
-        formData, blockTitles, references, occupants, expenses, blocksVisible,
+        formData, setFormData, blockTitles, references, occupants, expenses, blocksVisible,
         customBlocks, setCustomBlocks, blockWidths, setBlockWidths, styles, setStyles, setBlockOrder, setBlocksVisible,
         fitBlocks, setFitBlocks, showSubtotals, orgaAdvancedMode, attachedPhotos, attachedFiles, attachedFreeAnnexes, dynamicFreeAnnexes,
         getSortedBlocks, moveBlockUp, moveBlockDown, toggleBlockWidth, getPaginationInfo,
         intervenantsList, saveStatus
     } = context;
+
+    const commitField = useCallback((fieldKey) => (newText) => {
+        if (setFormData) {
+            setFormData(prev => ({ ...prev, [fieldKey]: newText }));
+        }
+    }, [setFormData]);
 
     const isExpenseExcludedFromMain = (exp) => {
         if (exp.avisCouverture === 'Non') return true;
@@ -302,7 +354,11 @@ const Workspace = () => {
             if (key === 'cause') return (
                 <BlockContainer key="cause" id="cause">
                     {blockTitles.cause && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.cause.fontSize + 2}px` }}>{blockTitles.cause}</p>}
-                    <p className="whitespace-pre-wrap break-words">{formData.cause} {getPaginationInfo('doc_rapport_cause') && <span className="block text-[0.8em] text-slate-500 italic font-normal mt-1">{getPaginationInfo('doc_rapport_cause').text}</span>}</p>
+                    <EditableText
+                        value={formData.cause}
+                        onCommit={commitField('cause')}
+                    />
+                    {getPaginationInfo('doc_rapport_cause') && <span className="block text-[0.8em] text-slate-500 italic font-normal mt-1">{getPaginationInfo('doc_rapport_cause').text}</span>}
                 </BlockContainer>
             );
             if (key === 'orga') return (
@@ -486,14 +542,22 @@ const Workspace = () => {
             if (key === 'divers') return (
                 <BlockContainer key="divers" id="divers">
                     {blockTitles.divers && <p className="font-bold underline mb-1" style={{ fontSize: `${styles.divers.fontSize + 2}px` }}>{blockTitles.divers}</p>}
-                    <p className="whitespace-pre-wrap break-words">{formData.divers}</p>
+                    <EditableText
+                        value={formData.divers}
+                        onCommit={commitField('divers')}
+                    />
                 </BlockContainer>
             );
             if (key.startsWith('custom_')) {
                 const block = customBlocks.find(b => b.id === key);
                 if (block) return (
                     <BlockContainer key={block.id} id={block.id}>
-                        <p className="whitespace-pre-wrap break-words">{block.text}</p>
+                        <EditableText
+                            value={block.text}
+                            onCommit={(newText) => {
+                                setCustomBlocks(prev => prev.map(b => b.id === block.id ? { ...b, text: newText } : b));
+                            }}
+                        />
                     </BlockContainer>
                 );
             }
