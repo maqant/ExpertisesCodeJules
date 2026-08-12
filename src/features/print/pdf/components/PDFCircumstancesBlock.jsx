@@ -25,7 +25,7 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
     const hasTimeline =
         Array.isArray(data.timeline) &&
         data.timeline.length > 0 &&
-        data.showTimeline !== false;
+        data.showTimeline === true;
 
     return (
         <View style={containerStyle} wrap>
