@@ -4,6 +4,13 @@ import { adaptBlockStyle } from '../pdfStyleAdapter';
 import { DENSITY, pdfStyles, TYPO } from '../pdfStyles';
 import PDFAnnexRef from './PDFAnnexRef';
 
+/**
+ * Bloc "Cause et description du sinistre" — rendu PDF.
+ *
+ * INVARIANT MÉTIER : le texte officiel rédigé (formDataCause/texte) est
+ * TOUJOURS rendu. La timeline (notes/documents) est un complément optionnel
+ * affiché EN DESSOUS, jamais en remplacement (désactivable via data.showTimeline === false).
+ */
 const PDFCircumstancesBlock = ({ data, styleBlock }) => {
     if (!data) return null;
 
@@ -14,14 +21,36 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
         ...adaptedStyle,
     };
 
+    const officialText = data.formDataCause || data.texte || '';
+    const hasTimeline =
+        Array.isArray(data.timeline) &&
+        data.timeline.length > 0 &&
+        data.showTimeline !== false;
+
     return (
         <View style={containerStyle} wrap>
             {data.title ? (
                 <Text style={pdfStyles.sectionTitle} minPresenceAhead={30}>{data.title}</Text>
             ) : null}
 
-            {data.timeline && data.timeline.length > 0 ? (
-                <View style={{ marginTop: 2 }}>
+            {/* 1. Texte officiel rédigé — rendu INCONDITIONNEL */}
+            {officialText ? (
+                <View wrap>
+                    <Text style={pdfStyles.bodyText}>{officialText}</Text>
+                    {data.paginationDocRapportCause ? (
+                        <View style={{ marginTop: 2 }}>
+                            <PDFAnnexRef data={data.paginationDocRapportCause} style={pdfStyles.mutedText} />
+                        </View>
+                    ) : null}
+                </View>
+            ) : null}
+
+            {/* 2. Timeline complémentaire — additive, jamais destructive */}
+            {hasTimeline ? (
+                <View style={{ marginTop: 8 }}>
+                    <Text style={{ ...TYPO.smallMuted, fontWeight: 'bold', marginBottom: 4, textTransform: 'uppercase' }}>
+                        Historique chronologique (complément)
+                    </Text>
                     {data.timeline.map((item) => {
                         const isFile = item.type === 'file';
                         return (
@@ -62,16 +91,7 @@ const PDFCircumstancesBlock = ({ data, styleBlock }) => {
                         );
                     })}
                 </View>
-            ) : (
-                <View wrap>
-                    <Text style={pdfStyles.bodyText}>{data.formDataCause || data.texte || ''}</Text>
-                    {data.paginationDocRapportCause ? (
-                        <View style={{ marginTop: 2 }}>
-                            <PDFAnnexRef data={data.paginationDocRapportCause} style={pdfStyles.mutedText} />
-                        </View>
-                    ) : null}
-                </View>
-            )}
+            ) : null}
         </View>
     );
 };
