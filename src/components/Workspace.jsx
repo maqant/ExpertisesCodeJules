@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
+import React, { useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { useSidebarUI } from '../context/SidebarUIContext';
