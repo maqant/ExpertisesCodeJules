@@ -1,9 +1,13 @@
 import { cleanAmount } from '../../store/financeStore.js';
 import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
-import { parseFullName, buildSalutation, buildAllCandidates } from '../utils/contactUtils.js';
+import { parseFullName, buildAllCandidates } from '../utils/contactUtils.js';
 import { formatPersonName } from '../utils/formatUtils.js';
-import { formatBeneficiaryInline } from '../utils/beneficiaryTitle.js';
+import { formatBeneficiaryInline, detectImplicitCivility } from '../utils/beneficiaryTitle.js';
 import { getHumanLabel, resolveExpenseView } from '../../domain/decompteSplitter/labelResolver.js';
+
+/* ------------------------------------------------------------------ */
+/* Résolution du destinataire                                          */
+/* ------------------------------------------------------------------ */
 
 export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
     const isLinked = block.mailRecipientLinked !== false;
@@ -50,27 +54,98 @@ export const resolveEffectiveMailRecipient = (block, allCandidates = []) => {
     return null;
 };
 
+/* ------------------------------------------------------------------ */
+/* Extraction robuste du nom de famille                                */
+/* ------------------------------------------------------------------ */
+
+const CIVILITY_PREFIX_REGEX = /^\s*(madame|mme\.?|monsieur|mr\.?|m\.|mlle\.?|mademoiselle|dr\.?|maitre|maître|me\.?)\s+/i;
+
+/**
+ * Supprime les éventuels préfixes de civilité d'un nom complet.
+ * Ex. : "Madame Christine Bontia" -> "Christine Bontia".
+ */
+const stripCivilityPrefix = (fullName = '') => {
+    let cleaned = (fullName || '').trim();
+    let previous;
+    do {
+        previous = cleaned;
+        cleaned = cleaned.replace(CIVILITY_PREFIX_REGEX, '');
+    } while (cleaned !== previous);
+    return cleaned;
+};
+
+/**
+ * Extrait le nom de famille avec stratégie en cascade :
+ * 1. Champ structuré `lastName` du contact résolu.
+ * 2. Analyse via parseFullName sur le displayName nettoyé.
+ * 3. Heuristique : dernier mot si plusieurs, sinon la chaîne entière.
+ */
+const extractLastName = (recipientObj = null, mailName = '') => {
+    if (recipientObj?.lastName?.trim()) {
+        return recipientObj.lastName.trim();
+    }
+
+    const rawName = recipientObj?.displayName || mailName || '';
+    const cleaned = stripCivilityPrefix(rawName);
+    if (!cleaned) return null;
+
+    try {
+        const parsed = parseFullName(cleaned);
+        if (parsed?.lastName?.trim()) return parsed.lastName.trim();
+    } catch {
+        // parseFullName indisponible ou nom atypique
+    }
+
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return null;
+    return words.length === 1 ? words[0] : words[words.length - 1];
+};
+
+/**
+ * Nettoie le nom d'une ACP pour la formule "de la Résidence X"
+ * afin d'éviter "de la Résidence RESIDENCE DU SAULE".
+ */
+const stripResidencePrefix = (name = '') =>
+    (name || '').replace(/^\s*(RESIDENCE|RÉSIDENCE|COPROPRIETE|COPROPRIÉTÉ|ACP)\s+/i, '').trim();
+
+/* ------------------------------------------------------------------ */
+/* Salutation                                                          */
+/* ------------------------------------------------------------------ */
+
 export const resolveCivilitySalutation = (civility, mailName = '', recipientObj = null) => {
-    const lastName = recipientObj?.lastName || null;
     const full = recipientObj?.displayName || mailName || '';
 
     switch (civility) {
-        case 'Madame':
-            return lastName ? `Bonjour Madame ${formatPersonName(lastName)},` : 'Bonjour Madame,';
-        case 'ACP':
-            return full
-                ? `Chers Copropriétaires de la Résidence ${formatPersonName(full)},`
+        case 'Madame': {
+            const lastName = extractLastName(recipientObj, mailName);
+            return lastName
+                ? `Bonjour Madame ${formatPersonName(lastName)},`
+                : 'Bonjour Madame,';
+        }
+        case 'Monsieur': {
+            const lastName = extractLastName(recipientObj, mailName);
+            return lastName
+                ? `Bonjour Monsieur ${formatPersonName(lastName)},`
+                : 'Bonjour Monsieur,';
+        }
+        case 'ACP': {
+            const residenceName = stripResidencePrefix(full);
+            return residenceName
+                ? `Chers Copropriétaires de la Résidence ${formatPersonName(residenceName)},`
                 : 'Chers Copropriétaires,';
+        }
         case 'Société':
             return full
                 ? `Messieurs les Administrateurs de la société ${full},`
                 : 'Messieurs,';
-        case 'Monsieur':
-            return lastName ? `Bonjour Monsieur ${formatPersonName(lastName)},` : 'Bonjour Monsieur,';
         default:
             return 'Bonjour,';
     }
 };
+
+/* ------------------------------------------------------------------ */
+/* Construction des détails du décompte                                */
+/* ------------------------------------------------------------------ */
 
 const sanitizeLabel = (label = '') =>
     label
@@ -93,8 +168,13 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
     const recipientCivility = (mailRecipient?.civility && mailRecipient?.civilitySource !== 'none')
         ? mailRecipient.civility
         : null;
-    const mailCivility = block.mailCivility || recipientCivility || null;
     const mailName = mailRecipient?.displayName || block.mailRecipientSnapshot?.displayName || '';
+
+    // Civilité effective : explicite (bloc, puis contact), sinon implicite déduite du nom.
+    const mailCivility = block.mailCivility
+        || recipientCivility
+        || detectImplicitCivility(mailName)
+        || null;
 
     const salutation = mailCivility
         ? resolveCivilitySalutation(mailCivility, mailName, mailRecipient)
@@ -109,10 +189,10 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
 
     let paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur votre compte, IBAN : ${ibanStr}.`;
     if (block.mailRecipientLinked === false) {
-        const payCiv = block.paymentCivility;
+        const payCiv = block.paymentCivility || paymentSnapshot?.civility || paymentSnapshot?.civilite;
         const payName = paymentSnapshot?.displayName || block.paymentRecipientNom || '';
         const inlineTitle = formatBeneficiaryInline(payCiv, payName);
-        const designation = inlineTitle ? inlineTitle : 'du bénéficiaire désigné';
+        const designation = inlineTitle || 'du bénéficiaire désigné';
         paymentSentence = `La compagnie nous confirme le versement de l’indemnité sur le compte de ${designation}, IBAN : ${ibanStr}.`;
     }
 
@@ -129,7 +209,10 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
         const val = cleanAmount(alloc.montant);
         total += val;
 
-        const isFranchise = val < 0 || (exp.desc || '').toLowerCase().includes('franchise') || (exp.type || '').toLowerCase().includes('franchise') || exp.isFranchise;
+        const isFranchise = val < 0
+            || (exp.desc || '').toLowerCase().includes('franchise')
+            || (exp.type || '').toLowerCase().includes('franchise')
+            || exp.isFranchise;
         const sign = isFranchise ? '(-)' : '(+)';
         const rawLabel = getHumanLabel(resolveExpenseView(exp), exp);
         const label = sanitizeLabel(rawLabel);
@@ -152,11 +235,9 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
         advanceSentence = 'Sauf erreur, ce paiement clôture ce dossier.';
     } else {
         advanceSentence = "Ce paiement constitue une avance sur l'indemnité.";
-        if (block.advanceType === 'tva_only') {
-            invoiceSentence = "Nous restons dans l'attente des factures afin de solliciter le versement de la TVA.";
-        } else {
-            invoiceSentence = "Nous restons dans l'attente des factures afin de solliciter le versement du solde et de la TVA.";
-        }
+        invoiceSentence = block.advanceType === 'tva_only'
+            ? "Nous restons dans l'attente des factures afin de solliciter le versement de la TVA."
+            : "Nous restons dans l'attente des factures afin de solliciter le versement du solde et de la TVA.";
     }
 
     const remarqueText = block.remarque?.trim() || '';
@@ -172,34 +253,41 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
     };
 };
 
+/* ------------------------------------------------------------------ */
+/* Gabarits HTML & Texte                                               */
+/* ------------------------------------------------------------------ */
+
+const P_STYLE = 'margin: 0 0 14px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.6;';
+const ITEM_STYLE = 'margin: 0 0 6px 24px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.6;';
+
 export const buildEmailHtml = (block, allocations, expenses, piiData = {}) => {
     const details = buildEmailDetails(block, allocations, expenses, piiData);
     if (!details) return '';
 
     const itemsHtml = details.items
-        .map(i => `<p style="margin: 0 0 6px 24px;">\u2022 ${i.sign} ${i.label} : ${i.amountStr}</p>`)
+        .map(i => `<p style="${ITEM_STYLE}">\u2022&nbsp; ${i.sign} ${i.label}&nbsp;: <strong>${i.amountStr}</strong></p>`)
         .join('\n');
 
     const invoiceHtml = details.invoiceSentence
-        ? `<p style="margin: 0 0 16px 0;">${details.invoiceSentence}</p>`
+        ? `<p style="${P_STYLE}">${details.invoiceSentence}</p>`
         : '';
 
     const remarqueHtml = details.remarqueText
-        ? `<p style="margin: 0 0 16px 0;">${details.remarqueText}</p>`
+        ? `<p style="${P_STYLE}">${details.remarqueText}</p>`
         : '';
 
-    return `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.5;">
-<p style="margin: 0 0 16px 0;">${details.salutation}</p>
-<p style="margin: 0 0 16px 0;">Je reviens vers vous dans ce dossier.</p>
-<p style="margin: 0 0 16px 0;">${details.paymentSentence}</p>
-<p style="margin: 0 0 8px 0;">Le décompte est le suivant :</p>
+    return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.6;">
+<p style="${P_STYLE}">${details.salutation}</p>
+<p style="${P_STYLE}">Je reviens vers vous dans ce dossier.</p>
+<p style="${P_STYLE}">${details.paymentSentence}</p>
+<p style="margin: 0 0 8px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b; font-weight: bold;">Le décompte est le suivant :</p>
 ${itemsHtml}
-<p style="margin: 16px 0 16px 0;"><strong>Total : ${details.totalStr}</strong></p>
-<p style="margin: 0 0 ${details.invoiceSentence ? '16px' : '16px'};">${details.advanceSentence}</p>
+<p style="margin: 16px 0 16px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b;"><strong>Total : ${details.totalStr}</strong></p>
+<p style="${P_STYLE}">${details.advanceSentence}</p>
 ${invoiceHtml}
 ${remarqueHtml}
-<p style="margin: 0 0 16px 0;">Je reste à votre disposition.</p>
-<p style="margin: 0;">Bien cordialement,</p>
+<p style="${P_STYLE}">Je reste à votre disposition.</p>
+<p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b;">Bien cordialement,</p>
 </div>`;
 };
 
