@@ -17,7 +17,17 @@ import { sanitizeAiConfig } from '../../ai/ai.config.js';
 import { executeAiCall } from '../../ai/apiClient.js';
 import { AI_ROLES } from '../../ai/ai.catalog.js';
 
-// v6.1.0 - Routeur Individuel : 1 appel par document, lecture complète, gpt-5.4-nano
+// v6.4.0 - Détection robuste des captures d'écran built-in.
+// Double détection obligatoire : flag isCapture + pattern de nom.
+const CAPTURE_NAME_PATTERN = /^capture[_-]/i;
+
+const isScreenCapture = (file) => {
+    if (file?.isCapture === true) return true;
+    const name = file?.name || '';
+    return CAPTURE_NAME_PATTERN.test(name);
+};
+
+// v6.4.0 - Routeur Individuel : 1 appel par document, lecture complète, gpt-5.4-nano
 export const routeDocuments = async (files, providedApiKey = null, onStatusChange = null) => {
     const fileArray = Array.isArray(files) ? files : [files];
     const configStr = localStorage.getItem('expertise_aiConfig_v3');
@@ -40,13 +50,19 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
 
         const systemPrompt = usePromptStore.getState().getPrompt('ROUTER');
 
-        // v6.1.0 - 1 appel par fichier en parallèle (pas de batching, lecture complète)
+        // v6.4.0 - 1 appel par fichier en parallèle
         const promises = fileArray.map(async (file) => {
             const fileName = file.name || 'document_sans_nom';
             
-            // v6.3.2 - Skip API pour les images (goulot d'étranglement réseau)
+            // v6.4.0 - Routage local des images (zéro appel API).
+            // Les captures built-in (UI de l'app) sont distribuées à RECITS + FINANCIER.
+            // Les autres images restent sur RECITS seul.
             if (file.type && file.type.startsWith('image/')) {
-                console.log(`[router v6.3.2] ⚡ Skip vision, routage local "${fileName}" → ["RECITS"]`);
+                if (isScreenCapture(file)) {
+                    console.log(`[router v6.4.0] ⚡ Capture détectée, routage local "${fileName}" → ["RECITS", "FINANCIER"]`);
+                    return { [fileName]: ['RECITS', 'FINANCIER'] };
+                }
+                console.log(`[router v6.4.0] ⚡ Skip vision, routage local "${fileName}" → ["RECITS"]`);
                 return { [fileName]: ['RECITS'] };
             }
 

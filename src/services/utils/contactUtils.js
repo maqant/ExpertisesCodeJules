@@ -320,12 +320,17 @@ export function buildAllCandidates({ occupants = [], intervenants = [], localCon
 
     const docCandidates = (documentCandidates || []).map((c, i) => {
         const civ = c.civilite || c.civility || resolveExplicitCivility(c) || null;
+        const displayName = c.displayName || c.nom || 'Candidat document';
+        const words = (displayName || '').trim().split(/\s+/).filter(Boolean);
+        const parsedFirstName = c.firstName || c.prenom || (words.length > 1 ? words.slice(0, -1).join(' ') : null);
+        const parsedLastName = c.lastName || c.nom || (words.length > 0 ? words[words.length - 1] : null);
+
         return {
             id: c.id || `doc-candidate-${i}`,
-            displayName: c.displayName || c.nom || 'Candidat document',
-            nom: c.nom || c.displayName || '',
-            firstName: c.firstName || c.prenom || null,
-            lastName: c.lastName || c.nom || c.displayName || null,
+            displayName,
+            nom: parsedLastName || displayName,
+            firstName: parsedFirstName,
+            lastName: parsedLastName,
             civilite: civ,
             civility: civ,
             contactType: c.contactType || (civ === 'ACP' ? 'acp' : civ === 'Société' ? 'company' : 'person'),

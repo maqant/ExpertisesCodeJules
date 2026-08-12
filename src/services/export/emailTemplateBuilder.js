@@ -112,10 +112,23 @@ const stripResidencePrefix = (name = '') =>
 /* Salutation                                                          */
 /* ------------------------------------------------------------------ */
 
-export const resolveCivilitySalutation = (civility, mailName = '', recipientObj = null) => {
+/**
+ * Résout la salutation d'e-mail avec dégradation gracieuse.
+ * Hiérarchie de résolution de la civilité :
+ *   1. civility (donnée portée par le destinataire — SSOT)
+ *   2. fallbackCivility (choix explicite du toggle UI ex: 'Monsieur')
+ *   3. default : salutation avec nom complet si disponible, sinon "Bonjour,"
+ */
+export const resolveCivilitySalutation = (
+    civility,
+    mailName = '',
+    recipientObj = null,
+    fallbackCivility = null
+) => {
     const full = recipientObj?.displayName || mailName || '';
+    const effectiveCivility = civility || fallbackCivility;
 
-    switch (civility) {
+    switch (effectiveCivility) {
         case 'Madame': {
             const lastName = extractLastName(recipientObj, mailName);
             return lastName
@@ -138,8 +151,12 @@ export const resolveCivilitySalutation = (civility, mailName = '', recipientObj 
             return full
                 ? `Messieurs les Administrateurs de la société ${full},`
                 : 'Messieurs,';
-        default:
-            return 'Bonjour,';
+        default: {
+            const cleanedName = stripCivilityPrefix(full);
+            return cleanedName
+                ? `Bonjour ${formatPersonName(cleanedName)},`
+                : 'Bonjour,';
+        }
     }
 };
 
@@ -176,9 +193,7 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
         || detectImplicitCivility(mailName)
         || null;
 
-    const salutation = mailCivility
-        ? resolveCivilitySalutation(mailCivility, mailName, mailRecipient)
-        : 'Bonjour,';
+    const salutation = resolveCivilitySalutation(mailCivility, mailName, mailRecipient, block.mailCivility || 'Monsieur');
 
     let rawIban = block.ibanOverride || paymentSnapshot?.iban;
     let ibanStr = '[IBAN MANQUANT]';
