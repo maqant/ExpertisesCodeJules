@@ -704,8 +704,8 @@ export const processGlobalIngestion = async ({
         // Extraction PJ MSG en parallèle borné (max 4 MSG simultanés)
         const extractionResults = await mapInParallelBounded(rawFiles, 4, async (file) => {
             if (file.type && file.type.startsWith('image/')) {
-                if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour l'image: ${file.name}`);
-                return { extracted: [file], route: [] };
+                if (addDebugLog) log('INGESTION_VISION', 'INFO', `Inclusion de l'image dans l'analyse IA Vision: ${file.name}`);
+                return { extracted: [file], route: [file] };
             }
 
             if (file.name && file.name.toLowerCase().endsWith('.msg')) {
@@ -715,11 +715,7 @@ export const processGlobalIngestion = async ({
                     const { files: attachments } = await extractValidAttachmentsFromMsg(file);
                     for (const att of attachments) {
                         extracted.push(att);
-                        if (att.type && att.type.startsWith('image/')) {
-                            if (addDebugLog) log('INGESTION_BYPASS', 'INFO', `Bypass IA pour la PJ image: ${att.name}`);
-                        } else {
-                            route.push(att);
-                        }
+                        route.push(att);
                     }
                 } catch (e) {
                     console.error("Erreur extraction PJ MSG:", e);

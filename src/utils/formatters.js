@@ -19,8 +19,24 @@ export const looksLikeTechnicalId = (value) =>
 const COMPTE_DE_FALLBACK = 'Non attribué';
 const COMPTE_DE_ORPHAN = 'Occupant introuvable';
 
+const nativeConsole = { warn: console.warn.bind(console) };
+const reportedOrphans = new Set();
+
+const reportOrphanOnce = (compteDe) => {
+    if (reportedOrphans.has(compteDe)) return;
+    reportedOrphans.add(compteDe);
+    queueMicrotask(() => {
+        nativeConsole.warn(
+            `[formatters] UUID orphelin détecté pour "compteDe" (${compteDe}). ` +
+            `L'occupant référencé n'existe plus dans la liste fournie. ` +
+            `Affichage remplacé par "${COMPTE_DE_ORPHAN}".`
+        );
+    });
+};
+
 /**
  * Moteur interne unique de résolution de "compteDe".
+ * ⚠️ FONCTION PURE (appelée durant le render React) — aucun side-effect synchrone.
  * @returns {{ occ: object|null, rawLabel: string|null }}
  *   occ: occupant matché, rawLabel: nom libre légitime ou null.
  */
@@ -29,12 +45,7 @@ const resolveCompteDe = (compteDe, occupants) => {
     if (occ) return { occ, rawLabel: null };
     if (compteDe && typeof compteDe === 'string' && compteDe.trim() !== '') {
         if (looksLikeTechnicalId(compteDe)) {
-            // Zéro erreur silencieuse : on signale la fuite évitée.
-            console.error(
-                `[formatters] UUID orphelin détecté pour "compteDe" (${compteDe}). ` +
-                `L'occupant référencé n'existe plus dans la liste fournie. ` +
-                `Affichage remplacé par "${COMPTE_DE_ORPHAN}".`
-            );
+            reportOrphanOnce(compteDe);
             return { occ: null, rawLabel: COMPTE_DE_ORPHAN };
         }
         return { occ: null, rawLabel: compteDe.trim() }; // nom libre légitime (non matché)
