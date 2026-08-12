@@ -117,13 +117,14 @@ const baseSort = (a, b) => {
  *
  * @returns {Array<{...occupant, _depth: 0|1}>}
  */
-export const buildOccupantHierarchy = (occupants = []) => {
+export const buildOccupantHierarchy = (occupants = [], options = {}) => {
   if (!Array.isArray(occupants) || occupants.length === 0) return [];
 
+  const preserveOrder = occupants._isCustomOrdered || options?.preserveOrder || false;
   const isLocataire = (occ) => occ.statut === 'Locataire';
 
-  // 1. Tri "métier" indépendant (ordre schématique vertical de l'immeuble)
-  const sorted = [...occupants].sort(baseSort);
+  // 1. Tri "métier" (ordre schématique vertical) ou conservation de l'ordre utilisateur
+  const sorted = preserveOrder ? [...occupants] : [...occupants].sort(baseSort);
 
   // 2. Index des locataires par propriétaire lié
   const childrenByParent = new Map();
@@ -157,13 +158,14 @@ export const buildOccupantHierarchy = (occupants = []) => {
     }
   }
 
-  // 4. Filet de sécurité : réintègre les locataires au lien cassé.
-  //    Zéro perte silencieuse.
+  // Filet de sécurité : réintègre les locataires au lien cassé.
   for (const occ of sorted) {
     if (!emittedIds.has(occ.id)) {
       result.push({ ...occ, _depth: 1 });
     }
   }
+
+  if (preserveOrder) result._isCustomOrdered = true;
 
   return result;
 };

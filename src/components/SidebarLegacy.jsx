@@ -246,6 +246,7 @@ const SidebarLegacy = () => {
         };
     }, [setActiveTab]);
 
+    const draggedOccIdRef = useRef(null);
     const sortedOccupants = useSortedOccupants(occupants);
 
     const extractFieldTelemetry = (target) => {
@@ -1241,11 +1242,13 @@ const SidebarLegacy = () => {
                                         <span>Mode avancé</span>
                                     </label>
                                 </div>
-                                {sortedOccupants.map((o, index) => {
+                                {sortedOccupants.map((o) => {
                                     const isExp = expandedOccId === o.id;
-                                    const depthClass = o._depth === 1 ? 'ml-6 border-l-2 border-indigo-500' : '';
+                                    const isChild = o._depth === 1;
+                                    const depthClass = isChild ? 'ml-6 border-l-2 border-indigo-500' : '';
+                                    const canDrag = !isExp && !isChild;
                                     return (
-                                    <div key={o.id} draggable={!isExp} onDragStart={(e) => { if(isExp) { e.preventDefault(); return; } draggedOccRef.current = index; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const src = draggedOccRef.current; if (src === null || src === index) return; const newOccs = [...occupants]; const item = newOccs.splice(src, 1)[0]; newOccs.splice(index, 0, item); setOccupants(newOccs); draggedOccRef.current = null; }} onDragEnd={() => { draggedOccRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${depthClass} ${!isExp ? 'cursor-move' : ''}`} >
+                                    <div key={o.id} draggable={canDrag} onDragStart={(e) => { if(!canDrag) { e.preventDefault(); return; } draggedOccIdRef.current = o.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', 'x'); }} onDragEnter={(e) => e.preventDefault()} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => { e.preventDefault(); const srcId = draggedOccIdRef.current; draggedOccIdRef.current = null; if (!srcId || srcId === o.id) return; const targetId = isChild && o.linkedProprietaireId ? o.linkedProprietaireId : o.id; if (targetId === srcId) return; const srcIdx = occupants.findIndex(x => x.id === srcId); const dstIdx = occupants.findIndex(x => x.id === targetId); if (srcIdx === -1 || dstIdx === -1) return; const newOccs = [...occupants]; const [moved] = newOccs.splice(srcIdx, 1); newOccs.splice(dstIdx, 0, moved); newOccs._isCustomOrdered = true; setOccupants(newOccs); }} onDragEnd={() => { draggedOccIdRef.current = null; }} className={`p-2 bg-slate-900 border ${isExp ? 'border-indigo-500' : 'border-slate-600'} rounded relative mb-1 ${depthClass} ${canDrag ? 'cursor-move' : ''}`} >
                                         <button onClick={(e) => { e.stopPropagation(); removeOcc(o.id); }} className="absolute top-1 right-2 text-red-400 text-xs z-10">✕</button>
                                         {isExp && <button onClick={(e) => { e.stopPropagation(); setExpandedOccId(null); }} className="absolute top-1 right-8 text-indigo-300 text-[10px] z-10 hover:text-white">▲ Réduire</button>}
                                         {!isExp ? (
