@@ -61,7 +61,8 @@ export const captureScreenInteractive = async () => {
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const file = new File([blob], `Capture_Ecran_${timestamp}.png`, { type: 'image/png', lastModified: Date.now() });
+        const randomSuffix = Math.random().toString(36).slice(2, 7);
+        const file = new File([blob], `Capture_Ecran_${timestamp}_${randomSuffix}.png`, { type: 'image/png', lastModified: Date.now() });
         file.isCapture = true;
         return file;
     } finally {
@@ -72,25 +73,54 @@ export const captureScreenInteractive = async () => {
 };
 
 /**
+ * Génère un suffixe unique pour éviter toute collision de nom
+ * lors de collages multiples dans la même seconde.
+ */
+const uniqueSuffix = (index) =>
+    `${index + 1}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+
+/**
  * Extrait les fichiers images contenus dans un ClipboardEvent (paste).
+ * Garantit l'unicité des noms même pour N images collées simultanément.
  */
 export const extractImagesFromClipboardEvent = (e) => {
     const items = e.clipboardData?.items;
-    if (!items) return [];
-    
     const imageFiles = [];
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.type && item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (file) {
+
+    if (items) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.type && item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    const ext = item.type.split('/')[1] || 'png';
+                    const fileName = `Capture_Collee_${timestamp}_${uniqueSuffix(i)}.${ext}`;
+                    // new File([file], ...) clone le contenu et détache le blob pointer éphémère.
+                    const newFile = new File([file], fileName, { type: item.type, lastModified: Date.now() });
+                    newFile.isCapture = true;
+                    imageFiles.push(newFile);
+                }
+            }
+        }
+    }
+
+    // Fallback Firefox : certaines versions exposent les images via clipboardData.files.
+    if (imageFiles.length === 0 && e.clipboardData?.files?.length) {
+        const files = e.clipboardData.files;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type && file.type.startsWith('image/')) {
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                const ext = item.type.split('/')[1] || 'png';
-                const newFile = new File([file], `Capture_Collee_${timestamp}.${ext}`, { type: item.type, lastModified: Date.now() });
+                const ext = file.type.split('/')[1] || 'png';
+                const newFile = new File([file], `Capture_Collee_${timestamp}_${uniqueSuffix(i)}.${ext}`, {
+                    type: file.type, lastModified: Date.now()
+                });
                 newFile.isCapture = true;
                 imageFiles.push(newFile);
             }
         }
     }
+
     return imageFiles;
 };

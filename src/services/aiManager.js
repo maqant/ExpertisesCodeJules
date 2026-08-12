@@ -54,6 +54,7 @@ import { sanitizeAiConfig } from '../ai/ai.config.js';
 import { AI_ROLES } from '../ai/ai.catalog.js';
 import { executeAiCall } from '../ai/apiClient.js';
 import { makeSafeDebugLog } from './logging/safeDebugLog.js';
+import { sanitizeLogArgs } from './utils/logSanitizer.js';
 
 // ═══════════════════════════════════════════════════════════════
 // AGENT BALAI (Phase 2)
@@ -649,29 +650,31 @@ export const processGlobalIngestion = async ({
     if (addDebugLog && typeof addDebugLog === 'function') {
         originalConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
         const createInterceptor = (type) => (...args) => {
-            originalConsole[type](...args); // Conserver le log original F12
+            try {
+                originalConsole[type](...args); // Conserver le log original F12 intact
+            } catch (e) {
+                /* Ne jamais bloquer si la console native rencontre une erreur */
+            }
             
-            const message = args.map(a => {
-                if (a instanceof Error) return a.message || String(a);
-                if (typeof a === 'object') {
-                    try { return JSON.stringify(a); } catch(e) { return String(a); }
-                }
-                return String(a);
-            }).join(' ');
+            try {
+                const message = sanitizeLogArgs(args);
 
-            let status = type === 'error' ? 'ERROR' : (type === 'warn' ? 'WARNING' : 'INFO');
-            if (message.includes('✅') || message.includes('SUCCESS') || message.includes('✅')) status = 'SUCCESS';
-            if (message.includes('❌') || message.includes('Erreur') || message.includes('fatal')) status = 'ERROR';
+                let status = type === 'error' ? 'ERROR' : (type === 'warn' ? 'WARNING' : 'INFO');
+                if (message.includes('✅') || message.includes('SUCCESS')) status = 'SUCCESS';
+                if (message.includes('❌') || message.includes('Erreur') || message.includes('fatal')) status = 'ERROR';
 
-            let step = 'SYSTEM';
-            if (message.includes('[MSG Parser]') || message.includes('MSG')) step = 'EXTRACTOR_MSG';
-            else if (message.includes('[PDF')) step = 'EXTRACTOR_PDF';
-            else if (message.includes('[Smart Bridge]')) step = 'SMART_BRIDGE';
-            else if (message.includes('[aiHelpers]')) step = 'AI_HELPER';
-            else if (message.includes('[aiManager]')) step = 'ORCHESTRATOR';
-            else step = 'LOG';
+                let step = 'SYSTEM';
+                if (message.includes('[MSG Parser]') || message.includes('MSG')) step = 'EXTRACTOR_MSG';
+                else if (message.includes('[PDF')) step = 'EXTRACTOR_PDF';
+                else if (message.includes('[Smart Bridge]')) step = 'SMART_BRIDGE';
+                else if (message.includes('[aiHelpers]')) step = 'AI_HELPER';
+                else if (message.includes('[aiManager]')) step = 'ORCHESTRATOR';
+                else step = 'LOG';
 
-            log(step, status, message);
+                log(step, status, message);
+            } catch (err) {
+                /* Le logging ne doit sous aucun prétexte bloquer l'ingestion */
+            }
         };
 
         console.log = createInterceptor('log');

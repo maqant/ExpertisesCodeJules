@@ -143,7 +143,7 @@ export function clearSessionExtractionCache() {
 
 function getFileSignature(file) {
     if (typeof file === 'string') return `str:${file.substring(0, 100)}_${file.length}`;
-    return `${file.name || 'unnamed'}|${file.size ?? 0}|${file.lastModified ?? 0}`;
+    return `${file.name || 'unnamed'}|${file.size ?? 0}|${file.lastModified ?? 0}|${file.type || 'notype'}`;
 }
 
 function getCachedFileExtraction(file, key, extractionFn) {
