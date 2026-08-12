@@ -48,30 +48,31 @@ const PDFOrganisationBlock = ({ data, styleBlock, orgaAdvancedMode }) => {
                             </View>
 
                             {showDetails && (o.rc === 'Oui' || o.secAssurance === 'Oui') ? (
-                            <View style={{
-                                marginLeft: (o.depth === 1 ? 20 : 0) + 200,
-                                marginTop: 2,
-                                borderLeftWidth: 2,
-                                borderLeftColor: '#cbd5e1',
-                                paddingLeft: 6,
-                                width: '80%'
-                            }}>
-                                {o.rc === 'Oui' ? (
-                                    <View style={{ flexDirection: 'row', marginBottom: 1 }}>
-                                        <Text style={{ width: '35%', ...TYPO.smallMuted, fontStyle: 'italic' }}>Assurance RC Familiale</Text>
-                                        <Text style={{ flex: 1, ...TYPO.smallMuted, fontStyle: 'italic' }}>: {o.rcPolice ? `Police ${o.rcPolice}` : 'Non précisé'}</Text>
-                                    </View>
-                                ) : null}
-                                {o.secAssurance === 'Oui' ? (
-                                    <View style={{ flexDirection: 'row', marginBottom: 1 }}>
-                                        <Text style={{ width: '35%', ...TYPO.smallMuted, fontStyle: 'italic' }}>Autre assurance ({o.secType || 'Type'})</Text>
-                                        <Text style={{ flex: 1, ...TYPO.smallMuted, fontStyle: 'italic' }}>: {o.secCie || 'Compagnie non précisée'} {o.secPolice ? `(Police: ${o.secPolice})` : ''}</Text>
-                                    </View>
-                                ) : null}
-                            </View>
-                    </View>
-                );
-            })}
+                                <View style={{
+                                    marginLeft: (o.depth === 1 ? 20 : 0) + 200,
+                                    marginTop: 2,
+                                    borderLeftWidth: 2,
+                                    borderLeftColor: '#cbd5e1',
+                                    paddingLeft: 6,
+                                    width: '80%'
+                                }}>
+                                    {o.rc === 'Oui' ? (
+                                        <View style={{ flexDirection: 'row', mb: 1 }}>
+                                            <Text style={{ width: '35%', ...TYPO.smallMuted, fontStyle: 'italic' }}>Assurance RC Familiale</Text>
+                                            <Text style={{ flex: 1, ...TYPO.smallMuted, fontStyle: 'italic' }}>: {o.rcPolice ? `Police ${o.rcPolice}` : 'Non précisé'}</Text>
+                                        </View>
+                                    ) : null}
+                                    {o.secAssurance === 'Oui' ? (
+                                        <View style={{ flexDirection: 'row', mb: 1 }}>
+                                            <Text style={{ width: '35%', ...TYPO.smallMuted, fontStyle: 'italic' }}>Autre assurance ({o.secType || 'Type'})</Text>
+                                            <Text style={{ flex: 1, ...TYPO.smallMuted, fontStyle: 'italic' }}>: {o.secCie || 'Compagnie non précisée'} {o.secPolice ? `(Police: ${o.secPolice})` : ''}</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                            ) : null}
+                        </View>
+                    );
+                })}
                 
                 {occupantsList.length === 0 ? (
                     <Text style={{ ...TYPO.smallMuted, fontStyle: 'italic' }}>Aucune partie impliquée.</Text>
