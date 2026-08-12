@@ -32,3 +32,47 @@ export async function isPdfDeep(file) {
         return false;
     }
 }
+
+/**
+ * Signature déterministe d'un fichier (synchrone, sans lecture du contenu).
+ * @param {File} file
+ * @returns {string}
+ */
+export const getFileSignature = (file) => {
+    if (!file || typeof file.name !== 'string') {
+        throw new Error(`[fileUtils] Objet fichier invalide reçu : ${JSON.stringify(file)}`);
+    }
+    return `${file.name}::${file.size}::${file.type}::${file.lastModified ?? '0'}`;
+};
+
+/**
+ * Déduplique une liste de fichiers par signature. Le premier occurrent gagne.
+ * @param {File[]} filesList
+ * @param {function} [onDuplicate] - Callback optionnel de log
+ * @returns {File[]} Liste sans doublons, ordre préservé.
+ */
+export const deduplicateFiles = (filesList, onDuplicate) => {
+    if (!Array.isArray(filesList)) return [];
+    const seen = new Map();
+    const duplicates = [];
+
+    for (const file of filesList) {
+        if (!file) continue;
+        const signature = getFileSignature(file);
+        if (seen.has(signature)) {
+            duplicates.push(signature);
+        } else {
+            seen.set(signature, file);
+        }
+    }
+
+    if (duplicates.length > 0 && typeof onDuplicate === 'function') {
+        onDuplicate(
+            'FILE_DEDUPLICATION',
+            'INFO',
+            `${duplicates.length} doublon(s) d'image/fichier éliminé(s) à l'assemblage des pièces jointes.`
+        );
+    }
+
+    return Array.from(seen.values());
+};

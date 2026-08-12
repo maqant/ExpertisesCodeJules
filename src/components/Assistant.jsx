@@ -8,6 +8,7 @@ import AnalysisDestinationModal from './modals/AnalysisDestinationModal';
 import SmartBridgeModal from './SmartBridgeModal';
 import GeneratedDocModal from './GeneratedDocModal';
 import { createRawTextFile, captureScreenInteractive, extractImagesFromClipboardEvent } from '../utils/screenCapture.js';
+import { deduplicateFiles } from '../services/utils/fileUtils.js';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.edi'];
 
@@ -134,11 +135,14 @@ const Assistant = ({ onResetForm }) => {
         
         const activeBrioOverrides = useIngestionFlowStore.getState().brioOverrides || {};
 
-        // Fichiers à attacher : PJ extraites des MSG + fichiers originaux non-MSG (PDF, images, etc.)
-        const allPendingFiles = [
-            ...(extractedFiles || []),
-            ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
-        ];
+        // Fichiers à attacher (dédupliqués par signature unique) : PJ extraites des MSG + fichiers originaux non-MSG
+        const allPendingFiles = deduplicateFiles(
+            [
+                ...(extractedFiles || []),
+                ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
+            ],
+            addDebugLog
+        );
 
         setPendingAiData({
             formData: { ...(typeof formData === 'object' ? formData : {}), ...activeBrioOverrides },
