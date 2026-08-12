@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import { useSidebarUI } from '../../context/SidebarUIContext';
 import { ExpertiseContext } from '../../context/ExpertiseContext';
 import { useDatasetStore } from '../../store/datasetStore.js';
@@ -13,6 +13,7 @@ const SettingsModal = () => {
     const [addExpertForm, setAddExpertForm] = useState({ nom: '', tel: '' });
     const [editingExpert, setEditingExpert] = useState(null);
     const [addFranchiseForm, setAddFranchiseForm] = useState({ moisAnnee: '', montant: '' });
+    const fileInputRef = useRef(null);
 
     if (!isSettingsModalOpen || !context) return null;
 
@@ -36,6 +37,102 @@ const SettingsModal = () => {
             setExpertsList([...safeExperts, { nom: addExpertForm.nom, tel: addExpertForm.tel }]);
         }
         setAddExpertForm({ nom: '', tel: '' });
+    };
+
+    // --- Export JSON de la Base Experts ---
+    const handleExportExpertsJson = () => {
+        if (safeExperts.length === 0) {
+            alert("La base experts est vide : rien à exporter.");
+            return;
+        }
+        try {
+            const json = JSON.stringify(safeExperts, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `base_experts_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('[SettingsModal] Erreur export experts JSON:', err);
+            alert("Erreur lors de l'export du fichier JSON.");
+        }
+    };
+
+    // --- Import JSON de la Base Experts (fusion sans doublons) ---
+    const handleImportExpertsJson = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = JSON.parse(e.target.result);
+
+                if (!Array.isArray(parsed)) {
+                    alert("Format invalide : le fichier doit contenir un tableau JSON d'experts.\nExemple : [{ \"nom\": \"GABER Lionel\", \"tel\": \"04XX XX XX\" }]");
+                    return;
+                }
+
+                // Normalisation + validation des entrées
+                const validEntries = parsed
+                    .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+                    .map(item => ({
+                        nom: String(item.nom || item.name || '').trim(),
+                        tel: String(item.tel || item.phone || '').trim()
+                    }))
+                    .filter(item => item.nom.length > 0);
+
+                const invalidCount = parsed.length - validEntries.length;
+
+                if (validEntries.length === 0) {
+                    alert("Aucun expert valide trouvé dans le fichier.\nChaque entrée doit contenir au minimum un champ \"nom\".");
+                    return;
+                }
+
+                // Dédoublonnage : contre la base existante ET au sein du fichier importé
+                const normalize = (nom) => nom.trim().toLowerCase();
+                const existingNames = new Set(
+                    safeExperts.map(exp => normalize(exp.nom || exp.name || ''))
+                );
+
+                const newExperts = [];
+                for (const entry of validEntries) {
+                    const key = normalize(entry.nom);
+                    if (!existingNames.has(key)) {
+                        existingNames.add(key);
+                        newExperts.push(entry);
+                    }
+                }
+
+                if (newExperts.length === 0) {
+                    alert(`Import terminé : aucun nouvel expert (${validEntries.length} doublon(s) ignoré(s)).`);
+                    return;
+                }
+
+                setExpertsList([...safeExperts, ...newExperts]);
+
+                const duplicates = validEntries.length - newExperts.length;
+                let message = `✅ Import réussi : ${newExperts.length} expert(s) ajouté(s).`;
+                if (duplicates > 0) message += `\n${duplicates} doublon(s) ignoré(s).`;
+                if (invalidCount > 0) message += `\n${invalidCount} entrée(s) invalide(s) ignorée(s).`;
+                alert(message);
+            } catch (err) {
+                console.error('[SettingsModal] Erreur import experts JSON:', err);
+                alert("Fichier illisible : le contenu n'est pas un JSON valide.");
+            }
+        };
+        reader.onerror = () => {
+            alert("Erreur lors de la lecture du fichier.");
+        };
+        reader.readAsText(file);
+
+        // Reset : permet de réimporter le même fichier consécutivement
+        event.target.value = '';
     };
 
     const handleAddFranchise = () => {
@@ -94,7 +191,32 @@ const SettingsModal = () => {
 
                     {/* 1. BASE EXPERTS */}
                     <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-                        <h3 className="text-xs font-bold text-white mb-2">➕ Base Experts</h3>
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-xs font-bold text-white">➕ Base Experts</h3>
+                            <div className="flex gap-1.5">
+                                <button
+                                    onClick={handleExportExpertsJson}
+                                    title="Télécharger la liste des experts au format JSON"
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-2 py-1 rounded text-[10px] transition-colors border border-slate-600 flex items-center gap-1"
+                                >
+                                    📤 Exporter JSON
+                                </button>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    title="Importer une liste d'experts depuis un fichier JSON (fusion sans doublons)"
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-2 py-1 rounded text-[10px] transition-colors border border-slate-600 flex items-center gap-1"
+                                >
+                                    📥 Importer JSON
+                                </button>
+                                <input
+                                    type="file"
+                                    accept=".json,application/json"
+                                    ref={fileInputRef}
+                                    onChange={handleImportExpertsJson}
+                                    className="hidden"
+                                />
+                            </div>
+                        </div>
                         <div className="flex gap-2">
                             <div className="flex-1">
                                 <label className="text-[10px] text-slate-400 block mb-1">Nom</label>
