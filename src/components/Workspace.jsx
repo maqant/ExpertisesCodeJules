@@ -9,6 +9,7 @@ import AcknowledgmentModal from './Post/AcknowledgmentModal';
 import { Mail } from 'lucide-react';
 import { formatExpertiseTitle } from '../utils/titleFormatter';
 import { accumulateFrais, createTotauxAccumulator, parseMontant, normalizeTypeMontant } from '../domain/montantTypes';
+import { isOccupantDetailsVisible } from '../utils/occupantVisibility';
 
 
 const BlockToolbar = ({ id, disableText = false }) => {
@@ -365,26 +366,29 @@ const Workspace = () => {
                 <BlockContainer key="orga" id="orga">
                     {blockTitles.orga && <p className="font-bold underline mb-2" style={{ fontSize: `${styles.orga.fontSize + 2}px` }}>{blockTitles.orga}</p>}
                     <ul className="list-none space-y-2">
-                        {buildOccupantHierarchy(occupants).map(o => (
-                            <li key={o.id} className="leading-snug break-inside-avoid">
-                                <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o._depth === 1 ? 'ml-12 text-slate-700' : ''}`}>
-                                    <strong className="break-words">{o.etage || '-'}</strong>
-                                    <span className="text-slate-800 break-words">- {o.statut}</span>
-                                    <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {o.showDetails && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
-                                </div>
-                                {(o.contreExpert || o.hasContact || o.showDetails) && (
-                                    <div className={`${o._depth === 1 ? 'ml-12' : ''}`} style={{marginLeft: o._depth !== 1 ? '272px' : undefined, paddingLeft: o._depth === 1 ? '272px' : undefined}}>
-                                        <table className="mt-1 border-l-2 border-slate-300 pl-2 text-[0.9em] italic opacity-90 text-slate-800 w-[95%]"><tbody>
-                                            {o.contreExpert && <tr><td className="w-1/3 py-0.5 align-top break-words">Expert client</td><td className="py-0.5 align-top font-medium break-words">: {o.nomContreExpert || 'Non précisé'}</td></tr>}
-                                            {o.hasContact && (o.contactNom || o.contactTel) && <tr><td className="w-1/3 py-0.5 align-top break-words">Contact</td><td className="py-0.5 align-top font-medium break-words">: {o.contactNom || ''}{o.contactNom && o.contactTel ? ' - ' : ''}{o.contactTel || ''}</td></tr>}
-                                            {o.showDetails && o.iban && <tr><td className="w-1/3 py-0.5 align-top break-words">IBAN</td><td className="py-0.5 align-top font-medium break-words">: {o.iban}</td></tr>}
-                                            {o.showDetails && o.rc === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Assurance RC Familiale</td><td className="py-0.5 align-top font-medium break-words">: {o.rcPolice ? `Police ${o.rcPolice}` : 'Non précisé'}</td></tr>}
-                                            {o.showDetails && o.secAssurance === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Autre assurance ({o.secType || 'Type'})</td><td className="py-0.5 align-top font-medium break-words">: {o.secCie || 'Compagnie non précisée'} {o.secPolice ? `(Police: ${o.secPolice})` : ''}</td></tr>}
-                                        </tbody></table>
+                        {buildOccupantHierarchy(occupants).map(o => {
+                            const showDetails = isOccupantDetailsVisible(orgaAdvancedMode, o);
+                            return (
+                                <li key={o.id} className="leading-snug break-inside-avoid">
+                                    <div className={`grid grid-cols-[80px_190px_auto] gap-2 items-baseline ${o._depth === 1 ? 'ml-12 text-slate-700' : ''}`}>
+                                        <strong className="break-words">{o.etage || '-'}</strong>
+                                        <span className="text-slate-800 break-words">- {o.statut}</span>
+                                        <span className="break-words">: <strong>{`${o.nom || '___'} ${o.prenom || ''}`.trim()}</strong> {o.tel ? <span className="ml-1 text-[0.9em]">(Tel: {o.tel})</span> : ''} {showDetails && o.email ? <span className="ml-1 text-[0.9em]">(Email: {o.email})</span> : ''}</span>
                                     </div>
-                                )}
-                            </li>
-                        ))}
+                                    {(o.contreExpert || o.hasContact || showDetails) && (
+                                        <div className={`${o._depth === 1 ? 'ml-12' : ''}`} style={{marginLeft: o._depth !== 1 ? '272px' : undefined, paddingLeft: o._depth === 1 ? '272px' : undefined}}>
+                                            <table className="mt-1 border-l-2 border-slate-300 pl-2 text-[0.9em] italic opacity-90 text-slate-800 w-[95%]"><tbody>
+                                                {o.contreExpert && <tr><td className="w-1/3 py-0.5 align-top break-words">Expert client</td><td className="py-0.5 align-top font-medium break-words">: {o.nomContreExpert || 'Non précisé'}</td></tr>}
+                                                {o.hasContact && (o.contactNom || o.contactTel) && <tr><td className="w-1/3 py-0.5 align-top break-words">Contact</td><td className="py-0.5 align-top font-medium break-words">: {o.contactNom || ''}{o.contactNom && o.contactTel ? ' - ' : ''}{o.contactTel || ''}</td></tr>}
+                                                {showDetails && o.iban && <tr><td className="w-1/3 py-0.5 align-top break-words">IBAN</td><td className="py-0.5 align-top font-medium break-words">: {o.iban}</td></tr>}
+                                                {showDetails && o.rc === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Assurance RC Familiale</td><td className="py-0.5 align-top font-medium break-words">: {o.rcPolice ? `Police ${o.rcPolice}` : 'Non précisé'}</td></tr>}
+                                                {showDetails && o.secAssurance === 'Oui' && <tr><td className="w-1/3 py-0.5 align-top break-words">Autre assurance ({o.secType || 'Type'})</td><td className="py-0.5 align-top font-medium break-words">: {o.secCie || 'Compagnie non précisée'} {o.secPolice ? `(Police: ${o.secPolice})` : ''}</td></tr>}
+                                            </tbody></table>
+                                        </div>
+                                    )}
+                                </li>
+                            );
+                        })}
                         {occupants.length === 0 && <li className="italic opacity-50">Aucune partie impliquée.</li>}
                     </ul>
                     {/* v5.6.4 - Intervenants dans le rendu live */}

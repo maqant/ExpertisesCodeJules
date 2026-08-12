@@ -23,6 +23,7 @@ import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngest
 import { createIsolatedScope, createMergeScope, assertIsolation, SmartBridgeIsolationError, INGESTION_MODES } from '../services/ingestion/ingestionScope.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
+import { isOccupantDetailsVisible } from '../utils/occupantVisibility.js';
 import { PROCESS_TO_SCENARIOS } from '../ai/scenario.registry.js';
 import { useSortedOccupants } from '../hooks/useSortedOccupants.js';
 import { getEligibleParents } from '../domain/occupantsHierarchy.js';
@@ -1276,8 +1277,8 @@ const SidebarLegacy = () => {
                                                         <input type="checkbox" checked={responsablesIds.includes(o.id)} onChange={() => toggleResponsable(o.id)} className="w-3 h-3 rounded bg-slate-700 border-red-500 text-red-500 focus:ring-red-500" />
                                                         <span>Responsable</span>
                                                     </label>
-                                                    <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px]">
-                                                        <input type="checkbox" checked={o.showDetails} onChange={(e) => updateOcc(o.id, 'showDetails', e.target.checked)} className="w-3 h-3 rounded bg-slate-700" />
+                                                    <label className="flex items-center space-x-2 cursor-pointer text-slate-300 text-[10px]" title={orgaAdvancedMode ? 'Forcé par le Mode avancé global' : 'Afficher les détails'}>
+                                                        <input type="checkbox" checked={isOccupantDetailsVisible(orgaAdvancedMode, o)} disabled={orgaAdvancedMode} onChange={(e) => updateOcc(o.id, 'showDetails', e.target.checked)} className="w-3 h-3 rounded bg-slate-700 disabled:opacity-60" />
                                                         <span>Mode avancé</span>
                                                     </label>
                                                     <label className="flex items-center space-x-2 cursor-pointer text-cyan-300 text-[10px]">
@@ -1298,7 +1299,7 @@ const SidebarLegacy = () => {
                                                         {o.contreExpert && <div className="flex-1 min-w-[100px]"><label className="text-orange-300 text-[10px]">Nom expert-client</label><input type="text" value={o.nomContreExpert || ''} onChange={(e) => updateOcc(o.id, 'nomContreExpert', e.target.value)} placeholder="Galtier..." className="input-field mb-0 py-0.5 text-[10px] bg-slate-800 border-orange-400/50 text-orange-100" /></div>}
                                                     </div>
                                                 )}
-                                                {o.showDetails && (
+                                                {isOccupantDetailsVisible(orgaAdvancedMode, o) && (
                                                     <div className="col-span-2 border-t border-slate-700 mt-2 pt-2">
                                                         <div className="mb-2 w-1/2 pr-1"><label>E-mail</label><input type="email" value={o.email} onChange={e=>updateOcc(o.id, 'email', e.target.value)} className="input-field mb-0" /></div>
                                                         <div className="mb-2 w-1/2 pr-1"><label>IBAN (Comptabilité)</label><input type="text" value={o.iban || ''} onChange={e=>updateOcc(o.id, 'iban', e.target.value)} placeholder="BE..." className="input-field mb-0 border-indigo-500" /></div>
