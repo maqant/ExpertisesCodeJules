@@ -69,9 +69,9 @@ const PDFOrganisationBlock = ({ data, styleBlock, orgaAdvancedMode }) => {
                                     </View>
                                 ) : null}
                             </View>
-                        ) : null}
                     </View>
-                ))}
+                );
+            })}
                 
                 {occupantsList.length === 0 ? (
                     <Text style={{ ...TYPO.smallMuted, fontStyle: 'italic' }}>Aucune partie impliquée.</Text>
