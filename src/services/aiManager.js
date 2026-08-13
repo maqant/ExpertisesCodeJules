@@ -978,6 +978,7 @@ export const processGlobalIngestion = async ({
         
         let finalOccupants = occupants;
         let finalExpenses = expenses;
+        let mergerRes = null;
         
         const needsMerge = (occupants?.length ?? 0) > 1 || (expenses?.length ?? 0) > 1;
 
@@ -985,7 +986,7 @@ export const processGlobalIngestion = async ({
             if (addDebugLog) log('AGENT_MERGER', 'INFO', 'Lancement de la déduplication intelligente (Merge Agent)...');
             console.log(`[aiManager] ✨ Lancement Merge Agent sur ${occupants.length} occupants et ${expenses.length} dépenses...`);
             try {
-                const mergerRes = await withRetry(() => runMergeAgent(occupants, expenses, providedApiKey));
+                mergerRes = await withRetry(() => runMergeAgent(occupants, expenses, providedApiKey));
                 if (mergerRes.success && mergerRes.data) {
                     finalOccupants = mergerRes.data.occupants || occupants;
                     finalExpenses = mergerRes.data.expenses || expenses;
