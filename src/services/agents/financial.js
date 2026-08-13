@@ -101,7 +101,8 @@ Format EXACT attendu :
                     componentId: 'agent_financial',
                     meta: { fileName }
                 });
-                return JSON.parse(data.choices[0].message.content);
+                const parsed = JSON.parse(data.choices[0].message.content);
+                return { ...parsed, _sourceFileName: fileName };
             } catch (err) {
                 console.error(`[Agent Financier] Erreur d'analyse pour le fichier ${fileName}:`, err);
                 return { expenses: [] };
@@ -120,7 +121,8 @@ Format EXACT attendu :
                         ...exp,
                         id: crypto.randomUUID(),
                         compteDe: exp.compteDe || "unassigned",
-                        destinataireFacture: exp.destinataireFacture || ""
+                        destinataireFacture: exp.destinataireFacture || "",
+                        sourceFileName: res._sourceFileName || exp.sourceFileName || ""
                     });
                 });
             }

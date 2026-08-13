@@ -28,6 +28,7 @@ import { buildTelemetryFieldId } from '../services/telemetry/telemetryUtils';
 import { getFieldMeta } from '../services/telemetry/fieldRegistry';
 import { FREE_ANNEX_TARGET } from '../domain/attachmentTargets';
 import { useObjectUrl, openObjectUrlInNewTab } from '../hooks/useObjectUrl';
+import { isFileMatch } from '../services/utils/fileMatching.js';
 
 const MiniAttachmentUI = ({ docId, title = "Lier un fichier PDF", pendingFile }) => {
     const { attachedFiles, handleRemoveFile, handleAttachFile, handleOpenFile } = useContext(ExpertiseContext);
@@ -613,11 +614,21 @@ const GlobalValidationModal = () => {
     // Count pending photos (images not matched to expenses)
     const pendingPhotoCount = pendingFiles.filter(f => f.type && f.type.startsWith('image/')).length;
 
-    // v8.2.0 - Unassigned files logic
+    // v8.2.0 - Unassigned files logic avec fuzzy matching tolérant
     const matchedFileNames = new Set();
     expenseAnalysis.forEach(exp => {
-        if (exp.sourceFileName) matchedFileNames.add(exp.sourceFileName);
-        if (exp.sourceFileNames) exp.sourceFileNames.forEach(f => matchedFileNames.add(f));
+        if (exp.sourceFileName) {
+            pendingFiles.forEach(f => {
+                if (isFileMatch(f.name, exp.sourceFileName)) matchedFileNames.add(f.name);
+            });
+        }
+        if (Array.isArray(exp.sourceFileNames)) {
+            exp.sourceFileNames.forEach(sName => {
+                pendingFiles.forEach(f => {
+                    if (isFileMatch(f.name, sName)) matchedFileNames.add(f.name);
+                });
+            });
+        }
     });
     if (pendingAiData?.technicalFilesToAttach) {
         pendingAiData.technicalFilesToAttach.forEach(f => matchedFileNames.add(f));
@@ -1141,7 +1152,7 @@ const GlobalValidationModal = () => {
                                     const action = expActions.get(exp.id) || (exp.isDuplicate ? 'update' : 'add');
                                     const isExpanded = expandedExp.has(exp.id);
                                     const isIgnored = action === 'ignore';
-                                    const matchedFile = pendingFiles.find(f => f.name === exp.sourceFileName);
+                                    const matchedFile = pendingFiles.find(f => isFileMatch(f.name, exp.sourceFileName) || (Array.isArray(exp.sourceFileNames) && exp.sourceFileNames.some(sName => isFileMatch(f.name, sName))));
                                     return (
                                         <div key={exp.id} className={`transition-colors ${isIgnored ? 'opacity-40 bg-slate-900/50' : ''}`}>
                                             {/* Summary row */}
@@ -1298,13 +1309,42 @@ const GlobalValidationModal = () => {
                                                 <select 
                                                     value={currentAssign}
                                                     onChange={(e) => {
+                                                        const val = e.target.value;
                                                         const newMap = new Map(fileAssignments);
-                                                        newMap.set(file.name, e.target.value);
+                                                        newMap.set(file.name, val);
                                                         setFileAssignments(newMap);
+
+                                                        if (val.startsWith('expense_')) {
+                                                            const expId = val.replace('expense_', '');
+                                                            setEditableData(prev => {
+                                                                if (!prev || !prev.expenses) return prev;
+                                                                const updatedExps = prev.expenses.map(exp => {
+                                                                    if (exp.id === expId) {
+                                                                        const existingFiles = exp.sourceFileNames || (exp.sourceFileName ? [exp.sourceFileName] : []);
+                                                                        return {
+                                                                            ...exp,
+                                                                            sourceFileName: file.name,
+                                                                            sourceFileNames: [...new Set([...existingFiles, file.name])]
+                                                                        };
+                                                                    }
+                                                                    return exp;
+                                                                });
+                                                                return { ...prev, expenses: updatedExps };
+                                                            });
+                                                        }
                                                     }}
-                                                    className="bg-slate-900 border border-slate-600 text-xs text-white rounded px-2 py-1 focus:border-indigo-500 outline-none w-[200px]"
+                                                    className="bg-slate-900 border border-slate-600 text-xs text-white rounded px-2 py-1 focus:border-indigo-500 outline-none w-[220px]"
                                                 >
                                                     <option value="unassigned">-- Ne pas lier --</option>
+                                                    {expenseAnalysis.length > 0 && (
+                                                        <optgroup label="💰 Lier à un frais :">
+                                                            {expenseAnalysis.map(exp => (
+                                                                <option key={exp.id} value={`expense_${exp.id}`}>
+                                                                    {exp.prestataire || 'Frais'} ({exp.montant || exp.montantReclame || '?'} €)
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    )}
                                                     <optgroup label="Zones structurées">
                                                         <option value="doc_cond_part">N° Police (Conditions Particulières)</option>
                                                         <option value="doc_cond_gen">Conditions Générales</option>
