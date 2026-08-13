@@ -52,6 +52,8 @@ if (typeof window !== 'undefined') {
  * @param {string} title - Titre indicatif (best-effort).
  * @returns {{ ok: boolean, reason?: 'invalid-target'|'popup-blocked', window?: Window }}
  */
+import { sniffFormat, mimeFromName, IMAGE_FORMATS } from './imageFormatSniffer.js';
+
 export function openDocumentPreview(target, title = 'Aperçu Document') {
     // 1. Résolution de l'URL — synchrone
     let url = '';
@@ -65,7 +67,14 @@ export function openDocumentPreview(target, title = 'Aperçu Document') {
         url = URL.createObjectURL(target.file);
         helperOwnsUrl = true;
     } else if (target && target.content && (target.content instanceof Uint8Array || target.content instanceof ArrayBuffer || Array.isArray(target.content))) {
-        const blob = new Blob([target.content], { type: target.type || target.mimeType || 'application/pdf' });
+        const u8 = target.content instanceof Uint8Array ? target.content
+            : new Uint8Array(target.content instanceof ArrayBuffer ? target.content : Uint8Array.from(target.content));
+        const sniffed = sniffFormat(u8);
+        const mime = (sniffed !== IMAGE_FORMATS.UNKNOWN ? sniffed.mime : null)
+            || target.type || target.mimeType
+            || mimeFromName(target.name || target.fileName || title || '')
+            || 'application/octet-stream';
+        const blob = new Blob([u8], { type: mime });
         url = URL.createObjectURL(blob);
         helperOwnsUrl = true;
     } else {

@@ -18,6 +18,7 @@ import { ConflictError } from '../services/storage/dossierStorage';
 import ConflictModal from '../components/shared/ConflictModal';
 import { subscribeToDossierUpdates } from '../services/utils/tabSync';
 import { isCanonicalPendingAiPayload } from '../services/ingestion/pendingAiPayload.js';
+import { embedImageInPdf } from '../services/utils/pdfImageEmbedder.js';
 
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 import { removeBlobs, fetchBlob } from '../services/attachmentStorage';
@@ -1215,9 +1216,7 @@ export const ExpertiseProvider = ({ children }) => {
                               try {
                                   const imgBytes = await localforage.getItem(imgInfo.dbKey);
                                   if (!imgBytes) return;
-                                  let image;
-                                  if (imgInfo.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(imgBytes);
-                                  else image = await mergedPdf.embedJpg(imgBytes);
+                                  const image = await embedImageInPdf(mergedPdf, imgBytes, imgInfo.name);
                                   const imgDims = image.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(image, { x: (width - imgDims.width) / 2, y: yOffset - imgDims.height, width: imgDims.width, height: imgDims.height });
                               } catch (e) { console.error('[ExpertiseContext] Erreur lors de l\'intégration de l\'image au PDF :', e); }
@@ -1255,8 +1254,7 @@ export const ExpertiseProvider = ({ children }) => {
                       const page = mergedPdf.addPage([A4W, A4H]);
                       let image;
                       try {
-                          if (file.name.toLowerCase().endsWith('.png')) image = await mergedPdf.embedPng(bytes);
-                          else image = await mergedPdf.embedJpg(bytes);
+                          image = await embedImageInPdf(mergedPdf, bytes, file.name);
                       } catch (e) { console.error('[ExpertiseContext] Failed to embed image in PDF:', e); continue; }
                       const dims = image.scaleToFit(A4W - 100, A4H - 150);
                       page.drawImage(image, { x: (A4W - dims.width) / 2, y: (A4H - dims.height) / 2, width: dims.width, height: dims.height });
@@ -1409,7 +1407,7 @@ export const ExpertiseProvider = ({ children }) => {
                               try {
                                   const imgBytes = await localforage.getItem(imgInfo.dbKey);
                                   if (!imgBytes) return;
-                                  const img = imgInfo.name.toLowerCase().endsWith('.png') ? await mergedPdf.embedPng(imgBytes) : await mergedPdf.embedJpg(imgBytes);
+                                  const img = await embedImageInPdf(mergedPdf, imgBytes, imgInfo.name);
                                   const d = img.scaleToFit(width - 100, (height - 150) / 2);
                                   page.drawImage(img, { x: (width - d.width) / 2, y: yOff - d.height, width: d.width, height: d.height });
                               } catch (e) { console.error('[ExpertiseContext] Non-fatal error during PDF merge operation:', e); }

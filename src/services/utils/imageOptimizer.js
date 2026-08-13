@@ -7,7 +7,7 @@
  */
 
 const MAX_DIMENSION = 1280;
-const QUALITY = 0.82;
+const QUALITY = 0.80;
 const BYPASS_SIZE_BYTES = 300 * 1024; // 300 KB
 const OPTIMIZABLE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'];
 
@@ -39,21 +39,19 @@ const decodeImage = async (file) => {
 };
 
 /**
- * Encode le canvas en WebP, avec fallback JPEG si le navigateur
- * ne sait pas encoder du WebP (vérification stricte du blob.type).
+ * Encode le canvas en JPEG (format pivot universel : pdf-lib, navigateurs, impression).
+ * Décision architecturale : le gain WebP (~15%) ne justifie pas une chaîne de
+ * transcodage aval. Le gain principal vient du redimensionnement 1280px.
  */
 const encodeCanvas = (canvas) => {
-    return new Promise((resolve) => {
-        canvas.toBlob((webpBlob) => {
-            if (webpBlob && webpBlob.type === 'image/webp') {
-                resolve({ blob: webpBlob, ext: '.webp' });
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((jpegBlob) => {
+            if (jpegBlob && jpegBlob.type === 'image/jpeg') {
+                resolve({ blob: jpegBlob, ext: '.jpg' });
             } else {
-                // Fallback Safari < 17 : toBlob a rendu du PNG ou null
-                canvas.toBlob((jpegBlob) => {
-                    resolve({ blob: jpegBlob, ext: '.jpg' });
-                }, 'image/jpeg', QUALITY);
+                reject(new Error('Encodage JPEG impossible sur ce navigateur'));
             }
-        }, 'image/webp', QUALITY);
+        }, 'image/jpeg', QUALITY);
     });
 };
 
