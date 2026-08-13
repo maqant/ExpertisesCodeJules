@@ -4,6 +4,7 @@
  */
 
 import { telemetryBus } from './telemetryBus.js';
+import { computeCallCostEur } from './ai.catalog.js';
 
 const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 min : ingestion massive de documents.
@@ -53,9 +54,9 @@ export async function executeAiCall({
   let outcome = 'success';
   let status = null;
   let caught = null;
+  let capturedUsage = null;
 
   // === ÉVÉNEMENT DE DÉBUT : émis AVANT le fetch ===
-  // Permet au superviseur de voir l'activité immédiatement (pas de faux "freeze").
   telemetryBus.emit({
     eventType: 'AI_START',
     callId,
@@ -101,6 +102,21 @@ export async function executeAiCall({
       throw new AiCallError(`Réponse OpenAI illisible (JSON invalide) : ${parseErr.message}`, { kind: 'PARSE' });
     }
     
+    capturedUsage = json.usage ?? null;
+    const callMetrics = {
+      model,
+      durationMs: Math.round(performance.now() - start),
+      promptTokens: capturedUsage?.prompt_tokens ?? 0,
+      completionTokens: capturedUsage?.completion_tokens ?? 0,
+      totalTokens: capturedUsage?.total_tokens ?? 0,
+      costEur: computeCallCostEur(model, capturedUsage),
+    };
+
+    Object.defineProperty(json, '__aiMetrics', {
+      value: callMetrics,
+      enumerable: false,
+    });
+
     return json;
   } catch (err) {
     caught = err;
@@ -120,6 +136,8 @@ export async function executeAiCall({
         outcome,
         durationMs,
         status,
+        totalTokens: capturedUsage?.total_tokens ?? null,
+        costEur: capturedUsage ? computeCallCostEur(model, capturedUsage) : null,
         error: caught ? caught.message : null,
         ...meta,
       },

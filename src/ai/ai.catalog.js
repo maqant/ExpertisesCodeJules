@@ -99,3 +99,30 @@ export const getApiModelName = (id) => {
     if (!meta) return null;
     return meta.apiModel ?? meta.id;
 };
+
+/**
+ * Grille tarifaire OpenAI — € par 1 MILLION de tokens.
+ * SOURCE UNIQUE DE VÉRITÉ des prix.
+ */
+export const PRICING_PER_1M_TOKENS_EUR = {
+  'gpt-5.6-terra': { input: 2.30, output: 9.20 },
+  'gpt-5.6-sol':   { input: 4.80, output: 19.20 },
+  'gpt-5.6-luna':  { input: 0.15, output: 0.60 },
+  'gpt-5.5':       { input: 3.00, output: 12.00 },
+  'gpt-5.4':       { input: 2.50, output: 10.00 },
+  'gpt-5.4-nano':  { input: 0.15, output: 0.60 },
+  'gpt-4o':        { input: 2.30, output: 9.20 },
+  'gpt-4o-mini':   { input: 0.14, output: 0.55 },
+};
+
+/**
+ * Calcule le coût en € d'un appel à partir du modèle et de l'usage OpenAI.
+ * @returns {number|null} coût en euros, ou null si modèle inconnu / usage absent.
+ */
+export function computeCallCostEur(model, usage) {
+  const pricing = PRICING_PER_1M_TOKENS_EUR[model];
+  if (!pricing || !usage) return null;
+  const promptCost = (usage.prompt_tokens ?? 0) * pricing.input / 1_000_000;
+  const completionCost = (usage.completion_tokens ?? 0) * pricing.output / 1_000_000;
+  return promptCost + completionCost;
+}

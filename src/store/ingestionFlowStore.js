@@ -21,11 +21,13 @@ export const useIngestionFlowStore = create((set, get) => ({
   sessionId: null,
   files: [],
   brioOverrides: {},
+  ingestionMetrics: null,
 
   setStep: (step) => set({ step }),
   setFiles: (files) => set({ files }),
   setBrioOverrides: (brioOverrides) => set({ brioOverrides }),
   resetBrioOverrides: () => set({ brioOverrides: {} }),
+  setIngestionMetrics: (ingestionMetrics) => set({ ingestionMetrics }),
 
   startIngestion: async (files, aiConfig, context = {}) => {
     // Generate a unique session ID to prevent race conditions
@@ -36,6 +38,7 @@ export const useIngestionFlowStore = create((set, get) => ({
       sessionId,
       files,
       brioOverrides: {},
+      ingestionMetrics: null,
       brioDeferred: { status: 'pending', value: null, error: null, initialText: '' }
     });
 
@@ -135,5 +138,5 @@ export const useIngestionFlowStore = create((set, get) => ({
     }
   },
 
-  resetIngestion: () => set({ step: STEPS.IDLE, brioDeferred: makeDeferred(), sessionId: null, files: [], brioOverrides: {} })
+  resetIngestion: () => set({ step: STEPS.IDLE, brioDeferred: makeDeferred(), sessionId: null, files: [], brioOverrides: {}, ingestionMetrics: null })
 }));

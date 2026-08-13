@@ -1,7 +1,8 @@
 import React, { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore';
-import { refineText, extractAdministrativeData, runMergeAgent } from '../services/aiManager';
+import { refineText, extractAdministrativeData } from '../services/aiManager';
+import IngestionMetricsBadge from './IngestionMetricsBadge';
 import { useDatasetStore } from '../store/datasetStore';
 import { useFinanceStore } from '../store/financeStore';
 import { Info, CheckCircle2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
@@ -159,6 +160,7 @@ const fuzzyMatchExpense = (aiExp, existingExps) => {
 const GlobalValidationModal = () => {
     const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles, currentDossierId } = useContext(ExpertiseContext);
     const ingestionStep = useIngestionFlowStore(state => state.step);
+    const ingestionMetrics = useIngestionFlowStore(state => state.ingestionMetrics);
 
     const franchiseOptions = useMemo(() => buildUnifiedFranchisesOptions(franchises).map(f => ({ id: f.id, label: f.label })), [franchises]);
 
@@ -191,7 +193,6 @@ const GlobalValidationModal = () => {
     const [refiningField, setRefiningField] = useState(null); // 'cause' | 'divers' | 'compteRendu' | null
     const [attachedCpFile, setAttachedCpFile] = useState(null);
     const [initialized, setInitialized] = useState(false);
-    const [isMerging, setIsMerging] = useState(false);
     
     // v8.2.0 - File Assignments
     const [fileAssignments, setFileAssignments] = useState(new Map());
@@ -403,35 +404,6 @@ const GlobalValidationModal = () => {
     if (!pendingAiData || !editableData || (ingestionStep !== INGESTION_STEPS.GENERAL && ingestionStep !== INGESTION_STEPS.IDLE)) return null;
 
     // -- Handlers --
-
-    const handleMagicMerge = async () => {
-        setIsMerging(true);
-        try {
-            const res = await runMergeAgent(editableData.occupants, editableData.expenses);
-            if (res.success && res.data) {
-                setEditableData(prev => ({
-                    ...prev,
-                    occupants: res.data.occupants || prev.occupants,
-                    expenses: res.data.expenses || prev.expenses
-                }));
-                // Mettre à jour les actions par défaut
-                const newOccActions = new Map(occActions);
-                (res.data.occupants || []).forEach(occ => newOccActions.set(occ.id, 'add'));
-                setOccActions(newOccActions);
-                
-                const newExpActions = new Map(expActions);
-                (res.data.expenses || []).forEach(exp => newExpActions.set(exp.id, 'add'));
-                setExpActions(newExpActions);
-            } else {
-                alert("Erreur lors du nettoyage : " + (res.error || "Inconnue"));
-            }
-        } catch (e) {
-            console.error("Magic Merge error", e);
-            alert("Erreur critique lors du nettoyage IA.");
-        } finally {
-            setIsMerging(false);
-        }
-    };
 
     const toggleFormField = (key) => {
         setSelectedFormFields(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -674,14 +646,7 @@ const GlobalValidationModal = () => {
                             Vérifiez et modifiez les données avant import. Cliquez sur une ligne pour éditer les détails.
                         </p>
                     </div>
-                    <button 
-                        onClick={handleMagicMerge} 
-                        disabled={isMerging}
-                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-2 shadow-lg"
-                        title="Déléguer à l'IA la fusion des doublons restants"
-                    >
-                        {isMerging ? '⏳ Nettoyage...' : '✨ Nettoyage Magique IA'}
-                    </button>
+                    <IngestionMetricsBadge metrics={ingestionMetrics} />
                 </div>
 
                 {/* Body */}

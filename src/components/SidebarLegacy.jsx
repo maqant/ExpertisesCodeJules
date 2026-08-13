@@ -523,6 +523,7 @@ const SidebarLegacy = () => {
             });
 
             if (result.success && result.data) {
+                useIngestionFlowStore.getState().setIngestionMetrics(result.metrics || null);
                 const aiData = result.data;
                 const occupants = (aiData.occupants || []).map(o => ({ ...o, id: o.id || crypto.randomUUID() }));
                 const expenses = (aiData.expenses || []).map(e => ({ ...e, id: e.id || crypto.randomUUID(), compteDe: e.compteDe || 'unassigned' }));

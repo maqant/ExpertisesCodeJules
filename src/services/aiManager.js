@@ -1003,6 +1003,21 @@ export const processGlobalIngestion = async ({
         }
 
         // 7. Assemblage final
+        const wallClockMs = Math.round(performance.now() - startTime);
+        const aggregatedMetrics = { wallClockMs, totalDurationMs: 0, totalTokens: 0, totalCostEur: 0, hasUnknownCost: false };
+
+        const accumulateMetrics = (res) => {
+            if (!res) return;
+            const m = res.__aiMetrics || res.data?.__aiMetrics;
+            if (!m) return;
+            aggregatedMetrics.totalDurationMs += m.durationMs || 0;
+            aggregatedMetrics.totalTokens += m.totalTokens || 0;
+            if (m.costEur === null) aggregatedMetrics.hasUnknownCost = true;
+            else aggregatedMetrics.totalCostEur += m.costEur || 0;
+        };
+
+        [adminRes, narrativeRes, socialRes, financialRes, mergerRes].forEach(accumulateMetrics);
+
         const finalJson = {
             _rawInputText: fullExtractedText,
             formData: {
@@ -1021,7 +1036,7 @@ export const processGlobalIngestion = async ({
         if (onStatusChange) onStatusChange('attaching'); // Fini
         
         if (addDebugLog) log('PIPELINE_GLOBAL', 'SUCCESS', 'Fusion et assemblage terminés.');
-        return { success: true, data: finalJson, extractedFiles: allExtractedFiles };
+        return { success: true, data: finalJson, extractedFiles: allExtractedFiles, metrics: aggregatedMetrics };
 
     } catch (error) {
         console.error("[aiManager] processGlobalIngestion error:", error);
