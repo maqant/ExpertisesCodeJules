@@ -161,6 +161,7 @@ const GlobalValidationModal = () => {
     const { pendingAiData, setPendingAiData, commitPendingAiData, formData, occupants, expenses, handleAttachFile, expertsList, aiConfig, franchises, attachedFiles, currentDossierId } = useContext(ExpertiseContext);
     const ingestionStep = useIngestionFlowStore(state => state.step);
     const ingestionMetrics = useIngestionFlowStore(state => state.ingestionMetrics);
+    const activeMetrics = ingestionMetrics || pendingAiData?._metrics || null;
 
     const franchiseOptions = useMemo(() => buildUnifiedFranchisesOptions(franchises).map(f => ({ id: f.id, label: f.label })), [franchises]);
 
@@ -646,7 +647,7 @@ const GlobalValidationModal = () => {
                             Vérifiez et modifiez les données avant import. Cliquez sur une ligne pour éditer les détails.
                         </p>
                     </div>
-                    <IngestionMetricsBadge metrics={ingestionMetrics} />
+                    <IngestionMetricsBadge metrics={activeMetrics} />
                 </div>
 
                 {/* Body */}
@@ -1358,8 +1359,11 @@ const GlobalValidationModal = () => {
 
                 {/* Footer */}
                 <div className="p-4 border-t border-slate-700 bg-slate-800 flex items-center justify-between gap-3">
-                    <div className="text-[10px] text-slate-500">
-                        {selectedExperts.size > 0 ? `${selectedExperts.size} experts · ` : ''}{occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants{selectedIntervenants.size > 0 ? ` · ${selectedIntervenants.size} intervenants` : ''} · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} 📸` : ''} à importer
+                    <div className="flex items-center gap-3">
+                        <div className="text-[10px] text-slate-500">
+                            {selectedExperts.size > 0 ? `${selectedExperts.size} experts · ` : ''}{occupantAnalysis.filter(o => occActions.get(o.id) !== 'ignore').length} occupants{selectedIntervenants.size > 0 ? ` · ${selectedIntervenants.size} intervenants` : ''} · {expenseAnalysis.filter(e => expActions.get(e.id) !== 'ignore').length} frais{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} 📸` : ''} à importer
+                        </div>
+                        <IngestionMetricsBadge metrics={activeMetrics} />
                     </div>
                     <div className="flex gap-3">
                         <button onClick={handleCancel} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded transition-colors">

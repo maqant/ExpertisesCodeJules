@@ -1021,6 +1021,7 @@ export const processGlobalIngestion = async ({
 
         const finalJson = {
             _rawInputText: fullExtractedText,
+            _metrics: aggregatedMetrics,
             formData: {
                 ...(adminRes.data?.formData || {}),
                 cause: narrativeRes.data?.cause || "",

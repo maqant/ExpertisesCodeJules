@@ -1971,6 +1971,7 @@ const SidebarLegacy = () => {
                                             });
                                             
                                             if (result.success && result.data) {
+                                                useIngestionFlowStore.getState().setIngestionMetrics(result.metrics || result.data?._metrics || null);
                                                 const aiData = result.data;
 
                                                 // Sécuriser les UUIDs des occupants
@@ -2071,6 +2072,7 @@ const SidebarLegacy = () => {
                                         });
                                         
                                         if (result.success && result.data) {
+                                            useIngestionFlowStore.getState().setIngestionMetrics(result.metrics || result.data?._metrics || null);
                                             const aiData = result.data;
 
                                             // Sécuriser les UUIDs des occupants
