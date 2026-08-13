@@ -72,7 +72,7 @@ export const BASE_DEFAULT_MODEL = 'gpt-5.6-terra';
 // Défauts par rôle pour les NOUVELLES configs (les configs stockées valides sont conservées).
 export const DEFAULT_ROLE_MODELS = Object.freeze({
     [AI_ROLES.EXTRACTION]: 'gpt-5.6-terra',
-    [AI_ROLES.SYNTHESIS]: 'gpt-5.6-sol',
+    [AI_ROLES.SYNTHESIS]: 'gpt-5.6-terra',
     [AI_ROLES.REFINEMENT]: 'gpt-5.6-terra',
 });
 
