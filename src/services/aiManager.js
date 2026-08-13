@@ -43,6 +43,7 @@ import { extractAdministrativeData } from './agents/admin.js';
 import { extractSocialData } from './agents/social.js';
 import { extractNarrativeData } from './agents/narrative.js';
 import { extractFinancialData } from './agents/financial.js';
+import { telemetryBus } from '../ai/telemetryBus.js';
 import { runMergeAgent } from './agents/merger.js';
 import { withRetry, buildContentArrayParallel, mapInParallelBounded, clearSessionExtractionCache } from './utils/aiHelpers.js';
 import { usePromptStore } from '../store/promptStore.js';
@@ -642,7 +643,19 @@ export const processGlobalIngestion = async ({
     }
 
     // v6.3.3 - Metrics & Chrono
-    const startTime = Date.now();
+    const startTime = performance.now();
+    const sessionMetrics = { totalDurationMs: 0, totalTokens: 0, totalCostEur: 0, hasUnknownCost: false };
+    const unsubTelemetry = telemetryBus.subscribe((evt) => {
+        if (evt.eventType === 'AI_PROCESSING' && evt.details) {
+            sessionMetrics.totalDurationMs += evt.details.durationMs || 0;
+            if (evt.details.totalTokens) sessionMetrics.totalTokens += evt.details.totalTokens;
+            if (evt.details.costEur !== null && evt.details.costEur !== undefined) {
+                sessionMetrics.totalCostEur += evt.details.costEur;
+            } else if (evt.details.totalTokens > 0) {
+                sessionMetrics.hasUnknownCost = true;
+            }
+        }
+    });
 
     let originalConsole = null;
     
@@ -1004,20 +1017,15 @@ export const processGlobalIngestion = async ({
         }
 
         // 7. Assemblage final
+        unsubTelemetry();
         const wallClockMs = Math.round(performance.now() - startTime);
-        const aggregatedMetrics = { wallClockMs, totalDurationMs: 0, totalTokens: 0, totalCostEur: 0, hasUnknownCost: false };
-
-        const accumulateMetrics = (res) => {
-            if (!res) return;
-            const m = res.__aiMetrics || res.data?.__aiMetrics;
-            if (!m) return;
-            aggregatedMetrics.totalDurationMs += m.durationMs || 0;
-            aggregatedMetrics.totalTokens += m.totalTokens || 0;
-            if (m.costEur === null) aggregatedMetrics.hasUnknownCost = true;
-            else aggregatedMetrics.totalCostEur += m.costEur || 0;
+        const aggregatedMetrics = {
+            wallClockMs,
+            totalDurationMs: sessionMetrics.totalDurationMs,
+            totalTokens: sessionMetrics.totalTokens,
+            totalCostEur: sessionMetrics.totalCostEur,
+            hasUnknownCost: sessionMetrics.hasUnknownCost
         };
-
-        [adminRes, narrativeRes, socialRes, financialRes, mergerRes].forEach(accumulateMetrics);
 
         const finalJson = {
             _rawInputText: fullExtractedText,
