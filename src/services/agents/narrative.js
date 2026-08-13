@@ -83,7 +83,8 @@ Voici le format EXACT attendu :
             const data = await executeAiCall({
                 apiKey,
                 payload,
-                componentId: 'agent_narrative'
+                componentId: 'agent_narrative',
+                serviceTier: 'auto'
             });
 
             const parsedData = parseAiJson(data.choices[0].message.content, { componentId: 'agent_narrative' });

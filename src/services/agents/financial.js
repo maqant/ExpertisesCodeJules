@@ -99,6 +99,7 @@ Format EXACT attendu :
                     apiKey,
                     payload,
                     componentId: 'agent_financial',
+                    serviceTier: 'auto',
                     meta: { fileName }
                 });
                 const parsed = JSON.parse(data.choices[0].message.content);

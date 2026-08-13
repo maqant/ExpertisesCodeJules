@@ -42,7 +42,8 @@ export const runMergeAgent = async (occupants, expenses, providedApiKey = null) 
         const data = await executeAiCall({
             apiKey,
             payload,
-            componentId: 'agent_merger'
+            componentId: 'agent_merger',
+            serviceTier: 'auto'
         });
 
         const content = data.choices[0].message.content;

@@ -151,7 +151,8 @@ export const extractSocialData = async (files, providedApiKey = null, onStatusCh
             const data = await executeAiCall({
                 apiKey,
                 payload,
-                componentId: 'agent_social'
+                componentId: 'agent_social',
+                serviceTier: 'auto'
             });
 
             const parsedData = JSON.parse(data.choices[0].message.content);

@@ -83,7 +83,8 @@ export const routeDocuments = async (files, providedApiKey = null, onStatusChang
                 const data = await executeAiCall({
                     apiKey,
                     payload,
-                    componentId: 'agent_router'
+                    componentId: 'agent_router',
+                    serviceTier: 'auto'
                 });
 
                 let parsed = JSON.parse(data.choices[0].message.content);

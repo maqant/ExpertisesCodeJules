@@ -39,6 +39,7 @@ export async function executeAiCall({
   apiKey,
   payload,
   componentId,
+  serviceTier = 'auto',
   meta = {},
   timeoutMs = DEFAULT_TIMEOUT_MS,
 }) {
@@ -46,6 +47,12 @@ export async function executeAiCall({
   if (!payload?.model) throw new AiCallError('Payload invalide : "model" manquant.', { kind: 'NETWORK' });
 
   const model = payload.model;
+  const service_tier = payload.service_tier ?? serviceTier ?? 'auto';
+  const requestPayload = {
+    ...payload,
+    service_tier
+  };
+
   const callId = generateCallId();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -62,7 +69,7 @@ export async function executeAiCall({
     callId,
     componentId,
     timestamp: Date.now(),
-    details: { model, timeoutMs, ...meta },
+    details: { model, service_tier, timeoutMs, ...meta },
   });
 
   try {
@@ -74,7 +81,7 @@ export async function executeAiCall({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestPayload),
         signal: controller.signal,
       });
     } catch (networkErr) {

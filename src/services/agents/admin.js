@@ -64,7 +64,8 @@ export const extractAdministrativeData = async (files, providedApiKey = null, on
             const data = await executeAiCall({
                 apiKey,
                 payload,
-                componentId: 'agent_admin'
+                componentId: 'agent_admin',
+                serviceTier: 'auto'
             });
 
             const parsedData = JSON.parse(data.choices[0].message.content);
