@@ -21,6 +21,7 @@ import { useFinanceStore } from '../store/financeStore.js';
 import { useIngestionFlowStore, STEPS as INGESTION_STEPS } from '../store/ingestionFlowStore.js';
 import { resolveIngestionDocumentSet } from '../business/ingestion/resolveIngestionDocumentSet.js';
 import { createIsolatedScope, createMergeScope, assertIsolation, SmartBridgeIsolationError, INGESTION_MODES } from '../services/ingestion/ingestionScope.js';
+import { buildPendingAiPayload } from '../services/ingestion/pendingAiPayload.js';
 import { AI_ROLES, AI_ROLE_META, MODEL_CATALOG } from '../ai/ai.catalog.js';
 import { PROCESS_CATALOG, getProcessesByGroup, buildRoleUsageMap, buildPromptUsageMap, resolveModelForProcess } from '../ai/process.catalog.js';
 import { isOccupantDetailsVisible } from '../utils/occupantVisibility.js';
@@ -533,15 +534,15 @@ const SidebarLegacy = () => {
                 ];
 
                 const currentOverrides = brioOverridesRef.current || {};
-                setPendingAiData({
+                setPendingAiData(buildPendingAiPayload(result, {
                     formData: { ...(aiData.formData || {}), ...currentOverrides },
                     occupants,
                     experts: aiData.experts || [],
                     intervenants: aiData.intervenants || [],
                     expenses,
                     pendingFiles: allPendingFiles,
-                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null) // v7.3.2 - Ensure raw text is kept for Golden Dataset
-                });
+                    _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
+                }));
 
                 // v6.0.0 - Context Vault
                 const newContexts = [];
@@ -1991,16 +1992,16 @@ const SidebarLegacy = () => {
                                                 const allPendingFiles = result.extractedFiles || [];
 
                                                 // Passer par le SAS de validation
-                                                setPendingAiData({
+                                                setPendingAiData(buildPendingAiPayload(result, {
                                                     formData: aiData.formData || null,
                                                     experts: aiData.experts || [],
                                                     occupants: safeOccupants,
                                                     intervenants: aiData.intervenants || [],
                                                     expenses: safeExpenses,
                                                     pendingFiles: allPendingFiles,
-                                                    technicalFilesToAttach: result.data.technicalFilesToAttach || [],
+                                                    technicalFilesToAttach: result.data?.technicalFilesToAttach || [],
                                                     _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
-                                                });
+                                                }));
                                             } else {
                                                 alert("Erreur IA : " + (result.error || "Réponse invalide"));
                                             }
@@ -2092,7 +2093,7 @@ const SidebarLegacy = () => {
                                             const allPendingFiles = result.extractedFiles || [];
 
                                             // UN SEUL appel : passer par le SAS (pas de processJsonData)
-                                            setPendingAiData({
+                                            setPendingAiData(buildPendingAiPayload(result, {
                                                 formData: aiData.formData || null,
                                                 experts: aiData.experts || [],
                                                 occupants: safeOccupants,
@@ -2100,7 +2101,7 @@ const SidebarLegacy = () => {
                                                 expenses: safeExpenses,
                                                 pendingFiles: allPendingFiles,
                                                 _rawInputText: (result?.data?._rawInputText || aiData?._rawInputText || result?._rawInputText || null)
-                                            });
+                                            }));
                                         } else {
                                             alert("Erreur IA : " + (result.error || "Réponse invalide"));
                                         }

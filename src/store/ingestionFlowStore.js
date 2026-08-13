@@ -138,5 +138,6 @@ export const useIngestionFlowStore = create((set, get) => ({
     }
   },
 
+  resetIngestionKeepMetrics: () => set({ step: STEPS.IDLE, brioDeferred: makeDeferred(), sessionId: null, files: [], brioOverrides: {} }),
   resetIngestion: () => set({ step: STEPS.IDLE, brioDeferred: makeDeferred(), sessionId: null, files: [], brioOverrides: {}, ingestionMetrics: null })
 }));
