@@ -18,19 +18,19 @@ import { SCENARIO_REGISTRY } from './scenario.registry.js';
  */
 export const PROCESS_CATALOG = Object.freeze([
     // --- Ingestion / Extraction ---
-    { id: 'agent_admin',    label: 'Agent Administratif', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: 'gpt-5.6-luna', promptKey: 'ADMIN',  hint: 'Lecture du contrat, garanties, conditions.' },
-    { id: 'agent_social',   label: 'Agent Social',        group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: 'gpt-5.6-luna', promptKey: 'SOCIAL', hint: 'Occupants, intervenants, parties.' },
+    { id: 'agent_admin',    label: 'Agent Administratif', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'ADMIN',  hint: 'Lecture du contrat, garanties, conditions.' },
+    { id: 'agent_social',   label: 'Agent Social',        group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'SOCIAL', hint: 'Occupants, intervenants, parties.' },
     { id: 'agent_financial',label: 'Agent Financier',     group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FINANCIAL', hint: 'Devis, factures, montants.' },
-    { id: 'extraction_dropzone', label: 'Extraction Dropzone', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: 'gpt-5.6-luna', promptKey: null, hint: 'Extraction générique des documents déposés.' },
+    { id: 'extraction_dropzone', label: 'Extraction Dropzone', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Extraction générique des documents déposés.' },
     { id: 'decompte_extraction', label: 'Extraction Décompte', group: 'Ingestion documentaire', role: AI_ROLES.EXTRACTION, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Extraction ciblée des postes d\'un décompte d\'assurance.' },
 
     // --- Synthèse / Génération ---
     { id: 'agent_narrative', label: 'Agent Récits',        group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'NARRATIVE_BASE', hint: 'Analyse narrative des récits.' },
-    { id: 'brio_summary',    label: 'Résumé Brio',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: 'gpt-5.6-luna', promptKey: 'prompt_brio_prep', hint: 'Préparation du résumé Brio.' },
+    { id: 'brio_summary',    label: 'Résumé Brio',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_brio_prep', hint: 'Préparation du résumé Brio.' },
     { id: 'final_document',  label: 'Document final',      group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: null, hint: 'Assemblage du rapport d\'expertise final.' },
-    { id: 'ar_modal',        label: 'Accusé de Réception',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.6-luna',       promptKey: 'prompt_ar_generator', hint: 'Génération de la modale AR.' },
+    { id: 'ar_modal',        label: 'Accusé de Réception',  group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_generator', hint: 'Génération de la modale AR.' },
     { id: 'ar_nano',         label: 'Nano Cause AR',         group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.6-luna',        promptKey: 'prompt_ar_nano',      hint: 'Micro-analyse IA de la cause pour l\'AR (une phrase ciblée).' },
-    { id: 'ar_finisher',     label: 'IA Balais AR',           group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: 'gpt-5.6-luna',       promptKey: 'prompt_ar_finisher',  hint: 'Naturalisation du mail AR généré pour un rendu humain.' },
+    { id: 'ar_finisher',     label: 'IA Balais AR',           group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS,  defaultModel: BASE_DEFAULT_MODEL,   promptKey: 'prompt_ar_finisher',  hint: 'Naturalisation du mail AR généré pour un rendu humain.' },
 
     // --- Affinage / Reformulation ---
     { id: 'draft_email',     label: 'Rédaction e-mail libre', group: 'Génération du rapport', role: AI_ROLES.SYNTHESIS, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'prompt_email_master', hint: 'Génération d\'un e-mail libre à partir d\'une consigne.' },
@@ -39,8 +39,8 @@ export const PROCESS_CATALOG = Object.freeze([
     // --- Affinage / Reformulation ---
     { id: 'agent_router',    label: 'Agent Routeur',       group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna', promptKey: 'ROUTER', hint: 'Triage initial rapide des données.' },
     { id: 'agent_merger',    label: 'Agent Merger',        group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'MERGER', hint: 'Déduplication finale.' },
-    { id: 'agent_fallback',  label: 'Agent Balai',         group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna', promptKey: 'FALLBACK', hint: 'Récupération des trous vitaux.' },
-    { id: 'manual_refine',   label: 'Reformulation manuelle', group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna', promptKey: 'REFINE_REWRITE', hint: 'Reformulation à la demande de l\'utilisateur.' },
+    { id: 'agent_fallback',  label: 'Agent Balai',         group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'FALLBACK', hint: 'Récupération des trous vitaux.' },
+    { id: 'manual_refine',   label: 'Reformulation manuelle', group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: BASE_DEFAULT_MODEL, promptKey: 'REFINE_REWRITE', hint: 'Reformulation à la demande de l\'utilisateur.' },
     { id: 'remarque_refine', label: 'Affinage Remarque',      group: 'Affinage & orchestration', role: AI_ROLES.REFINEMENT, defaultModel: 'gpt-5.6-luna',        promptKey: 'REFINE_REWRITE', hint: 'Affinage contextuel de la remarque du décompte pour l\'e-mail.' },
 ]);
 
