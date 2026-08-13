@@ -1,5 +1,6 @@
 import { isPdfDeep } from './fileUtils.js';
 import { convertTextToPdfBytes } from './pdfConverter.js';
+import { optimizeImage, isOptimizableImage } from './imageOptimizer.js';
 
 // Fonction utilitaire pour lire les premiers octets
 const readMagicBytes = async (file, byteCount = 4) => {
@@ -132,6 +133,18 @@ export const processIngestedFile = async (file) => {
         }
     }
 
-    // 6. Autres (images, msg) passés tels quels
+    // 6. Images : optimisation automatique (redim 1280px + compression WebP/JPEG)
+    const isImageByMagic =
+        magic.startsWith('FF D8 FF') ||              // JPEG
+        magic === '89 50 4E 47' ||                   // PNG
+        magic.startsWith('52 49 46 46') ||           // RIFF (WebP)
+        magic.startsWith('42 4D');                   // BMP
+
+    if (isImageByMagic || isOptimizableImage(file)) {
+        console.log(`[filePreprocessor] Image détectée : ${name} — optimisation en cours...`);
+        return await optimizeImage(file);
+    }
+
+    // 7. Autres (msg, etc.) passés tels quels
     return file;
 };

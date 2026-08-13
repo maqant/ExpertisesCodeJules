@@ -11,6 +11,7 @@
 import { fileToBase64, pdfToBase64Images, pdfExtractHybrid } from './pdfUtils.js';
 import { parseMsgFile } from './msgUtils.js';
 import { isPdfDeep } from './fileUtils.js';
+import { optimizeImage } from './imageOptimizer.js';
 
 // v5.5.15 - Table de référence des franchises légales (IPC/ABEX Belgique)
 // Clé = "YYYY" (année), valeur = montant de la franchise légale pour cette année.
@@ -228,7 +229,12 @@ export const buildContentArrayParallel = async (files, introductoryText, options
                     }
                 }
             } else if (item.type && item.type.startsWith('image/')) {
-                const base64Image = await getCachedFileExtraction(item, 'fileBase64', () => fileToBase64(item));
+                let targetFile = item;
+                if (item.size && item.size > 800 * 1024) {
+                    console.warn(`[aiHelpers] Image non optimisée détectée (${item.name}) — compression de garde appliquée.`);
+                    targetFile = await optimizeImage(item);
+                }
+                const base64Image = await getCachedFileExtraction(targetFile, 'fileBase64', () => fileToBase64(targetFile));
                 localContent.push({ type: "image_url", image_url: { url: base64Image, detail: "low" } });
             } else if (item.type === 'text/plain' || fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md') || fileNameLower.endsWith('.csv')) {
                 try {
