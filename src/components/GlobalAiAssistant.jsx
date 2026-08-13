@@ -1,6 +1,7 @@
 import React, { useContext, useState, useRef } from 'react';
 import { ExpertiseContext } from '../context/ExpertiseContext';
 import { processGlobalIngestion } from '../services/aiManager';
+import { buildPendingAiPayload } from '../services/ingestion/pendingAiPayload.js';
 
 // v6.1.1 - Smart Bridge redesign : compact file chips + accumulation persistée
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg'];
@@ -109,7 +110,13 @@ const GlobalAiAssistant = () => {
                     ...(result.extractedFiles || []),
                     ...files.filter(f => !f.name.toLowerCase().endsWith('.msg'))
                 ];
-                setPendingAiData({ formData: aiData.formData || null, occupants, experts: aiData.experts || [], intervenants: aiData.intervenants || [], expenses, pendingFiles: allPendingFiles, _rawInputText: aiData._rawInputText });
+                setPendingAiData(
+                    buildPendingAiPayload(result, {
+                        occupants,
+                        expenses,
+                        pendingFiles: allPendingFiles
+                    })
+                );
                 const newContexts = [];
                 if (rawText.trim()) newContexts.push(rawText.trim());
                 if (aiData.formData?.cause) newContexts.push(aiData.formData.cause);

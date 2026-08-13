@@ -5,6 +5,8 @@
 
 import { useIngestionFlowStore } from '../../store/ingestionFlowStore.js';
 
+export const PENDING_AI_BRAND = Symbol.for('pechard.pendingAiPayload');
+
 export const PENDING_AI_PAYLOAD_KEYS = Object.freeze([
   'formData',
   'occupants',
@@ -24,8 +26,16 @@ export function extractIngestionMetrics(result) {
 }
 
 /**
+ * Verifie si un payload a ete construit via la factory canonique.
+ */
+export function isCanonicalPendingAiPayload(payload) {
+  return Boolean(payload && payload[PENDING_AI_BRAND] === true);
+}
+
+/**
  * Factory unique du payload de validation (Sas IA).
- * @param {object} result - Résultat brut de processGlobalIngestion
+ * Effet de bord documenté : synchronise automatiquement `ingestionMetrics` dans Zustand store.
+ * @param {object} result - Résultat brut de processGlobalIngestion ou data d'ingestion
  * @param {object} overrides - Champs spécifiques au point d'entrée
  * @returns {object} Payload complet, conforme au contrat
  */
@@ -44,6 +54,14 @@ export function buildPendingAiPayload(result, overrides = {}) {
     _metrics:      metrics,
     ...overrides
   };
+
+  // Marquer le payload de manière non-énumérable pour assertion dev
+  Object.defineProperty(payload, PENDING_AI_BRAND, {
+    value: true,
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
 
   // Garde-fou dev
   if (import.meta.env.DEV) {

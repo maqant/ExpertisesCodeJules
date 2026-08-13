@@ -17,6 +17,7 @@ import { useDossiersStore } from '../hooks/useDossiersStore';
 import { ConflictError } from '../services/storage/dossierStorage';
 import ConflictModal from '../components/shared/ConflictModal';
 import { subscribeToDossierUpdates } from '../services/utils/tabSync';
+import { isCanonicalPendingAiPayload } from '../services/ingestion/pendingAiPayload.js';
 
 import { applyValidatedMerge } from '../domain/merge/conservativeMerge.js';
 import { removeBlobs, fetchBlob } from '../services/attachmentStorage';
@@ -147,8 +148,18 @@ export const ExpertiseProvider = ({ children }) => {
   const [pastedJson, setPastedJson] = useState("");
   const [orgaAdvancedMode, setOrgaAdvancedMode] = useState(true);
 
-  // Pending AI data — "sas" de validation avant import
-  const [pendingAiData, setPendingAiData] = useState(null);
+// Pending AI data — "sas" de validation avant import
+  const [pendingAiDataState, setPendingAiDataState] = useState(null);
+  const setPendingAiData = useCallback((valOrFn) => {
+    setPendingAiDataState(prev => {
+      const next = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      if (import.meta.env.DEV && next !== null && typeof next === 'object' && !isCanonicalPendingAiPayload(next)) {
+        console.warn("[Sas IA] setPendingAiData a reçu un objet non-canonique. Utilisez buildPendingAiPayload().", next);
+      }
+      return next;
+    });
+  }, []);
+  const pendingAiData = pendingAiDataState;
   // v6.1.0 - Bridge Files : persisté dans le contexte pour survivre aux re-renders de la Sidebar
   const [bridgeFiles, setBridgeFiles] = useState([]);
   // v6.3.2 - Global Assistant Files : séparé du Smart Bridge

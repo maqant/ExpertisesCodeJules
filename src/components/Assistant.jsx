@@ -9,6 +9,7 @@ import SmartBridgeModal from './SmartBridgeModal';
 import GeneratedDocModal from './GeneratedDocModal';
 import { createRawTextFile, captureScreenInteractive, extractImagesFromClipboardEvent } from '../utils/screenCapture.js';
 import { deduplicateFiles } from '../services/utils/fileUtils.js';
+import { buildPendingAiPayload } from '../services/ingestion/pendingAiPayload.js';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.msg', '.txt', '.edi'];
 
@@ -144,15 +145,16 @@ const Assistant = ({ onResetForm }) => {
             addDebugLog
         );
 
-        setPendingAiData({
-            formData: { ...(typeof formData === 'object' ? formData : {}), ...activeBrioOverrides },
-            occupants,
-            expenses,
-            experts,
-            intervenants,
-            pendingFiles: allPendingFiles,
-            _rawInputText: resultData._rawInputText || null
-        });
+        setPendingAiData(
+            buildPendingAiPayload(resultData, {
+                formData: { ...(typeof formData === 'object' && formData !== null ? formData : {}), ...activeBrioOverrides },
+                occupants,
+                expenses,
+                experts,
+                intervenants,
+                pendingFiles: allPendingFiles
+            })
+        );
     };
 
     // Déclenchement au clic sur "🔮 Analyser avec l'IA"
