@@ -244,8 +244,11 @@ export const ExpertiseProvider = ({ children }) => {
     });
   };
 
-  // AI Mode Config
-  const [isAiModeActive, setIsAiModeActive] = useState(() => localStorage.getItem('isAiModeActive') === 'true');
+  // AI Mode Config - Défaut activé (ON) si non spécifié
+  const [isAiModeActive, setIsAiModeActive] = useState(() => {
+      const stored = localStorage.getItem('isAiModeActive');
+      return stored === null ? true : stored === 'true';
+  });
   const [aiConfig, setAiConfig] = useState(() => {
       const stored = localStorage.getItem('expertise_aiConfig_v3');
       if (stored) {
