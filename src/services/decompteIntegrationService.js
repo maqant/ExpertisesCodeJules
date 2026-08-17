@@ -2,71 +2,60 @@ import { useFinanceStore } from '../store/financeStore.js';
 
 /**
  * Traduit l'état du Splitter en actions sur le store global (financeStore).
- * Calcule quels frais (expenses) créer et le paiement global à injecter.
+ * Calcule quels frais (expenses) créer à partir des allocations ventilées.
  */
 export function integrateToDossier(state) {
     const store = useFinanceStore.getState();
-    const { expenses, blocks, allocations, detectedMeta } = state;
+    const { extractedExpenses, blocks, allocations, detectedMeta } = state;
 
-    // 1. Déduire les expenses à créer
-    // Pour simplifier l'intégration, on crée chaque "allocation" comme une dépense séparée
-    // assignée au `compteDe` (occupant)
-    
+    if (!allocations || !Array.isArray(allocations)) {
+        throw new Error('Aucune ventilation trouvée dans l\'état du gestionnaire.');
+    }
+
     let addedExpensesCount = 0;
     
     allocations.forEach(alloc => {
         // Retrouver le bloc destinataire
-        const block = blocks.find(b => b.id === alloc.blockId);
+        const block = blocks?.find(b => b.id === alloc.blockId);
         if (!block) return;
         
         // Retrouver la dépense originale
-        const originalExpense = expenses.find(e => e.id === alloc.expenseId);
+        const originalExpense = extractedExpenses?.find(e => e.id === alloc.expenseId);
         if (!originalExpense) return;
 
-        // Montant ventilé
-        const montantStr = alloc.amount;
+        // Montant ventilé (le champ dans le reducer s'appelle "montant")
+        const montantStr = alloc.montant || '0,00';
 
         // Création de la dépense dans le store
         store.addExpense({
-            desc: originalExpense.desc,
+            desc: originalExpense.desc || originalExpense.type || 'Poste importé',
             montantReclame: montantStr,
             montantValide: montantStr,
             typeMontant: 'HTVA',
-            compteDe: block.occupantId || null, // L'ID de l'occupant s'il a été mappé dans le UI
+            compteDe: block.occupantId || null,
             prestataire: block.intervenantId ? "Intervenant existant" : null,
             source: 'ingestion_hub',
-            factureRecue: true, // Si c'est un décompte/paiement, la facture est reçue/traitée
+            factureRecue: true,
             isProcessed: true
         });
         
         addedExpensesCount++;
     });
 
-    // 2. Création du Paiement global (si applicable)
-    // On somme les montants validés. 
-    // ATTENTION: Vu qu'on a gardé les montants en string formatées ("1.234,56"), 
-    // on doit faire une conversion simple pour faire la somme.
+    // 2. Calcul du total pour le résumé
     let totalCents = 0;
     allocations.forEach(alloc => {
-        const cleaned = alloc.amount.replace(/\s|\u00A0|€/g, '').replace(',', '.');
-        totalCents += Math.round(Number(cleaned) * 100);
+        const raw = alloc.montant || '0';
+        const cleaned = raw.replace(/\s|\u00A0|€/g, '').replace(',', '.');
+        const val = Number(cleaned);
+        if (!isNaN(val)) totalCents += Math.round(val * 100);
     });
 
     const totalEuroStr = (totalCents / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    let paymentAdded = false;
-    if (totalCents > 0) {
-        store.addPaiement({
-            dateRecept: detectedMeta?.dateISO || new Date().toISOString().split('T')[0],
-            montantTotal: Number(totalCents / 100),
-            source: 'ingestion_hub',
-            beneficiaire: detectedMeta?.beneficiaire?.nom || 'Inconnu',
-            reference: detectedMeta?.reference || '',
-            communication: 'Paiement décompte',
-            ventilations: allocations // On garde une trace des ventilations
-        });
-        paymentAdded = true;
-    }
+    // Note: Le store ne possède pas de méthode addPaiement pour le moment.
+    // Le paiement est géré manuellement via le Suivi des Règlements.
+    const paymentAdded = false;
 
     return { addedExpensesCount, paymentAdded, totalEuroStr };
 }
