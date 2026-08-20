@@ -300,9 +300,9 @@ export const buildEmailHtml = (block, allocations, expenses, piiData = {}) => {
 <p style="margin: 0 0 8px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b; font-weight: bold;">Le décompte est le suivant :</p>
 ${itemsHtml}
 <p style="margin: 16px 0 16px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b;"><strong>Total : ${details.totalStr}</strong></p>
+${remarqueHtml}
 <p style="${P_STYLE}">${details.advanceSentence}</p>
 ${invoiceHtml}
-${remarqueHtml}
 <p style="${P_STYLE}">Je reste à votre disposition.</p>
 <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1e293b;">Bien cordialement,</p>
 </div>`;
@@ -325,9 +325,9 @@ ${details.paymentSentence}
 Le décompte est le suivant :
 ${itemsText}
 
-Total : ${details.totalStr}
+Total : ${details.totalStr}${remarqueBlock}
 
-${details.advanceSentence}${invoiceBlock}${remarqueBlock}
+${details.advanceSentence}${invoiceBlock}
 
 Je reste à votre disposition.
 
