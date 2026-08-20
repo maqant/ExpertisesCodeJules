@@ -3,7 +3,7 @@ import { CLOSURE_MODE } from '../../domain/decompteSplitter/allocationModel.js';
 import { parseFullName, buildAllCandidates } from '../utils/contactUtils.js';
 import { formatPersonName } from '../utils/formatUtils.js';
 import { formatBeneficiaryInline, detectImplicitCivility } from '../utils/beneficiaryTitle.js';
-import { getHumanLabel, resolveExpenseView } from '../../domain/decompteSplitter/labelResolver.js';
+import { getHumanLabel, resolveExpenseView, formatExpenseLabel } from '../../domain/decompteSplitter/labelResolver.js';
 
 /* ------------------------------------------------------------------ */
 /* Résolution du destinataire                                          */
@@ -229,8 +229,10 @@ export const buildEmailDetails = (block, allocations, expenses, piiData = {}) =>
             || (exp.type || '').toLowerCase().includes('franchise')
             || exp.isFranchise;
         const sign = isFranchise ? '(-)' : '(+)';
-        const rawLabel = getHumanLabel(resolveExpenseView(exp), exp);
-        const label = sanitizeLabel(rawLabel);
+        // Utiliser exp.desc directement : il contient le nom renommé par l'utilisateur.
+        // resolveExpenseView(exp) sans override retombait sur descOriginale (nom initial) — bug corrigé.
+        const displayLabel = exp.desc?.trim() || exp.type || 'Poste sans libellé';
+        const label = sanitizeLabel(formatExpenseLabel(displayLabel));
         const formatMontant = Math.abs(val).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         items.push({
