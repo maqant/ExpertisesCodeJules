@@ -1,7 +1,7 @@
 {
   "name": "expertises-code-jules",
   "private": true,
-  "version": "10.11.5",
+  "version": "10.11.6",
   "type": "module",
   "scripts": {
     "dev": "vite",

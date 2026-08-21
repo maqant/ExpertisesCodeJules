@@ -12,7 +12,7 @@ Ta tâche est d'extraire TOUTES les informations financières avec une FIDÉLIT�
 Retourne UNIQUEMENT un objet JSON avec cette structure :
 {
   "postes": [
-    { "libelle": "Description exacte du poste", "montant": 760.00 }
+    { "libelle": "Description exacte du poste", "montant": 760.00, "montantTVA": 0 }
   ],
   "beneficiaire": {
     "civilite": "Madame | Monsieur | ACP | Société | null",
@@ -30,6 +30,12 @@ Règles d'extraction des POSTES et des SIGNES :
   * Exemple 1 : Si la ligne indique "Autres -230.000,00", le montant JSON doit être -230000.00 (NÉGATIF !).
   * Exemple 2 : Si la ligne indique "Franchise contractuelle -321,35", le montant JSON doit être -321.35 (NÉGATIF !).
 - "totalDocument" est le montant total net versé ou à payer indiqué sur la lettre (ex: 65223.12).
+
+Règles pour le champ "montantTVA" :
+- Si la ligne indique une TVA (colonne "Montant TVA", "TVA", "BTW", etc.) avec un montant non nul, mets ce montant dans "montantTVA" (nombre positif).
+- Si la ligne n'a pas de TVA ou que la TVA est 0, mets 0 dans "montantTVA".
+- NE crée PAS un poste séparé pour la TVA dans le tableau "postes" : c'est le code qui s'en charge automatiquement.
+- Exemple : ligne "Bâtiment (FAC/2026/0710)" HTVA=1794.00 TVA=107.64 → { "libelle": "Bâtiment (FAC/2026/0710)", "montant": 1794.00, "montantTVA": 107.64 }
 
 Règles pour le BÉNÉFICIAIRE :
 - C'est la personne physique ou morale à qui le versement est destiné.
@@ -81,6 +87,31 @@ async function prepareFileContent(rawFile) {
     return contentArray;
 }
 
+/**
+ * Développe un tableau de postes bruts en ajoutant un poste TVA séparé
+ * pour chaque ligne qui possède un montantTVA non nul.
+ * Ex: { libelle: "Bâtiment", montant: 1794, montantTVA: 107.64 }
+ *  → poste 1 : "Bâtiment (FAC/...)" 1794.00
+ *  → poste 2 : "TVA — Bâtiment (FAC/...)" 107.64
+ */
+function expandTvaPostes(rawPostes) {
+    const expanded = [];
+    for (const p of rawPostes) {
+        expanded.push(p);
+        const tva = typeof p.montantTVA === 'number' ? p.montantTVA : 0;
+        if (tva !== 0) {
+            expanded.push({
+                id: crypto.randomUUID(),
+                libelle: `TVA — ${p.libelle}`,
+                montant: tva,
+                montantTVA: 0,
+                isTvaLine: true,
+            });
+        }
+    }
+    return expanded;
+}
+
 export async function extractFinancialData(file, providedApiKey = null) {
     if (!file) throw new Error("Aucun fichier fourni pour l'extraction.");
 
@@ -121,15 +152,19 @@ export async function extractFinancialData(file, providedApiKey = null) {
         throw new Error("Structure IA inattendue : la clé 'postes' est manquante ou n'est pas un tableau.");
     }
 
-    // Réconciliation & Vérification d'intégrité comptable immédiate
+    // Normalisation des postes + expansion des lignes TVA
     const rawPostes = parsed.postes.map(p => ({
         id: crypto.randomUUID(),
         libelle: p.libelle || "Poste inconnu",
-        montant: p.montant
+        montant: p.montant,
+        montantTVA: typeof p.montantTVA === 'number' ? p.montantTVA : 0,
     }));
 
+    const expandedPostes = expandTvaPostes(rawPostes);
+
+    // Réconciliation & Vérification d'intégrité comptable immédiate
     const integrity = checkFinancialIntegrity({
-        postes: rawPostes,
+        postes: expandedPostes,
         totalDocument: parsed.totalDocument ?? null
     });
 
