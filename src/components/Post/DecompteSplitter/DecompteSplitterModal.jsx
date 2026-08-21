@@ -6,7 +6,7 @@ import SplitterRecipientBlock from './SplitterRecipientBlock.jsx';
 import { validateDraft } from '../../../domain/decompteSplitter/allocationModel.js';
 import { buildTsvExport, buildINGTsvExport } from '../../../services/export/tsvBuilder.js';
 import { buildAllCandidates } from '../../../services/utils/contactUtils.js';
-import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste, Save, FilePlus } from 'lucide-react';
+import { X, Plus, Copy, AlertTriangle, Check, Ban, Loader2, UploadCloud, ClipboardPaste, Save, FilePlus, Sparkles } from 'lucide-react';
 import DropZone from '../../DropZone.jsx';
 import { ingestDocument } from './ingestionOrchestrator.js';
 import { integrateToDossier } from '../../../services/decompteIntegrationService.js';
